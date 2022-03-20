@@ -20,6 +20,8 @@ public class Tests {
         // Check default runDir
         Assertions.assertEquals("run", MinecraftExtension.get(project).getRunDir());
 
+        Assertions.assertNotNull(project.getTasks().findByPath("runClient"));
+        Assertions.assertNotNull(project.getTasks().findByPath("runServer"));
     }
 
 }
