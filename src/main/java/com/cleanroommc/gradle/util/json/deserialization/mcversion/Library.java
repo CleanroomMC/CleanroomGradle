@@ -14,6 +14,8 @@ public class Library {
     private String url;
 
     private Action _applies = null;
+    private Artifact _artifact = null;
+
     public boolean applies() {
         if (_applies == null) {
             _applies = Action.DISALLOW;
@@ -30,21 +32,16 @@ public class Library {
         return _applies == Action.ALLOW;
     }
 
-    private Artifact _artifact = null;
     public String getPath() {
         return getArtifact().getPath();
     }
 
     public String getPathNatives() {
-        if (natives == null) return null;
-        return getArtifact().getPath(natives.get(OS.CURRENT));
+        return natives == null ? null : getArtifact().getPath(natives.get(OS.CURRENT));
     }
 
     public String getArtifactName() {
-        if (natives == null)
-            return getArtifact().getArtifact();
-        else
-            return getArtifact().getArtifact(natives.get(OS.CURRENT));
+        return natives == null ? getArtifactNameSkipNatives() : getArtifact().getArtifact(natives.get(OS.CURRENT));
     }
 
     public String getArtifactNameSkipNatives() {
@@ -52,8 +49,9 @@ public class Library {
     }
 
     private Artifact getArtifact() {
-        if (_artifact == null)
+        if (_artifact == null) {
             _artifact = new Artifact(name);
+        }
         return _artifact;
     }
 

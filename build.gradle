@@ -1,0 +1,37 @@
+plugins {
+    id 'java'
+    id 'java-gradle-plugin'
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(8)
+
+group 'com.cleanroommc'
+version '1.0'
+
+repositories {
+    mavenCentral()
+    google()
+}
+
+dependencies {
+    implementation gradleApi()
+    implementation 'com.google.guava:guava:31.1-jre'
+    implementation 'com.google.code.gson:gson:2.9.0'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'
+}
+
+/*
+gradlePlugin {
+    plugins {
+        fileDiff {
+            id = 'com.cleanroommc.gradle'
+            implementationClass = 'com.cleanroommc.gradle.CleanroomGradlePlugin'
+        }
+    }
+}
+ */
+
+test {
+    useJUnitPlatform()
+}
