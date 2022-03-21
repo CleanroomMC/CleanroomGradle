@@ -38,4 +38,8 @@ public class CleanroomLogger {
         logger.error(ANSI_RED + log + ANSI_RESET, objects);
     }
 
+    public static void debug(String log, Object... objects) {
+        logger.debug(log, objects);
+    }
+
 }

@@ -40,6 +40,14 @@ public class Constants {
     // Extension Keys
     public static final String MINECRAFT_EXTENSION_KEY = "minecraft";
 
+    // Config Keys
+    public static final String CONFIG_MCP_DATA       = "cleanroomMcpData";
+    public static final String CONFIG_MAPPINGS       = "cleanroomMcpMappings";
+    public static final String CONFIG_NATIVES        = "cleanroomMinecraftNatives";
+    public static final String CONFIG_FFI_DEPS        = "cleanroomFernFlowerInvokerDeps";
+    public static final String CONFIG_MC_DEPS        = "cleanroomMinecraftDeps";
+    public static final String CONFIG_MC_DEPS_CLIENT = "cleanroomMinecraftClientDeps";
+
     // OS Related
     public static final OS OPERATING_SYSTEM = OS.CURRENT;
     public static final SystemArch SYSTEM_ARCH = getArch();

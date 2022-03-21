@@ -34,6 +34,14 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         project.apply(ImmutableMap.of("plugin", "java-library"));
         project.apply(ImmutableMap.of("plugin", "idea"));
 
+        CleanroomLogger.log2("Adding default configurations...");
+        project.getConfigurations().maybeCreate(CONFIG_MCP_DATA);
+        project.getConfigurations().maybeCreate(CONFIG_MAPPINGS);
+        project.getConfigurations().maybeCreate(CONFIG_NATIVES);
+        project.getConfigurations().maybeCreate(CONFIG_FFI_DEPS);
+        project.getConfigurations().maybeCreate(CONFIG_MC_DEPS);
+        project.getConfigurations().maybeCreate(CONFIG_MC_DEPS_CLIENT);
+
         CleanroomLogger.log2("Adding mavenCentral, Minecraft, CleanroomMC's maven repositories...");
         project.getAllprojects().forEach(p -> {
             RepositoryHandler handler = p.getRepositories();
@@ -69,19 +77,8 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         runServer.setDescription("Runs Minecraft's Server");
 
         CleanroomLogger.log2("Setting up download tasks...");
-        DownloadTask dlVersionTask = project.getTasks().create("DownloadVersion", DownloadTask.class);
-        dlVersionTask.setOutputFile(Utils.supplyToClosure(CleanroomGradlePlugin.class, () -> JSON_VERSION.apply(mcExt.getVersion())));
-        dlVersionTask.doFirst(Utils.supplyToClosure(CleanroomGradlePlugin.class, () -> {
-            if (ManifestVersion.versions == null) {
-                CleanroomLogger.log("Requesting Minecraft's Manifest...");
-                // mcManifest = JsonFactory.GSON.fromJson(getWithEtag(URL_MC_MANIFEST, jsonCache, etagFile), new TypeToken<Map<String, ManifestVersion>>() {}.getType());
-                ManifestVersion.versions = Utils.GSON.fromJson(Utils.getWithETag(project, MINECRAFT_MANIFEST_LINK, MINECRAFT_MANIFEST_FILE, MINECRAFT_MANIFEST_ETAG),
-                        ManifestVersionsAdapter.TYPE);
-            }
-            return null;
-        }));
-        DownloadTask dlAssetIndexTask = project.getTasks().create("DownloadAssetIndex", DownloadTask.class);
-        dlAssetIndexTask.setOutputFile(Utils.supplyToClosure(CleanroomGradlePlugin.class, () -> JSON_ASSET_INDEX.apply(mcExt.getVersion())));
+        DownloadTask.setupDownloadVersionTask(project);
+        DownloadTask.setupDownloadAssetIndexTask(project);
 
     }
 

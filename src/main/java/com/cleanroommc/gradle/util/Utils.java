@@ -1,14 +1,13 @@
 package com.cleanroommc.gradle.util;
 
 import com.cleanroommc.gradle.CleanroomLogger;
-import com.cleanroommc.gradle.util.json.deserialization.manifest.ManifestVersion;
+import com.cleanroommc.gradle.util.json.deserialization.EnumAdaptorFactory;
 import com.cleanroommc.gradle.util.json.deserialization.manifest.ManifestVersionsAdapter;
 import com.cleanroommc.gradle.util.json.deserialization.mcversion.AssetIndex;
 import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
-import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonIOException;
@@ -22,7 +21,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Map;
 import java.util.function.Supplier;
 
 import static com.cleanroommc.gradle.Constants.USER_AGENT;
@@ -30,9 +28,10 @@ import static com.cleanroommc.gradle.Constants.USER_AGENT;
 public final class Utils {
 
     public static final Gson GSON = new GsonBuilder()
-            .setPrettyPrinting()
-            .enableComplexMapKeySerialization()
+            .registerTypeAdapterFactory(EnumAdaptorFactory.INSTANCE)
             .registerTypeAdapter(ManifestVersionsAdapter.TYPE, new ManifestVersionsAdapter())
+            .enableComplexMapKeySerialization()
+            .setPrettyPrinting()
             .create();
 
 
@@ -47,7 +46,7 @@ public final class Utils {
         return Utils.class.getResourceAsStream("/" + path);
     }
 
-    public static <T> Closure<T> supplyToClosure(Class<?> caller, Supplier<T> supplier) {
+    public static <T> Closure<T> closure(Class<?> caller, Supplier<T> supplier) {
         return new Closure<T>(caller) {
             @Override
             public T call(Object... args) {
@@ -56,7 +55,7 @@ public final class Utils {
         };
     }
 
-    public static <T> Closure<T> supplyToClosure(Supplier<T> supplier) {
+    public static <T> Closure<T> closure(Supplier<T> supplier) {
         return new Closure<T>(Utils.class) {
             @Override
             public T call(Object... args) {
