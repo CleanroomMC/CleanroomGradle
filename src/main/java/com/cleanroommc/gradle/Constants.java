@@ -69,6 +69,7 @@ public class Constants {
     public static final String DL_MINECRAFT_CLIENT_TASK = "downloadClient";
     public static final String DL_MINECRAFT_SERVER_TASK = "downloadServer";
     public static final String SPLIT_SERVER_JAR_TASK = "splitServerJar";
+    public static final String MERGE_JARS_TASK = "mergeJars";
     public static final String RUN_MINECRAFT_CLIENT_TASK = "runClient";
     public static final String RUN_MINECRAFT_SERVER_TASK = "runServer";
 

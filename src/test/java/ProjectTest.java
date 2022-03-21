@@ -3,6 +3,7 @@ import com.cleanroommc.gradle.extensions.MinecraftExtension;
 import com.cleanroommc.gradle.tasks.download.GrabAssetsTask;
 import com.cleanroommc.gradle.tasks.download.ETaggedDownloadTask;
 import com.cleanroommc.gradle.tasks.download.PureDownloadTask;
+import com.cleanroommc.gradle.tasks.jarmanipulation.MergeJarsTask;
 import com.cleanroommc.gradle.tasks.jarmanipulation.SplitServerJarTask;
 import com.cleanroommc.gradle.util.Utils;
 import com.cleanroommc.gradle.util.json.deserialization.manifest.ManifestVersion;
@@ -177,6 +178,15 @@ public class ProjectTest {
         Assertions.assertTrue(task instanceof SplitServerJarTask);
         SplitServerJarTask splitTask = (SplitServerJarTask) task;
         splitTask.run();
+    }
+
+    @Test
+    @Order(8)
+    public void testMergingJars() throws IOException {
+        Task task = project.getTasks().getByPath(MERGE_JARS_TASK);
+        Assertions.assertTrue(task instanceof MergeJarsTask);
+        MergeJarsTask mergeTask = (MergeJarsTask) task;
+        mergeTask.merge();
     }
 
 }
