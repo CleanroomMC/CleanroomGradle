@@ -168,8 +168,16 @@ public class Version {
         return downloads.get("client").url;
     }
 
+    public String getClientHash() {
+        return downloads.get("client").sha1;
+    }
+
     public String getServerUrl() {
         return downloads.get("server").url;
+    }
+
+    public String getServerHash() {
+        return downloads.get("server").sha1;
     }
 
     /**

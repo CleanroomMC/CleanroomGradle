@@ -1,4 +1,4 @@
-package com.cleanroommc.gradle.tasks;
+package com.cleanroommc.gradle.tasks.download;
 
 import com.cleanroommc.gradle.Constants;
 import groovy.lang.Closure;
@@ -25,5 +25,7 @@ public interface IDownloadTask {
     void setOutputFile(Closure<File> outputFile);
 
     void setToDieWhenError();
+
+    void checkAgainst(Closure<String> hash, String hashFunc);
 
 }

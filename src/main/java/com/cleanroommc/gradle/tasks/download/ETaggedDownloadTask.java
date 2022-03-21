@@ -1,4 +1,4 @@
-package com.cleanroommc.gradle.tasks;
+package com.cleanroommc.gradle.tasks.download;
 
 import com.cleanroommc.gradle.CleanroomLogger;
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
@@ -48,12 +48,12 @@ public class ETaggedDownloadTask extends DefaultTask implements IDownloadTask {
                 if (!json.exists()) {
                     return true;
                 }
-                List<String> lines = Files.readLines(json, Charsets.UTF_8);
+                List<String> lines = Files.readLines(json, CHARSET);
                 StringBuilder buf = new StringBuilder();
                 for (String line : lines) {
                     buf.append(line).append('\n');
                 }
-                Files.write(buf.toString().getBytes(Charsets.UTF_8), json);
+                Files.write(buf.toString().getBytes(CHARSET), json);
                 // Initialize the AssetIndex if it isn't present
                 Version.parseVersionAndStoreDeps(project, json, false, json.getParentFile());
             } catch (IOException e) {
@@ -83,13 +83,12 @@ public class ETaggedDownloadTask extends DefaultTask implements IDownloadTask {
     public void download() throws IOException {
         URL url = getUrl();
         File output = getOutputFile();
-        File etagFile = getProject().file(output.getPath() + ".etag");
-
         output.getParentFile().mkdirs();
+        File etagFile = new File(output.getParentFile(), output.getName() + ".etag");
 
         String etag;
         if (etagFile.exists()) {
-            etag = Files.asCharSource(etagFile, Charsets.UTF_8).read();
+            etag = Files.asCharSource(etagFile, CHARSET).read();
         } else {
             etag = "";
         }
@@ -119,7 +118,7 @@ public class ETaggedDownloadTask extends DefaultTask implements IDownloadTask {
                     // Write ETag
                     etag = con.getHeaderField("ETag");
                     if (!Strings.isNullOrEmpty(etag)) {
-                        Files.write(etag, etagFile, Charsets.UTF_8);
+                        Files.write(etag, etagFile, CHARSET);
                     }
                     break;
                 default: // ???
@@ -156,6 +155,11 @@ public class ETaggedDownloadTask extends DefaultTask implements IDownloadTask {
     @Override
     public void setToDieWhenError() {
         this.dieIfErrored = true;
+    }
+
+    @Override
+    public void checkAgainst(Closure<String> hash, String hashFunc) {
+        // NO-OP
     }
 
 }

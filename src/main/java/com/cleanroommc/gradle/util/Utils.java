@@ -3,29 +3,29 @@ package com.cleanroommc.gradle.util;
 import com.cleanroommc.gradle.CleanroomLogger;
 import com.cleanroommc.gradle.util.json.deserialization.EnumAdaptorFactory;
 import com.cleanroommc.gradle.util.json.deserialization.manifest.ManifestVersionsAdapter;
-import com.cleanroommc.gradle.util.json.deserialization.mcversion.AssetIndex;
 import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonIOException;
-import com.google.gson.JsonSyntaxException;
 import groovy.lang.Closure;
 import org.gradle.api.Project;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.channels.FileChannel;
+import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
-import static com.cleanroommc.gradle.Constants.USER_AGENT;
+import static com.cleanroommc.gradle.Constants.*;
 
 public final class Utils {
 
@@ -35,14 +35,6 @@ public final class Utils {
             .enableComplexMapKeySerialization()
             .setPrettyPrinting()
             .create();
-
-
-    public static AssetIndex loadAssetsIndex(File json) throws JsonSyntaxException, JsonIOException, IOException {
-        FileReader reader = new FileReader(json);
-        AssetIndex a = GSON.fromJson(reader, AssetIndex.class);
-        reader.close();
-        return a;
-    }
 
     public static InputStream getResource(String path) {
         return Utils.class.getResourceAsStream("/" + path);
@@ -69,14 +61,14 @@ public final class Utils {
     public static String getWithETag(Project project, String urlString, File cache, File etagFile) {
         try {
             if (project.getGradle().getStartParameter().isOffline()) { // No internet access, return early
-                return Files.toString(cache, Charsets.UTF_8);
+                return Files.toString(cache, CHARSET);
             }
             if (cache.exists() && cache.lastModified() + 60000 >= System.currentTimeMillis()) { // Disable re-requesting within a minute
-                return Files.toString(cache, Charsets.UTF_8);
+                return Files.toString(cache, CHARSET);
             }
             String etag;
             if (etagFile.exists()) {
-                etag = Files.toString(etagFile, Charsets.UTF_8);
+                etag = Files.toString(etagFile, CHARSET);
             } else {
                 etagFile.getParentFile().mkdirs();
                 etag = "";
@@ -97,7 +89,7 @@ public final class Utils {
 
             if (con.getResponseCode() == 304) { // Existing file is fine, no need to replace
                 Files.touch(cache); // Update file timestamp
-                return Files.toString(cache, Charsets.UTF_8);
+                return Files.toString(cache, CHARSET);
             } else if (con.getResponseCode() == 200) { // Update file
                 byte[] data;
                 try (InputStream stream = con.getInputStream()) {
@@ -109,7 +101,7 @@ public final class Utils {
                 if (Strings.isNullOrEmpty(etag)) {
                     Files.touch(etagFile);
                 } else {
-                    Files.write(etag, etagFile, Charsets.UTF_8);
+                    Files.write(etag, etagFile, CHARSET);
                 }
                 return new String(data);
             } else {
@@ -121,12 +113,46 @@ public final class Utils {
         }
         if (cache.exists()) {
             try {
-                return Files.toString(cache, Charsets.UTF_8);
+                return Files.toString(cache, CHARSET);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
         throw new RuntimeException("Unable to obtain url (" + urlString + ") with etag!");
+    }
+
+    /**
+     * This method uses the channels API which uses direct filesystem copies instead of loading it into ram and then outputting it.
+     * @param in file to copy
+     * @param out created with directories if needed
+     * @throws IOException In case anything goes wrong with the file IO
+     */
+    public static void copyFile(File in, File out) throws IOException {
+        out.getParentFile().mkdirs();
+        try (FileInputStream fis = new FileInputStream(in);
+             FileOutputStream fout = new FileOutputStream(out);
+             FileChannel source = fis.getChannel();
+             FileChannel dest = fout.getChannel()) {
+            long size = source.size();
+            source.transferTo(0, size, dest);
+        }
+    }
+
+    /**
+     * This method uses the channels API which uses direct filesystem copies instead of loading it into ram and then outputting it.
+     * @param in file to copy
+     * @param out created with directories if needed
+     * @param size size of file if known
+     * @throws IOException In case anything goes wrong with the file IO
+     */
+    public static void copyFile(File in, File out, long size) throws IOException {
+        out.getParentFile().mkdirs();
+        try (FileInputStream fis = new FileInputStream(in);
+             FileOutputStream fout = new FileOutputStream(out);
+             FileChannel source = fis.getChannel();
+             FileChannel dest = fout.getChannel()) {
+            source.transferTo(0, size, dest);
+        }
     }
 
     /**
@@ -187,6 +213,95 @@ public final class Utils {
         } else {
             CleanroomLogger.error(error);
         }
+    }
+
+    public static boolean isFileCorrupt(File file, long size, String expectedHash) {
+        if (!file.exists()) {
+            return true;
+        }
+        if (file.length() != size) {
+            return true;
+        }
+        if (!expectedHash.equalsIgnoreCase(hash(file, "SHA1"))) {
+            return true;
+        }
+        return false;
+    }
+
+    public static String hash(File file) {
+        String path = file.getPath();
+        return path.endsWith(".zip") || path.endsWith(".jar") ? hashZip(file, HASH_FUNC) : hash(file, HASH_FUNC);
+    }
+
+    public static List<String> hashAll(File file) {
+        List<String> list = new ArrayList<>();
+        if (file.isDirectory()) {
+            File[] files = file.listFiles();
+            if (files != null) {
+                for (File f : files) {
+                    list.addAll(hashAll(f));
+                }
+            }
+        } else if (!file.getName().equals(".cache")) {
+            list.add(hash(file));
+        }
+        return list;
+    }
+
+    public static String hash(File file, String function) {
+        try {
+            InputStream fis = new FileInputStream(file);
+            byte[] array = ByteStreams.toByteArray(fis);
+            fis.close();
+            return hash(array, function);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static String hashZip(File file, String function) {
+        try (ZipInputStream zin = new ZipInputStream(new FileInputStream(file))) {
+            MessageDigest hasher = MessageDigest.getInstance(function);
+            ZipEntry entry;
+            while ((entry = zin.getNextEntry()) != null) {
+                hasher.update(entry.getName().getBytes());
+                hasher.update(ByteStreams.toByteArray(zin));
+            }
+            zin.close();
+            byte[] hash = hasher.digest();
+            StringBuilder result = new StringBuilder();
+            for (byte b : hash) {
+                result.append(Integer.toString((b & 0xff) + 0x100, 16).substring(1));
+            }
+            return result.toString();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static String hash(String str) {
+        return hash(str.getBytes());
+    }
+
+    public static String hash(byte[] bytes) {
+        return hash(bytes, HASH_FUNC);
+    }
+
+    public static String hash(byte[] bytes, String function) {
+        try {
+            MessageDigest complete = MessageDigest.getInstance(function);
+            byte[] hash = complete.digest(bytes);
+            StringBuilder result = new StringBuilder();
+            for (byte b : hash) {
+                result.append(Integer.toString((b & 0xff) + 0x100, 16).substring(1));
+            }
+            return result.toString();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     private Utils() { }

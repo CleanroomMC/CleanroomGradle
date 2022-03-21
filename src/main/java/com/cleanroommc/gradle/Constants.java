@@ -13,8 +13,18 @@ import static com.cleanroommc.gradle.CleanroomGradlePlugin.GRADLE_USER_HOME_DIR;
 
 public class Constants {
 
+    // OS Related
+    public static final OS OPERATING_SYSTEM = OS.CURRENT;
+    public static final SystemArch SYSTEM_ARCH = getArch();
+    public static final Charset CHARSET = Charsets.UTF_8;
+    public static final String HASH_FUNC = "MD5";
+    public static final String USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.95 Safari/537.11";
+
     // System Defaults
     public static final String USER_DIR = System.getProperty("user.home");
+
+    public static final File MINECRAFT_DIR = getMinecraftDirectory();
+    public static final File MINECRAFT_ASSET_OBJECTS_DIR = new File(MINECRAFT_DIR, "assets/objects/");
 
     // Mavens
     public static final String MINECRAFT_MAVEN = "https://libraries.minecraft.net/";
@@ -22,22 +32,10 @@ public class Constants {
 
     // URLs
     public static final String MINECRAFT_MANIFEST_LINK = "https://launchermeta.mojang.com/mc/game/version_manifest.json";
+    public static final String MINECRAFT_ASSETS_LINK = "http://resources.download.minecraft.net";
 
     // Resources
     public static final String MANIFEST_RESOURCE = "1.12.2.json";
-
-    /*
-        public static final String DIR_LOCAL_CACHE  = REPLACE_PROJECT_CACHE_DIR + "/minecraft";
-    public static final String DIR_MCP_DATA     = REPLACE_CACHE_DIR + "/de/oceanlabs/mcp/mcp/" + REPLACE_MC_VERSION;
-    public static final String DIR_MCP_MAPPINGS = REPLACE_CACHE_DIR + "/de/oceanlabs/mcp/mcp_" + REPLACE_MCP_CHANNEL + "/" + REPLACE_MCP_VERSION;
-    public static final String JAR_CLIENT_FRESH = REPLACE_CACHE_DIR + "/net/minecraft/minecraft/" + REPLACE_MC_VERSION + "/minecraft-" + REPLACE_MC_VERSION + ".jar";
-    public static final String JAR_SERVER_FRESH = REPLACE_CACHE_DIR + "/net/minecraft/minecraft_server/" + REPLACE_MC_VERSION + "/minecraft_server-" + REPLACE_MC_VERSION + ".jar";
-    public static final String JAR_MERGED       = REPLACE_CACHE_DIR + "/net/minecraft/minecraft_merged/" + REPLACE_MC_VERSION + "/minecraft_merged-" + REPLACE_MC_VERSION + ".jar";
-    public static final String JAR_SERVER_PURE  = REPLACE_CACHE_DIR + "/net/minecraft/minecraft_server/" + REPLACE_MC_VERSION + "/minecraft_server-" + REPLACE_MC_VERSION + "-pure.jar";
-    public static final String JAR_SERVER_DEPS  = REPLACE_CACHE_DIR + "/net/minecraft/minecraft_server/" + REPLACE_MC_VERSION + "/minecraft_server-" + REPLACE_MC_VERSION + "-deps.jar";
-    public static final String DIR_NATIVES      = REPLACE_CACHE_DIR + "/net/minecraft/natives/" + REPLACE_MC_VERSION + "/";
-    public static final String JAR_FERNFLOWER   = REPLACE_CACHE_DIR + "/fernflower-fixed.jar";
-     */
 
     // Caches
     public static final File CACHE_FOLDER = new File(GRADLE_USER_HOME_DIR, "caches/");
@@ -67,8 +65,10 @@ public class Constants {
     // Task Keys
     public static final String DL_MINECRAFT_VERSIONS_TASK = "downloadVersions";
     public static final String DL_MINECRAFT_ASSET_INDEX_TASK = "downloadAssetIndex";
+    public static final String DL_MINECRAFT_ASSETS_TASK = "downloadAssets";
     public static final String DL_MINECRAFT_CLIENT_TASK = "downloadClient";
     public static final String DL_MINECRAFT_SERVER_TASK = "downloadServer";
+    public static final String SPLIT_SERVER_JAR_TASK = "splitServerJar";
     public static final String RUN_MINECRAFT_CLIENT_TASK = "runClient";
     public static final String RUN_MINECRAFT_SERVER_TASK = "runServer";
 
@@ -76,19 +76,12 @@ public class Constants {
     public static final String MINECRAFT_EXTENSION_KEY = "minecraft";
 
     // Config Keys
-    public static final String CONFIG_MCP_DATA       = "cleanroomMcpData";
-    public static final String CONFIG_MAPPINGS       = "cleanroomMcpMappings";
-    public static final String CONFIG_NATIVES        = "cleanroomMinecraftNatives";
-    public static final String CONFIG_FFI_DEPS        = "cleanroomFernFlowerInvokerDeps";
-    public static final String CONFIG_MC_DEPS        = "cleanroomMinecraftDeps";
+    public static final String CONFIG_MCP_DATA = "cleanroomMcpData";
+    public static final String CONFIG_MAPPINGS = "cleanroomMcpMappings";
+    public static final String CONFIG_NATIVES = "cleanroomMinecraftNatives";
+    public static final String CONFIG_FFI_DEPS = "cleanroomFernFlowerInvokerDeps";
+    public static final String CONFIG_MC_DEPS = "cleanroomMinecraftDeps";
     public static final String CONFIG_MC_DEPS_CLIENT = "cleanroomMinecraftClientDeps";
-
-    // OS Related
-    public static final OS OPERATING_SYSTEM = OS.CURRENT;
-    public static final SystemArch SYSTEM_ARCH = getArch();
-    public static final Charset CHARSET = Charsets.UTF_8;
-    public static final String HASH_FUNC = "MD5";
-    public static final String USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.95 Safari/537.11";
 
     // Groovy
     public static final Closure<Boolean> TRUE_CLOSURE = new Closure<Boolean>(Constants.class) {
@@ -104,7 +97,7 @@ public class Constants {
         }
     };
 
-    public static File getMinecraftDirectory() {
+    private static File getMinecraftDirectory() {
         switch (OPERATING_SYSTEM) {
             case LINUX:
                 return new File(USER_DIR, ".minecraft");
