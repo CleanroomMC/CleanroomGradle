@@ -2,6 +2,7 @@ package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
 import com.cleanroommc.gradle.tasks.ETaggedDownloadTask;
+import com.cleanroommc.gradle.tasks.PureDownloadTask;
 import com.google.common.collect.ImmutableMap;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -58,14 +59,14 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         MinecraftExtension mcExt = MinecraftExtension.get(project);
 
         CleanroomLogger.log2("Setting up client run task...");
-        JavaExec runClient = project.getTasks().create("runClient", JavaExec.class);
+        JavaExec runClient = project.getTasks().create(RUN_MINECRAFT_CLIENT_TASK, JavaExec.class);
         runClient.getOutputs().dir(mcExt.getRunDir());
         runClient.doFirst(task -> ((JavaExec) task).setWorkingDir(mcExt.getRunDir()));
         runClient.setStandardOutput(System.out);
         runClient.setErrorOutput(System.err);
         runClient.setDescription("Runs Minecraft's Client");
         CleanroomLogger.log2("Setting up server run task...");
-        JavaExec runServer = project.getTasks().create("runServer", JavaExec.class);
+        JavaExec runServer = project.getTasks().create(RUN_MINECRAFT_SERVER_TASK, JavaExec.class);
         runServer.getOutputs().dir(mcExt.getRunDir());
         runServer.doFirst(task -> ((JavaExec) task).setWorkingDir(mcExt.getRunDir()));
         runServer.setStandardInput(System.in);
@@ -76,7 +77,8 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         CleanroomLogger.log2("Setting up download tasks...");
         ETaggedDownloadTask.setupDownloadVersionTask(project);
         ETaggedDownloadTask.setupDownloadAssetIndexTask(project);
-
+        PureDownloadTask.setupDownloadClientTask(project);
+        PureDownloadTask.setupDownloadServerTask(project);
 
     }
 

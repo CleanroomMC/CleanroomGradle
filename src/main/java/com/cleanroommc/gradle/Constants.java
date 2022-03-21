@@ -65,8 +65,12 @@ public class Constants {
             new File(MINECRAFT_CACHE_FOLDER, "net/minecraft/minecraft_merged/" + version + "/minecraft_merged-" + version + ".jar");
 
     // Task Keys
-    public static final String DL_MINECRAFT_CLIENT = "downloadClient";
-    public static final String DL_MINECRAFT_SERVER = "downloadServer";
+    public static final String DL_MINECRAFT_VERSIONS_TASK = "downloadVersions";
+    public static final String DL_MINECRAFT_ASSET_INDEX_TASK = "downloadAssetIndex";
+    public static final String DL_MINECRAFT_CLIENT_TASK = "downloadClient";
+    public static final String DL_MINECRAFT_SERVER_TASK = "downloadServer";
+    public static final String RUN_MINECRAFT_CLIENT_TASK = "runClient";
+    public static final String RUN_MINECRAFT_SERVER_TASK = "runServer";
 
     // Extension Keys
     public static final String MINECRAFT_EXTENSION_KEY = "minecraft";

@@ -1,13 +1,16 @@
 package com.cleanroommc.gradle.tasks;
 
 import com.cleanroommc.gradle.CleanroomLogger;
+import com.cleanroommc.gradle.extensions.MinecraftExtension;
 import com.cleanroommc.gradle.util.Utils;
+import com.cleanroommc.gradle.util.json.deserialization.mcversion.Version;
 import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import groovy.lang.Closure;
 import org.gradle.api.DefaultTask;
+import org.gradle.api.Project;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
@@ -22,9 +25,23 @@ import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 
+import static com.cleanroommc.gradle.Constants.*;
+
 public class PureDownloadTask extends DefaultTask implements IDownloadTask {
 
+    public static void setupDownloadClientTask(Project project) {
+        PureDownloadTask downloadClientTask = project.getTasks().create(DL_MINECRAFT_CLIENT_TASK, PureDownloadTask.class);
+        downloadClientTask.setOutputFile(Utils.closure(() -> MINECRAFT_CLIENT_FILE.apply(MinecraftExtension.get(project).getVersion())));
+        downloadClientTask.setUrl(Utils.closure(() -> Version.getCurrentVersion().getClientUrl()));
+        downloadClientTask.dependsOn(project.getTasks().getByPath(DL_MINECRAFT_VERSIONS_TASK));
+    }
 
+    public static void setupDownloadServerTask(Project project) {
+        PureDownloadTask downloadServerTask = project.getTasks().create(DL_MINECRAFT_SERVER_TASK, PureDownloadTask.class);
+        downloadServerTask.setOutputFile(Utils.closure(() -> MINECRAFT_SERVER_FILE.apply(MinecraftExtension.get(project).getVersion())));
+        downloadServerTask.setUrl(Utils.closure(() -> Version.getCurrentVersion().getServerUrl()));
+        downloadServerTask.dependsOn(project.getTasks().getByPath(DL_MINECRAFT_VERSIONS_TASK));
+    }
 
     @Input
     private Closure<String> url;
