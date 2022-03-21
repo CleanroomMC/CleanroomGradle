@@ -1,6 +1,8 @@
 package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
+import com.cleanroommc.gradle.tasks.DownloadTask;
+import com.cleanroommc.gradle.util.Utils;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -51,9 +53,6 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         CleanroomLogger.log2("Setting up Minecraft DSL Block...");
         project.getExtensions().create(MINECRAFT_EXTENSION_KEY, MinecraftExtension.class);
         MinecraftExtension mcExt = MinecraftExtension.get(project);
-        CleanroomLogger.log2("      runDir: \"{}\"", mcExt.getRunDir());
-        CleanroomLogger.log2("      clientJvmArgs: {}", mcExt.getClientJvmArgs());
-        CleanroomLogger.log2("      serverJvmArgs: {}", mcExt.getServerJvmArgs());
 
         CleanroomLogger.log2("Setting up client run task...");
         JavaExec runClient = project.getTasks().create("runClient", JavaExec.class);
@@ -70,21 +69,12 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         runServer.setStandardOutput(System.out);
         runServer.setErrorOutput(System.err);
         runServer.setDescription("Runs Minecraft's Server");
-        /*
-                    JavaExec exec = makeTask("runClient", JavaExec.class);
-            exec.getOutputs().dir(delayedFile(REPLACE_RUN_DIR));
-            exec.setMain(GRADLE_START_CLIENT);
-            exec.doFirst(task -> ((JavaExec) task).workingDir(delayedFile(REPLACE_RUN_DIR)));
-            exec.setStandardOutput(System.out);
-            exec.setErrorOutput(System.err);
 
-            exec.setGroup("ForgeGradle");
-            exec.setDescription("Runs the Minecraft client");
-
-            exec.doFirst(makeRunDir);
-
-            exec.dependsOn("makeStart");
-         */
+        CleanroomLogger.log2("Setting up download tasks...");
+        DownloadTask dlVersionTask = project.getTasks().create("DownloadVersion", DownloadTask.class);
+        dlVersionTask.setOutputFile(Utils.supplyToClosure(CleanroomGradlePlugin.class, () -> JSON_VERSION.apply(mcExt.getVersion())));
+        DownloadTask dlAssetIndexTask = project.getTasks().create("DownloadAssetIndex", DownloadTask.class);
+        dlAssetIndexTask.setOutputFile(Utils.supplyToClosure(CleanroomGradlePlugin.class, () -> JSON_ASSET_INDEX.apply(mcExt.getVersion())));
 
         currentProject = project;
     }

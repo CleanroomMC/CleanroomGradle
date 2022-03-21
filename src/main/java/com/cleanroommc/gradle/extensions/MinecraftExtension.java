@@ -13,11 +13,16 @@ public class MinecraftExtension {
     }
 
     private String runDir = "run";
+    private String version = "1.12.2";
     private List<String> clientJvmArgs = new ArrayList<>();
     private List<String> serverJvmArgs = new ArrayList<>();
 
     public void setRunDir(String runDir) {
         this.runDir = runDir;
+    }
+
+    public void setVersion(String version) {
+        this.version = version;
     }
 
     public void addClientJvmArg(String arg) {
@@ -38,6 +43,10 @@ public class MinecraftExtension {
 
     public String getRunDir() {
         return runDir == null || runDir.isEmpty() ? "run" : runDir;
+    }
+
+    public String getVersion() {
+        return version == null || version.isEmpty() ? "1.12.2" : version;
     }
 
     public List<String> getClientJvmArgs() {

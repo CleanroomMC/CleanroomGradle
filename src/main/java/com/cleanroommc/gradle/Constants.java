@@ -2,12 +2,12 @@ package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.util.json.deserialization.mcversion.OS;
 import com.google.common.base.Charsets;
+import groovy.lang.Closure;
 
 import java.io.File;
 import java.nio.charset.Charset;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Locale;
+import java.util.function.Function;
 
 public class Constants {
 
@@ -24,6 +24,9 @@ public class Constants {
     // Caches
     public static final File MINECRAFT_CACHE_FOLDER = new File(USER_DIR, "caches/minecraft/");
     public static final File ASSETS_CACHE_FOLDER = new File(MINECRAFT_CACHE_FOLDER, "assets/");
+    public static final File VERSIONS_CACHE_FOLDER = new File(MINECRAFT_CACHE_FOLDER, "versionJsons/");
+    public static final Function<String, File> JSON_ASSET_INDEX = version -> new File(ASSETS_CACHE_FOLDER, "indexes/" + version + ".json");
+    public static final Function<String, File> JSON_VERSION = version -> new File(VERSIONS_CACHE_FOLDER, version + ".json");
 
     // Extension Keys
     public static final String MINECRAFT_EXTENSION_KEY = "minecraft";
@@ -34,6 +37,20 @@ public class Constants {
     public static final Charset CHARSET = Charsets.UTF_8;
     public static final String HASH_FUNC = "MD5";
     public static final String USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.95 Safari/537.11";
+
+    // Groovy
+    public static final Closure<Boolean> TRUE_CLOSURE = new Closure<Boolean>(Constants.class) {
+        @Override
+        public Boolean call(Object... args) {
+            return Boolean.TRUE;
+        }
+    };
+    public static final Closure<Boolean> FALSE_CLOSURE = new Closure<Boolean>(Constants.class) {
+        @Override
+        public Boolean call(Object... args) {
+            return Boolean.FALSE;
+        }
+    };
 
     public static File getMinecraftDirectory() {
         switch (OPERATING_SYSTEM) {

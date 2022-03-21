@@ -12,6 +12,7 @@ public class CleanroomLogger {
     private static final String ANSI_YELLOW = "\u001B[33m";
     private static final String ANSI_GREEN = "\u001B[32m";
     private static final String ANSI_CYAN = "\u001B[36m";
+    private static final String ANSI_RED = "\u001B[31m";
 
     public static void logTitle(String log, Object... objects) {
         logger.lifecycle("\n" + ANSI_CYAN + log + ANSI_RESET + "\n", objects);
@@ -31,6 +32,10 @@ public class CleanroomLogger {
 
     public static void warn(String log, Throwable t) {
         logger.warn(ANSI_YELLOW + log + ANSI_RESET, t);
+    }
+
+    public static void error(String log, Object... objects) {
+        logger.error(ANSI_RED + log + ANSI_RESET, objects);
     }
 
 }
