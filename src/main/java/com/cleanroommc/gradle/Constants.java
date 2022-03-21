@@ -9,6 +9,8 @@ import java.nio.charset.Charset;
 import java.util.Locale;
 import java.util.function.Function;
 
+import static com.cleanroommc.gradle.CleanroomGradlePlugin.GRADLE_USER_HOME_DIR;
+
 public class Constants {
 
     // System Defaults
@@ -18,13 +20,20 @@ public class Constants {
     public static final String MINECRAFT_MAVEN = "https://libraries.minecraft.net/";
     public static final String CLEANROOM_MAVEN = "https://maven.cleanroommc.com/";
 
+    // URLs
+    public static final String MINECRAFT_MANIFEST_LINK = "https://launchermeta.mojang.com/mc/game/version_manifest.json";
+
     // Resources
     public static final String MANIFEST_RESOURCE = "1.12.2.json";
 
     // Caches
-    public static final File MINECRAFT_CACHE_FOLDER = new File(USER_DIR, "caches/minecraft/");
+    public static final File MINECRAFT_CACHE_FOLDER = new File(GRADLE_USER_HOME_DIR, "caches/minecraft/");
     public static final File ASSETS_CACHE_FOLDER = new File(MINECRAFT_CACHE_FOLDER, "assets/");
     public static final File VERSIONS_CACHE_FOLDER = new File(MINECRAFT_CACHE_FOLDER, "versionJsons/");
+    public static final File MINECRAFT_MANIFEST_FILE = new File(MINECRAFT_CACHE_FOLDER, "McManifest.json");
+    public static final File MINECRAFT_MANIFEST_ETAG = new File(MINECRAFT_CACHE_FOLDER, "McManifest.json.etag");
+    public static final File MCP_MAPPINGS_FILE = new File(MINECRAFT_CACHE_FOLDER, "McpMappings.json");
+    public static final File MCP_MAPPINGS_ETAG = new File(MINECRAFT_CACHE_FOLDER, "McpMappings.json.etag");
     public static final Function<String, File> JSON_ASSET_INDEX = version -> new File(ASSETS_CACHE_FOLDER, "indexes/" + version + ".json");
     public static final Function<String, File> JSON_VERSION = version -> new File(VERSIONS_CACHE_FOLDER, version + ".json");
 

@@ -3,33 +3,31 @@ package com.cleanroommc.gradle;
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
 import com.cleanroommc.gradle.tasks.DownloadTask;
 import com.cleanroommc.gradle.util.Utils;
+import com.cleanroommc.gradle.util.json.deserialization.manifest.ManifestVersion;
+import com.cleanroommc.gradle.util.json.deserialization.manifest.ManifestVersionsAdapter;
 import com.google.common.collect.ImmutableMap;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.dsl.RepositoryHandler;
 import org.gradle.api.tasks.JavaExec;
 
+import java.io.File;
+
 import static com.cleanroommc.gradle.Constants.*;
 
 public class CleanroomGradlePlugin implements Plugin<Project> {
 
-    public static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-
-    private static Project currentProject;
-
-    public static Project getCurrentProject() {
-        return currentProject;
-    }
+    public static File GRADLE_USER_HOME_DIR;
 
     @Override
     public void apply(Project project) {
-        if ("8".equals(System.getProperty("java.specification.version"))) {
+        if (!"1.8".equals(System.getProperty("java.specification.version"))) {
             throw new UnsupportedOperationException("CleanroomGradle only supports Java 8 at the moment.");
         }
 
         CleanroomLogger.logTitle("Welcome to CleanroomGradle.");
+
+        GRADLE_USER_HOME_DIR = project.getGradle().getGradleUserHomeDir();
 
         CleanroomLogger.log2("Adding java-library and idea plugins...");
         project.apply(ImmutableMap.of("plugin", "java"));
@@ -73,10 +71,18 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         CleanroomLogger.log2("Setting up download tasks...");
         DownloadTask dlVersionTask = project.getTasks().create("DownloadVersion", DownloadTask.class);
         dlVersionTask.setOutputFile(Utils.supplyToClosure(CleanroomGradlePlugin.class, () -> JSON_VERSION.apply(mcExt.getVersion())));
+        dlVersionTask.doFirst(Utils.supplyToClosure(CleanroomGradlePlugin.class, () -> {
+            if (ManifestVersion.versions == null) {
+                CleanroomLogger.log("Requesting Minecraft's Manifest...");
+                // mcManifest = JsonFactory.GSON.fromJson(getWithEtag(URL_MC_MANIFEST, jsonCache, etagFile), new TypeToken<Map<String, ManifestVersion>>() {}.getType());
+                ManifestVersion.versions = Utils.GSON.fromJson(Utils.getWithETag(project, MINECRAFT_MANIFEST_LINK, MINECRAFT_MANIFEST_FILE, MINECRAFT_MANIFEST_ETAG),
+                        ManifestVersionsAdapter.TYPE);
+            }
+            return null;
+        }));
         DownloadTask dlAssetIndexTask = project.getTasks().create("DownloadAssetIndex", DownloadTask.class);
         dlAssetIndexTask.setOutputFile(Utils.supplyToClosure(CleanroomGradlePlugin.class, () -> JSON_ASSET_INDEX.apply(mcExt.getVersion())));
 
-        currentProject = project;
     }
 
 }
