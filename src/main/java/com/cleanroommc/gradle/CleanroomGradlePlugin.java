@@ -1,8 +1,10 @@
 package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
-import com.cleanroommc.gradle.tasks.ETaggedDownloadTask;
-import com.cleanroommc.gradle.tasks.PureDownloadTask;
+import com.cleanroommc.gradle.tasks.download.GrabAssetsTask;
+import com.cleanroommc.gradle.tasks.download.ETaggedDownloadTask;
+import com.cleanroommc.gradle.tasks.download.PureDownloadTask;
+import com.cleanroommc.gradle.tasks.jarmanipulation.SplitServerJarTask;
 import com.google.common.collect.ImmutableMap;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -79,7 +81,10 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         ETaggedDownloadTask.setupDownloadAssetIndexTask(project);
         PureDownloadTask.setupDownloadClientTask(project);
         PureDownloadTask.setupDownloadServerTask(project);
+        GrabAssetsTask.setupDownloadAssetsTask(project);
 
+        CleanroomLogger.log2("Setting up jar manipulation tasks...");
+        SplitServerJarTask.setupSplitJarTask(project);
     }
 
 }

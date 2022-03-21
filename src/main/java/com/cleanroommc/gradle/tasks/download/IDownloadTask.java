@@ -14,7 +14,7 @@ public interface IDownloadTask {
     String USER_AGENT = Constants.USER_AGENT;
 
     @TaskAction
-    void download() throws IOException;
+    void downloadAndGet() throws IOException;
 
     URL getUrl() throws MalformedURLException;
 
@@ -26,6 +26,6 @@ public interface IDownloadTask {
 
     void setToDieWhenError();
 
-    void checkAgainst(Closure<String> hash, String hashFunc);
+    void checkAgainst(Closure<String> hash, String hashFunc, Closure<Long> size);
 
 }

@@ -29,20 +29,23 @@ public class PureDownloadTask extends DefaultTask implements IDownloadTask {
     public static void setupDownloadClientTask(Project project) {
         PureDownloadTask downloadClientTask = project.getTasks().create(DL_MINECRAFT_CLIENT_TASK, PureDownloadTask.class);
         downloadClientTask.setOutputFile(Utils.closure(() -> MINECRAFT_CLIENT_FILE.apply(MinecraftExtension.get(project).getVersion())));
-        downloadClientTask.setUrl(Utils.closure(() -> Version.getCurrentVersion().getClientUrl()));
-        downloadClientTask.checkAgainst(Utils.closure(() -> Version.getCurrentVersion().getClientHash()), "SHA1");
+        downloadClientTask.setUrl(Utils.closure(() -> Version.getCurrentVersion().getClientInfo().url));
+        downloadClientTask.checkAgainst(Utils.closure(() -> Version.getCurrentVersion().getClientInfo().sha1), "SHA1", 
+                Utils.closure(() -> (long) Version.getCurrentVersion().getClientInfo().size));
         downloadClientTask.dependsOn(project.getTasks().getByPath(DL_MINECRAFT_VERSIONS_TASK));
     }
 
     public static void setupDownloadServerTask(Project project) {
         PureDownloadTask downloadServerTask = project.getTasks().create(DL_MINECRAFT_SERVER_TASK, PureDownloadTask.class);
         downloadServerTask.setOutputFile(Utils.closure(() -> MINECRAFT_SERVER_FILE.apply(MinecraftExtension.get(project).getVersion())));
-        downloadServerTask.setUrl(Utils.closure(() -> Version.getCurrentVersion().getServerUrl()));
-        downloadServerTask.checkAgainst(Utils.closure(() -> Version.getCurrentVersion().getServerHash()), "SHA1");
+        downloadServerTask.setUrl(Utils.closure(() -> Version.getCurrentVersion().getServerInfo().url));
+        downloadServerTask.checkAgainst(Utils.closure(() -> Version.getCurrentVersion().getServerInfo().sha1), "SHA1", 
+                Utils.closure(() -> (long) Version.getCurrentVersion().getServerInfo().size));
         downloadServerTask.dependsOn(project.getTasks().getByPath(DL_MINECRAFT_VERSIONS_TASK));
     }
 
     @Input private Closure<String> url;
+    @Input private Closure<Long> size;
     @Input private boolean dieIfErrored;
     @Input @Nullable private Closure<String> hash;
     @Input private String hashFunc;
@@ -51,10 +54,10 @@ public class PureDownloadTask extends DefaultTask implements IDownloadTask {
     private Closure<File> outputFile;
 
     @TaskAction
-    public void download() throws IOException {
+    public void downloadAndGet() throws IOException {
         File outputFile = getOutputFile();
-        if (hash != null && outputFile.exists()) {
-            if (hash.call().equals(Utils.hash(outputFile, hashFunc))) {
+        if (hash != null && hashFunc != null && size != null && outputFile.exists()) {
+            if (!Utils.isFileCorrupt(outputFile, size.call(), hash.call(), hashFunc)) {
                 CleanroomLogger.log("{} already exists and download will be skipped.", outputFile.getName());
                 return;
             }
@@ -102,9 +105,10 @@ public class PureDownloadTask extends DefaultTask implements IDownloadTask {
     }
 
     @Override
-    public void checkAgainst(Closure<String> hash, String hashFunc) {
+    public void checkAgainst(Closure<String> hash, String hashFunc, Closure<Long> size) {
         this.hash = hash;
         this.hashFunc = hashFunc;
+        this.size = size;
     }
 
 }

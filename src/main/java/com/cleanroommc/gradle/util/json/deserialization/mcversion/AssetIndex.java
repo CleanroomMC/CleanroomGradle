@@ -26,7 +26,7 @@ public class AssetIndex {
         public final String hash;
         public final long size;
 
-        AssetEntry(String hash, long size) {
+        public AssetEntry(String hash, long size) {
             this.hash = hash.toLowerCase();
             this.size = size;
         }

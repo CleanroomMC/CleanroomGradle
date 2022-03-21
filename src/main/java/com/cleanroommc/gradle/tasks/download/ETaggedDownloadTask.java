@@ -80,7 +80,7 @@ public class ETaggedDownloadTask extends DefaultTask implements IDownloadTask {
 
     @Override
     @TaskAction
-    public void download() throws IOException {
+    public void downloadAndGet() throws IOException {
         URL url = getUrl();
         File output = getOutputFile();
         output.getParentFile().mkdirs();
@@ -158,7 +158,7 @@ public class ETaggedDownloadTask extends DefaultTask implements IDownloadTask {
     }
 
     @Override
-    public void checkAgainst(Closure<String> hash, String hashFunc) {
+    public void checkAgainst(Closure<String> hash, String hashFunc, Closure<Long> size) {
         // NO-OP
     }
 

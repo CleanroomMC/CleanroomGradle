@@ -164,20 +164,12 @@ public class Version {
         return _libraries;
     }
 
-    public String getClientUrl() {
-        return downloads.get("client").url;
+    public Download getClientInfo() {
+        return downloads.get("client");
     }
 
-    public String getClientHash() {
-        return downloads.get("client").sha1;
-    }
-
-    public String getServerUrl() {
-        return downloads.get("server").url;
-    }
-
-    public String getServerHash() {
-        return downloads.get("server").sha1;
+    public Download getServerInfo() {
+        return downloads.get("server");
     }
 
     /**
