@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import static com.cleanroommc.gradle.Constants.USER_AGENT;
@@ -125,6 +127,58 @@ public final class Utils {
             }
         }
         throw new RuntimeException("Unable to obtain url (" + urlString + ") with etag!");
+    }
+
+    /**
+     * Resolves the supplied object to a string.
+     * @param obj object to resolve
+     * @return resolved string, from these conventions:
+     *         - If the input is null, this will return null.
+     *         - Closures and Callables are called with no arguments and recursively called
+     *         - Arrays: {@link Arrays#toString}
+     *         - File: {@link File#getAbsolutePath()}
+     *         - Everything else: {@link Object#toString()}
+     */
+    @SuppressWarnings("rawtypes")
+    public static String resolveString(Object obj) {
+        if (obj == null) {
+            return null;
+        }
+        if (obj instanceof String) {
+            return (String) obj;
+        }
+        if (obj instanceof Closure) {
+            return resolveString(((Closure) obj).call());
+        }
+        if (obj instanceof Callable) {
+            try {
+                return resolveString(((Callable) obj).call());
+            } catch (Exception e) {
+                return null;
+            }
+        } else if (obj instanceof File) {
+            return ((File) obj).getAbsolutePath();
+        } else if (obj.getClass().isArray()) {
+            if (obj instanceof Object[]) {
+                return Arrays.toString(((Object[]) obj));
+            } else if (obj instanceof byte[]) {
+                return Arrays.toString(((byte[]) obj));
+            } else if (obj instanceof char[]) {
+                return Arrays.toString(((char[]) obj));
+            } else if (obj instanceof int[]) {
+                return Arrays.toString(((int[]) obj));
+            } else if (obj instanceof float[]) {
+                return Arrays.toString(((float[]) obj));
+            } else if (obj instanceof double[]) {
+                return Arrays.toString(((double[]) obj));
+            } else if (obj instanceof long[]) {
+                return Arrays.toString(((long[]) obj));
+            } else {
+                return obj.getClass().getSimpleName();
+            }
+        } else {
+            return obj.toString();
+        }
     }
 
     public static void error(boolean throwError, String error) {

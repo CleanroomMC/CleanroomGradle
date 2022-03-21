@@ -1,10 +1,7 @@
 package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
-import com.cleanroommc.gradle.tasks.DownloadTask;
-import com.cleanroommc.gradle.util.Utils;
-import com.cleanroommc.gradle.util.json.deserialization.manifest.ManifestVersion;
-import com.cleanroommc.gradle.util.json.deserialization.manifest.ManifestVersionsAdapter;
+import com.cleanroommc.gradle.tasks.ETaggedDownloadTask;
 import com.google.common.collect.ImmutableMap;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -77,8 +74,9 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         runServer.setDescription("Runs Minecraft's Server");
 
         CleanroomLogger.log2("Setting up download tasks...");
-        DownloadTask.setupDownloadVersionTask(project);
-        DownloadTask.setupDownloadAssetIndexTask(project);
+        ETaggedDownloadTask.setupDownloadVersionTask(project);
+        ETaggedDownloadTask.setupDownloadAssetIndexTask(project);
+
 
     }
 

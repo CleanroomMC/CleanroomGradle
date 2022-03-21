@@ -26,15 +26,14 @@ import java.net.URL;
 import java.util.List;
 
 import static com.cleanroommc.gradle.Constants.*;
-import static com.cleanroommc.gradle.Constants.MINECRAFT_MANIFEST_ETAG;
 
-public class DownloadTask extends DefaultTask {
+public class ETaggedDownloadTask extends DefaultTask implements IDownloadTask {
 
     public static void setupDownloadVersionTask(Project project) {
-        DownloadTask dlVersionTask = project.getTasks().create("DownloadVersion", DownloadTask.class);
-        dlVersionTask.setUrl(Utils.closure(DownloadTask.class, () -> ManifestVersion.versions.get(MinecraftExtension.get(project).getVersion()).url));
-        dlVersionTask.setOutputFile(Utils.closure(DownloadTask.class, () -> JSON_VERSION.apply(MinecraftExtension.get(project).getVersion())));
-        dlVersionTask.doFirst(Utils.closure(DownloadTask.class, () -> {
+        ETaggedDownloadTask dlVersionTask = project.getTasks().create("DownloadVersion", ETaggedDownloadTask.class);
+        dlVersionTask.setUrl(Utils.closure(ETaggedDownloadTask.class, () -> ManifestVersion.versions.get(MinecraftExtension.get(project).getVersion()).url));
+        dlVersionTask.setOutputFile(Utils.closure(ETaggedDownloadTask.class, () -> VERSION_FILE.apply(MinecraftExtension.get(project).getVersion())));
+        dlVersionTask.doFirst(Utils.closure(ETaggedDownloadTask.class, () -> {
             if (ManifestVersion.versions == null) {
                 CleanroomLogger.log("Requesting Minecraft's Manifest...");
                 ManifestVersion.versions = Utils.GSON.fromJson(Utils.getWithETag(project, MINECRAFT_MANIFEST_LINK, MINECRAFT_MANIFEST_FILE, MINECRAFT_MANIFEST_ETAG),
@@ -42,7 +41,7 @@ public class DownloadTask extends DefaultTask {
             }
             return null;
         }));
-        dlVersionTask.doLast(Utils.closure(DownloadTask.class, () -> {
+        dlVersionTask.doLast(Utils.closure(ETaggedDownloadTask.class, () -> {
             try {
                 // Normalize line endings
                 File json = dlVersionTask.getOutputFile();
@@ -65,9 +64,9 @@ public class DownloadTask extends DefaultTask {
     }
 
     public static void setupDownloadAssetIndexTask(Project project) {
-        DownloadTask dlAssetIndexTask = project.getTasks().create("DownloadAssetIndex", DownloadTask.class);
+        ETaggedDownloadTask dlAssetIndexTask = project.getTasks().create("DownloadAssetIndex", ETaggedDownloadTask.class);
         dlAssetIndexTask.setUrl(Utils.closure(() -> Version.getCurrentVersion().assetIndex.url));
-        dlAssetIndexTask.setOutputFile(Utils.closure(DownloadTask.class, () -> JSON_ASSET_INDEX.apply(MinecraftExtension.get(project).getVersion())));
+        dlAssetIndexTask.setOutputFile(Utils.closure(ETaggedDownloadTask.class, () -> ASSET_INDEX_FILE.apply(MinecraftExtension.get(project).getVersion())));
     }
 
     @Input private Closure<String> url;
@@ -75,10 +74,11 @@ public class DownloadTask extends DefaultTask {
 
     @OutputFile private Closure<File> outputFile;
 
-    public DownloadTask() {
+    public ETaggedDownloadTask() {
         this.getOutputs().upToDateWhen(FALSE_CLOSURE);
     }
 
+    @Override
     @TaskAction
     public void download() throws IOException {
         URL url = getUrl();
@@ -93,6 +93,8 @@ public class DownloadTask extends DefaultTask {
         } else {
             etag = "";
         }
+
+        CleanroomLogger.log("Downloading from {} to {}", url, output);
 
         try {
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
@@ -126,27 +128,32 @@ public class DownloadTask extends DefaultTask {
             }
 
             con.disconnect();
-        } catch (Throwable e) {
-            Utils.error(dieIfErrored, e.getLocalizedMessage());
+        } catch (Throwable t) {
+            Utils.error(dieIfErrored, t.getLocalizedMessage());
         }
     }
 
+    @Override
     public URL getUrl() throws MalformedURLException {
         return new URL(url.call());
     }
 
+    @Override
     public void setUrl(Closure<String> url) {
         this.url = url;
     }
 
+    @Override
     public File getOutputFile() {
         return outputFile.call();
     }
 
+    @Override
     public void setOutputFile(Closure<File> outputFile) {
         this.outputFile = outputFile;
     }
 
+    @Override
     public void setToDieWhenError() {
         this.dieIfErrored = true;
     }
