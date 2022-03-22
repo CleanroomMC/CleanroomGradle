@@ -27,7 +27,7 @@ public class Constants {
     public static final String USER_DIR = System.getProperty("user.home");
 
     public static final File MINECRAFT_FOLDER = getMinecraftDirectory();
-    public static final File MINECRAFT_ASSET_OBJECTS_FOLDER = new File(MINECRAFT_FOLDER, "assets/objects/");
+    public static final File MINECRAFT_ASSET_OBJECTS_FOLDER = new File(MINECRAFT_FOLDER, "/assets/objects/");
     public static final File PROJECT_TEMP_FOLDER = new File(GRADLE_PROJECT_DIR, "temp/");
 
     // Mavens
@@ -53,6 +53,7 @@ public class Constants {
     public static final File CACHE_FOLDER = new File(GRADLE_USER_HOME_DIR, "caches/");
     public static final File MINECRAFT_CACHE_FOLDER = new File(CACHE_FOLDER, "minecraft/");
     public static final File ASSETS_CACHE_FOLDER = new File(MINECRAFT_CACHE_FOLDER, "assets/");
+    public static final File ASSET_OBJECTS_FOLDER = new File(ASSETS_CACHE_FOLDER, "objects/");
     public static final File VERSIONS_CACHE_FOLDER = new File(MINECRAFT_CACHE_FOLDER, "versionJsons/");
     public static final File MCP_CACHE_FOLDER = new File(MINECRAFT_CACHE_FOLDER, "de/oceanlabs/mcp/");
     public static final File MINECRAFT_MANIFEST_FILE = new File(MINECRAFT_CACHE_FOLDER, "McManifest.json");
@@ -61,7 +62,7 @@ public class Constants {
     public static final File MCP_MAPPINGS_ETAG = new File(MINECRAFT_CACHE_FOLDER, "McpMappings.json.etag");
     public static final File FERNFLOWER_FILE = new File(MINECRAFT_CACHE_FOLDER, "fernflower-fixed.jar");
 
-    public static final Function<String, File> NATIVES_FOLDER = version -> new File(ASSETS_CACHE_FOLDER, "net/minecraft/natives/" + version + "/");
+    public static final Function<String, File> NATIVES_FOLDER = version -> new File(MINECRAFT_CACHE_FOLDER, "net/minecraft/natives/" + version + "/");
     public static final Function<String, File> MCP_DATA_CACHE_FOLDER = version -> new File(MCP_CACHE_FOLDER, "mcp/" + version + "/");
     public static final BiFunction<String, String, File> MCP_MAPPINGS_CACHE_FOLDER = (mcpChannel, mcpVersion) ->
             new File(MCP_CACHE_FOLDER, "mcp_" + mcpChannel + "/" + mcpVersion + "/");

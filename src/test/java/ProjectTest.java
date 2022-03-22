@@ -174,9 +174,6 @@ public class ProjectTest {
     @Test
     @Order(7)
     public void testSplittingServerJar() throws IOException {
-        if (true) {
-            return;
-        }
         Task task = project.getTasks().getByPath(SPLIT_SERVER_JAR_TASK);
         Assertions.assertTrue(task instanceof SplitServerJarTask);
         SplitServerJarTask splitTask = (SplitServerJarTask) task;
@@ -186,9 +183,6 @@ public class ProjectTest {
     @Test
     @Order(8)
     public void testMergingJars() throws IOException {
-        if (true) {
-            return;
-        }
         Task task = project.getTasks().getByPath(MERGE_JARS_TASK);
         Assertions.assertTrue(task instanceof MergeJarsTask);
         MergeJarsTask mergeTask = (MergeJarsTask) task;

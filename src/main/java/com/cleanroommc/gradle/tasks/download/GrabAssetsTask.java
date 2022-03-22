@@ -36,8 +36,8 @@ public class GrabAssetsTask extends DefaultTask {
 
     @TaskAction
     public void downloadAndGet() throws IOException {
-        if (!MINECRAFT_ASSET_OBJECTS_FOLDER.exists() || !MINECRAFT_ASSET_OBJECTS_FOLDER.isDirectory()) {
-            MINECRAFT_ASSET_OBJECTS_FOLDER.mkdirs();
+        if (!ASSET_OBJECTS_FOLDER.exists() || !ASSET_OBJECTS_FOLDER.isDirectory()) {
+            ASSET_OBJECTS_FOLDER.mkdirs();
         }
         File indexFile = ASSET_INDEX_FILE.apply(MinecraftExtension.get(getProject()).getVersion());
         AssetIndex index = AssetIndex.load(indexFile);
@@ -47,7 +47,7 @@ public class GrabAssetsTask extends DefaultTask {
         }
         ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2);
         for (Entry<String, AssetEntry> e : index.objects.entrySet()) {
-            executor.submit(new GetAssetTask(new Asset(e.getKey(), e.getValue().hash, e.getValue().size), MINECRAFT_ASSET_OBJECTS_FOLDER, virtualRoot));
+            executor.submit(new GetAssetTask(new Asset(e.getKey(), e.getValue().hash, e.getValue().size), ASSET_OBJECTS_FOLDER, virtualRoot));
         }
         executor.shutdown(); // Complete & Shutdown
         int max = (int) executor.getTaskCount();
