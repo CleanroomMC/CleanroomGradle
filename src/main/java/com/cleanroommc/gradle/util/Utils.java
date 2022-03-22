@@ -3,7 +3,6 @@ package com.cleanroommc.gradle.util;
 import com.cleanroommc.gradle.CleanroomLogger;
 import com.cleanroommc.gradle.util.json.deserialization.EnumAdaptorFactory;
 import com.cleanroommc.gradle.util.json.deserialization.manifest.ManifestVersionsAdapter;
-import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
@@ -11,6 +10,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import groovy.lang.Closure;
 import org.gradle.api.Project;
+import org.gradle.api.Task;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -35,6 +35,17 @@ public final class Utils {
             .enableComplexMapKeySerialization()
             .setPrettyPrinting()
             .create();
+
+    public static <T extends Task> T createTask(Project project, String name, Class<T> taskClass) {
+        T task = project.getTasks().create(name, taskClass);
+        task.setGroup(CLEANROOM_GRADLE_TASK_GROUP_KEY);
+        return task;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T extends Task> T getTask(Project project, String name) {
+        return (T) project.getTasks().getByPath(name);
+    }
 
     public static InputStream getResource(String path) {
         return Utils.class.getResourceAsStream("/" + path);
@@ -297,6 +308,22 @@ public final class Utils {
             e.printStackTrace();
         }
         return null;
+    }
+
+    public static void recursivelyDelete(File parent) {
+        if (parent.isDirectory()) {
+            File[] files = parent.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    recursivelyDelete(file);
+                }
+            }
+        }
+        try {
+            java.nio.file.Files.delete(parent.toPath());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private Utils() { }

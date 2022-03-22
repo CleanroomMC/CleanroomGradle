@@ -27,21 +27,21 @@ import static com.cleanroommc.gradle.Constants.*;
 public class PureDownloadTask extends DefaultTask implements IDownloadTask {
 
     public static void setupDownloadClientTask(Project project) {
-        PureDownloadTask downloadClientTask = project.getTasks().create(DL_MINECRAFT_CLIENT_TASK, PureDownloadTask.class);
+        PureDownloadTask downloadClientTask = Utils.createTask(project, DL_MINECRAFT_CLIENT_TASK, PureDownloadTask.class);
         downloadClientTask.setOutputFile(Utils.closure(() -> MINECRAFT_CLIENT_FILE.apply(MinecraftExtension.get(project).getVersion())));
         downloadClientTask.setUrl(Utils.closure(() -> Version.getCurrentVersion().getClientInfo().url));
         downloadClientTask.checkAgainst(Utils.closure(() -> Version.getCurrentVersion().getClientInfo().sha1), "SHA1", 
                 Utils.closure(() -> (long) Version.getCurrentVersion().getClientInfo().size));
-        downloadClientTask.dependsOn(project.getTasks().getByPath(DL_MINECRAFT_VERSIONS_TASK));
+        downloadClientTask.dependsOn(Utils.getTask(project, DL_MINECRAFT_VERSIONS_TASK));
     }
 
     public static void setupDownloadServerTask(Project project) {
-        PureDownloadTask downloadServerTask = project.getTasks().create(DL_MINECRAFT_SERVER_TASK, PureDownloadTask.class);
+        PureDownloadTask downloadServerTask = Utils.createTask(project, DL_MINECRAFT_SERVER_TASK, PureDownloadTask.class);
         downloadServerTask.setOutputFile(Utils.closure(() -> MINECRAFT_SERVER_FILE.apply(MinecraftExtension.get(project).getVersion())));
         downloadServerTask.setUrl(Utils.closure(() -> Version.getCurrentVersion().getServerInfo().url));
         downloadServerTask.checkAgainst(Utils.closure(() -> Version.getCurrentVersion().getServerInfo().sha1), "SHA1", 
                 Utils.closure(() -> (long) Version.getCurrentVersion().getServerInfo().size));
-        downloadServerTask.dependsOn(project.getTasks().getByPath(DL_MINECRAFT_VERSIONS_TASK));
+        downloadServerTask.dependsOn(Utils.getTask(project, DL_MINECRAFT_VERSIONS_TASK));
     }
 
     @Input private Closure<String> url;

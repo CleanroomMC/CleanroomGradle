@@ -28,8 +28,8 @@ import static com.cleanroommc.gradle.Constants.*;
 public class GrabAssetsTask extends DefaultTask {
 
     public static void setupDownloadAssetsTask(Project project) {
-        GrabAssetsTask grabAssetsTask = project.getTasks().create(DL_MINECRAFT_ASSETS_TASK, GrabAssetsTask.class);
-        grabAssetsTask.dependsOn(project.getTasks().getByPath(DL_MINECRAFT_ASSET_INDEX_TASK));
+        GrabAssetsTask grabAssetsTask = Utils.createTask(project, DL_MINECRAFT_ASSETS_TASK, GrabAssetsTask.class);
+        grabAssetsTask.dependsOn(Utils.getTask(project, DL_MINECRAFT_ASSET_INDEX_TASK));
     }
 
     private File virtualRoot = null;

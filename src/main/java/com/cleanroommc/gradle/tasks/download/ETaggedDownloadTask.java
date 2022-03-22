@@ -30,7 +30,7 @@ import static com.cleanroommc.gradle.Constants.*;
 public class ETaggedDownloadTask extends DefaultTask implements IDownloadTask {
 
     public static void setupDownloadVersionTask(Project project) {
-        ETaggedDownloadTask dlVersionTask = project.getTasks().create(DL_MINECRAFT_VERSIONS_TASK, ETaggedDownloadTask.class);
+        ETaggedDownloadTask dlVersionTask = Utils.createTask(project, DL_MINECRAFT_VERSIONS_TASK, ETaggedDownloadTask.class);
         dlVersionTask.setUrl(Utils.closure(ETaggedDownloadTask.class, () -> ManifestVersion.versions.get(MinecraftExtension.get(project).getVersion()).url));
         dlVersionTask.setOutputFile(Utils.closure(ETaggedDownloadTask.class, () -> VERSION_FILE.apply(MinecraftExtension.get(project).getVersion())));
         dlVersionTask.doFirst(Utils.closure(ETaggedDownloadTask.class, () -> {
@@ -64,7 +64,7 @@ public class ETaggedDownloadTask extends DefaultTask implements IDownloadTask {
     }
 
     public static void setupDownloadAssetIndexTask(Project project) {
-        ETaggedDownloadTask dlAssetIndexTask = project.getTasks().create(DL_MINECRAFT_ASSET_INDEX_TASK, ETaggedDownloadTask.class);
+        ETaggedDownloadTask dlAssetIndexTask = Utils.createTask(project, DL_MINECRAFT_ASSET_INDEX_TASK, ETaggedDownloadTask.class);
         dlAssetIndexTask.setUrl(Utils.closure(() -> Version.getCurrentVersion().assetIndex.url));
         dlAssetIndexTask.setOutputFile(Utils.closure(ETaggedDownloadTask.class, () -> ASSET_INDEX_FILE.apply(MinecraftExtension.get(project).getVersion())));
     }

@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.tasks.jarmanipulation;
 
+import com.cleanroommc.gradle.api.DelegatedPatternFilterable;
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
 import com.cleanroommc.gradle.util.Utils;
 import groovy.lang.Closure;
@@ -13,6 +14,7 @@ import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.api.tasks.util.PatternFilterable;
 import org.gradle.api.tasks.util.PatternSet;
 
 import java.io.File;
@@ -24,28 +26,28 @@ import java.util.jar.JarOutputStream;
 import static com.cleanroommc.gradle.Constants.*;
 
 // TODO: Need to update this to work with modern versions where jars are structured differently
-public class SplitServerJarTask extends DefaultTask {
+public class SplitServerJarTask extends DefaultTask implements DelegatedPatternFilterable {
 
     public static void setupSplitJarTask(Project project) {
-        SplitServerJarTask splitServerJarTask = project.getTasks().create(SPLIT_SERVER_JAR_TASK, SplitServerJarTask.class);
+        SplitServerJarTask splitServerJarTask = Utils.createTask(project, SPLIT_SERVER_JAR_TASK, SplitServerJarTask.class);
         splitServerJarTask.setRawJar(Utils.closure(() -> MINECRAFT_SERVER_FILE.apply(MinecraftExtension.get(project).getVersion())));
         splitServerJarTask.setPureJar(Utils.closure(() -> MINECRAFT_SERVER_PURE_FILE.apply(MinecraftExtension.get(project).getVersion())));
         splitServerJarTask.setDependenciesJar(Utils.closure(() -> MINECRAFT_SERVER_FILE_WITH_DEPS.apply(MinecraftExtension.get(project).getVersion())));
         // TODO: these change in different versions... Works with 1.12 though
-        splitServerJarTask.pattern.exclude("org/bouncycastle", "org/bouncycastle/*", "org/bouncycastle/**");
-        splitServerJarTask.pattern.exclude("org/apache", "org/apache/*", "org/apache/**");
-        splitServerJarTask.pattern.exclude("com/google", "com/google/*", "com/google/**");
-        splitServerJarTask.pattern.exclude("com/mojang/authlib", "com/mojang/authlib/*", "com/mojang/authlib/**");
-        splitServerJarTask.pattern.exclude("com/mojang/util", "com/mojang/util/*", "com/mojang/util/**");
-        splitServerJarTask.pattern.exclude("gnu/trove", "gnu/trove/*", "gnu/trove/**");
-        splitServerJarTask.pattern.exclude("io/netty", "io/netty/*", "io/netty/**");
-        splitServerJarTask.pattern.exclude("javax/annotation", "javax/annotation/*", "javax/annotation/**");
-        splitServerJarTask.pattern.exclude("argo", "argo/*", "argo/**");
-        splitServerJarTask.pattern.exclude("it", "it/*", "it/**");
-        splitServerJarTask.dependsOn(project.getTasks().getByPath(DL_MINECRAFT_SERVER_TASK));
+        splitServerJarTask.exclude("org/bouncycastle", "org/bouncycastle/*", "org/bouncycastle/**");
+        splitServerJarTask.exclude("org/apache", "org/apache/*", "org/apache/**");
+        splitServerJarTask.exclude("com/google", "com/google/*", "com/google/**");
+        splitServerJarTask.exclude("com/mojang/authlib", "com/mojang/authlib/*", "com/mojang/authlib/**");
+        splitServerJarTask.exclude("com/mojang/util", "com/mojang/util/*", "com/mojang/util/**");
+        splitServerJarTask.exclude("gnu/trove", "gnu/trove/*", "gnu/trove/**");
+        splitServerJarTask.exclude("io/netty", "io/netty/*", "io/netty/**");
+        splitServerJarTask.exclude("javax/annotation", "javax/annotation/*", "javax/annotation/**");
+        splitServerJarTask.exclude("argo", "argo/*", "argo/**");
+        splitServerJarTask.exclude("it", "it/*", "it/**");
+        splitServerJarTask.dependsOn(Utils.getTask(project, DL_MINECRAFT_SERVER_TASK));
     }
 
-    @Input private final PatternSet pattern = new PatternSet();
+    @Input private PatternSet patternSet = new PatternSet();
 
     @InputFile private Closure<File> rawJar;
     @OutputFile private Closure<File> pureJar;
@@ -53,7 +55,7 @@ public class SplitServerJarTask extends DefaultTask {
 
     @TaskAction
     public void run() throws IOException {
-        final Spec<FileTreeElement> spec = pattern.getAsSpec();
+        final Spec<FileTreeElement> spec = patternSet.getAsSpec();
         File input = getRawJar();
         File out1 = getPureJar();
         File out2 = getDependenciesJar();
@@ -113,8 +115,13 @@ public class SplitServerJarTask extends DefaultTask {
         this.dependenciesJar = dependenciesJar;
     }
 
-    public PatternSet getPatternSet() {
-        return pattern;
+    public void setPatternSet(PatternSet patternSet) {
+        this.patternSet = patternSet;
+    }
+
+    @Override
+    public PatternFilterable getDelegated() {
+        return patternSet;
     }
 
 }

@@ -32,11 +32,11 @@ import static com.cleanroommc.gradle.Constants.*;
 public class MergeJarsTask extends DefaultTask {
 
     public static void setupMergeJarsTask(Project project) {
-        MergeJarsTask mergeJarsTask = project.getTasks().create(MERGE_JARS_TASK, MergeJarsTask.class);
+        MergeJarsTask mergeJarsTask = Utils.createTask(project, MERGE_JARS_TASK, MergeJarsTask.class);
         mergeJarsTask.setClientJar(Utils.closure(() -> MINECRAFT_CLIENT_FILE.apply(MinecraftExtension.get(project).getVersion())));
         mergeJarsTask.setServerJar(Utils.closure(() -> MINECRAFT_SERVER_PURE_FILE.apply(MinecraftExtension.get(project).getVersion())));
         mergeJarsTask.setOutputJar(Utils.closure(() -> MINECRAFT_MERGED_FILE.apply(MinecraftExtension.get(project).getVersion())));
-        mergeJarsTask.dependsOn(project.getTasks().getByPath(DL_MINECRAFT_CLIENT_TASK), project.getTasks().getByPath(SPLIT_SERVER_JAR_TASK));
+        mergeJarsTask.dependsOn(Utils.getTask(project, DL_MINECRAFT_CLIENT_TASK), project.getTasks().getByPath(SPLIT_SERVER_JAR_TASK));
     }
 
     @InputFile private Closure<File> clientJar, serverJar;

@@ -6,10 +6,12 @@ import com.cleanroommc.gradle.tasks.download.ETaggedDownloadTask;
 import com.cleanroommc.gradle.tasks.download.PureDownloadTask;
 import com.cleanroommc.gradle.tasks.jarmanipulation.MergeJarsTask;
 import com.cleanroommc.gradle.tasks.jarmanipulation.SplitServerJarTask;
+import com.cleanroommc.gradle.util.Utils;
 import com.google.common.collect.ImmutableMap;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.dsl.RepositoryHandler;
+import org.gradle.api.tasks.Delete;
 import org.gradle.api.tasks.JavaExec;
 
 import java.io.File;
@@ -61,15 +63,19 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         project.getExtensions().create(MINECRAFT_EXTENSION_KEY, MinecraftExtension.class);
         MinecraftExtension mcExt = MinecraftExtension.get(project);
 
+        // Setup a clearCache task
+        Utils.createTask(project, CLEAR_CACHE_TASK, Delete.class).delete(MINECRAFT_CACHE_FOLDER);
+
         CleanroomLogger.log2("Setting up client run task...");
-        JavaExec runClient = project.getTasks().create(RUN_MINECRAFT_CLIENT_TASK, JavaExec.class);
+        JavaExec runClient = Utils.createTask(project, RUN_MINECRAFT_CLIENT_TASK, JavaExec.class);
         runClient.getOutputs().dir(mcExt.getRunDir());
         runClient.doFirst(task -> ((JavaExec) task).setWorkingDir(mcExt.getRunDir()));
         runClient.setStandardOutput(System.out);
         runClient.setErrorOutput(System.err);
         runClient.setDescription("Runs Minecraft's Client");
+
         CleanroomLogger.log2("Setting up server run task...");
-        JavaExec runServer = project.getTasks().create(RUN_MINECRAFT_SERVER_TASK, JavaExec.class);
+        JavaExec runServer = Utils.createTask(project, RUN_MINECRAFT_SERVER_TASK, JavaExec.class);
         runServer.getOutputs().dir(mcExt.getRunDir());
         runServer.doFirst(task -> ((JavaExec) task).setWorkingDir(mcExt.getRunDir()));
         runServer.setStandardInput(System.in);
@@ -87,6 +93,7 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         CleanroomLogger.log2("Setting up jar manipulation tasks...");
         SplitServerJarTask.setupSplitJarTask(project);
         MergeJarsTask.setupMergeJarsTask(project);
+
     }
 
 }

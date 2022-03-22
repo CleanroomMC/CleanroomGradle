@@ -63,6 +63,8 @@ public class Constants {
             new File(MINECRAFT_CACHE_FOLDER, "net/minecraft/minecraft_merged/" + version + "/minecraft_merged-" + version + ".jar");
 
     // Task Keys
+    public static final String CLEANROOM_GRADLE_TASK_GROUP_KEY = "CleanroomGradle";
+    public static final String CLEAR_CACHE_TASK = "clearCache";
     public static final String DL_MINECRAFT_VERSIONS_TASK = "downloadVersions";
     public static final String DL_MINECRAFT_ASSET_INDEX_TASK = "downloadAssetIndex";
     public static final String DL_MINECRAFT_ASSETS_TASK = "downloadAssets";
