@@ -36,8 +36,8 @@ public class GrabAssetsTask extends DefaultTask {
 
     @TaskAction
     public void downloadAndGet() throws IOException {
-        if (!MINECRAFT_ASSET_OBJECTS_DIR.exists() || !MINECRAFT_ASSET_OBJECTS_DIR.isDirectory()) {
-            MINECRAFT_ASSET_OBJECTS_DIR.mkdirs();
+        if (!MINECRAFT_ASSET_OBJECTS_FOLDER.exists() || !MINECRAFT_ASSET_OBJECTS_FOLDER.isDirectory()) {
+            MINECRAFT_ASSET_OBJECTS_FOLDER.mkdirs();
         }
         File indexFile = ASSET_INDEX_FILE.apply(MinecraftExtension.get(getProject()).getVersion());
         AssetIndex index = AssetIndex.load(indexFile);
@@ -47,7 +47,7 @@ public class GrabAssetsTask extends DefaultTask {
         }
         ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2);
         for (Entry<String, AssetEntry> e : index.objects.entrySet()) {
-            executor.submit(new GetAssetTask(new Asset(e.getKey(), e.getValue().hash, e.getValue().size), MINECRAFT_ASSET_OBJECTS_DIR, virtualRoot));
+            executor.submit(new GetAssetTask(new Asset(e.getKey(), e.getValue().hash, e.getValue().size), MINECRAFT_ASSET_OBJECTS_FOLDER, virtualRoot));
         }
         executor.shutdown(); // Complete & Shutdown
         int max = (int) executor.getTaskCount();
@@ -102,9 +102,9 @@ public class GrabAssetsTask extends DefaultTask {
                     }
                     if (!file.exists()) {
                         file.getParentFile().mkdirs();
-                        File localMc = new File(MINECRAFT_ASSET_OBJECTS_DIR, asset.path);
+                        File localMc = new File(MINECRAFT_ASSET_OBJECTS_FOLDER, asset.path);
                         if (Utils.isFileCorruptSHA1(localMc, asset.size, asset.hash)) {
-                            ReadableByteChannel channel = Channels.newChannel(new URL(MINECRAFT_ASSETS_LINK + "/" + asset.path).openStream());
+                            ReadableByteChannel channel = Channels.newChannel(new URL(MINECRAFT_ASSETS_LINK_FORMAT.apply(asset.path)).openStream());
                             try (FileOutputStream fout = new FileOutputStream(file);
                                  FileChannel fileChannel = fout.getChannel()) {
                                 fileChannel.transferFrom(channel, 0, asset.size);

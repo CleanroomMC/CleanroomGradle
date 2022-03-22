@@ -4,12 +4,13 @@ import groovy.lang.Closure;
 import org.gradle.api.file.FileTreeElement;
 import org.gradle.api.specs.Spec;
 import org.gradle.api.tasks.util.PatternFilterable;
+import org.gradle.api.tasks.util.PatternSet;
 
 import java.util.Set;
 
-public interface DelegatedPatternFilterable extends PatternFilterable {
+public interface DelegatedPatternFilterable<T extends PatternSet> extends PatternFilterable {
 
-    PatternFilterable getDelegated();
+    T getDelegated();
 
     @Override
     default Set<String> getIncludes() {

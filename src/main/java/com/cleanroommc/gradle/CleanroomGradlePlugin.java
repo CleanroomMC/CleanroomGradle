@@ -1,6 +1,8 @@
 package com.cleanroommc.gradle;
 
+import com.cleanroommc.gradle.extensions.MappingsExtension;
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
+import com.cleanroommc.gradle.tasks.ExtractConfigTask;
 import com.cleanroommc.gradle.tasks.download.GrabAssetsTask;
 import com.cleanroommc.gradle.tasks.download.ETaggedDownloadTask;
 import com.cleanroommc.gradle.tasks.download.PureDownloadTask;
@@ -20,6 +22,7 @@ import static com.cleanroommc.gradle.Constants.*;
 
 public class CleanroomGradlePlugin implements Plugin<Project> {
 
+    public static File GRADLE_PROJECT_DIR;
     public static File GRADLE_USER_HOME_DIR;
 
     @Override
@@ -30,6 +33,7 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
 
         CleanroomLogger.logTitle("Welcome to CleanroomGradle.");
 
+        GRADLE_PROJECT_DIR = project.getProjectDir();
         GRADLE_USER_HOME_DIR = project.getGradle().getGradleUserHomeDir();
 
         CleanroomLogger.log2("Adding java-library and idea plugins...");
@@ -38,33 +42,36 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         project.apply(ImmutableMap.of("plugin", "idea"));
 
         CleanroomLogger.log2("Adding default configurations...");
-        project.getConfigurations().maybeCreate(CONFIG_MCP_DATA);
-        project.getConfigurations().maybeCreate(CONFIG_MAPPINGS);
+        // project.getConfigurations().maybeCreate(CONFIG_MCP_DATA);
+        // project.getConfigurations().maybeCreate(CONFIG_MCP_MAPPINGS);
         project.getConfigurations().maybeCreate(CONFIG_NATIVES);
         project.getConfigurations().maybeCreate(CONFIG_FFI_DEPS);
         project.getConfigurations().maybeCreate(CONFIG_MC_DEPS);
         project.getConfigurations().maybeCreate(CONFIG_MC_DEPS_CLIENT);
 
-        CleanroomLogger.log2("Adding mavenCentral, Minecraft, CleanroomMC's maven repositories...");
+        CleanroomLogger.log2("Adding mavenCentral, ModCoderPack archive, Minecraft, CleanroomMC's maven repositories...");
         project.getAllprojects().forEach(p -> {
             RepositoryHandler handler = p.getRepositories();
             handler.mavenCentral();
             handler.maven(repo -> {
-                repo.setName("minecraft");
+                repo.setName("Minecraft");
                 repo.setUrl(MINECRAFT_MAVEN);
             });
             handler.maven(repo -> {
-                repo.setName("cleanroom");
+                repo.setName("CleanroomMC");
                 repo.setUrl(CLEANROOM_MAVEN);
             });
         });
+
+        CleanroomLogger.log2("Setting up Mappings DSL Block...");
+        project.getExtensions().create(MAPPINGS_EXTENSION_KEY, MappingsExtension.class);
 
         CleanroomLogger.log2("Setting up Minecraft DSL Block...");
         project.getExtensions().create(MINECRAFT_EXTENSION_KEY, MinecraftExtension.class);
         MinecraftExtension mcExt = MinecraftExtension.get(project);
 
         // Setup a clearCache task
-        Utils.createTask(project, CLEAR_CACHE_TASK, Delete.class).delete(MINECRAFT_CACHE_FOLDER);
+        Utils.createTask(project, CLEAR_CACHE_TASK, Delete.class).delete(MINECRAFT_CACHE_FOLDER, PROJECT_TEMP_FOLDER);
 
         CleanroomLogger.log2("Setting up client run task...");
         JavaExec runClient = Utils.createTask(project, RUN_MINECRAFT_CLIENT_TASK, JavaExec.class);
@@ -93,6 +100,9 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         CleanroomLogger.log2("Setting up jar manipulation tasks...");
         SplitServerJarTask.setupSplitJarTask(project);
         MergeJarsTask.setupMergeJarsTask(project);
+
+        CleanroomLogger.log2("Setting up config extraction tasks...");
+        ExtractConfigTask.setupExtractConfigTasks(project);
 
     }
 

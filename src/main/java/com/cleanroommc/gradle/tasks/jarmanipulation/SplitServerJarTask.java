@@ -26,7 +26,7 @@ import java.util.jar.JarOutputStream;
 import static com.cleanroommc.gradle.Constants.*;
 
 // TODO: Need to update this to work with modern versions where jars are structured differently
-public class SplitServerJarTask extends DefaultTask implements DelegatedPatternFilterable {
+public class SplitServerJarTask extends DefaultTask implements DelegatedPatternFilterable<PatternSet> {
 
     public static void setupSplitJarTask(Project project) {
         SplitServerJarTask splitServerJarTask = Utils.createTask(project, SPLIT_SERVER_JAR_TASK, SplitServerJarTask.class);
@@ -120,7 +120,7 @@ public class SplitServerJarTask extends DefaultTask implements DelegatedPatternF
     }
 
     @Override
-    public PatternFilterable getDelegated() {
+    public PatternSet getDelegated() {
         return patternSet;
     }
 
