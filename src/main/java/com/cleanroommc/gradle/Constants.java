@@ -46,9 +46,6 @@ public class Constants {
         return MCP_ARCHIVES_REPO + prefix + "/" + versionCombi + "/" + prefix + "-" + versionCombi + ".zip";
     };
 
-    // Resources
-    public static final String MANIFEST_RESOURCE = "1.12.2.json";
-
     // Caches
     public static final File CACHE_FOLDER = new File(GRADLE_USER_HOME_DIR, "caches/");
     public static final File MINECRAFT_CACHE_FOLDER = new File(CACHE_FOLDER, "minecraft/");
