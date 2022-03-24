@@ -226,10 +226,12 @@ public final class Utils {
         }
     }
 
+    @Deprecated
     public static boolean isFileCorruptSHA1(File file, long size, String expectedHash) {
         return isFileCorrupt(file, size, expectedHash, "SHA1");
     }
 
+    @Deprecated
     public static boolean isFileCorrupt(File file, long size, String expectedHash, String hashFunc) {
         return !file.exists() || file.length() != size || !expectedHash.equalsIgnoreCase(hash(file, hashFunc));
     }

@@ -47,6 +47,7 @@ public class Constants {
     };
 
     // Caches
+    public static final int CACHE_TIMEOUT = 1000 * 60 * 60;
     public static final File CACHE_FOLDER = new File(GRADLE_USER_HOME_DIR, "caches/");
     public static final File MINECRAFT_CACHE_FOLDER = new File(CACHE_FOLDER, "minecraft/");
     public static final File ASSETS_CACHE_FOLDER = new File(MINECRAFT_CACHE_FOLDER, "assets/");
