@@ -51,6 +51,16 @@ public final class Utils {
         return Utils.class.getResourceAsStream("/" + path);
     }
 
+    public static <T> T loadJson(File target, Class<T> clz) throws IOException {
+        try (InputStream in = new FileInputStream(target)) {
+            return GSON.fromJson(new InputStreamReader(in), clz);
+        }
+    }
+
+    public static <T> T loadJson(InputStream in, Class<T> clz) {
+        return GSON.fromJson(new InputStreamReader(in), clz);
+    }
+
     public static <T> Closure<T> closure(Class<?> caller, Supplier<T> supplier) {
         return new Closure<T>(caller) {
             @Override

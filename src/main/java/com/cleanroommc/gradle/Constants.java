@@ -37,8 +37,8 @@ public class Constants {
     // URLs
     public static final String MCP_ARCHIVES_REPO = "https://raw.githubusercontent.com/CleanroomMC/MCPMappingsArchive/master/";
     public static final String MINECRAFT_MANIFEST_LINK = "https://launchermeta.mojang.com/mc/game/version_manifest.json";
+    public static final String MINECRAFT_ASSETS_LINK = "http://resources.download.minecraft.net/";
 
-    public static final Function<String, String> MINECRAFT_ASSETS_LINK_FORMAT = path -> "http://resources.download.minecraft.net/" + path;
     public static final BiFunction<MappingsExtension, String, String> MCP_ARCHIVES_LINK_MCP_DATA_FORMAT = (ext, suffix) ->
             MCP_ARCHIVES_REPO + "mcp/" + ext.getMCVersion() + "/mcp-" + ext.getMCVersion() + "-" + suffix;
     public static final Function<MappingsExtension, String> MCP_ARCHIVES_LINK_MCP_MAPPINGS_FORMAT = ext -> {

@@ -11,6 +11,10 @@ version '1.0'
 repositories {
     mavenCentral()
     google()
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
 }
 
 dependencies {
@@ -28,6 +32,13 @@ dependencies {
 
     // Apache Commons
     implementation 'commons-io:commons-io:2.11.0'
+
+    // Apache Maven
+    implementation 'org.apache.maven:maven-artifact:3.8.4'
+
+    // Forge-Related Libraries
+    implementation 'net.minecraftforge:artifactural:3.0.8'
+    implementation 'net.minecraftforge:accesstransformers:8.0.+:fatjar'
 
     // JUnit 5
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'

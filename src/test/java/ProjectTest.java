@@ -4,7 +4,6 @@ import com.cleanroommc.gradle.tasks.ExtractConfigTask;
 import com.cleanroommc.gradle.tasks.download.GrabAssetsTask;
 import com.cleanroommc.gradle.tasks.download.ETaggedDownloadTask;
 import com.cleanroommc.gradle.tasks.download.PureDownloadTask;
-import com.cleanroommc.gradle.tasks.jarmanipulation.MergeJarsTask;
 import com.cleanroommc.gradle.tasks.jarmanipulation.SplitServerJarTask;
 import com.cleanroommc.gradle.util.Utils;
 import com.cleanroommc.gradle.util.json.deserialization.manifest.ManifestVersion;
@@ -161,14 +160,14 @@ public class ProjectTest {
 
     @Test
     @Order(6)
-    public void testDownloadAssets() throws IOException {
+    public void testDownloadAssets() throws IOException, InterruptedException {
         Task task = project.getTasks().getByPath(DL_MINECRAFT_ASSETS_TASK);
         Assertions.assertTrue(task instanceof GrabAssetsTask);
         GrabAssetsTask grabTask = (GrabAssetsTask) task;
-        grabTask.downloadAndGet();
+        grabTask.getOrDownload();
 
         MinecraftExtension.get(project).setVersion("1.18");
-        grabTask.downloadAndGet();
+        grabTask.getOrDownload();
     }
 
     @Test
@@ -180,6 +179,7 @@ public class ProjectTest {
         splitTask.run();
     }
 
+    /*
     @Test
     @Order(8)
     public void testMergingJars() throws IOException {
@@ -188,6 +188,7 @@ public class ProjectTest {
         MergeJarsTask mergeTask = (MergeJarsTask) task;
         mergeTask.merge();
     }
+     */
 
     @Test
     @Order(9)

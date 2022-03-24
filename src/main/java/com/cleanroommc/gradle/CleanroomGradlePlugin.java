@@ -6,7 +6,6 @@ import com.cleanroommc.gradle.tasks.ExtractConfigTask;
 import com.cleanroommc.gradle.tasks.download.GrabAssetsTask;
 import com.cleanroommc.gradle.tasks.download.ETaggedDownloadTask;
 import com.cleanroommc.gradle.tasks.download.PureDownloadTask;
-import com.cleanroommc.gradle.tasks.jarmanipulation.MergeJarsTask;
 import com.cleanroommc.gradle.tasks.jarmanipulation.SplitServerJarTask;
 import com.cleanroommc.gradle.util.Utils;
 import com.google.common.collect.ImmutableMap;
@@ -99,7 +98,7 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
 
         CleanroomLogger.log2("Setting up jar manipulation tasks...");
         SplitServerJarTask.setupSplitJarTask(project);
-        MergeJarsTask.setupMergeJarsTask(project);
+        // MergeJarsTask.setupMergeJarsTask(project);
 
         CleanroomLogger.log2("Setting up config extraction tasks...");
         ExtractConfigTask.setupExtractConfigTasks(project);

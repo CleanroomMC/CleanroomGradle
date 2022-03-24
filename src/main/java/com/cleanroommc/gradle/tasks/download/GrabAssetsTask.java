@@ -1,132 +1,127 @@
 package com.cleanroommc.gradle.tasks.download;
 
 import com.cleanroommc.gradle.CleanroomLogger;
-import com.cleanroommc.gradle.extensions.MinecraftExtension;
+import com.cleanroommc.gradle.util.CacheUtils;
+import com.cleanroommc.gradle.util.CacheUtils.HashAlgorithm;
 import com.cleanroommc.gradle.util.Utils;
-import com.cleanroommc.gradle.util.json.deserialization.mcversion.AssetIndex;
-import com.cleanroommc.gradle.util.json.deserialization.mcversion.AssetIndex.AssetEntry;
-import com.google.common.io.Files;
+import com.cleanroommc.gradle.util.json.deserialization.VersionJson;
+import com.cleanroommc.gradle.util.json.deserialization.mcversion.Version;
+import org.apache.commons.io.FileUtils;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
+import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.TaskAction;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
-import java.nio.channels.Channels;
-import java.nio.channels.FileChannel;
-import java.nio.channels.ReadableByteChannel;
-import java.util.Map.Entry;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
+import java.util.concurrent.*;
 
 import static com.cleanroommc.gradle.Constants.*;
 
-public class GrabAssetsTask extends DefaultTask {
+public abstract class GrabAssetsTask extends DefaultTask {
 
     public static void setupDownloadAssetsTask(Project project) {
         GrabAssetsTask grabAssetsTask = Utils.createTask(project, DL_MINECRAFT_ASSETS_TASK, GrabAssetsTask.class);
         grabAssetsTask.dependsOn(Utils.getTask(project, DL_MINECRAFT_ASSET_INDEX_TASK));
     }
 
-    private File virtualRoot = null;
+    private static void removeDuplicateRemotePaths(List<String> keys, AssetIndex index) {
+        Set<String> seen = new HashSet<>(keys.size());
+        keys.removeIf(key -> !seen.add(index.objects.get(key).getPath()));
+    }
+
+    public GrabAssetsTask() {
+        getAssetRepository().convention(MINECRAFT_ASSETS_LINK);
+        getWorkerThreadCount().convention(8);
+    }
 
     @TaskAction
-    public void downloadAndGet() throws IOException {
-        if (!ASSET_OBJECTS_FOLDER.exists() || !ASSET_OBJECTS_FOLDER.isDirectory()) {
-            ASSET_OBJECTS_FOLDER.mkdirs();
-        }
-        File indexFile = ASSET_INDEX_FILE.apply(MinecraftExtension.get(getProject()).getVersion());
-        AssetIndex index = AssetIndex.load(indexFile);
-        if (index.virtual) {
-            virtualRoot = new File(ASSETS_CACHE_FOLDER, "virtual/" + Files.getNameWithoutExtension(indexFile.getName()));
-            virtualRoot.mkdirs();
-        }
-        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() * 2);
-        for (Entry<String, AssetEntry> e : index.objects.entrySet()) {
-            executor.submit(new GetAssetTask(new Asset(e.getKey(), e.getValue().hash, e.getValue().size), ASSET_OBJECTS_FOLDER, virtualRoot));
-        }
-        executor.shutdown(); // Complete & Shutdown
-        int max = (int) executor.getTaskCount();
-        // Keep it running
-        try {
-            while (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
-                int done = (int) executor.getCompletedTaskCount();
-                CleanroomLogger.log2("Current status: {}/{} ({}%)", done, max, (int) ((double) done / max * 100));
+    public void getOrDownload() throws IOException, InterruptedException {
+        AssetIndex index = Utils.loadJson(getIndex(), AssetIndex.class);
+        List<String> keys = new ArrayList<>(index.objects.keySet());
+        Collections.sort(keys);
+        removeDuplicateRemotePaths(keys, index);
+        ExecutorService executorService = Executors.newFixedThreadPool(getWorkerThreadCount().get());
+        CopyOnWriteArrayList<String> failedDownloads = new CopyOnWriteArrayList<>();
+        String assetRepo = getAssetRepository().get();
+        for (String key : keys) {
+            Asset asset = index.objects.get(key);
+            File target = new File(ASSET_OBJECTS_FOLDER, asset.getPath());
+            if (CacheUtils.isFileCorrupt(target, asset.hash, HashAlgorithm.SHA1)) {
+                URL url = new URL(assetRepo + asset.getPath());
+                Runnable copyURLtoFile = () -> {
+                    try {
+                        File localFile = FileUtils.getFile(MINECRAFT_ASSET_OBJECTS_FOLDER + File.separator + asset.getPath());
+                        if (localFile.exists()) {
+                            CleanroomLogger.log2("Copying local object: {} | Asset: {}", asset.getPath(), key);
+                            FileUtils.copyFile(localFile, target);
+                        } else {
+                            CleanroomLogger.log2("Downloading: {} | Asset: {}", asset.getPath(), key);
+                            FileUtils.copyURLToFile(url, target, 10000, 5000);
+                        }
+                        if (CacheUtils.isFileCorrupt(target, asset.hash, HashAlgorithm.SHA1)) {
+                            failedDownloads.add(key);
+                            CacheUtils.deleteFile(target);
+                            CleanroomLogger.error("{} hash failed.", key);
+                        }
+                    } catch (IOException e) {
+                        failedDownloads.add(key);
+                        CleanroomLogger.error("{} failed.", key);
+                        e.printStackTrace();
+                    }
+                };
+                executorService.execute(copyURLtoFile);
             }
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
         }
+        executorService.shutdown();
+        executorService.awaitTermination(8, TimeUnit.HOURS);
+        if (!failedDownloads.isEmpty()) {
+            StringBuilder errorMessage = new StringBuilder();
+            for (String key : failedDownloads) {
+                errorMessage.append("Failed to get asset: ").append(key).append("\n");
+            }
+            errorMessage.append("Some assets failed to download or validate, try running the task again.");
+            throw new RuntimeException(errorMessage.toString());
+        }
+    }
+
+    @InputFile
+    public abstract RegularFileProperty getMeta();
+
+    @Internal
+    public abstract Property<String> getAssetRepository();
+
+    @Internal
+    public abstract Property<Integer> getWorkerThreadCount();
+
+    private File getIndex() throws IOException {
+        // VersionJson json = Utils.loadJson(getMeta().get().getAsFile(), VersionJson.class);
+        Version json = Version.getCurrentVersion();
+        File target = ASSET_INDEX_FILE.apply(json.assetIndex.id);
+        if (CacheUtils.isFileCorrupt(target, json.assetIndex.sha1, HashAlgorithm.SHA1)) {
+            CleanroomLogger.log2("Downloading: {}", json.assetIndex.url);
+            if (!target.getParentFile().exists()) {
+                target.getParentFile().mkdirs();
+            }
+            // FileUtils.copyURLToFile(json.assetIndex.url, target);
+            FileUtils.copyURLToFile(new URL(json.assetIndex.url), target);
+        }
+        return target;
+    }
+
+    private static class AssetIndex {
+        Map<String, Asset> objects;
     }
 
     private static class Asset {
-
-        private final String name;
-        private final String hash;
-        private final String path;
-        private final long size;
-
-        private Asset(String name, String hash, long size) {
-            this.name = name;
-            this.hash = hash.toLowerCase();
-            this.path = hash.substring(0, 2) + "/" + hash;
-            this.size = size;
-        }
-
-    }
-
-    private static class GetAssetTask implements Callable<Boolean> {
-
-        private static final int MAX_TRIES = 5;
-
-        private final Asset asset;
-        private final File assetDir, virtualRoot;
-
-        private GetAssetTask(Asset asset, File assetDir, File virtualRoot) {
-            this.asset = asset;
-            this.assetDir = assetDir;
-            this.virtualRoot = virtualRoot;
-        }
-
-        @Override
-        public Boolean call() {
-            boolean worked = true;
-            File file = new File(assetDir, asset.path);
-            for (int tryNum = 1; tryNum < MAX_TRIES + 1; tryNum++) {
-                try {
-                    if (Utils.isFileCorruptSHA1(file, asset.size, asset.hash)) {
-                        file.delete();
-                    }
-                    if (!file.exists()) {
-                        file.getParentFile().mkdirs();
-                        File localMc = new File(MINECRAFT_ASSET_OBJECTS_FOLDER, asset.path);
-                        if (Utils.isFileCorruptSHA1(localMc, asset.size, asset.hash)) {
-                            ReadableByteChannel channel = Channels.newChannel(new URL(MINECRAFT_ASSETS_LINK_FORMAT.apply(asset.path)).openStream());
-                            try (FileOutputStream fout = new FileOutputStream(file);
-                                 FileChannel fileChannel = fout.getChannel()) {
-                                fileChannel.transferFrom(channel, 0, asset.size);
-                            }
-                        } else {
-                            Utils.copyFile(localMc, file, asset.size);
-                        }
-                    }
-                    if (virtualRoot != null) {
-                        File virtual = new File(virtualRoot, asset.name);
-                        if (Utils.isFileCorruptSHA1(virtual, asset.size, asset.hash)) {
-                            virtual.delete();
-                            Utils.copyFile(file, virtual);
-                        }
-                    }
-                } catch (Exception e) {
-                    CleanroomLogger.error("Error downloading asset (try no. {}) : {}", tryNum, asset.name);
-                    e.printStackTrace();
-                    worked = false;
-                }
-            }
-            return worked;
+        String hash;
+        public String getPath() {
+            return hash.substring(0, 2) + '/' + hash;
         }
     }
 
