@@ -36,8 +36,8 @@ public class ETaggedDownloadTask extends DefaultTask implements IDownloadTask {
         dlVersionTask.doFirst(Utils.closure(ETaggedDownloadTask.class, () -> {
             if (ManifestVersion.versions == null) {
                 CleanroomLogger.log("Requesting Minecraft's Manifest...");
-                ManifestVersion.versions = Utils.GSON.fromJson(Utils.getWithETag(project, MINECRAFT_MANIFEST_LINK, MINECRAFT_MANIFEST_FILE, MINECRAFT_MANIFEST_ETAG),
-                        ManifestVersionsAdapter.TYPE);
+                // ManifestVersion.versions = Utils.GSON.fromJson(Utils.getWithETag(project, MINECRAFT_MANIFEST_LINK, MINECRAFT_MANIFEST_FILE, MINECRAFT_MANIFEST_ETAG),
+                        // ManifestVersionsAdapter.TYPE);
             }
             return null;
         }));

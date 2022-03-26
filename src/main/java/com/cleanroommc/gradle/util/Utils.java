@@ -11,6 +11,7 @@ import com.google.gson.GsonBuilder;
 import groovy.lang.Closure;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.tasks.TaskProvider;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -35,6 +36,10 @@ public final class Utils {
             .enableComplexMapKeySerialization()
             .setPrettyPrinting()
             .create();
+
+    public static <T extends Task> TaskProvider<T> prepareTask(Project project, String name, Class<T> taskClass, Object... ctorArgs) {
+        return project.getTasks().register(name, taskClass, ctorArgs);
+    }
 
     public static <T extends Task> T createTask(Project project, String name, Class<T> taskClass) {
         T task = project.getTasks().create(name, taskClass);
@@ -234,92 +239,6 @@ public final class Utils {
         } else {
             CleanroomLogger.error(error);
         }
-    }
-
-    @Deprecated
-    public static boolean isFileCorruptSHA1(File file, long size, String expectedHash) {
-        return isFileCorrupt(file, size, expectedHash, "SHA1");
-    }
-
-    @Deprecated
-    public static boolean isFileCorrupt(File file, long size, String expectedHash, String hashFunc) {
-        return !file.exists() || file.length() != size || !expectedHash.equalsIgnoreCase(hash(file, hashFunc));
-    }
-
-    public static String hash(File file) {
-        String path = file.getPath();
-        return path.endsWith(".zip") || path.endsWith(".jar") ? hashZip(file, HASH_FUNC) : hash(file, HASH_FUNC);
-    }
-
-    public static List<String> hashAll(File file) {
-        List<String> list = new ArrayList<>();
-        if (file.isDirectory()) {
-            File[] files = file.listFiles();
-            if (files != null) {
-                for (File f : files) {
-                    list.addAll(hashAll(f));
-                }
-            }
-        } else if (!file.getName().equals(".cache")) {
-            list.add(hash(file));
-        }
-        return list;
-    }
-
-    public static String hash(File file, String function) {
-        try {
-            InputStream fis = new FileInputStream(file);
-            byte[] array = ByteStreams.toByteArray(fis);
-            fis.close();
-            return hash(array, function);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    public static String hashZip(File file, String function) {
-        try (ZipInputStream zin = new ZipInputStream(new FileInputStream(file))) {
-            MessageDigest hasher = MessageDigest.getInstance(function);
-            ZipEntry entry;
-            while ((entry = zin.getNextEntry()) != null) {
-                hasher.update(entry.getName().getBytes());
-                hasher.update(ByteStreams.toByteArray(zin));
-            }
-            zin.close();
-            byte[] hash = hasher.digest();
-            StringBuilder result = new StringBuilder();
-            for (byte b : hash) {
-                result.append(Integer.toString((b & 0xff) + 0x100, 16).substring(1));
-            }
-            return result.toString();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    public static String hash(String str) {
-        return hash(str.getBytes());
-    }
-
-    public static String hash(byte[] bytes) {
-        return hash(bytes, HASH_FUNC);
-    }
-
-    public static String hash(byte[] bytes, String function) {
-        try {
-            MessageDigest complete = MessageDigest.getInstance(function);
-            byte[] hash = complete.digest(bytes);
-            StringBuilder result = new StringBuilder();
-            for (byte b : hash) {
-                result.append(Integer.toString((b & 0xff) + 0x100, 16).substring(1));
-            }
-            return result.toString();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
     }
 
     public static void recursivelyDelete(File parent) {

@@ -56,12 +56,14 @@ public class PureDownloadTask extends DefaultTask implements IDownloadTask {
     @TaskAction
     public void downloadAndGet() throws IOException {
         File outputFile = getOutputFile();
+        /*
         if (hash != null && hashFunc != null && size != null && outputFile.exists()) {
             if (!Utils.isFileCorrupt(outputFile, size.call(), hash.call(), hashFunc)) {
                 CleanroomLogger.log("{} already exists and download will be skipped.", outputFile.getName());
                 return;
             }
         }
+         */
         outputFile.getParentFile().mkdirs();
         outputFile.createNewFile();
 

@@ -26,7 +26,9 @@ public final class Downloader {
         if (output.exists() && (offline || output.lastModified() > System.currentTimeMillis() - CACHE_TIMEOUT)) {
             return true;
         }
-        File etagFile = new File(output.getAbsolutePath(), ".etag");
+        File parent = output.getParentFile();
+        parent.mkdirs();
+        File etagFile = new File(parent, output.getName() + ".etag");
         String etagString = "";
         if (etagFile.exists()) {
             etagString = new String(Files.readAllBytes(etagFile.toPath()), CHARSET);

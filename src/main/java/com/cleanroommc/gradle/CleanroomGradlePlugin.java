@@ -2,27 +2,19 @@ package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.extensions.MappingsExtension;
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
-import com.cleanroommc.gradle.tasks.ExtractConfigTask;
-import com.cleanroommc.gradle.tasks.download.GrabAssetsTask;
-import com.cleanroommc.gradle.tasks.download.ETaggedDownloadTask;
-import com.cleanroommc.gradle.tasks.download.PureDownloadTask;
-import com.cleanroommc.gradle.tasks.jarmanipulation.SplitServerJarTask;
+import com.cleanroommc.gradle.tasks.download.DownloadManifestTask;
 import com.cleanroommc.gradle.util.Utils;
 import com.google.common.collect.ImmutableMap;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.dsl.RepositoryHandler;
 import org.gradle.api.tasks.Delete;
-import org.gradle.api.tasks.JavaExec;
-
-import java.io.File;
 
 import static com.cleanroommc.gradle.Constants.*;
 
 public class CleanroomGradlePlugin implements Plugin<Project> {
 
-    public static File GRADLE_PROJECT_DIR;
-    public static File GRADLE_USER_HOME_DIR;
+    public static Project PROJECT;
 
     @Override
     public void apply(Project project) {
@@ -32,8 +24,7 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
 
         CleanroomLogger.logTitle("Welcome to CleanroomGradle.");
 
-        GRADLE_PROJECT_DIR = project.getProjectDir();
-        GRADLE_USER_HOME_DIR = project.getGradle().getGradleUserHomeDir();
+        PROJECT = project;
 
         CleanroomLogger.log2("Adding java-library and idea plugins...");
         project.apply(ImmutableMap.of("plugin", "java"));
@@ -70,8 +61,11 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         MinecraftExtension mcExt = MinecraftExtension.get(project);
 
         // Setup a clearCache task
-        Utils.createTask(project, CLEAR_CACHE_TASK, Delete.class).delete(MINECRAFT_CACHE_FOLDER, PROJECT_TEMP_FOLDER);
+        Utils.createTask(project, CLEAR_CACHE_TASK, Delete.class).delete(CACHE_FOLDER, PROJECT_TEMP_FOLDER);
 
+        DownloadManifestTask.setupDownloadMetaTask(project);
+
+        /*
         CleanroomLogger.log2("Setting up client run task...");
         JavaExec runClient = Utils.createTask(project, RUN_MINECRAFT_CLIENT_TASK, JavaExec.class);
         runClient.getOutputs().dir(mcExt.getRunDir());
@@ -102,6 +96,7 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
 
         CleanroomLogger.log2("Setting up config extraction tasks...");
         ExtractConfigTask.setupExtractConfigTasks(project);
+         */
 
     }
 
