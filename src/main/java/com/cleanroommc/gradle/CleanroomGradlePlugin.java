@@ -3,12 +3,14 @@ package com.cleanroommc.gradle;
 import com.cleanroommc.gradle.extensions.MappingsExtension;
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
 import com.cleanroommc.gradle.tasks.download.DownloadManifestTask;
+import com.cleanroommc.gradle.tasks.download.DownloadVersionTask;
 import com.cleanroommc.gradle.util.Utils;
 import com.google.common.collect.ImmutableMap;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.dsl.RepositoryHandler;
 import org.gradle.api.tasks.Delete;
+import org.gradle.api.tasks.TaskProvider;
 
 import static com.cleanroommc.gradle.Constants.*;
 
@@ -58,12 +60,18 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
 
         CleanroomLogger.log2("Setting up Minecraft DSL Block...");
         project.getExtensions().create(MINECRAFT_EXTENSION_KEY, MinecraftExtension.class);
-        MinecraftExtension mcExt = MinecraftExtension.get(project);
+        // MinecraftExtension mcExt = MinecraftExtension.get(project);
 
         // Setup a clearCache task
         Utils.createTask(project, CLEAR_CACHE_TASK, Delete.class).delete(CACHE_FOLDER, PROJECT_TEMP_FOLDER);
 
-        DownloadManifestTask.setupDownloadMetaTask(project);
+        final TaskProvider<DownloadManifestTask> downloadManifest = DownloadManifestTask.setupDownloadMetaTask(project);
+
+        final TaskProvider<DownloadVersionTask> downloadVersion = DownloadVersionTask.setupDownloadVersionTask(project);
+        downloadVersion.configure(task -> {
+            task.dependsOn(downloadManifest);
+            task.getManifestFile().convention(downloadManifest.flatMap(DownloadManifestTask::getManifestFile));
+        });
 
         /*
         CleanroomLogger.log2("Setting up client run task...");

@@ -49,7 +49,7 @@ public class ProjectTaskTests {
 
     @Test
     @Order(2)
-    public void testMetaDownloads() throws IOException {
+    public void testMetaAndVersionDownloads() throws IOException {
         Task task = project.getTasks().getByPath(DOWNLOAD_MANIFEST);
         Assertions.assertTrue(task instanceof DownloadManifestTask);
         DownloadManifestTask dlMeta = (DownloadManifestTask) task;
