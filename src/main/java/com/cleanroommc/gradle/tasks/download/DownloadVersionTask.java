@@ -29,11 +29,15 @@ public abstract class DownloadVersionTask extends DefaultTask {
     }
 
     @TaskAction
+    public void task$downloadVersion() throws IOException {
+        downloadVersion();
+    }
+
     public void downloadVersion() throws IOException {
         String mcVersion = getMinecraftVersion().get();
         URL url = Utils.loadJson(getManifestFile().getAsFile().get(), Manifest.class).getUrl(mcVersion);
-        File output = getVersionDir().file(mcVersion + ".json").get().getAsFile();
-        if (!Downloader.downloadEtaggedFile(url, output, false)) {
+        getVersionFile().set(getVersionDir().file(mcVersion + ".json").get().getAsFile());
+        if (!Downloader.downloadEtaggedFile(url, getVersionFile().get().getAsFile(), false)) {
             throw new RuntimeException("Unable to download + " + mcVersion + " version json.");
         }
     }
@@ -51,4 +55,3 @@ public abstract class DownloadVersionTask extends DefaultTask {
     public abstract RegularFileProperty getVersionFile();
 
 }
-

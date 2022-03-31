@@ -21,12 +21,16 @@ public abstract class DownloadManifestTask extends DefaultTask {
 
     public DownloadManifestTask() {
         getManifestSource().convention(MINECRAFT_MANIFEST_LINK);
-        getManifestFile().convention(MINECRAFT_MANIFEST_FILE);
+        getManifest().convention(MINECRAFT_MANIFEST_FILE);
     }
 
     @TaskAction
+    public void task$downloadManifest() throws IOException {
+        downloadManifest();
+    }
+
     public void downloadManifest() throws IOException {
-        if (!Downloader.downloadEtaggedFile(new URL(getManifestSource().get()), getManifestFile().get().getAsFile(), false)) {
+        if (!Downloader.downloadEtaggedFile(new URL(getManifestSource().get()), getManifest().get().getAsFile(), false)) {
             throw new RuntimeException("Unable to download manifest.");
         }
     }
@@ -35,6 +39,6 @@ public abstract class DownloadManifestTask extends DefaultTask {
     public abstract Property<String> getManifestSource();
 
     @OutputFile
-    public abstract RegularFileProperty getManifestFile();
+    public abstract RegularFileProperty getManifest();
 
 }

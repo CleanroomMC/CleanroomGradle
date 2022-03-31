@@ -4,6 +4,7 @@ import com.cleanroommc.gradle.extensions.MappingsExtension;
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
 import com.cleanroommc.gradle.tasks.download.DownloadManifestTask;
 import com.cleanroommc.gradle.tasks.download.DownloadVersionTask;
+import com.cleanroommc.gradle.tasks.download.GrabAssetsTask;
 import com.cleanroommc.gradle.util.Utils;
 import com.google.common.collect.ImmutableMap;
 import org.gradle.api.Plugin;
@@ -70,7 +71,13 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         final TaskProvider<DownloadVersionTask> downloadVersion = DownloadVersionTask.setupDownloadVersionTask(project);
         downloadVersion.configure(task -> {
             task.dependsOn(downloadManifest);
-            task.getManifestFile().convention(downloadManifest.flatMap(DownloadManifestTask::getManifestFile));
+            task.getManifestFile().set(downloadManifest.flatMap(DownloadManifestTask::getManifest));
+        });
+
+        final TaskProvider<GrabAssetsTask> grabAssets = GrabAssetsTask.setupDownloadAssetsTask(project);
+        grabAssets.configure(task -> {
+            task.dependsOn(downloadVersion);
+            task.getMeta().set(downloadVersion.flatMap(DownloadVersionTask::getVersionFile));
         });
 
         /*

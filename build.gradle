@@ -1,6 +1,13 @@
+buildscript {
+    repositories {
+        mavenLocal()
+    }
+}
+
 plugins {
     id 'java'
     id 'java-gradle-plugin'
+    id 'maven-publish'
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(8)
@@ -9,6 +16,7 @@ group 'com.cleanroommc'
 version '1.0'
 
 repositories {
+    mavenLocal()
     mavenCentral()
     google()
     maven {
@@ -46,7 +54,7 @@ dependencies {
 
 gradlePlugin {
     plugins {
-        development {
+        cleanroom_gradle {
             id = 'com.cleanroommc.gradle'
             implementationClass = 'com.cleanroommc.gradle.CleanroomGradlePlugin'
         }

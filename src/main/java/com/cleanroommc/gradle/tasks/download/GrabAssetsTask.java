@@ -5,7 +5,6 @@ import com.cleanroommc.gradle.util.CacheUtils;
 import com.cleanroommc.gradle.util.CacheUtils.HashAlgorithm;
 import com.cleanroommc.gradle.util.Utils;
 import com.cleanroommc.gradle.util.json.deserialization.VersionJson;
-import com.cleanroommc.gradle.util.json.deserialization.mcversion.Version;
 import org.apache.commons.io.FileUtils;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
@@ -14,6 +13,7 @@ import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.api.tasks.TaskProvider;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,9 +25,8 @@ import static com.cleanroommc.gradle.Constants.*;
 
 public abstract class GrabAssetsTask extends DefaultTask {
 
-    public static void setupDownloadAssetsTask(Project project) {
-        GrabAssetsTask grabAssetsTask = Utils.createTask(project, DL_MINECRAFT_ASSETS_TASK, GrabAssetsTask.class);
-        grabAssetsTask.dependsOn(Utils.getTask(project, DL_MINECRAFT_ASSET_INDEX_TASK));
+    public static TaskProvider<GrabAssetsTask> setupDownloadAssetsTask(Project project) {
+        return Utils.prepareTask(project, DOWNLOAD_ASSETS, GrabAssetsTask.class);
     }
 
     private static void removeDuplicateRemotePaths(List<String> keys, AssetIndex index) {
@@ -41,12 +40,17 @@ public abstract class GrabAssetsTask extends DefaultTask {
     }
 
     @TaskAction
-    public void getOrDownload() throws IOException, InterruptedException {
-        AssetIndex index = Utils.loadJson(getIndex(), AssetIndex.class);
+    public void task$getOrDownload() throws IOException, InterruptedException {
+        getOrDownload(getIndex(getMeta().get().getAsFile()));
+    }
+
+    public void getOrDownload(File assetIndex) throws IOException, InterruptedException {
+        AssetIndex index = Utils.loadJson(assetIndex, AssetIndex.class);
         List<String> keys = new ArrayList<>(index.objects.keySet());
         Collections.sort(keys);
         removeDuplicateRemotePaths(keys, index);
         ExecutorService executorService = Executors.newFixedThreadPool(getWorkerThreadCount().get());
+        CleanroomLogger.log("Using {} worker threads to grab and download assets.", getWorkerThreadCount().get());
         CopyOnWriteArrayList<String> failedDownloads = new CopyOnWriteArrayList<>();
         String assetRepo = getAssetRepository().get();
         for (String key : keys) {
@@ -99,30 +103,34 @@ public abstract class GrabAssetsTask extends DefaultTask {
     @Internal
     public abstract Property<Integer> getWorkerThreadCount();
 
-    private File getIndex() throws IOException {
-        // VersionJson json = Utils.loadJson(getMeta().get().getAsFile(), VersionJson.class);
-        Version json = Version.getCurrentVersion();
+    @Internal
+    public File getIndex(File version) throws IOException {
+        VersionJson json = Utils.loadJson(version, VersionJson.class);
         File target = ASSET_INDEX_FILE.apply(json.assetIndex.id);
         if (CacheUtils.isFileCorrupt(target, json.assetIndex.sha1, HashAlgorithm.SHA1)) {
             CleanroomLogger.log2("Downloading: {}", json.assetIndex.url);
             if (!target.getParentFile().exists()) {
                 target.getParentFile().mkdirs();
             }
-            // FileUtils.copyURLToFile(json.assetIndex.url, target);
-            FileUtils.copyURLToFile(new URL(json.assetIndex.url), target);
+            FileUtils.copyURLToFile(json.assetIndex.url, target);
         }
         return target;
     }
 
     private static class AssetIndex {
+
         Map<String, Asset> objects;
+
     }
 
     private static class Asset {
+
         String hash;
+
         public String getPath() {
             return hash.substring(0, 2) + '/' + hash;
         }
+
     }
 
 }

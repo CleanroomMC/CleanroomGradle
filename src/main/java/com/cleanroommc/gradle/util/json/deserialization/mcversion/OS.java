@@ -4,7 +4,7 @@ import java.util.Locale;
 
 public enum OS {
 
-    LINUX("linux", "bsd", "unix"),
+    LINUX("linux", "linux", "bsd", "unix"),
     WINDOWS("windows", "win"),
     OSX("osx", "mac"),
     UNKNOWN("unknown");

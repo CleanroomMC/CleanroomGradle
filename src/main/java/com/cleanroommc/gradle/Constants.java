@@ -32,6 +32,7 @@ public class Constants {
     // Project
     public static final Project PROJECT = CleanroomGradlePlugin.PROJECT;
     public static final Gradle GRADLE = PROJECT.getGradle();
+    public static final String PROJECT_TEST_NAME = "ProjectTest";
 
     public static final Directory GRADLE_PROJECT_DIR = PROJECT.getLayout().getProjectDirectory();
     public static final Directory GRADLE_HOME_DIR = PROJECT.getLayout().getProjectDirectory().dir(GRADLE.getGradleUserHomeDir().getAbsolutePath());
@@ -100,12 +101,12 @@ public class Constants {
     public static final String CLEANROOM_GRADLE_TASK_GROUP_KEY = "CleanroomGradle";
     public static final String DOWNLOAD_MANIFEST = "downloadManifest";
     public static final String DOWNLOAD_VERSION = "downloadVersion";
+    public static final String DOWNLOAD_ASSETS = "downloadAssets";
     public static final String EXTRACT_NATIVES_TASK = "extractNatives";
     public static final String EXTRACT_MCP_DATA_TASK = "extractMCPData";
     public static final String EXTRACT_MCP_MAPPINGS_TASK = "extractMCPMappings";
     public static final String CLEAR_CACHE_TASK = "clearCache";
     public static final String DL_MINECRAFT_ASSET_INDEX_TASK = "downloadAssetIndex";
-    public static final String DL_MINECRAFT_ASSETS_TASK = "downloadAssets";
     public static final String DL_MINECRAFT_CLIENT_TASK = "downloadClient";
     public static final String DL_MINECRAFT_SERVER_TASK = "downloadServer";
     public static final String SPLIT_SERVER_JAR_TASK = "splitServerJar";
