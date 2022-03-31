@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -45,6 +46,14 @@ public final class Utils {
         T task = project.getTasks().create(name, taskClass);
         task.setGroup(CLEANROOM_GRADLE_TASK_GROUP_KEY);
         return task;
+    }
+
+    public static <T extends Task> void configureTask(Project project, TaskProvider<T> provider, Consumer<T> task) {
+        if (project.getName().equals(PROJECT_TEST_NAME)) {
+            task.accept(provider.get());
+        } else {
+            provider.configure(task::accept);
+        }
     }
 
     @SuppressWarnings("unchecked")

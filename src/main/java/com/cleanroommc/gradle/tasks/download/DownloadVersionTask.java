@@ -11,7 +11,6 @@ import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.*;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 
@@ -30,10 +29,6 @@ public abstract class DownloadVersionTask extends DefaultTask {
 
     @TaskAction
     public void task$downloadVersion() throws IOException {
-        downloadVersion();
-    }
-
-    public void downloadVersion() throws IOException {
         String mcVersion = getMinecraftVersion().get();
         URL url = Utils.loadJson(getManifestFile().getAsFile().get(), Manifest.class).getUrl(mcVersion);
         getVersionFile().set(getVersionDir().file(mcVersion + ".json").get().getAsFile());

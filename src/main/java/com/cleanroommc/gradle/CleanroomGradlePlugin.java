@@ -56,12 +56,12 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
             });
         });
 
-        CleanroomLogger.log2("Setting up Mappings DSL Block...");
-        project.getExtensions().create(MAPPINGS_EXTENSION_KEY, MappingsExtension.class);
-
         CleanroomLogger.log2("Setting up Minecraft DSL Block...");
         project.getExtensions().create(MINECRAFT_EXTENSION_KEY, MinecraftExtension.class);
         // MinecraftExtension mcExt = MinecraftExtension.get(project);
+
+        CleanroomLogger.log2("Setting up Mappings DSL Block...");
+        project.getExtensions().create(MAPPINGS_EXTENSION_KEY, MappingsExtension.class);
 
         // Setup a clearCache task
         Utils.createTask(project, CLEAR_CACHE_TASK, Delete.class).delete(CACHE_FOLDER, PROJECT_TEMP_FOLDER);
@@ -69,13 +69,13 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         final TaskProvider<DownloadManifestTask> downloadManifest = DownloadManifestTask.setupDownloadMetaTask(project);
 
         final TaskProvider<DownloadVersionTask> downloadVersion = DownloadVersionTask.setupDownloadVersionTask(project);
-        downloadVersion.configure(task -> {
+        Utils.configureTask(project, downloadVersion, task -> {
             task.dependsOn(downloadManifest);
             task.getManifestFile().set(downloadManifest.flatMap(DownloadManifestTask::getManifest));
         });
 
         final TaskProvider<GrabAssetsTask> grabAssets = GrabAssetsTask.setupDownloadAssetsTask(project);
-        grabAssets.configure(task -> {
+        Utils.configureTask(project, grabAssets, task -> {
             task.dependsOn(downloadVersion);
             task.getMeta().set(downloadVersion.flatMap(DownloadVersionTask::getVersionFile));
         });

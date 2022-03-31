@@ -41,11 +41,7 @@ public abstract class GrabAssetsTask extends DefaultTask {
 
     @TaskAction
     public void task$getOrDownload() throws IOException, InterruptedException {
-        getOrDownload(getIndex(getMeta().get().getAsFile()));
-    }
-
-    public void getOrDownload(File assetIndex) throws IOException, InterruptedException {
-        AssetIndex index = Utils.loadJson(assetIndex, AssetIndex.class);
+        AssetIndex index = Utils.loadJson(getIndex(), AssetIndex.class);
         List<String> keys = new ArrayList<>(index.objects.keySet());
         Collections.sort(keys);
         removeDuplicateRemotePaths(keys, index);
@@ -103,9 +99,8 @@ public abstract class GrabAssetsTask extends DefaultTask {
     @Internal
     public abstract Property<Integer> getWorkerThreadCount();
 
-    @Internal
-    public File getIndex(File version) throws IOException {
-        VersionJson json = Utils.loadJson(version, VersionJson.class);
+    private File getIndex() throws IOException {
+        VersionJson json = Utils.loadJson(getMeta().get().getAsFile(), VersionJson.class);
         File target = ASSET_INDEX_FILE.apply(json.assetIndex.id);
         if (CacheUtils.isFileCorrupt(target, json.assetIndex.sha1, HashAlgorithm.SHA1)) {
             CleanroomLogger.log2("Downloading: {}", json.assetIndex.url);

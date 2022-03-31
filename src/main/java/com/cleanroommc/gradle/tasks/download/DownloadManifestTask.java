@@ -26,10 +26,6 @@ public abstract class DownloadManifestTask extends DefaultTask {
 
     @TaskAction
     public void task$downloadManifest() throws IOException {
-        downloadManifest();
-    }
-
-    public void downloadManifest() throws IOException {
         if (!Downloader.downloadEtaggedFile(new URL(getManifestSource().get()), getManifest().get().getAsFile(), false)) {
             throw new RuntimeException("Unable to download manifest.");
         }

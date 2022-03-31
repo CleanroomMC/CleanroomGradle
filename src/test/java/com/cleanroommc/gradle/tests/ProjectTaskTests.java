@@ -54,18 +54,17 @@ public class ProjectTaskTests {
         Task task = project.getTasks().getByPath(DOWNLOAD_MANIFEST);
         Assertions.assertTrue(task instanceof DownloadManifestTask);
         DownloadManifestTask dlMeta = (DownloadManifestTask) task;
-        dlMeta.downloadManifest();
+        dlMeta.task$downloadManifest();
 
         task = project.getTasks().getByPath(DOWNLOAD_VERSION);
         Assertions.assertTrue(task instanceof DownloadVersionTask);
         DownloadVersionTask dlVersion = (DownloadVersionTask) task;
-        dlVersion.downloadVersion();
+        dlVersion.task$downloadVersion();
 
         task = project.getTasks().getByPath(DOWNLOAD_ASSETS);
         Assertions.assertTrue(task instanceof GrabAssetsTask);
         GrabAssetsTask grabAssets = (GrabAssetsTask) task;
-        grabAssets.getMeta().set(dlVersion.getVersionFile());
-        grabAssets.getOrDownload(grabAssets.getIndex(dlVersion.getVersionFile().get().getAsFile()));
+        grabAssets.task$getOrDownload();
     }
 
 }
