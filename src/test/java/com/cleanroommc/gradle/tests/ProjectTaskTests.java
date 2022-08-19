@@ -2,9 +2,7 @@ package com.cleanroommc.gradle.tests;
 
 import com.cleanroommc.gradle.CleanroomLogger;
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
-import com.cleanroommc.gradle.tasks.download.DownloadManifestTask;
-import com.cleanroommc.gradle.tasks.download.DownloadVersionTask;
-import com.cleanroommc.gradle.tasks.download.GrabAssetsTask;
+import com.cleanroommc.gradle.tasks.download.*;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.testfixtures.ProjectBuilder;
@@ -44,8 +42,8 @@ public class ProjectTaskTests {
     @Order(1)
     public void testDefaults() {
         // Assert default maven repos
-        Assertions.assertEquals(1, project.getRepositories().stream().filter(ar -> ar.getName().equals("Minecraft")).count());
-        Assertions.assertEquals(1, project.getRepositories().stream().filter(ar -> ar.getName().equals("CleanroomMC")).count());
+        Assertions.assertTrue(project.getRepositories().stream().anyMatch(ar -> ar.getName().equals("Minecraft")));
+        Assertions.assertTrue(project.getRepositories().stream().anyMatch(ar -> ar.getName().equals("CleanroomMC")));
     }
 
     @Test
@@ -61,10 +59,20 @@ public class ProjectTaskTests {
         DownloadVersionTask dlVersion = (DownloadVersionTask) task;
         dlVersion.task$downloadVersion();
 
-        task = project.getTasks().getByPath(DOWNLOAD_ASSETS);
+        task = project.getTasks().getByPath(GRAB_ASSETS);
         Assertions.assertTrue(task instanceof GrabAssetsTask);
         GrabAssetsTask grabAssets = (GrabAssetsTask) task;
         grabAssets.task$getOrDownload();
+
+        task = project.getTasks().getByPath(DOWNLOAD_CLIENT_TASK);
+        Assertions.assertTrue(task instanceof DownloadClientTask);
+        DownloadClientTask downloadClient = (DownloadClientTask) task;
+        downloadClient.task$downloadClient();
+
+        task = project.getTasks().getByPath(DOWNLOAD_SERVER_TASK);
+        Assertions.assertTrue(task instanceof DownloadServerTask);
+        DownloadServerTask downloadServer = (DownloadServerTask) task;
+        downloadServer.task$downloadServer();
     }
 
 }

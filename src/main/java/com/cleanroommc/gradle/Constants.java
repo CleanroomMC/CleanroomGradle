@@ -101,14 +101,14 @@ public class Constants {
     public static final String CLEANROOM_GRADLE_TASK_GROUP_KEY = "CleanroomGradle";
     public static final String DOWNLOAD_MANIFEST = "downloadManifest";
     public static final String DOWNLOAD_VERSION = "downloadVersion";
-    public static final String DOWNLOAD_ASSETS = "downloadAssets";
+    public static final String GRAB_ASSETS = "grabAssets";
     public static final String EXTRACT_NATIVES_TASK = "extractNatives";
     public static final String EXTRACT_MCP_DATA_TASK = "extractMCPData";
     public static final String EXTRACT_MCP_MAPPINGS_TASK = "extractMCPMappings";
     public static final String CLEAR_CACHE_TASK = "clearCache";
     public static final String DL_MINECRAFT_ASSET_INDEX_TASK = "downloadAssetIndex";
-    public static final String DL_MINECRAFT_CLIENT_TASK = "downloadClient";
-    public static final String DL_MINECRAFT_SERVER_TASK = "downloadServer";
+    public static final String DOWNLOAD_CLIENT_TASK = "downloadClient";
+    public static final String DOWNLOAD_SERVER_TASK = "downloadServer";
     public static final String SPLIT_SERVER_JAR_TASK = "splitServerJar";
     public static final String MERGE_JARS_TASK = "mergeJars";
     public static final String RUN_MINECRAFT_CLIENT_TASK = "runClient";

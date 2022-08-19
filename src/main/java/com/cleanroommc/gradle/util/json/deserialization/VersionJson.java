@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 
 public class VersionJson {
 
+    public String id;
     @Nullable public Arguments arguments;
     public AssetIndex assetIndex;
     public String assets;

@@ -2,9 +2,7 @@ package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.extensions.MappingsExtension;
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
-import com.cleanroommc.gradle.tasks.download.DownloadManifestTask;
-import com.cleanroommc.gradle.tasks.download.DownloadVersionTask;
-import com.cleanroommc.gradle.tasks.download.GrabAssetsTask;
+import com.cleanroommc.gradle.tasks.download.*;
 import com.cleanroommc.gradle.util.Utils;
 import com.google.common.collect.ImmutableMap;
 import org.gradle.api.Plugin;
@@ -66,7 +64,7 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         // Setup a clearCache task
         Utils.createTask(project, CLEAR_CACHE_TASK, Delete.class).delete(CACHE_FOLDER, PROJECT_TEMP_FOLDER);
 
-        final TaskProvider<DownloadManifestTask> downloadManifest = DownloadManifestTask.setupDownloadMetaTask(project);
+        final TaskProvider<DownloadManifestTask> downloadManifest = DownloadManifestTask.setupDownloadManifestTask(project);
 
         final TaskProvider<DownloadVersionTask> downloadVersion = DownloadVersionTask.setupDownloadVersionTask(project);
         Utils.configureTask(project, downloadVersion, task -> {
@@ -76,6 +74,18 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
 
         final TaskProvider<GrabAssetsTask> grabAssets = GrabAssetsTask.setupDownloadAssetsTask(project);
         Utils.configureTask(project, grabAssets, task -> {
+            task.dependsOn(downloadVersion);
+            task.getMeta().set(downloadVersion.flatMap(DownloadVersionTask::getVersionFile));
+        });
+
+        final TaskProvider<DownloadClientTask> downloadClient = DownloadClientTask.setupDownloadClientTask(project);
+        Utils.configureTask(project, downloadClient, task -> {
+            task.dependsOn(downloadVersion);
+            task.getMeta().set(downloadVersion.flatMap(DownloadVersionTask::getVersionFile));
+        });
+
+        final TaskProvider<DownloadServerTask> downloadServer = DownloadServerTask.setupDownloadServerTask(project);
+        Utils.configureTask(project, downloadServer, task -> {
             task.dependsOn(downloadVersion);
             task.getMeta().set(downloadVersion.flatMap(DownloadVersionTask::getVersionFile));
         });

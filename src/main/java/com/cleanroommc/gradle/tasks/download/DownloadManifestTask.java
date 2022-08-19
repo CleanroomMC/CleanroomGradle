@@ -15,7 +15,7 @@ import static com.cleanroommc.gradle.Constants.*;
 
 public abstract class DownloadManifestTask extends DefaultTask {
 
-    public static TaskProvider<DownloadManifestTask> setupDownloadMetaTask(Project project) {
+    public static TaskProvider<DownloadManifestTask> setupDownloadManifestTask(Project project) {
         return Utils.prepareTask(project, DOWNLOAD_MANIFEST, DownloadManifestTask.class);
     }
 

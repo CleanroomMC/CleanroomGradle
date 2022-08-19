@@ -26,7 +26,7 @@ import static com.cleanroommc.gradle.Constants.*;
 public abstract class GrabAssetsTask extends DefaultTask {
 
     public static TaskProvider<GrabAssetsTask> setupDownloadAssetsTask(Project project) {
-        return Utils.prepareTask(project, DOWNLOAD_ASSETS, GrabAssetsTask.class);
+        return Utils.prepareTask(project, GRAB_ASSETS, GrabAssetsTask.class);
     }
 
     private static void removeDuplicateRemotePaths(List<String> keys, AssetIndex index) {
@@ -79,7 +79,7 @@ public abstract class GrabAssetsTask extends DefaultTask {
             }
         }
         executorService.shutdown();
-        executorService.awaitTermination(8, TimeUnit.HOURS);
+        executorService.awaitTermination(1, TimeUnit.HOURS);
         if (!failedDownloads.isEmpty()) {
             StringBuilder errorMessage = new StringBuilder();
             for (String key : failedDownloads) {
