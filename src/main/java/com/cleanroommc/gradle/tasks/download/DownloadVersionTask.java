@@ -1,6 +1,7 @@
 package com.cleanroommc.gradle.tasks.download;
 
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
+import com.cleanroommc.gradle.json.MinecraftVersion;
 import com.cleanroommc.gradle.util.Downloader;
 import com.cleanroommc.gradle.util.Utils;
 import com.cleanroommc.gradle.util.json.deserialization.Manifest;
@@ -35,6 +36,7 @@ public abstract class DownloadVersionTask extends DefaultTask {
         if (!Downloader.downloadEtaggedFile(url, getVersionFile().get().getAsFile(), false)) {
             throw new RuntimeException("Unable to download + " + mcVersion + " version json.");
         }
+        MinecraftExtension.get(PROJECT).setVersionFile(Utils.loadJson(getVersionFile().getAsFile().get(), MinecraftVersion.class));
     }
 
     @Internal

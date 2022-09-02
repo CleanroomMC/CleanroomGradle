@@ -1,10 +1,13 @@
 package com.cleanroommc.gradle.tasks.download;
 
 import com.cleanroommc.gradle.CleanroomLogger;
+import com.cleanroommc.gradle.Constants;
+import com.cleanroommc.gradle.extensions.MinecraftExtension;
+import com.cleanroommc.gradle.json.MinecraftVersion;
+import com.cleanroommc.gradle.json.MinecraftVersion.AssetIndex;
 import com.cleanroommc.gradle.util.CacheUtils;
 import com.cleanroommc.gradle.util.CacheUtils.HashAlgorithm;
 import com.cleanroommc.gradle.util.Utils;
-import com.cleanroommc.gradle.util.json.deserialization.VersionJson;
 import org.apache.commons.io.FileUtils;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
@@ -100,14 +103,14 @@ public abstract class GrabAssetsTask extends DefaultTask {
     public abstract Property<Integer> getWorkerThreadCount();
 
     private File getIndex() throws IOException {
-        VersionJson json = Utils.loadJson(getMeta().get().getAsFile(), VersionJson.class);
-        File target = ASSET_INDEX_FILE.apply(json.assetIndex.id);
-        if (CacheUtils.isFileCorrupt(target, json.assetIndex.sha1, HashAlgorithm.SHA1)) {
-            CleanroomLogger.log2("Downloading: {}", json.assetIndex.url);
+        MinecraftVersion.AssetIndex assetIndex = MinecraftExtension.get(PROJECT).getVersionInfo().assetIndex;
+        File target = ASSET_INDEX_FILE.apply(assetIndex.id);
+        if (CacheUtils.isFileCorrupt(target, assetIndex.sha1, HashAlgorithm.SHA1)) {
+            CleanroomLogger.log2("Downloading: {}", assetIndex.url);
             if (!target.getParentFile().exists()) {
                 target.getParentFile().mkdirs();
             }
-            FileUtils.copyURLToFile(json.assetIndex.url, target);
+            FileUtils.copyURLToFile(assetIndex.url, target);
         }
         return target;
     }
