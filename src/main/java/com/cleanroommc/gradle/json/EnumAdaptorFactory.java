@@ -1,4 +1,4 @@
-package com.cleanroommc.gradle.util.json.deserialization;
+package com.cleanroommc.gradle.json;
 
 import java.io.IOException;
 import java.util.HashMap;

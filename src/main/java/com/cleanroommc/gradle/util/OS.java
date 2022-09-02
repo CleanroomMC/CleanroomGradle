@@ -1,4 +1,4 @@
-package com.cleanroommc.gradle.util.json.deserialization.mcversion;
+package com.cleanroommc.gradle.util;
 
 import java.util.Locale;
 

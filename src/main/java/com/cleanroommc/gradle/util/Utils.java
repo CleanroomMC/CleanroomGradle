@@ -1,7 +1,7 @@
 package com.cleanroommc.gradle.util;
 
 import com.cleanroommc.gradle.CleanroomLogger;
-import com.cleanroommc.gradle.util.json.deserialization.EnumAdaptorFactory;
+import com.cleanroommc.gradle.json.EnumAdaptorFactory;
 import com.cleanroommc.gradle.util.json.deserialization.manifest.ManifestVersionsAdapter;
 import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
@@ -17,15 +17,10 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.channels.FileChannel;
-import java.security.MessageDigest;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 import static com.cleanroommc.gradle.Constants.*;
 
