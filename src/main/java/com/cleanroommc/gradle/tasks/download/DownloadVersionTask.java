@@ -1,10 +1,10 @@
 package com.cleanroommc.gradle.tasks.download;
 
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
+import com.cleanroommc.gradle.json.Manifest;
 import com.cleanroommc.gradle.json.MinecraftVersion;
 import com.cleanroommc.gradle.util.Downloader;
 import com.cleanroommc.gradle.util.Utils;
-import com.cleanroommc.gradle.util.json.deserialization.Manifest;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
 import org.gradle.api.file.DirectoryProperty;

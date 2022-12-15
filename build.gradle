@@ -47,6 +47,7 @@ dependencies {
     // Forge-Related Libraries
     implementation 'net.minecraftforge:artifactural:3.0.8'
     implementation 'net.minecraftforge:accesstransformers:8.0.+:fatjar'
+    implementation 'net.minecraftforge:binarypatcher:1.+:fatjar'
     implementation 'net.minecraftforge:DiffPatch:2.0.7:all'
 
     // JUnit 5

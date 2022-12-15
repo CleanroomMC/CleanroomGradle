@@ -2,14 +2,19 @@ package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.extensions.MappingsExtension;
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
+import com.cleanroommc.gradle.tasks.PrepareDependenciesTask;
 import com.cleanroommc.gradle.tasks.download.*;
+import com.cleanroommc.gradle.tasks.makerun.MakeRunTask;
 import com.cleanroommc.gradle.util.Utils;
 import com.google.common.collect.ImmutableMap;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.dsl.RepositoryHandler;
 import org.gradle.api.tasks.Delete;
+import org.gradle.api.tasks.JavaExec;
 import org.gradle.api.tasks.TaskProvider;
+
+import java.io.File;
 
 import static com.cleanroommc.gradle.Constants.*;
 
@@ -55,7 +60,7 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         });
 
         CleanroomLogger.log2("Setting up Minecraft DSL Block...");
-        project.getExtensions().create(MINECRAFT_EXTENSION_KEY, MinecraftExtension.class);
+        MinecraftExtension mcExt = project.getExtensions().create(MINECRAFT_EXTENSION_KEY, MinecraftExtension.class);
         // MinecraftExtension mcExt = MinecraftExtension.get(project);
 
         CleanroomLogger.log2("Setting up Mappings DSL Block...");
@@ -79,16 +84,30 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         });
 
         final TaskProvider<DownloadClientTask> downloadClient = DownloadClientTask.setupDownloadClientTask(project);
-        Utils.configureTask(project, downloadClient, task -> {
-            task.dependsOn(downloadVersion);
-            task.getMeta().set(downloadVersion.flatMap(DownloadVersionTask::getVersionFile));
-        });
+        Utils.configureTask(project, downloadClient, task -> task.dependsOn(downloadVersion));
 
         final TaskProvider<DownloadServerTask> downloadServer = DownloadServerTask.setupDownloadServerTask(project);
-        Utils.configureTask(project, downloadServer, task -> {
-            task.dependsOn(downloadVersion);
-            task.getMeta().set(downloadVersion.flatMap(DownloadVersionTask::getVersionFile));
+        Utils.configureTask(project, downloadServer, task -> task.dependsOn(downloadVersion));
+
+        final TaskProvider<PrepareDependenciesTask> prepareDependencies = PrepareDependenciesTask.setupPrepareDependenciesTask(project);
+
+        final TaskProvider<MakeRunTask> makeRun = MakeRunTask.setupMakeRunTask(project);
+
+        CleanroomLogger.log2("Setting up client run task...");
+        JavaExec runClient = Utils.createTask(project, RUN_CLEAN_CLIENT_TASK, JavaExec.class);
+        runClient.dependsOn(downloadClient, prepareDependencies);
+        runClient.doFirst(task -> {
+            new File(mcExt.getRunDir()).mkdirs();
+            JavaExec javaExecTask = (JavaExec) task;
+            javaExecTask.workingDir(mcExt.getRunDir());
+            javaExecTask.classpath(downloadClient.get().getJar());
         });
+        runClient.getOutputs().dir(mcExt.getRunDir());
+        runClient.setStandardOutput(System.out);
+        runClient.setErrorOutput(System.err);
+        runClient.setDescription("Runs Vanilla Minecraft Client");
+        // runClient.getMainClass().set("net.minecraft.client.main.Main");
+        runClient.getMainClass().set("CleanClient");
 
         /*
         CleanroomLogger.log2("Setting up client run task...");

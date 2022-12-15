@@ -1,12 +1,10 @@
 package com.cleanroommc.gradle.json;
 
 import com.cleanroommc.gradle.Constants;
-import com.cleanroommc.gradle.util.OS;
 
 import javax.annotation.Nullable;
 import java.net.URL;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 

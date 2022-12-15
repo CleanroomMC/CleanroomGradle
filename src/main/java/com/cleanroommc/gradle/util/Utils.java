@@ -2,7 +2,7 @@ package com.cleanroommc.gradle.util;
 
 import com.cleanroommc.gradle.CleanroomLogger;
 import com.cleanroommc.gradle.json.EnumAdaptorFactory;
-import com.cleanroommc.gradle.util.json.deserialization.manifest.ManifestVersionsAdapter;
+import com.cleanroommc.gradle.json.ManifestVersionsAdapter;
 import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;

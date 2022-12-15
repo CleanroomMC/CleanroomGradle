@@ -1,10 +1,16 @@
 package com.cleanroommc.gradle.tests;
 
 import com.cleanroommc.gradle.CleanroomLogger;
+import com.cleanroommc.gradle.Constants;
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
+import com.cleanroommc.gradle.json.MinecraftVersion.Library;
+import com.cleanroommc.gradle.tasks.PrepareDependenciesTask;
 import com.cleanroommc.gradle.tasks.download.*;
+import com.cleanroommc.gradle.tasks.makerun.MakeRunTask;
+import com.cleanroommc.gradle.tasks.makerun.RunType;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.tasks.JavaExec;
 import org.gradle.testfixtures.ProjectBuilder;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
@@ -22,6 +28,7 @@ public class ProjectTaskTests {
     @BeforeAll
     public static void setupProject() {
         File projectDir = new File(".", "test/project/");
+        new File(projectDir, "run").mkdirs();
         File homeDir = new File(".", "test/gradle_home/");
         project = ProjectBuilder.builder()
                 .withProjectDir(projectDir)
@@ -73,6 +80,46 @@ public class ProjectTaskTests {
         Assertions.assertTrue(task instanceof DownloadServerTask);
         DownloadServerTask downloadServer = (DownloadServerTask) task;
         downloadServer.task$downloadServer();
+
+        task = project.getTasks().getByPath(PREPARE_DEPENDENCIES_TASK);
+        Assertions.assertTrue(task instanceof PrepareDependenciesTask);
+        PrepareDependenciesTask downloadDependencies = (PrepareDependenciesTask) task;
+        downloadDependencies.task$downloadDependencies();
+
+    }
+
+    @Test
+    @Order(3)
+    public void testRunCleanClient() {
+
+        MinecraftExtension mcExt = MinecraftExtension.get(Constants.PROJECT);
+
+        Task task = project.getTasks().getByPath(MAKE_RUN_TASK);
+        Assertions.assertTrue(task instanceof MakeRunTask);
+        MakeRunTask makeRun = (MakeRunTask) task;
+        makeRun.getRunType().set(RunType.CleanClient);
+        makeRun.task$makeRun();
+
+        task = project.getTasks().getByPath(RUN_CLEAN_CLIENT_TASK);
+        Assertions.assertTrue(task instanceof JavaExec);
+        JavaExec runCleanClient = (JavaExec) task;
+        runCleanClient.workingDir("run");
+        runCleanClient.classpath(MAKE_RUNS_FOLDER.apply(mcExt.getVersion()));
+        runCleanClient.classpath(((DownloadClientTask) project.getTasks().getByPath(DOWNLOAD_CLIENT_TASK)).getJar());
+        File targetFolder = LIBRARIES_FOLDER.apply(mcExt.getVersion());
+        for (Library library : mcExt.getVersionInfo().libraries) {
+            if (library.downloads.artifact != null) {
+               runCleanClient.classpath(new File(targetFolder, library.downloads.artifact.path));
+            }
+        }
+        runCleanClient.args(
+                "--accessToken", "CleanroomGradle",
+                "--version", mcExt.getVersion(),
+                "--assetIndex", mcExt.getVersionInfo().assetIndex.id,
+                "--assetsDir", ASSETS_CACHE_FOLDER.toString());
+        runCleanClient.getClasspath().getFiles().forEach(f -> CleanroomLogger.debug(f.getName()));
+        runCleanClient.exec();
+
     }
 
 }
