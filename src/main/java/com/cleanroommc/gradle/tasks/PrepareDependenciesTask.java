@@ -41,16 +41,77 @@ public abstract class PrepareDependenciesTask extends DefaultTask {
         File librariesFolder = LIBRARIES_FOLDER.apply(version.id);
         File nativesFolder = NATIVES_FOLDER.apply(version.id);
         librariesFolder.mkdirs();
-        boolean needUpdate = false;
-        for (Library library : version.libraries) {
-            if (!library.isApplicable()) {
-                continue;
-            }
+        boolean refreshNatives = false;
+        for (Library library : version.libraries()) {
             Artifact artifact = library.downloads.artifact;
             if (artifact != null) {
                 File target = new File(librariesFolder, artifact.path);
-                if (CacheUtils.isFileCorrupt(target, artifact.sha1, HashAlgorithm.SHA1)) {
-                    needUpdate = true;
+                if (library.extract != null) {
+                    String hash = null;
+                    File parentFolder = target.getParentFile();
+                    if (parentFolder == null || parentFolder.listFiles() == null) {
+                        CleanroomLogger.log2("Downloading Library: {}", artifact.url);
+                        File originalTarget = new File(target + ".original");
+                        FileUtils.copyURLToFile(artifact.url, originalTarget);
+                        FileUtils.copyFile(originalTarget, target);
+                        try (FileSystem fs = FileSystems.newFileSystem(target.toPath())) {
+                            for (String exclude : library.extract.exclude) {
+                                Path path = fs.getPath(exclude);
+                                if (Files.exists(path)) {
+                                    Files.walkFileTree(path, new SimpleFileVisitor<>() {
+                                        @Override
+                                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                                            Files.deleteIfExists(file);
+                                            return super.visitFile(file, attrs);
+                                        }
+                                        @Override
+                                        public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                                            Files.deleteIfExists(dir);
+                                            return super.postVisitDirectory(dir, exc);
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                        hash = CacheUtils.hash(target, HashAlgorithm.SHA1);
+                        new File(parentFolder, hash + ".sha1").createNewFile();
+                    } else {
+                        for (File check : parentFolder.listFiles()) {
+                            if (check.getName().endsWith("sha1")) {
+                                hash = check.getName().split("\\.")[0];
+                            }
+                        }
+                        if (hash == null || CacheUtils.isFileCorrupt(target, hash, HashAlgorithm.SHA1)) {
+                            File originalTarget = new File(target + ".original");
+                            if (CacheUtils.isFileCorrupt(originalTarget, artifact.sha1, HashAlgorithm.SHA1)) {
+                                CleanroomLogger.log2("Downloading Library: {}", artifact.url);
+                                FileUtils.copyURLToFile(artifact.url, originalTarget);
+                            }
+                            FileUtils.copyFile(originalTarget, target);
+                            try (FileSystem fs = FileSystems.newFileSystem(target.toPath())) {
+                                for (String exclude : library.extract.exclude) {
+                                    Path path = fs.getPath(exclude);
+                                    if (Files.exists(path)) {
+                                        Files.walkFileTree(path, new SimpleFileVisitor<>() {
+                                            @Override
+                                            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                                                Files.deleteIfExists(file);
+                                                return super.visitFile(file, attrs);
+                                            }
+                                            @Override
+                                            public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                                                Files.deleteIfExists(dir);
+                                                return super.postVisitDirectory(dir, exc);
+                                            }
+                                        });
+                                    }
+                                }
+                            }
+                            hash = CacheUtils.hash(target, HashAlgorithm.SHA1);
+                            new File(parentFolder, hash + ".sha1").createNewFile();
+                        }
+                    }
+                } else if (CacheUtils.isFileCorrupt(target, artifact.sha1, HashAlgorithm.SHA1)) {
                     CleanroomLogger.log2("Downloading Library: {}", artifact.url);
                     FileUtils.copyURLToFile(artifact.url, target);
                 }
@@ -60,14 +121,14 @@ public abstract class PrepareDependenciesTask extends DefaultTask {
                 if (classifier != null) {
                     File target = new File(nativesFolder, classifier.path);
                     if (CacheUtils.isFileCorrupt(target, classifier.sha1, HashAlgorithm.SHA1)) {
-                        needUpdate = true;
+                        refreshNatives = true;
                         CleanroomLogger.log2("Downloading Native Library: {}", classifier.url);
                         FileUtils.copyURLToFile(classifier.url, target);
                     }
                 }
             }
         }
-        if (needUpdate) {
+        if (refreshNatives) {
             extractNatives(version);
         }
     }

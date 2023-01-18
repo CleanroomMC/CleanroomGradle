@@ -16,6 +16,8 @@ import org.gradle.api.tasks.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 
 import static com.cleanroommc.gradle.Constants.DOWNLOAD_CLIENT_TASK;
 import static com.cleanroommc.gradle.Constants.MINECRAFT_CLIENT_FILE;
@@ -31,12 +33,59 @@ public abstract class DownloadClientTask extends DefaultTask {
         MinecraftVersion version = MinecraftExtension.get(Constants.PROJECT).getVersionInfo();
         File target = MINECRAFT_CLIENT_FILE.apply(version.id);
         Download client = version.downloads.client;
-        if (CacheUtils.isFileCorrupt(target, client.sha1, HashAlgorithm.SHA1)) {
+        String hash = null;
+        File parentFolder = target.getParentFile();
+        if (parentFolder == null || parentFolder.listFiles() == null) {
             CleanroomLogger.log2("Downloading: {}", client.url);
-            if (!target.getParentFile().exists()) {
-                target.getParentFile().mkdirs();
+            File originalTarget = new File(target + ".original");
+            FileUtils.copyURLToFile(client.url, originalTarget);
+            FileUtils.copyFile(originalTarget, target);
+            try (FileSystem fs = FileSystems.newFileSystem(target.toPath())) {
+                Files.walkFileTree(fs.getPath("META-INF"), new SimpleFileVisitor<>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        Files.deleteIfExists(file);
+                        return super.visitFile(file, attrs);
+                    }
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                        Files.deleteIfExists(dir);
+                        return super.postVisitDirectory(dir, exc);
+                    }
+                });
             }
-            FileUtils.copyURLToFile(client.url, target);
+            hash = CacheUtils.hash(target, HashAlgorithm.SHA1);
+            new File(parentFolder, hash + ".sha1").createNewFile();
+        } else {
+            for (File check : parentFolder.listFiles()) {
+                if (check.getName().endsWith("sha1")) {
+                    hash = check.getName().split("\\.")[0];
+                }
+            }
+            if (hash == null || CacheUtils.isFileCorrupt(target, hash, HashAlgorithm.SHA1)) {
+                File originalTarget = new File(target + ".original");
+                if (CacheUtils.isFileCorrupt(originalTarget, client.sha1, HashAlgorithm.SHA1)) {
+                    CleanroomLogger.log2("Downloading Library: {}", client.url);
+                    FileUtils.copyURLToFile(client.url, originalTarget);
+                }
+                FileUtils.copyFile(originalTarget, target);
+                try (FileSystem fs = FileSystems.newFileSystem(target.toPath())) {
+                    Files.walkFileTree(fs.getPath("META-INF"), new SimpleFileVisitor<>() {
+                        @Override
+                        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                            Files.deleteIfExists(file);
+                            return super.visitFile(file, attrs);
+                        }
+                        @Override
+                        public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                            Files.deleteIfExists(dir);
+                            return super.postVisitDirectory(dir, exc);
+                        }
+                    });
+                }
+                hash = CacheUtils.hash(target, HashAlgorithm.SHA1);
+                new File(parentFolder, hash + ".sha1").createNewFile();
+            }
         }
         getJar().set(target);
     }

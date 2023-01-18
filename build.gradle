@@ -10,7 +10,7 @@ plugins {
     id 'maven-publish'
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(8)
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 group 'com.cleanroommc'
 version '1.0'

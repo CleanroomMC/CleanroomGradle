@@ -107,19 +107,19 @@ public class ProjectTaskTests {
         runCleanClient.classpath(MAKE_RUNS_FOLDER.apply(mcExt.getVersion()));
         runCleanClient.classpath(((DownloadClientTask) project.getTasks().getByPath(DOWNLOAD_CLIENT_TASK)).getJar());
         File targetFolder = LIBRARIES_FOLDER.apply(mcExt.getVersion());
-        for (Library library : mcExt.getVersionInfo().libraries) {
+        for (Library library : mcExt.getVersionInfo().libraries()) {
             if (library.downloads.artifact != null) {
-               runCleanClient.classpath(new File(targetFolder, library.downloads.artifact.path));
+                CleanroomLogger.log(library.name);
+                runCleanClient.classpath(new File(targetFolder, library.downloads.artifact.path));
             }
-        }
+       }
+        runCleanClient.systemProperty("java.library.path", EXTRACTED_NATIVES_FOLDER.apply(mcExt.getVersion()));
         runCleanClient.args(
                 "--accessToken", "CleanroomGradle",
                 "--version", mcExt.getVersion(),
                 "--assetIndex", mcExt.getVersionInfo().assetIndex.id,
                 "--assetsDir", ASSETS_CACHE_FOLDER.toString());
-        runCleanClient.getClasspath().getFiles().forEach(f -> CleanroomLogger.debug(f.getName()));
         runCleanClient.exec();
-
     }
 
 }

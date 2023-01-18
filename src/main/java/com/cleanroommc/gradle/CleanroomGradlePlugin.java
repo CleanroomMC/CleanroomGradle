@@ -2,6 +2,7 @@ package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.extensions.MappingsExtension;
 import com.cleanroommc.gradle.extensions.MinecraftExtension;
+import com.cleanroommc.gradle.json.MinecraftVersion.Library;
 import com.cleanroommc.gradle.tasks.PrepareDependenciesTask;
 import com.cleanroommc.gradle.tasks.download.*;
 import com.cleanroommc.gradle.tasks.makerun.MakeRunTask;
@@ -24,9 +25,9 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
 
     @Override
     public void apply(Project project) {
-        if (!"1.8".equals(System.getProperty("java.specification.version"))) {
-            throw new UnsupportedOperationException("CleanroomGradle only supports Java 8 at the moment.");
-        }
+        // if (!"1.8".equals(System.getProperty("java.specification.version"))) {
+            // throw new UnsupportedOperationException("CleanroomGradle only supports Java 8 at the moment.");
+        // }
 
         CleanroomLogger.logTitle("Welcome to CleanroomGradle.");
 
@@ -101,13 +102,21 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
             JavaExec javaExecTask = (JavaExec) task;
             javaExecTask.workingDir(mcExt.getRunDir());
             javaExecTask.classpath(downloadClient.get().getJar());
+            File targetFolder = LIBRARIES_FOLDER.apply(mcExt.getVersion());
+            for (Library library : mcExt.getVersionInfo().libraries()) {
+                if (library.downloads.artifact != null) {
+                    if (library.isApplicable()) {
+                        javaExecTask.classpath(new File(targetFolder, library.downloads.artifact.path));
+                    }
+                }
+            }
         });
         runClient.getOutputs().dir(mcExt.getRunDir());
         runClient.setStandardOutput(System.out);
         runClient.setErrorOutput(System.err);
         runClient.setDescription("Runs Vanilla Minecraft Client");
-        // runClient.getMainClass().set("net.minecraft.client.main.Main");
-        runClient.getMainClass().set("CleanClient");
+        runClient.getMainClass().set("net.minecraft.client.main.Main");
+        // runClient.getMainClass().set("CleanClient");
 
         /*
         CleanroomLogger.log2("Setting up client run task...");

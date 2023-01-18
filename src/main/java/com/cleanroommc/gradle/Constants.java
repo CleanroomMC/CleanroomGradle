@@ -80,7 +80,7 @@ public class Constants {
     public static final File MCP_MAPPINGS_ETAG = new File(CACHE_FOLDER, "mappings.json.etag");
     public static final File FERNFLOWER_FILE = new File(CACHE_FOLDER, "fernflower-fixed.jar");
 
-    public static final Function<String, File> LIBRARIES_FOLDER = version -> new File(CACHE_FOLDER, "libraries/" + version + "/");
+    public static final Function<String, File> LIBRARIES_FOLDER = version -> new File(CACHE_FOLDER, "libraries/");
     public static final Function<String, File> NATIVES_FOLDER = version -> new File(CACHE_FOLDER, "natives/" + version + "/");
     public static final Function<String, File> EXTRACTED_NATIVES_FOLDER = version -> new File(CACHE_FOLDER, "extracted_natives/" + version + "/");
     public static final Function<String, File> MCP_DATA_CACHE_FOLDER = version -> new File(MCP_CACHE_FOLDER, "mcp/" + version + "/");

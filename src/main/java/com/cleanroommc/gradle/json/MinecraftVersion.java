@@ -4,8 +4,7 @@ import com.cleanroommc.gradle.Constants;
 
 import javax.annotation.Nullable;
 import java.net.URL;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class MinecraftVersion {
@@ -14,12 +13,40 @@ public class MinecraftVersion {
     public String assets;
     public AssetIndex assetIndex;
     public RunnableDownloads downloads;
-    public List<Library> libraries;
+    private List<Library> libraries;
     public String mainClass;
     public String minecraftArguments;
     public String minimumLauncherVersion;
     public String releaseTime;
     public String release; // Enum
+
+    private List<Library> filteredLibraries;
+
+    public List<Library> libraries() {
+        if (filteredLibraries != null) {
+            return filteredLibraries;
+        }
+        if (libraries != null) {
+            List<Library> newLibraries = new ArrayList<>();
+            loop: for (Library library : libraries) {
+                if (!library.isApplicable()) {
+                    continue;
+                }
+                ListIterator<Library> newLibrariesIter = newLibraries.listIterator();
+                while (newLibrariesIter.hasNext()) {
+                    Library iterLibrary = newLibrariesIter.next();
+                    if (iterLibrary.name.equals(library.name) && iterLibrary.natives == null && library.natives != null) {
+                        newLibrariesIter.set(library);
+                        continue loop;
+                    }
+                }
+                newLibraries.add(library);
+            }
+            filteredLibraries = newLibraries;
+            return filteredLibraries;
+        }
+        return Collections.emptyList();
+    }
 
     public static class JavaVersion {
 
