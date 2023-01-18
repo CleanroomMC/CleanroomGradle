@@ -94,10 +94,10 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
 
         final TaskProvider<MakeRunTask> makeRun = MakeRunTask.setupMakeRunTask(project);
 
-        CleanroomLogger.log2("Setting up client run task...");
-        JavaExec runClient = Utils.createTask(project, RUN_CLEAN_CLIENT_TASK, JavaExec.class);
-        runClient.dependsOn(downloadClient, prepareDependencies);
-        runClient.doFirst(task -> {
+        CleanroomLogger.log2("Setting up vanilla client run task...");
+        JavaExec runCleanClient = Utils.createTask(project, RUN_CLEAN_CLIENT_TASK, JavaExec.class);
+        runCleanClient.dependsOn(downloadClient, prepareDependencies);
+        runCleanClient.doFirst(task -> {
             new File(mcExt.getRunDir()).mkdirs();
             JavaExec javaExecTask = (JavaExec) task;
             javaExecTask.workingDir(mcExt.getRunDir());
@@ -111,12 +111,38 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
                 }
             }
         });
-        runClient.getOutputs().dir(mcExt.getRunDir());
-        runClient.setStandardOutput(System.out);
-        runClient.setErrorOutput(System.err);
-        runClient.setDescription("Runs Vanilla Minecraft Client");
-        runClient.getMainClass().set("net.minecraft.client.main.Main");
-        // runClient.getMainClass().set("CleanClient");
+        runCleanClient.getOutputs().dir(mcExt.getRunDir());
+        runCleanClient.setStandardOutput(System.out);
+        runCleanClient.setErrorOutput(System.err);
+        runCleanClient.setDescription("Runs vanilla Minecraft Client");
+        runCleanClient.getMainClass().set("net.minecraft.client.main.Main");
+        // runCleanClient.getMainClass().set("CleanClient");
+
+        CleanroomLogger.log2("Setting up vanilla server run task...");
+        JavaExec runCleanServer = Utils.createTask(project, RUN_CLEAN_SERVER_TASK, JavaExec.class);
+        runCleanServer.dependsOn(downloadServer, prepareDependencies);
+        runCleanServer.doFirst(task -> {
+            new File(mcExt.getRunDir()).mkdirs();
+            JavaExec javaExecTask = (JavaExec) task;
+            javaExecTask.workingDir(mcExt.getRunDir());
+            javaExecTask.classpath(downloadServer.get().getJar());
+            File targetFolder = LIBRARIES_FOLDER.apply(mcExt.getVersion());
+            for (Library library : mcExt.getVersionInfo().libraries()) {
+                if (library.downloads.artifact != null) {
+                    if (library.isApplicable()) {
+                        javaExecTask.classpath(new File(targetFolder, library.downloads.artifact.path));
+                    }
+                }
+            }
+        });
+        runCleanServer.getOutputs().dir(mcExt.getRunDir());
+        runCleanServer.setStandardInput(System.in);
+        runCleanServer.setStandardOutput(System.out);
+        runCleanServer.setErrorOutput(System.err);
+        runCleanServer.setDescription("Runs vanilla Minecraft's Server");
+        runCleanServer.getMainClass().set("net.minecraft.server.MinecraftServer");
+
+
 
         /*
         CleanroomLogger.log2("Setting up client run task...");

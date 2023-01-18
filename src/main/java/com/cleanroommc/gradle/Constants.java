@@ -17,7 +17,7 @@ import java.util.function.Function;
 
 /**
  * Naming Conventions:
- *
+ * <p>
  * {@link Directory}: _DIR
  * {@link File}: isDirectory = _FOLDER, isFile = _FILE
  */
@@ -90,7 +90,7 @@ public class Constants {
     public static final Function<String, File> VERSION_FILE = version -> new File(VERSIONS_CACHE_FOLDER, version + ".json");
     public static final Function<String, File> ASSET_INDEX_FILE = version -> new File(ASSETS_CACHE_FOLDER, "indexes/" + version + ".json");
     public static final Function<String, File> MINECRAFT_CLIENT_FILE = version ->
-            new File(CACHE_FOLDER, "net/minecraft/minecraft/" + version + "/minecraft-" + version + ".jar");
+            new File(CACHE_FOLDER, "net/minecraft/minecraft/" + version + "/minecraft-" + version + "-client.jar");
     public static final Function<String, File> MINECRAFT_SERVER_FILE = version ->
             new File(CACHE_FOLDER, "net/minecraft/minecraft_server/" + version + "/minecraft_server-" + version + ".jar");
     public static final Function<String, File> MINECRAFT_SERVER_PURE_FILE = version ->
