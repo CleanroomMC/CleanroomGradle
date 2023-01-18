@@ -41,7 +41,7 @@ public class TestRuns {
 
         @Test
         void testRunCleanClient() {
-            initRun(RUN_CLEAN_CLIENT_TASK, DOWNLOAD_CLIENT_TASK);
+            Runs.RUN_CLEAN_CLIENT.run();
         }
     }
 
@@ -67,7 +67,7 @@ public class TestRuns {
         @Order(2)
         void testRunCleanServer() {
             CleanroomLogger.log("TEST PHASE >> {}", "testRunCleanServer");
-            initRun(RUN_CLEAN_SERVER_TASK, DOWNLOAD_SERVER_TASK);
+            Runs.RUN_CLEAN_SERVER.run();
         }
     }
 
@@ -148,6 +148,24 @@ public class TestRuns {
         }
 
         abstract void doTask() throws IOException, InterruptedException;
+    }
+
+    enum Runs {
+        RUN_CLEAN_CLIENT {
+            @Override
+            public void run() {
+                initRun(RUN_CLEAN_CLIENT_TASK, DOWNLOAD_CLIENT_TASK);
+            }
+        },
+
+        RUN_CLEAN_SERVER {
+            @Override
+            public void run() {
+                initRun(RUN_CLEAN_SERVER_TASK, DOWNLOAD_SERVER_TASK);
+            }
+        };
+
+        public abstract void run();
     }
 
     private static void initRun(String launchTaskName, String downloadTaskName) {
