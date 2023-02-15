@@ -23,7 +23,15 @@ public class ProjectTaskTests {
     @Test
     @Order(2)
     public void testTasks() {
-        Tasks.executeAllTasks();
+        Tasks.runTasks(tasks -> {
+            tasks.runClearCacheTask();
+            tasks.runDownloadManifest();
+            tasks.runDownloadVersion();
+            tasks.runGrabAssets();
+            tasks.runDownloadClientTask();
+            tasks.runDownloadServerTask();
+            tasks.runPrepareDependenciesTask();
+        });
     }
 
 }
