@@ -5,6 +5,7 @@ import com.cleanroommc.gradle.dependency.MinecraftDependency;
 import com.cleanroommc.gradle.extension.ManifestExtension;
 import com.cleanroommc.gradle.json.schema.ManifestVersion;
 import com.cleanroommc.gradle.json.schema.ManifestVersion.Versions;
+import com.cleanroommc.gradle.json.schema.VersionMetadata;
 import com.cleanroommc.gradle.task.json.ReadJsonFileTask;
 import com.cleanroommc.gradle.util.ClosureUtil;
 import de.undercouch.gradle.tasks.download.Download;
@@ -48,11 +49,10 @@ public final class ManifestTasks {
         Set<MinecraftDependency> minecraftDependencies = MinecraftDependency.getMinecraftDependencies(project);
         List<String> defaultTasks = new ArrayList<>();
         TaskContainer tasks = project.getTasks();
-        Set<String> vanillaVersions = MinecraftDependency.getUniqueVanillaVersions(minecraftDependencies);
-        for (String vanillaVersion : vanillaVersions) {
-            String taskName = "download" + vanillaVersion.replace('.', '_') + "Manifest";
-            defaultTasks.add(taskName);
-            tasks.register(taskName, Download.class, task -> {
+        for (String vanillaVersion : MinecraftDependency.getUniqueVanillaVersions(minecraftDependencies)) {
+            String downloadManifestTaskName = "download" + vanillaVersion.replace('.', '_') + "Manifest";
+            defaultTasks.add(downloadManifestTaskName);
+            TaskProvider<Download> downloadManifestTask  = tasks.register(downloadManifestTaskName, Download.class, task -> {
                 Closure<String> urlGetter = ClosureUtil.of(() -> {
                     ManifestVersion manifestVersion = task.getProject().getExtensions().getByType(ManifestExtension.class).getVersions().get();
                     return manifestVersion.versions().stream().filter(v -> v.id().equals(vanillaVersion)).map(Versions::url).findFirst().orElseThrow();
@@ -63,6 +63,17 @@ public final class ManifestTasks {
                 task.overwrite(false);
                 task.onlyIfModified(true);
                 task.useETag(true);
+            });
+
+            String readManifestTaskName = "read" + vanillaVersion.replace('.', '_') + "Manifest";
+            defaultTasks.add(readManifestTaskName);
+            tasks.register(readManifestTaskName, ReadJsonFileTask.class, task -> {
+                task.setGroup(MANIFEST_GROUP);
+                task.dependsOn(downloadManifestTaskName);
+                task.getInputFile().fileProvider(downloadManifestTask.map(Download::getDest));
+                task.getType().set(VersionMetadata.class);
+                task.doLast("storeManifest", $task -> $task.getProject().getExtensions().getByType(ManifestExtension.class).getMetadataCache().get()
+                        .put(vanillaVersion, (VersionMetadata) ((ReadJsonFileTask) $task).output));
             });
         }
         defaultTasks.addAll(project.getGradle().getStartParameter().getTaskNames());
