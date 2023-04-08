@@ -8,7 +8,7 @@ import org.gradle.api.artifacts.*;
 import org.gradle.api.internal.artifacts.DefaultModuleIdentifier;
 import org.gradle.api.internal.artifacts.DefaultModuleVersionIdentifier;
 import org.gradle.api.internal.artifacts.dependencies.AbstractModuleDependency;
-import org.gradle.api.internal.artifacts.dependencies.DefaultImmutableVersionConstraint;
+import org.gradle.api.internal.artifacts.dependencies.DefaultMutableVersionConstraint;
 import org.gradle.util.Configurable;
 
 import javax.annotation.Nullable;
@@ -183,7 +183,7 @@ public class MinecraftDependency extends AbstractModuleDependency implements Ext
     }
 
     private VersionConstraint createPlaceholderVersionConstraint() {
-        return new DefaultImmutableVersionConstraint(this.version);
+        return new DefaultMutableVersionConstraint(this.version);
     }
 
     private ModuleVersionIdentifier createDefaultModuleVersionIdentifier() {
