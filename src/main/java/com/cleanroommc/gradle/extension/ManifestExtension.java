@@ -9,8 +9,6 @@ import org.gradle.api.provider.MapProperty;
 import org.gradle.api.provider.Property;
 
 import javax.inject.Inject;
-import java.util.HashMap;
-import java.util.Map;
 
 public abstract class ManifestExtension {
 
@@ -18,7 +16,7 @@ public abstract class ManifestExtension {
 
     @Inject
     public ManifestExtension(Project project) {
-        getLocation().set(CleanroomMeta.getVanillaVersionsCacheDirectory(project, "version_manifest_v2.json"));
+        getLocation().set(CleanroomMeta.getManifest(project, "version_manifest_v2"));
         getMetadataCache().set(project.getObjects().mapProperty(String.class, VersionMetadata.class).empty());
     }
 

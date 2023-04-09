@@ -29,7 +29,9 @@ public final class CleanroomMeta {
         GSON = builder.create();
     }
 
-    /** Locations **/
+    /**
+     * Locations
+     **/
 
     public static File getGradleHome(Project project) {
         return project.getGradle().getGradleUserHomeDir();
@@ -59,28 +61,61 @@ public final class CleanroomMeta {
         return FileUtils.getFile(getCacheRoot(project), paths);
     }
 
-    public static File getVanillaCacheDirectory(File gradleHomeLocation, String... paths) {
-        return FileUtils.getFile(new File(getCacheDirectory(gradleHomeLocation), "vanilla"), paths);
+    public static File getVersionsCacheDirectory(File gradleHomeLocation, String... paths) {
+        return FileUtils.getFile(new File(getCacheDirectory(gradleHomeLocation), "versions"), paths);
     }
 
-    public static File getVanillaCacheDirectory(Project project, String... paths) {
-        return FileUtils.getFile(new File(getCacheDirectory(project), "vanilla"), paths);
+    public static File getVersionsCacheDirectory(Project project, String... paths) {
+        return FileUtils.getFile(new File(getCacheDirectory(project), "versions"), paths);
     }
 
-    public static File getVanillaVersionsCacheDirectory(File gradleHomeLocation, String... paths) {
-        return FileUtils.getFile(new File(getVanillaCacheDirectory(gradleHomeLocation), "versions"), paths);
+    public static File getManifest(File gradleHomeLocation, String name) {
+        return getVersionsCacheDirectory(gradleHomeLocation, name + ".json");
     }
 
-    public static File getVanillaVersionsCacheDirectory(Project project, String... paths) {
-        return FileUtils.getFile(new File(getVanillaCacheDirectory(project), "versions"), paths);
+    public static File getManifest(Project project, String name) {
+        return getVersionsCacheDirectory(project, name + ".json");
+    }
+
+
+    public static File getCacheDirectoryForVersion(File gradleHomeLocation, String version, String... paths) {
+        return FileUtils.getFile(getVersionsCacheDirectory(gradleHomeLocation, version), paths);
+    }
+
+    public static File getCacheDirectoryForVersion(Project project, String version, String... paths) {
+        return FileUtils.getFile(getVersionsCacheDirectory(project, version), paths);
+    }
+
+    public static File getVersionManifest(File gradleHomeLocation, String version) {
+        return getCacheDirectoryForVersion(gradleHomeLocation, version, version + ".json");
+    }
+
+    public static File getVersionManifest(Project project, String version) {
+        return getCacheDirectoryForVersion(project, version, version + ".json");
+    }
+
+    public static File getAssetsCacheDirectory(File gradleHomeLocation, String... paths) {
+        return FileUtils.getFile(new File(getCacheDirectory(gradleHomeLocation), "assets"), paths);
+    }
+
+    public static File getAssetsCacheDirectory(Project project, String... paths) {
+        return FileUtils.getFile(new File(getCacheDirectory(project), "assets"), paths);
+    }
+
+    public static File getCacheDirectoryForAssetVersion(File gradleHomeLocation, String version, String... paths) {
+        return FileUtils.getFile(getVersionsCacheDirectory(gradleHomeLocation, version), paths);
+    }
+
+    public static File getCacheDirectoryForAssetVersion(Project project, String version, String... paths) {
+        return FileUtils.getFile(getVersionsCacheDirectory(project, version), paths);
     }
 
     public static File getAssetManifest(File gradleHomeLocation, String version) {
-        return getVanillaCacheDirectory(gradleHomeLocation, "assets", "indexes", version + ".json");
+        return getCacheDirectoryForAssetVersion(gradleHomeLocation, version, version + ".json");
     }
 
     public static File getAssetManifest(Project project, String version) {
-        return getVanillaCacheDirectory(project, "assets", "indexes", version + ".json");
+        return getCacheDirectoryForAssetVersion(project, version, version + ".json");
     }
 
     // TODO
@@ -92,6 +127,7 @@ public final class CleanroomMeta {
         return directory;
     }
 
-    private CleanroomMeta() { }
+    private CleanroomMeta() {
+    }
 
 }

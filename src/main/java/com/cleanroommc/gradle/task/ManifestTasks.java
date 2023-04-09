@@ -50,7 +50,7 @@ public final class ManifestTasks {
         List<String> defaultTasks = new ArrayList<>();
         TaskContainer tasks = project.getTasks();
         for (String vanillaVersion : MinecraftDependency.getUniqueVanillaVersions(minecraftDependencies)) {
-            String downloadManifestTaskName = "download" + vanillaVersion.replace('.', '_') + "Manifest";
+            String downloadManifestTaskName = downloadManifestTaskName(vanillaVersion);
             defaultTasks.add(downloadManifestTaskName);
             TaskProvider<Download> downloadManifestTask  = tasks.register(downloadManifestTaskName, Download.class, task -> {
                 Closure<String> urlGetter = ClosureUtil.of(() -> {
@@ -59,13 +59,13 @@ public final class ManifestTasks {
                 });
                 task.dependsOn(READ_MANIFEST);
                 task.src(urlGetter);
-                task.dest(CleanroomMeta.getVanillaVersionsCacheDirectory(project, vanillaVersion));
+                task.dest(CleanroomMeta.getVersionManifest(project, vanillaVersion));
                 task.overwrite(false);
                 task.onlyIfModified(true);
                 task.useETag(true);
             });
 
-            String readManifestTaskName = "read" + vanillaVersion.replace('.', '_') + "Manifest";
+            String readManifestTaskName = readManifestTaskName(vanillaVersion);
             defaultTasks.add(readManifestTaskName);
             tasks.register(readManifestTaskName, ReadJsonFileTask.class, task -> {
                 task.setGroup(MANIFEST_GROUP);
@@ -78,6 +78,14 @@ public final class ManifestTasks {
         }
         defaultTasks.addAll(project.getGradle().getStartParameter().getTaskNames());
         project.getGradle().getStartParameter().setTaskNames(defaultTasks); // TODO
+    }
+
+    public static String downloadManifestTaskName(String version) {
+        return "download" + version.replace('.', '_') + "Manifest";
+    }
+
+    public static String readManifestTaskName(String version) {
+       return  "read" + version.replace('.', '_') + "Manifest";
     }
 
     private ManifestTasks() { }
