@@ -8,6 +8,7 @@ import com.cleanroommc.gradle.json.schema.ManifestVersion.Versions;
 import com.cleanroommc.gradle.json.schema.VersionMetadata;
 import com.cleanroommc.gradle.task.json.ReadJsonFileTask;
 import com.cleanroommc.gradle.util.ClosureUtil;
+import com.cleanroommc.gradle.util.DirectoryUtil;
 import de.undercouch.gradle.tasks.download.Download;
 import groovy.lang.Closure;
 import org.gradle.api.Project;
@@ -52,14 +53,14 @@ public final class ManifestTasks {
         for (String vanillaVersion : MinecraftDependency.getUniqueVanillaVersions(minecraftDependencies)) {
             String downloadManifestTaskName = downloadManifestTaskName(vanillaVersion);
             defaultTasks.add(downloadManifestTaskName);
-            TaskProvider<Download> downloadManifestTask  = tasks.register(downloadManifestTaskName, Download.class, task -> {
+            TaskProvider<Download> downloadManifestTask = tasks.register(downloadManifestTaskName, Download.class, task -> {
                 Closure<String> urlGetter = ClosureUtil.of(() -> {
                     ManifestVersion manifestVersion = task.getProject().getExtensions().getByType(ManifestExtension.class).getVersions().get();
                     return manifestVersion.versions().stream().filter(v -> v.id().equals(vanillaVersion)).map(Versions::url).findFirst().orElseThrow();
                 });
                 task.dependsOn(READ_MANIFEST);
                 task.src(urlGetter);
-                task.dest(CleanroomMeta.getVersionManifest(project, vanillaVersion));
+                task.dest(DirectoryUtil.create(project, dir -> dir.getVersionManifest(vanillaVersion)));
                 task.overwrite(false);
                 task.onlyIfModified(true);
                 task.useETag(true);
@@ -85,9 +86,10 @@ public final class ManifestTasks {
     }
 
     public static String readManifestTaskName(String version) {
-       return  "read" + version.replace('.', '_') + "Manifest";
+        return "read" + version.replace('.', '_') + "Manifest";
     }
 
-    private ManifestTasks() { }
+    private ManifestTasks() {
+    }
 
 }

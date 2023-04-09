@@ -1,8 +1,8 @@
 package com.cleanroommc.gradle.extension;
 
-import com.cleanroommc.gradle.CleanroomMeta;
 import com.cleanroommc.gradle.json.schema.ManifestVersion;
 import com.cleanroommc.gradle.json.schema.VersionMetadata;
+import com.cleanroommc.gradle.util.DirectoryUtil;
 import org.gradle.api.Project;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.MapProperty;
@@ -16,7 +16,7 @@ public abstract class ManifestExtension {
 
     @Inject
     public ManifestExtension(Project project) {
-        getLocation().set(CleanroomMeta.getManifest(project, "version_manifest_v2"));
+        getLocation().set(DirectoryUtil.create(project, dir -> dir.getMainVersionManifest("version_manifest_v2")));
         getMetadataCache().set(project.getObjects().mapProperty(String.class, VersionMetadata.class).empty());
     }
 

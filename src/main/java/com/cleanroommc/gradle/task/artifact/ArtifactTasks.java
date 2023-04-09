@@ -7,6 +7,7 @@ import com.cleanroommc.gradle.extension.ManifestExtension;
 import com.cleanroommc.gradle.json.schema.VersionMetadata;
 import com.cleanroommc.gradle.task.ManifestTasks;
 import com.cleanroommc.gradle.util.ClosureUtil;
+import com.cleanroommc.gradle.util.DirectoryUtil;
 import de.undercouch.gradle.tasks.download.Download;
 import groovy.lang.Closure;
 import org.gradle.api.Project;
@@ -37,7 +38,7 @@ public final class ArtifactTasks {
                 });
                 task.dependsOn(ManifestTasks.readManifestTaskName(vanillaVersion.getVanillaVersion()));
                 task.src(urlGetter);
-                task.dest(CleanroomMeta.getCacheDirectoryForVersion(project, vanillaVersion.getVanillaVersion(), "artifacts"));
+                task.dest(DirectoryUtil.create(project, dir -> dir.getArtifacts(vanillaVersion.getVanillaVersion())));
                 task.overwrite(false);
                 task.onlyIfModified(true);
                 task.useETag(true);
