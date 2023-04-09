@@ -39,7 +39,7 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         CleanroomLogging.step(logger, "Registering dynamic manifest tasks...");
         project.afterEvaluate(ManifestTasks::registerAfterEvaluation);
         CleanroomLogging.step(logger, "Registering dynamic artifact tasks...");
-        project.afterEvaluate(ArtifactTasks::register);
+        project.afterEvaluate(ArtifactTasks::registerAfterEvaluation);
 
     }
 

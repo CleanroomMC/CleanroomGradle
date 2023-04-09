@@ -79,7 +79,7 @@ public class MinecraftDependency extends AbstractModuleDependency implements Ext
     }
 
     public String getTaskDescription() {
-        return this.loader + "_" + this.version + "_" + this.loaderVersion + "_" + this.mappingProvider + "_" + this.mappingVersion;
+        return internalLoader.getValue() + "_" + this.version + "_" + this.loaderVersion + "_" + internalMappingProvider.getValue() + "_" + this.mappingVersion;
     }
 
     @Override
