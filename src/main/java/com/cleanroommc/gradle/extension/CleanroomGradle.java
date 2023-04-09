@@ -1,5 +1,7 @@
 package com.cleanroommc.gradle.extension;
 
+import com.cleanroommc.gradle.dependency.Loader;
+import com.cleanroommc.gradle.dependency.Mapping;
 import com.cleanroommc.gradle.dependency.MinecraftDependency;
 import org.gradle.api.Action;
 
@@ -19,27 +21,27 @@ public final class CleanroomGradle {
     }
 
     public MinecraftDependency forge(String version, String loaderVersion, String mappingVersion) {
-        return minecraft(version, "forge", loaderVersion, "mcp", mappingVersion);
+        return minecraft(version, Loader.FORGE.getValue(), loaderVersion, Mapping.MCP.getValue(), mappingVersion);
     }
 
     public MinecraftDependency forge(String version, String loaderVersion, String mappingVersion, Action<MinecraftDependency> configurationAction) {
-        MinecraftDependency minecraftDependency = minecraft(version, "forge", loaderVersion, "mcp", mappingVersion);
+        MinecraftDependency minecraftDependency = minecraft(version, Loader.FORGE.getValue(), loaderVersion, Mapping.MCP.getValue(), mappingVersion);
         configurationAction.execute(minecraftDependency);
         return minecraftDependency;
     }
 
     public MinecraftDependency cleanroom(String cleanroomVersion) {
-        return minecraft("1.12.2", "cleanroom", cleanroomVersion, "mcp", "stable_39");
+        return minecraft("1.12.2", Loader.CLEANROOM.getValue(), cleanroomVersion, Mapping.MCP.getValue(), "stable_39");
     }
 
     public MinecraftDependency cleanroom(String cleanroomVersion, Action<MinecraftDependency> configurationAction) {
-        MinecraftDependency minecraftDependency = minecraft("1.12.2", "cleanroom", cleanroomVersion, "mcp", "stable_39");
+        MinecraftDependency minecraftDependency = minecraft("1.12.2", Loader.CLEANROOM.getValue(), cleanroomVersion, Mapping.MCP.getValue(), "stable_39");
         configurationAction.execute(minecraftDependency);
         return minecraftDependency;
     }
 
     public MinecraftDependency minecraft(String version) {
-        return new MinecraftDependency(version, MinecraftDependency.VANILLA);
+        return new MinecraftDependency(version, Loader.VANILLA.getValue());
     }
 
     public MinecraftDependency minecraft(String version, Action<MinecraftDependency> configurationAction) {

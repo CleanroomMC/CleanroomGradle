@@ -1,6 +1,7 @@
 package com.cleanroommc.gradle.dependency;
 
 import groovy.lang.Closure;
+import groovy.lang.DelegatesTo;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
@@ -15,21 +16,13 @@ import javax.annotation.Nullable;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.cleanroommc.gradle.dependency.Side.JOINED;
+
 public class MinecraftDependency extends AbstractModuleDependency implements ExternalModuleDependency, Configurable<MinecraftDependency> {
-
-    public static final String VANILLA = "vanilla";
-    public static final String FORGE = "forge";
-    public static final String CLEANROOM = "cleanroom";
-
-    public static final String MCP = "mcp";
-
-    public static final String CLIENT_ONLY = "client";
-    public static final String SERVER_ONLY = "server";
-    public static final String JOINED = "joined";
 
     public static MinecraftDependency parseFromMap(String version, Map<String, ?> configurationMap) {
         if (configurationMap.get("loader") instanceof String loader) {
-            if (!VANILLA.equals(loader)) {
+            if (Loader.VANILLA != Loader.valueOf(loader.toUpperCase())) {
                 if (configurationMap.get("loaderVersion") instanceof String loaderVersion) {
                     if (configurationMap.get("mappingProvider") instanceof String mappingProvider) {
                         // When the mapping is described, mapping_version must also be stated
@@ -37,7 +30,6 @@ public class MinecraftDependency extends AbstractModuleDependency implements Ext
                             MinecraftDependency minecraftDependency = new MinecraftDependency(version, loader, loaderVersion, mappingProvider, mappingVersion);
                             if (configurationMap.get("side") instanceof String side) {
                                 minecraftDependency.side = side;
-                                minecraftDependency.checkSideConstraints();
                             }
                             return minecraftDependency;
                         }
@@ -45,7 +37,7 @@ public class MinecraftDependency extends AbstractModuleDependency implements Ext
                 }
             }
         }
-        return new MinecraftDependency(version, VANILLA);
+        return new MinecraftDependency(version, Loader.VANILLA.getValue());
     }
 
     // Temporary
@@ -63,13 +55,16 @@ public class MinecraftDependency extends AbstractModuleDependency implements Ext
     }
 
     protected String version, loader, loaderVersion, mappingProvider, mappingVersion;
-    protected String side = JOINED;
+    protected String side = JOINED.getValue();
+    private Side internalSide;
+    private Loader internalLoader;
+    private Mapping internalMappingProvider;
 
     public MinecraftDependency(String version, String loader) {
         super(null);
         this.version = version;
         this.loader = loader;
-        checkLoaderConstraints();
+        validateDep();
     }
 
     public MinecraftDependency(String version, String loader, String loaderVersion, String mappingProvider, String mappingVersion) {
@@ -77,11 +72,14 @@ public class MinecraftDependency extends AbstractModuleDependency implements Ext
         this.loaderVersion = loaderVersion;
         this.mappingProvider = mappingProvider;
         this.mappingVersion = mappingVersion;
-        checkMappingConstraints();
     }
 
     public String getVanillaVersion() {
         return version;
+    }
+
+    public String getTaskDescription() {
+        return this.loader + "_" + this.version + "_" + this.loaderVersion + "_" + this.mappingProvider + "_" + this.mappingVersion;
     }
 
     @Override
@@ -161,25 +159,22 @@ public class MinecraftDependency extends AbstractModuleDependency implements Ext
 
     @Override
     public String toString() {
-        if ("vanilla".equals(this.loader)) {
+        if (Loader.VANILLA == this.internalLoader) {
             return String.format("Vanilla Minecraft Dependency: { Version: %s }", this.version);
         } else {
             return String.format("%s Minecraft Dependency: { Version: %s | Loader Version: %s | Mapping: %s@%s }",
-                    StringUtils.capitalize(this.loader), this.version, this.loaderVersion, this.mappingProvider, this.mappingVersion);
+                    StringUtils.capitalize(this.internalLoader.getValue()), this.version, this.loaderVersion, this.mappingProvider, this.mappingVersion);
         }
     }
 
     @Override
-    public MinecraftDependency configure(Closure closure) {
+    public MinecraftDependency configure(@DelegatesTo(MinecraftDependency.class) Closure closure) {
         closure.call(this);
-        checkLoaderConstraints();
-        checkMappingConstraints();
-        checkSideConstraints();
         return this;
     }
 
     private ModuleIdentifier createModuleIdentifier() {
-        return DefaultModuleIdentifier.newId("cleanroom_internal", this.loader);
+        return DefaultModuleIdentifier.newId("cleanroom_internal", this.internalLoader.getValue());
     }
 
     private VersionConstraint createPlaceholderVersionConstraint() {
@@ -190,26 +185,55 @@ public class MinecraftDependency extends AbstractModuleDependency implements Ext
         return DefaultModuleVersionIdentifier.newId(createModuleIdentifier(), this.version + (this.loader == null ? "" : "@" + this.loaderVersion));
     }
 
-    private void checkLoaderConstraints() {
-        if (VANILLA.equals(this.loader) || FORGE.equals(this.loader) || CLEANROOM.equals(this.loader)) {
-            return;
-        }
-        throw new UnsupportedOperationException(String.format("%s loader not supported!", this.loader));
+    private void validateDep() {
+        parseLoader();
+        parseSide();
+        parseMapping();
     }
 
-    private void checkMappingConstraints() {
-        if (MCP.equals(this.mappingProvider)) {
-            return;
+    private void parseLoader() {
+        try {
+            internalLoader = Loader.valueOf(loader.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            UnsupportedOperationException exception = new UnsupportedOperationException(String.format("%s loader not supported!", loader));
+            exception.addSuppressed(e);
+            throw exception;
         }
-        throw new UnsupportedOperationException(String.format("%s mapping provider not supported!", this.mappingProvider));
     }
 
-    private void checkSideConstraints() {
-        if (CLIENT_ONLY.equals(this.side) || SERVER_ONLY.equals(this.side) || JOINED.equals(this.side)) {
-            return;
+    private void parseSide() {
+        try {
+            internalSide = Side.valueOf(side.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            UnsupportedOperationException exception = new UnsupportedOperationException(String.format("%s side not supported!", side));
+            exception.addSuppressed(e);
+            throw exception;
         }
-        throw new UnsupportedOperationException(String.format("%s side not supported!", this.side));
     }
 
+    private void parseMapping() {
+        if (mappingProvider == null) {
+            internalMappingProvider = Mapping.MCP;
+            return;
+        }
+        try {
+            internalMappingProvider = Mapping.valueOf(mappingProvider.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            UnsupportedOperationException exception = new UnsupportedOperationException(String.format("%s mapping provider not supported!", mappingProvider));
+            exception.addSuppressed(e);
+            throw exception;
+        }
+    }
 
+    public Side getInternalSide() {
+        return internalSide;
+    }
+
+    public Loader getInternalLoader() {
+        return internalLoader;
+    }
+
+    public Mapping getInternalMappingProvider() {
+        return internalMappingProvider;
+    }
 }
