@@ -5,6 +5,7 @@ import com.cleanroommc.gradle.json.schema.ManifestVersion;
 import com.cleanroommc.gradle.json.schema.VersionMetadata;
 import org.gradle.api.Project;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.provider.MapProperty;
 import org.gradle.api.provider.Property;
 
 import javax.inject.Inject;
@@ -18,13 +19,13 @@ public abstract class ManifestExtension {
     @Inject
     public ManifestExtension(Project project) {
         getLocation().set(CleanroomMeta.getVanillaVersionsCacheDirectory(project, "version_manifest_v2.json"));
-        getMetadataCache().set(new HashMap<>());
+        getMetadataCache().set(project.getObjects().mapProperty(String.class, VersionMetadata.class).empty());
     }
 
     public abstract RegularFileProperty getLocation();
 
     public abstract Property<ManifestVersion> getVersions();
 
-    public abstract Property<Map<String, VersionMetadata>> getMetadataCache();
+    public abstract MapProperty<String, VersionMetadata> getMetadataCache();
 
 }

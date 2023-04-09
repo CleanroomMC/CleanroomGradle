@@ -72,7 +72,7 @@ public final class ManifestTasks {
                 task.dependsOn(downloadManifestTaskName);
                 task.getInputFile().fileProvider(downloadManifestTask.map(Download::getDest));
                 task.getType().set(VersionMetadata.class);
-                task.doLast("storeManifest", $task -> $task.getProject().getExtensions().getByType(ManifestExtension.class).getMetadataCache().get()
+                task.doLast("storeManifest", $task -> $task.getProject().getExtensions().getByType(ManifestExtension.class).getMetadataCache()
                         .put(vanillaVersion, (VersionMetadata) ((ReadJsonFileTask) $task).output));
             });
         }

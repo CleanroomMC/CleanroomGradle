@@ -23,7 +23,7 @@ abstract class TestFoundation {
                 """
                 plugins {
                     id 'java'
-                    id 'com.cleanroommc.gradle'
+                    id 'com.cleanroommc.cleanroom-gradle'
                 }
                 """
         appendBuildScript(buildFile)
