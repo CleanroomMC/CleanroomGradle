@@ -2,11 +2,8 @@ package com.cleanroommc.gradle;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import org.apache.commons.io.FileUtils;
 import org.gradle.api.Project;
 import org.gradle.api.file.Directory;
-
-import java.io.File;
 
 public final class CleanroomMeta {
 

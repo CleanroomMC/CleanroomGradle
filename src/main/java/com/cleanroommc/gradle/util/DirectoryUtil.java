@@ -1,11 +1,8 @@
 package com.cleanroommc.gradle.util;
 
-import org.apache.commons.io.FileUtils;
 import org.gradle.api.Project;
 
 import java.io.File;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.Function;
 
 public final class DirectoryUtil {
@@ -103,9 +100,40 @@ public final class DirectoryUtil {
             return new File(getCacheDirectoryForAssetVersion(version), version + ".json");
         }
 
-        //tmp
-        public File getArtifacts(String version) {
-            return new File(getCacheDirectoryForVersion(version), "artifacts");
+        /**
+         * Location gradle_home/cleanroom_gradle/versions/version/libs
+         * <p>
+         * Example for 1.12.2 gradle_home/cleanroom_gradle/versions/1.12.2/libs
+         */
+        public File getLibs(String version) {
+            return new File(getCacheDirectoryForVersion(version), "libs");
+        }
+
+        /**
+         * Location gradle_home/cleanroom_gradle/versions/version/natives
+         * <p>
+         * Example for 1.12.2 gradle_home/cleanroom_gradle/versions/1.12.2/natives
+         */
+        public File getNatives(String version) {
+            return new File(getCacheDirectoryForVersion(version), "natives");
+        }
+
+        /**
+         * Location gradle_home/cleanroom_gradle/versions/version/extracted_natives
+         * <p>
+         * Example for 1.12.2 gradle_home/cleanroom_gradle/versions/1.12.2/extracted_natives
+         */
+        public File getExtractedNatives(String version) {
+            return new File(getCacheDirectoryForVersion(version), "extracted_natives");
+        }
+
+        /**
+         * Location gradle_home/cleanroom_gradle/versions/version/run
+         * <p>
+         * Example for 1.12.2 gradle_home/cleanroom_gradle/versions/1.12.2/run
+         */
+        public File getSide(String version) {
+            return new File(getCacheDirectoryForVersion(version), "run");
         }
 
     }

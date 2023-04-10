@@ -1,6 +1,5 @@
 package com.cleanroommc.gradle.task.artifact;
 
-import com.cleanroommc.gradle.CleanroomMeta;
 import com.cleanroommc.gradle.dependency.MinecraftDependency;
 import com.cleanroommc.gradle.dependency.Side;
 import com.cleanroommc.gradle.extension.ManifestExtension;
@@ -12,74 +11,134 @@ import de.undercouch.gradle.tasks.download.Download;
 import groovy.lang.Closure;
 import org.gradle.api.Project;
 import org.gradle.api.provider.MapProperty;
-import org.gradle.api.tasks.TaskContainer;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 
 public final class ArtifactTasks {
 
-    // TODO: 09/04/2023 improve 
     public static void registerAfterEvaluation(Project project) {
         Set<MinecraftDependency> minecraftDependencies = MinecraftDependency.getMinecraftDependencies(project);
         List<String> defaultTasks = new ArrayList<>();
-        TaskContainer tasks = project.getTasks();
-        for (MinecraftDependency vanillaVersion : minecraftDependencies) {
-            String downloadArtifactsTaskName = downloadArtifactsTaskName(vanillaVersion.getTaskDescription());
-            defaultTasks.add(downloadArtifactsTaskName);
+        for (MinecraftDependency mcDep : minecraftDependencies) {
 
-            tasks.register(downloadArtifactsTaskName, Download.class, task -> {
-                Closure<List<String>> urlGetter = ClosureUtil.of(() -> {
-                    MapProperty<String, VersionMetadata> versionMetadataMap = task.getProject().getExtensions().getByType(ManifestExtension.class).getMetadataCache();
-                    VersionMetadata versionMetadata = versionMetadataMap.get().get(vanillaVersion.getVanillaVersion());
-                    return filterArtifacts(versionMetadata, vanillaVersion);
-                });
-                task.dependsOn(ManifestTasks.readManifestTaskName(vanillaVersion.getVanillaVersion()));
-                task.src(urlGetter);
-                task.dest(DirectoryUtil.create(project, dir -> dir.getArtifacts(vanillaVersion.getVanillaVersion())));
-                task.overwrite(false);
-                task.onlyIfModified(true);
-                task.useETag(true);
-            });
+            String downloadDependenciesTaskName = downloadDependenciesTaskName(mcDep.getTaskDescription());
+            defaultTasks.add(downloadDependenciesTaskName);
+            registerDynamicDownloadTask(project, downloadDependenciesTaskName, mcDep,
+                    Artifacts::dependencies, dir -> dir.getLibs(mcDep.getVanillaVersion()));
+
+            String downloadNativesTaskName = downloadNativesTaskName(mcDep.getTaskDescription());
+            defaultTasks.add(downloadNativesTaskName);
+            registerDynamicDownloadTask(project, downloadNativesTaskName, mcDep,
+                    Artifacts::natives, dir -> dir.getNatives(mcDep.getVanillaVersion()));
+
+            String sideDownloadTaskName = downloadSideDownloadTaskName(mcDep.getVanillaVersion());
+            defaultTasks.add(sideDownloadTaskName);
+            registerDynamicDownloadTask(project, sideDownloadTaskName, mcDep,
+                    Artifacts::side, dir -> dir.getSide(mcDep.getVanillaVersion()));
+
+            String assetsDownloadTaskName = downloadAssetsDownloadTaskName(mcDep.getVanillaVersion());
+            defaultTasks.add(assetsDownloadTaskName);
+            registerDynamicDownloadTask(project, assetsDownloadTaskName, mcDep,
+                    Artifacts::assets, dir -> dir.getAssetManifest(mcDep.getVanillaVersion()));
 
         }
         defaultTasks.addAll(project.getGradle().getStartParameter().getTaskNames());
         project.getGradle().getStartParameter().setTaskNames(defaultTasks); // TODO
     }
 
-    private static List<String> filterArtifacts(VersionMetadata versionMetadata, MinecraftDependency vanillaVersion) {
-        List<String> artifactUrls = new ArrayList<>();
-        for (VersionMetadata.Library library : versionMetadata.libraries()) {
-            if (library.rules() != null && !library.rules().isEmpty()) {
-                for (VersionMetadata.Rule rule : library.rules()) {
-                    if (rule.appliesToOS() && rule.isAllowed()) {
-                        artifactUrls.add(Objects.requireNonNull(library.artifact()).url());
-                    }
-                }
-                continue;
-            }
-
-            artifactUrls.add(Objects.requireNonNull(library.artifact()).url());
-        }
-
-        switch (vanillaVersion.getInternalSide()) {
-            case JOINED -> {
-                artifactUrls.add(versionMetadata.downloads().get(Side.CLIENT_ONLY.getValue()).url());
-                artifactUrls.add(versionMetadata.downloads().get(Side.SERVER_ONLY.getValue()).url());
-            }
-
-            case CLIENT_ONLY -> artifactUrls.add(versionMetadata.downloads().get(Side.CLIENT_ONLY.getValue()).url());
-            case SERVER_ONLY -> artifactUrls.add(versionMetadata.downloads().get(Side.SERVER_ONLY.getValue()).url());
-        }
-
-
-        return artifactUrls;
+    public static String downloadDependenciesTaskName(String version) {
+        return "download" + version.replace('.', '_') + "Dependencies";
     }
 
-    public static String downloadArtifactsTaskName(String version) {
-        return "download" + version.replace('.', '_') + "Artifacts";
+    public static String downloadNativesTaskName(String version) {
+        return "download" + version.replace('.', '_') + "Natives";
+    }
+
+    private static String downloadSideDownloadTaskName(String version) {
+        return "download" + version.replace('.', '_') + "Side";
+    }
+
+    private static String downloadAssetsDownloadTaskName(String version) {
+        return "download" + version.replace('.', '_') + "Assets";
+    }
+
+    private static void registerDynamicDownloadTask(Project project, String taskName, MinecraftDependency mcDep, Function<Artifacts, List<String>> data, Function<DirectoryUtil.Directories, File> dir) {
+        project.getTasks().register(taskName, Download.class, task -> {
+            Closure<List<String>> urlGetter = ClosureUtil.of(() -> {
+                Artifacts artifacts = new Artifacts(project, mcDep);
+                return data.apply(artifacts);
+            });
+            task.dependsOn(ManifestTasks.readManifestTaskName(mcDep.getVanillaVersion()));
+            task.src(urlGetter);
+            task.dest(DirectoryUtil.create(project, dir));
+            task.overwrite(false);
+            task.onlyIfModified(true);
+            task.useETag(true);
+        });
+    }
+
+    private static class Artifacts {
+        private final VersionMetadata versionMetadata;
+        private final MinecraftDependency mcDep;
+
+        private Artifacts(Project project, MinecraftDependency mcDep) {
+            this.mcDep = mcDep;
+            MapProperty<String, VersionMetadata> versionMetadataMap = project.getExtensions().getByType(ManifestExtension.class).getMetadataCache();
+            versionMetadata = versionMetadataMap.get().get(mcDep.getVanillaVersion());
+        }
+
+        public List<String> dependencies() {
+            List<String> dependencies = new ArrayList<>();
+
+            for (VersionMetadata.Library library : versionMetadata.libraries()) {
+                if (library.isValidForOS()) {
+                    var lib = library.artifact();
+
+                    if (lib != null)
+                        dependencies.add(lib.url());
+                }
+            }
+            return dependencies;
+        }
+
+        public List<String> natives() {
+            List<String> natives = new ArrayList<>();
+
+            for (VersionMetadata.Library library : versionMetadata.libraries()) {
+                if (library.hasNativesForOS()) {
+                    var lib = library.classifierForOS();
+                    if (lib != null)
+                        natives.add(lib.url());
+                }
+            }
+            return natives;
+        }
+
+        public List<String> side() {
+            List<String> side = new ArrayList<>();
+
+            switch (mcDep.getInternalSide()) {
+                case JOINED -> {
+                    side.add(versionMetadata.downloads().get(Side.CLIENT_ONLY.getValue()).url());
+                    side.add(versionMetadata.downloads().get(Side.SERVER_ONLY.getValue()).url());
+                }
+
+                case CLIENT_ONLY -> side.add(versionMetadata.downloads().get(Side.CLIENT_ONLY.getValue()).url());
+                case SERVER_ONLY -> side.add(versionMetadata.downloads().get(Side.SERVER_ONLY.getValue()).url());
+            }
+
+            return side;
+        }
+
+        List<String> assets() {
+            List<String> assets = new ArrayList<>(); // TODO: 10/04/2023
+            return assets;
+        }
+
     }
 
     private ArtifactTasks() {
