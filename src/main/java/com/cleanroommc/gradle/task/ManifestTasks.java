@@ -3,6 +3,7 @@ package com.cleanroommc.gradle.task;
 import com.cleanroommc.gradle.CleanroomMeta;
 import com.cleanroommc.gradle.dependency.MinecraftDependency;
 import com.cleanroommc.gradle.extension.ManifestExtension;
+import com.cleanroommc.gradle.json.schema.AssetIndexObjects;
 import com.cleanroommc.gradle.json.schema.ManifestVersion;
 import com.cleanroommc.gradle.json.schema.ManifestVersion.Versions;
 import com.cleanroommc.gradle.json.schema.VersionMetadata;
@@ -17,6 +18,7 @@ import org.gradle.api.tasks.TaskProvider;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public final class ManifestTasks {
@@ -69,12 +71,43 @@ public final class ManifestTasks {
             String readManifestTaskName = readManifestTaskName(vanillaVersion);
             defaultTasks.add(readManifestTaskName);
             tasks.register(readManifestTaskName, ReadJsonFileTask.class, task -> {
-                task.setGroup(MANIFEST_GROUP);
                 task.dependsOn(downloadManifestTaskName);
+                task.setGroup(MANIFEST_GROUP);
                 task.getInputFile().fileProvider(downloadManifestTask.map(Download::getDest));
                 task.getType().set(VersionMetadata.class);
                 task.doLast("storeManifest", $task -> $task.getProject().getExtensions().getByType(ManifestExtension.class).getMetadataCache()
                         .put(vanillaVersion, (VersionMetadata) ((ReadJsonFileTask) $task).output));
+            });
+
+            String downloadAssetMetadataCacheTaskName = downloadAssetMetadataCacheTaskName(vanillaVersion);
+            defaultTasks.add(downloadAssetMetadataCacheTaskName);
+            TaskProvider<Download> downloadAssetMetadataCacheTask = tasks.register(downloadAssetMetadataCacheTaskName, Download.class, task -> {
+                task.dependsOn(readManifestTaskName);
+                var versionMetadata = project.provider(() -> {
+                    Map<String, VersionMetadata> manifestVersion = project.getExtensions().getByType(ManifestExtension.class).getMetadataCache().get();
+                    return manifestVersion.get(vanillaVersion);
+                });
+
+                var dataUrlProvider = project.provider(() -> versionMetadata.get().assetIndex().url());
+                task.src(dataUrlProvider);
+                task.dest(project.provider(() -> DirectoryUtil.create(project, dir -> dir.getAssetManifestForVersion(versionMetadata.get().assetIndex().id()))));
+                task.overwrite(false);
+                task.onlyIfModified(true);
+                task.useETag(true);
+            });
+
+            String readAssetMetadataCacheTaskName = readAssetMetadataCacheTaskName(vanillaVersion);
+            defaultTasks.add(readAssetMetadataCacheTaskName);
+            tasks.register(readAssetMetadataCacheTaskName, ReadJsonFileTask.class, task -> {
+                task.dependsOn(downloadAssetMetadataCacheTaskName);
+                task.setGroup(MANIFEST_GROUP);
+                task.getInputFile().fileProvider(downloadAssetMetadataCacheTask.map(Download::getDest));
+                task.getType().set(AssetIndexObjects.class);
+                task.doLast("storeAssetsManifest", $task -> {
+                    Map<String, VersionMetadata> manifestVersion = $task.getProject().getExtensions().getByType(ManifestExtension.class).getMetadataCache().get();
+                    $task.getProject().getExtensions().getByType(ManifestExtension.class).getAssetCache()
+                            .put(manifestVersion.get(vanillaVersion).assetIndex().id(), (AssetIndexObjects) ((ReadJsonFileTask) $task).output);
+                });
             });
         }
         defaultTasks.addAll(project.getGradle().getStartParameter().getTaskNames());
@@ -87,6 +120,14 @@ public final class ManifestTasks {
 
     public static String readManifestTaskName(String version) {
         return "read" + version.replace('.', '_') + "Manifest";
+    }
+
+    public static String downloadAssetMetadataCacheTaskName(String version) {
+        return "download" + version.replace('.', '_') + "Assets";
+    }
+
+    public static String readAssetMetadataCacheTaskName(String version) {
+        return "read" + version.replace('.', '_') + "Assets";
     }
 
     private ManifestTasks() {

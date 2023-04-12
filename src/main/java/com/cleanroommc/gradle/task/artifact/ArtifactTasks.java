@@ -1,14 +1,14 @@
 package com.cleanroommc.gradle.task.artifact;
 
+import com.cleanroommc.gradle.CleanroomMeta;
 import com.cleanroommc.gradle.dependency.MinecraftDependency;
 import com.cleanroommc.gradle.dependency.Side;
 import com.cleanroommc.gradle.extension.ManifestExtension;
+import com.cleanroommc.gradle.json.schema.AssetIndexObjects;
 import com.cleanroommc.gradle.json.schema.VersionMetadata;
 import com.cleanroommc.gradle.task.ManifestTasks;
-import com.cleanroommc.gradle.util.ClosureUtil;
 import com.cleanroommc.gradle.util.DirectoryUtil;
 import de.undercouch.gradle.tasks.download.Download;
-import groovy.lang.Closure;
 import org.gradle.api.Project;
 import org.gradle.api.provider.MapProperty;
 
@@ -35,15 +35,19 @@ public final class ArtifactTasks {
             registerDynamicDownloadTask(project, downloadNativesTaskName, mcDep,
                     Artifacts::natives, dir -> dir.getNatives(mcDep.getVanillaVersion()));
 
-            String sideDownloadTaskName = downloadSideDownloadTaskName(mcDep.getVanillaVersion());
+            String sideDownloadTaskName = downloadSideDownloadTaskName(mcDep.getTaskDescription());
             defaultTasks.add(sideDownloadTaskName);
             registerDynamicDownloadTask(project, sideDownloadTaskName, mcDep,
                     Artifacts::side, dir -> dir.getSide(mcDep.getVanillaVersion()));
 
-            String assetsDownloadTaskName = downloadAssetsDownloadTaskName(mcDep.getVanillaVersion());
+            String assetsDownloadTaskName = downloadAssetsDownloadTaskName(mcDep.getTaskDescription());
             defaultTasks.add(assetsDownloadTaskName);
             registerDynamicDownloadTask(project, assetsDownloadTaskName, mcDep,
-                    Artifacts::assets, dir -> dir.getAssetManifest(mcDep.getVanillaVersion()));
+                    Artifacts::assets, dir -> {
+                        MapProperty<String, VersionMetadata> versionMetadataMap = project.getExtensions().getByType(ManifestExtension.class).getMetadataCache();
+                        VersionMetadata versionMetadata = versionMetadataMap.get().get(mcDep.getVanillaVersion());
+                        return dir.getAssetDirForVersion(versionMetadata.assetIndex().id());
+                    });
 
         }
         defaultTasks.addAll(project.getGradle().getStartParameter().getTaskNames());
@@ -66,15 +70,19 @@ public final class ArtifactTasks {
         return "download" + version.replace('.', '_') + "Assets";
     }
 
-    private static void registerDynamicDownloadTask(Project project, String taskName, MinecraftDependency mcDep, Function<Artifacts, List<String>> data, Function<DirectoryUtil.Directories, File> dir) {
+    private static void registerDynamicDownloadTask(Project project, String taskName,
+                                                    MinecraftDependency mcDep, Function<Artifacts,
+            List<?>> data, Function<DirectoryUtil.Directories, File> dir) {
         project.getTasks().register(taskName, Download.class, task -> {
-            Closure<List<String>> urlGetter = ClosureUtil.of(() -> {
+            task.dependsOn(ManifestTasks.readAssetMetadataCacheTaskName(mcDep.getVanillaVersion()));
+            // the provider is used to enable lazy evaluation
+            // this is needed because ManifestExtension will not be initialized by the other tasks
+            var dataUrlProvider = project.provider(() -> {
                 Artifacts artifacts = new Artifacts(project, mcDep);
                 return data.apply(artifacts);
             });
-            task.dependsOn(ManifestTasks.readManifestTaskName(mcDep.getVanillaVersion()));
-            task.src(urlGetter);
-            task.dest(DirectoryUtil.create(project, dir));
+            task.src(dataUrlProvider);
+            task.dest(project.provider(() -> DirectoryUtil.create(project, dir))); //same
             task.overwrite(false);
             task.onlyIfModified(true);
             task.useETag(true);
@@ -83,12 +91,14 @@ public final class ArtifactTasks {
 
     private static class Artifacts {
         private final VersionMetadata versionMetadata;
+        private final AssetIndexObjects assetIndexObjects;
         private final MinecraftDependency mcDep;
 
         private Artifacts(Project project, MinecraftDependency mcDep) {
             this.mcDep = mcDep;
-            MapProperty<String, VersionMetadata> versionMetadataMap = project.getExtensions().getByType(ManifestExtension.class).getMetadataCache();
-            versionMetadata = versionMetadataMap.get().get(mcDep.getVanillaVersion());
+            var manifestExtension = project.getExtensions().getByType(ManifestExtension.class);
+            versionMetadata = manifestExtension.getMetadataCache().get().get(mcDep.getVanillaVersion());
+            assetIndexObjects = manifestExtension.getAssetCache().get().get(versionMetadata.assetIndex().id());
         }
 
         public List<String> dependencies() {
@@ -134,9 +144,8 @@ public final class ArtifactTasks {
             return side;
         }
 
-        List<String> assets() {
-            List<String> assets = new ArrayList<>(); // TODO: 10/04/2023
-            return assets;
+        public List<String> assets() {
+            return assetIndexObjects.getObjectStream().map(object -> CleanroomMeta.RESOURCES_BASE_URL + object.getPath()).toList();
         }
 
     }

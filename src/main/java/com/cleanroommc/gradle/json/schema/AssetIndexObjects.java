@@ -10,9 +10,10 @@ import java.util.stream.Stream;
 /**
  * Thanks to Fabric Loom
  */
-public record AssetIndex(Map<String, Entry> objects, boolean virtual, @SerializedName("map_to_resources") boolean mapToResources) {
+public record AssetIndexObjects(Map<String, Entry> objects, boolean virtual,
+                                @SerializedName("map_to_resources") boolean mapToResources) {
 
-    public AssetIndex() {
+    public AssetIndexObjects() {
         this(new LinkedHashMap<>(), false, false);
     }
 
@@ -24,12 +25,17 @@ public record AssetIndex(Map<String, Entry> objects, boolean virtual, @Serialize
         return getObjectStream().toList();
     }
 
-    public record Entry(String hash, long size) { }
+    public record Entry(String hash, long size) {
+    }
 
     public record Object(String path, String hash, long size) {
 
         private Object(Map.Entry<String, Entry> entry) {
             this(entry.getKey(), entry.getValue().hash(), entry.getValue().size());
+        }
+
+        public String getPath() {
+            return hash.substring(0, 2) + '/' + hash;
         }
 
         public String name() {

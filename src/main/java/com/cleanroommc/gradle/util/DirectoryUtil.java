@@ -96,8 +96,17 @@ public final class DirectoryUtil {
          * <p>
          * Example for 1.12.2 gradle_home/cleanroom_gradle/assets/1.12.2/1.12.2.json version manifest
          */
-        public File getAssetManifest(String version) {
+        public File getAssetManifestForVersion(String version) {
             return new File(getCacheDirectoryForAssetVersion(version), version + ".json");
+        }
+
+        /**
+         * Location gradle_home/cleanroom_gradle/assets/version/assets
+         * <p>
+         * Example for 1.12.2 gradle_home/cleanroom_gradle/assets/1.12.2/assets
+         */
+        public File getAssetDirForVersion(String version) {
+            return new File(getCacheDirectoryForAssetVersion(version), "assets" );
         }
 
         /**
