@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach
 
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.function.Consumer
 
 abstract class TestFoundation {
 
@@ -25,6 +26,17 @@ abstract class TestFoundation {
                     id 'java'
                     id 'com.cleanroommc.cleanroom-gradle'
                 }
+                
+                // used to print the task graph
+                gradle.taskGraph.whenReady {taskGraph ->
+                    println "Tasks:"
+                    taskGraph.getAllTasks().eachWithIndex{ task, n ->
+                        println "" + (n + 1) + " " + task
+                        task.dependsOn.eachWithIndex{ depObj, m ->
+                        println "  " + (m + 1) + " DependsOn: " + depObj
+                        }
+                    }
+                } 
                 """
         appendBuildScript(buildFile)
     }
@@ -37,28 +49,94 @@ abstract class TestFoundation {
 
     abstract void appendBuildScript(Path buildFile)
 
-    GradleRunner gradleRunner() {
-        return GradleRunner.create()
-                .withTestKitDir(userHomeDir.toFile())
-                .withProjectDir(projectDir.toFile())
-                .withPluginClasspath()
-                .forwardOutput()
+    void createTest(Consumer<IGradleRunnerBuilder> runnerConfigure) {
+        def runner = new GradleRunnerBuilder()
+        runnerConfigure.accept(runner)
+        runner.runBuild()
     }
 
-    boolean isSuccessful(String taskName, BuildResult buildResult) {
-        return isSuccessful(buildResult.task(":${taskName}"))
+    GradleRunnerBuilder createTest() {
+        return new GradleRunnerBuilder()
     }
 
-    boolean isSuccessful(BuildTask buildTask) {
-        return Assertions.assertEquals(TaskOutcome.SUCCESS, buildTask.outcome)
+    class GradleRunnerBuilder implements IGradleRunnerBuilder {
+        private GradleRunner runner
+        private String taskName
+        private Consumer<Tests> test
+
+        private GradleRunnerBuilder() {
+            runner = GradleRunner.create()
+                    .withTestKitDir(userHomeDir.toFile())
+                    .withProjectDir(projectDir.toFile())
+                    .withPluginClasspath()
+                    .forwardOutput()
+                    .withDebug(true)
+        }
+
+        @Override
+        void setTaskName(String taskName) {
+            this.taskName = taskName
+        }
+
+        @Override
+        void configureTests(Consumer<Tests> test) {
+            this.test = test
+        }
+
+        void runBuild() {
+            if (taskName == null || test == null) {
+                throw new IllegalAccessException("Tests are not configured")
+            }
+
+            BuildResult buildResult = runner.build()
+            Tests tests = new Tests(runner, taskName, buildResult)
+            test.accept(tests)
+        }
+
     }
 
-    boolean isUpToDate(String taskName, BuildResult buildResult) {
-        return isSuccessful(buildResult.task(":${taskName}"))
+    interface IGradleRunnerBuilder {
+        void setTaskName(String taskName)
+
+        void configureTests(Consumer<Tests> test)
     }
 
-    boolean isUpToDate(BuildTask buildTask) {
-        return Assertions.assertEquals(TaskOutcome.UP_TO_DATE, buildTask.outcome)
-    }
+    class Tests {
+        private GradleRunner runner
+        private String taskName
+        private BuildResult buildResult
+        private BuildTask buildTask
 
+        Tests(GradleRunner runner, String taskName, BuildResult buildResult) {
+            this.runner = runner
+            this.taskName = taskName
+            this.buildResult = buildResult
+            this.buildTask = buildResult.task(":${taskName}")
+        }
+
+        void isSuccessful(String taskName) {
+            isInnerSuccessful(buildResult.task(":${taskName}"))
+        }
+
+        void isSuccessful() {
+            isInnerSuccessful(this.buildTask)
+        }
+
+        private void isInnerSuccessful(BuildTask buildTask) {
+            Assertions.assertEquals(TaskOutcome.SUCCESS, buildTask.outcome)
+        }
+
+        void isUpToDate(String taskName) {
+            isInnerUpToDate(buildResult.task(":${taskName}"))
+        }
+
+        void isUpToDate() {
+            isInnerUpToDate(this.buildTask)
+        }
+
+        private void isInnerUpToDate(BuildTask buildTask) {
+            Assertions.assertEquals(TaskOutcome.UP_TO_DATE, buildTask.outcome)
+        }
+
+    }
 }

@@ -26,8 +26,12 @@ class GatherAndReadManifestTest extends TestFoundation {
 
     @Test
     void test() {
-        def result = gradleRunner().withArguments('gatherAndReadManifestTest').build()
-        isSuccessful('gatherAndReadManifestTest', result)
+        createTest(gradleRunner -> {
+            gradleRunner.setTaskName('gatherAndReadManifestTest')
+            gradleRunner.configureTests(tests -> {
+                tests.isSuccessful()
+            })
+        })
     }
 
 }

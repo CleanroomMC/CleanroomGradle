@@ -55,8 +55,12 @@ class ConfigurationTest extends TestFoundation {
 
     @Test
     void test() {
-        def result = gradleRunner().withArguments('configurationTest').build()
-        isSuccessful('configurationTest', result)
+        createTest(gradleRunner -> {
+            gradleRunner.setTaskName('configurationTest')
+            gradleRunner.configureTests(tests -> {
+                tests.isSuccessful()
+            })
+        })
     }
 
 }
