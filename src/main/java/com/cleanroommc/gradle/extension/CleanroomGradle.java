@@ -4,8 +4,10 @@ import com.cleanroommc.gradle.dependency.Loader;
 import com.cleanroommc.gradle.dependency.Mapping;
 import com.cleanroommc.gradle.dependency.MinecraftDependency;
 import org.gradle.api.Action;
+import org.gradle.api.Project;
+import org.jetbrains.annotations.Unmodifiable;
 
-import java.util.Map;
+import java.util.*;
 
 /**
  * Helper class for buildscripts to utilize. This is injected in as an extension under the name 'cg'
@@ -13,6 +15,31 @@ import java.util.Map;
 public final class CleanroomGradle {
 
     public static final String EXTENSION_NAME = "cg";
+
+    private static final Set<String> versions = new HashSet<>();
+
+    private final Set<MinecraftDependency> minecraftDependencies = new HashSet<>();
+
+    private final Project project;
+
+    public CleanroomGradle(Project project) {
+        this.project = project;
+    }
+
+    @Unmodifiable
+    public static Set<String> getVersions() {
+        return Collections.unmodifiableSet(versions);
+    }
+
+    @Unmodifiable
+    public Set<MinecraftDependency> getMinecraftDependencies() {
+        return Collections.unmodifiableSet(minecraftDependencies);
+    }
+
+    public Project getProject() {
+        return project;
+    }
+
 
     /* Dependency-related Methods */
 
@@ -41,7 +68,7 @@ public final class CleanroomGradle {
     }
 
     public MinecraftDependency minecraft(String version) {
-        return new MinecraftDependency(version, Loader.VANILLA.getValue());
+        return registerDep(new MinecraftDependency(version, Loader.VANILLA.getValue()));
     }
 
     public MinecraftDependency minecraft(String version, Action<MinecraftDependency> configurationAction) {
@@ -51,11 +78,16 @@ public final class CleanroomGradle {
     }
 
     public MinecraftDependency minecraft(String version, Map<String, ?> configurationMap) {
-        return MinecraftDependency.parseFromMap(version, configurationMap);
+        return registerDep(MinecraftDependency.parseFromMap(version, configurationMap));
     }
 
     public MinecraftDependency minecraft(String version, String loader, String loaderVersion, String mappingProvider, String mappingVersion) {
-        return new MinecraftDependency(version, loader, loaderVersion, mappingProvider, mappingVersion);
+        return registerDep(new MinecraftDependency(version, loader, loaderVersion, mappingProvider, mappingVersion));
     }
 
+    private MinecraftDependency registerDep(MinecraftDependency dep) {
+        versions.add(dep.getVanillaVersion());
+        minecraftDependencies.add(dep);
+        return dep;
+    }
 }

@@ -8,7 +8,6 @@ import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.plugins.ExtensionContainer;
-import org.gradle.api.tasks.TaskContainer;
 
 public class CleanroomGradlePlugin implements Plugin<Project> {
 
@@ -26,18 +25,15 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         CleanroomLogging.step(logger, "Creating and injecting extensions...");
         // Inject Extensions
         ExtensionContainer extensions = project.getExtensions();
-        extensions.add(CleanroomGradle.class, CleanroomGradle.EXTENSION_NAME, new CleanroomGradle());
+        CleanroomGradle cleanroomGradle = new CleanroomGradle(project);
+        extensions.add(CleanroomGradle.class, CleanroomGradle.EXTENSION_NAME, cleanroomGradle);
         // Create Extensions
         extensions.create(ManifestExtension.NAME, ManifestExtension.class, project);
 
         // Create Tasks
-        TaskContainer tasks = project.getTasks();
-        CleanroomLogging.step(logger, "Registering manifest tasks...");
-        ManifestTasks.register(tasks);
+        ManifestTasks.get(logger, project);
 
-        // After Project Evaluation
-        CleanroomLogging.step(logger, "Registering dynamic manifest tasks...");
-        project.afterEvaluate(ManifestTasks::registerAfterEvaluation);
+
         CleanroomLogging.step(logger, "Registering dynamic artifact tasks...");
         project.afterEvaluate(ArtifactTasks::registerAfterEvaluation);
 
