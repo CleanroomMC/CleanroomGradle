@@ -61,6 +61,7 @@ dependencies {
 
     // Apache Commons
     implementation 'commons-io:commons-io:2.11.0'
+    implementation 'commons-codec:commons-codec:1.15'
 
     // Apache Maven
     implementation 'org.apache.maven:maven-artifact:3.8.4'

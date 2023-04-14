@@ -3,7 +3,6 @@ package com.cleanroommc.gradle;
 import com.cleanroommc.gradle.extension.CleanroomGradle;
 import com.cleanroommc.gradle.extension.ManifestExtension;
 import com.cleanroommc.gradle.task.ManifestTasks;
-import com.cleanroommc.gradle.task.artifact.ArtifactTasks;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.logging.Logger;
@@ -31,11 +30,7 @@ public class CleanroomGradlePlugin implements Plugin<Project> {
         extensions.create(ManifestExtension.NAME, ManifestExtension.class, project);
 
         // Create Tasks
-        ManifestTasks.get(logger, project);
-
-
-        CleanroomLogging.step(logger, "Registering dynamic artifact tasks...");
-        project.afterEvaluate(ArtifactTasks::registerAfterEvaluation);
+        ManifestTasks.create(logger, project);
 
     }
 
