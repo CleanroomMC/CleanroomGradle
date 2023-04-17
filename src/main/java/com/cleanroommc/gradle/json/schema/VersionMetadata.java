@@ -11,10 +11,13 @@ import java.util.Objects;
 /**
  * Thanks to Fabric Loom
  */
-public record VersionMetadata(Object arguments, AssetIndex assetIndex, String assets, int complianceLevel, Map<String, Download> downloads, String id, List<Library> libraries,
-                              Object logging, String mainClass, int minimumLauncherVersion, String releaseTime, String time, String type) {
+public record VersionMetadata(Object arguments, AssetIndex assetIndex, String assets, int complianceLevel,
+                              Map<String, Download> downloads, String id, List<Library> libraries,
+                              Object logging, String mainClass, int minimumLauncherVersion, String releaseTime,
+                              String time, String type) {
 
-    public record Library(Downloads downloads, String name, Map<String, String> natives, List<Rule> rules, Object extract) {
+    public record Library(Downloads downloads, String name, Map<String, String> natives, List<Rule> rules,
+                          Object extract) {
 
         public boolean isValidForOS() {
             if (rules == null) {
@@ -88,7 +91,7 @@ public record VersionMetadata(Object arguments, AssetIndex assetIndex, String as
 
     }
 
-    public record Download(String path, String sha1, long size, String url) {
+    public record Download(String path, String sha1, long size, String url) implements IDownload {
 
         public File relativeFile(File baseDirectory) {
             Objects.requireNonNull(path(), "Cannot get relative file from a null path");

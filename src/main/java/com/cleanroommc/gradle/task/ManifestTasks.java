@@ -6,14 +6,15 @@ import com.cleanroommc.gradle.dependency.Side;
 import com.cleanroommc.gradle.extension.CleanroomGradle;
 import com.cleanroommc.gradle.extension.ManifestExtension;
 import com.cleanroommc.gradle.json.schema.AssetIndexObjects;
+import com.cleanroommc.gradle.json.schema.IDownload;
 import com.cleanroommc.gradle.json.schema.ManifestVersion;
 import com.cleanroommc.gradle.json.schema.ManifestVersion.Versions;
 import com.cleanroommc.gradle.json.schema.VersionMetadata;
 import com.cleanroommc.gradle.task.json.ReadJsonFileTask;
 import com.cleanroommc.gradle.util.DirectoryUtil;
+import com.cleanroommc.gradle.util.TaskUtil;
 import com.google.common.base.Suppliers;
 import de.undercouch.gradle.tasks.download.Download;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
@@ -22,7 +23,6 @@ import org.gradle.api.tasks.TaskContainer;
 import org.gradle.api.tasks.TaskProvider;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -127,7 +127,7 @@ public final class ManifestTasks {
             taskProviderMap = new HashMap<>();
             downloadManifestTaskName = "download" + version.replace('.', '_') + "Manifest";
             readManifestTaskName = "read" + version.replace('.', '_') + "Manifest";
-            downloadAssetMetadataCacheTaskName = "download" + version.replace('.', '_') + "Assets";
+            downloadAssetMetadataCacheTaskName = "download" + version.replace('.', '_') + "AssetsMetadata";
             readAssetMetadataCacheTaskName = "read" + version.replace('.', '_') + "Assets";
             downloadDependenciesTaskName = "download" + version.replace('.', '_') + "Dependencies";
             downloadNativesTaskName = "download" + version.replace('.', '_') + "Natives";
@@ -137,19 +137,15 @@ public final class ManifestTasks {
 
         private void createTasks(List<String> defaultTasks) {
             defaultTasks.add(downloadManifestTaskName);
-            var downloadManifestTask = register(downloadManifestTaskName, Download.class,
-                    task -> {
-                        var urlGetter = rootProject.provider(() -> {
-                            return manifestVersion.versions().stream().
-                                    filter(v -> v.id().equals(version)).map(Versions::url).findFirst().orElseThrow();
-                        });
-                        task.dependsOn(READ_MANIFEST);
-                        task.src(urlGetter);
-                        task.dest(DirectoryUtil.create(rootProject, dir -> dir.getVersionManifest(version)));
-                        task.overwrite(false);
-                        task.onlyIfModified(true);
-                        task.useETag(true);
-                    });
+            var downloadManifestTask = register(
+                    TaskUtil.registerDynamicDownloadTask(
+                            rootProject,
+                            downloadManifestTaskName,
+                            () -> manifestVersion.versions().stream().
+                                    filter(v -> v.id().equals(version)).map(Versions::url).findFirst().orElseThrow(),
+                            () -> DirectoryUtil.create(rootProject, dir -> dir.getVersionManifest(version)),
+                            READ_MANIFEST
+                    ));
 
             defaultTasks.add(readManifestTaskName);
             var readManifestTask = register(readManifestTaskName, ReadJsonFileTask.class,
@@ -192,8 +188,8 @@ public final class ManifestTasks {
 
             defaultTasks.add(downloadDependenciesTaskName);
             var downloadDependenciesTask = registerDynamicDownloadTask(downloadDependenciesTaskName,
-                    Suppliers.memoize(() -> {
-                        List<VersionMetadata.Download> dependencies = new ArrayList<>();
+                    () -> {
+                        List<IDownload> dependencies = new ArrayList<>();
                         for (VersionMetadata.Library library : metadataCache.get(version).libraries()) {
                             if (library.isValidForOS()) {
                                 var lib = library.artifact();
@@ -203,14 +199,14 @@ public final class ManifestTasks {
                             }
                         }
                         return dependencies;
-                    }),
-                    Suppliers.memoize(() -> DirectoryUtil.create(rootProject, dir -> dir.getLibs(version))),
+                    },
+                    () -> DirectoryUtil.create(rootProject, dir -> dir.getLibs(version)),
                     readAssetMetadataCacheTaskName);
 
             defaultTasks.add(downloadNativesTaskName);
             registerDynamicDownloadTask(downloadNativesTaskName,
-                    Suppliers.memoize(() -> {
-                        List<VersionMetadata.Download> natives = new ArrayList<>();
+                    () -> {
+                        List<IDownload> natives = new ArrayList<>();
 
                         for (VersionMetadata.Library library : metadataCache.get(version).libraries()) {
                             if (library.hasNativesForOS()) {
@@ -220,39 +216,48 @@ public final class ManifestTasks {
                             }
                         }
                         return natives;
-                    }),
-                    Suppliers.memoize(() -> DirectoryUtil.create(rootProject, dir -> dir.getNatives(version))),
+                    },
+                    () -> DirectoryUtil.create(rootProject, dir -> dir.getNatives(version)),
                     readAssetMetadataCacheTaskName);
 
 
             defaultTasks.add(downloadSideTaskName);
             registerDynamicDownloadTask(downloadSideTaskName,
-                    Suppliers.memoize(() -> {
-                        List<VersionMetadata.Download> side = new ArrayList<>(2);
+                    () -> {
+                        List<IDownload> side = new ArrayList<>(2);
                         VersionMetadata metadata = metadataCache.get(version);
                         side.add(metadata.downloads().get(Side.CLIENT_ONLY.getValue()));
                         side.add(metadata.downloads().get(Side.SERVER_ONLY.getValue()));
 
                         return side;
-                    }),
-                    Suppliers.memoize(() -> DirectoryUtil.create(rootProject, dir -> dir.getSide(version))),
+                    },
+                    () -> DirectoryUtil.create(rootProject, dir -> dir.getSide(version)),
                     readAssetMetadataCacheTaskName);
 
-/*
-            todo
+
             defaultTasks.add(downloadAssetsTaskName);
             registerDynamicDownloadTask(downloadAssetsTaskName,
-                    Suppliers.memoize(() -> {
-                        return assetCache.get(version).getObjectStream().
-                                map(object -> CleanroomMeta.RESOURCES_BASE_URL + object.getPath()).toList();
-                    }),
-                    Suppliers.memoize(() -> {
-                        return DirectoryUtil.create(rootProject,
-                                dir -> dir.getAssetDirForVersion(metadataCache.get(version).assetIndex().id()));
-                    }),
-                    readAssetMetadataCacheTaskName);
+                    () -> assetCache.get(metadataCache.get(version).assetIndex().id()).getObjectStream().
+                             map(object -> new IDownload() {
+                                 @Override
+                                 public String sha1() {
+                                     return object.hash();
+                                 }
 
-*/
+                                 @Override
+                                 public long size() {
+                                     return object.size();
+                                 }
+
+                                 @Override
+                                 public String url() {
+                                     return CleanroomMeta.RESOURCES_BASE_URL + object.getPath();
+                                 }
+                             }).toList(),
+
+                    () -> DirectoryUtil.create(rootProject,
+                            dir -> dir.getAssetDirForVersion(metadataCache.get(version).assetIndex().id())),
+                    readAssetMetadataCacheTaskName);
 
         }
 
@@ -262,46 +267,17 @@ public final class ManifestTasks {
             return task;
         }
 
+        private <T extends Task> TaskProvider<T> register(TaskProvider<T> task) {
+            taskProviderMap.put(task.getName(), task);
+            return task;
+        }
 
-        private TaskProvider<Download> registerDynamicDownloadTask(String taskName, Supplier<List<VersionMetadata.Download>> data,
-                                                                   Supplier<File> targetDir, String dependsOn) {
-            return register(taskName, Download.class, task -> {
-                task.dependsOn(dependsOn);
-                // the provider is used to enable lazy evaluation
-                // this is needed because ManifestExtension will not be initialized by the other tasks
-                task.src(rootProject.provider(() -> data.get().stream().map(VersionMetadata.Download::url).toList()));
-                task.dest(rootProject.provider(targetDir::get));
-                task.overwrite(false);
-                task.onlyIfModified(true);
-                task.useETag(true);
-                task.doLast("validateSha1", action -> {
-                    for (VersionMetadata.Download download : data.get()) {
-                        String name = download.url();
-                        if (name.endsWith("/")) {
-                            name = name.substring(0, name.length() - 1);
-                        }
-                        name = name.substring(name.lastIndexOf('/') + 1);
-                        var fileOnDisc = new File(targetDir.get(), name);
-
-                        if (!fileOnDisc.exists() && fileOnDisc.isDirectory()) {
-                            throw new RuntimeException(String.format("File at %s is not valid", fileOnDisc.getAbsolutePath()));
-                        }
-
-                        final String fileSha1;
-                        try {
-                            fileSha1 = new DigestUtils(DigestUtils.getSha1Digest())
-                                    .digestAsHex(fileOnDisc);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-
-                        if (!fileSha1.equals(download.sha1())) {
-                            throw new RuntimeException(String.format(
-                                    "Mismatched for file %s sha1 sums: %s != %s", fileOnDisc.getAbsolutePath(), fileSha1, download.sha1()));
-                        }
-                    }
-                });
-            });
+        private TaskProvider<Download> registerDynamicDownloadTask(String taskName, com.google.common.base.Supplier<Object> data,
+                                                                   com.google.common.base.Supplier<File> targetDir, String dependsOn) {
+            var task = TaskUtil.registerDynamicDownloadTaskWithSha1Validation(rootProject, taskName,
+                    data, targetDir, dependsOn);
+            taskProviderMap.put(taskName, task);
+            return task;
         }
 
     }
