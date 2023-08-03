@@ -251,7 +251,11 @@ public final class DownloadUtil {
         }
     }
 
-    public static IDownload toIDownload(final VersionMetadata.Download download, final File baseDir) {
+    public static IDownload toIDownloadRelativeFile(final VersionMetadata.Download download, final File baseDir) {
+        return toIDownload(download, download.relativeFile(baseDir));
+    }
+
+    public static IDownload toIDownload(final VersionMetadata.Download download, final File targetFile) {
         return new IDownload() {
             @Override
             public String name() {
@@ -270,7 +274,7 @@ public final class DownloadUtil {
 
             @Override
             public File file() {
-                return download.relativeFile(baseDir);
+                return targetFile;
             }
         };
     }

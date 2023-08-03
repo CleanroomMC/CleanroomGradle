@@ -14,7 +14,7 @@ public final class ManifestTasks {
     public static final String GATHER_MANIFEST = "gatherManifest";
     private TaskProvider<Download> gatherManifestTask;
     public static final String PREPARE_NEEDED_MANIFESTS = "prepareNeededManifests";
-    private TaskProvider<ManifestParser> manifestParserTask;
+    private TaskProvider<ManifestDownloader> manifestParserTask;
     public static final String VERSION_DOWNLOADER_TASK = "versionDownloaderTask";
     private TaskProvider<MinecraftDownloader> versionDownloaderTask;
     private final Project project;
@@ -40,7 +40,7 @@ public final class ManifestTasks {
             task.onlyIfModified(true);
             task.useETag(true);
         });
-        manifestParserTask = taskContainer.register(PREPARE_NEEDED_MANIFESTS, ManifestParser.class, task -> {
+        manifestParserTask = taskContainer.register(PREPARE_NEEDED_MANIFESTS, ManifestDownloader.class, task -> {
             task.setGroup(MANIFEST_GROUP);
             task.dependsOn(gatherManifestTask);
             task.getInputFile().fileProvider(gatherManifestTask.map(Download::getDest));
@@ -48,7 +48,7 @@ public final class ManifestTasks {
         versionDownloaderTask = taskContainer.register(VERSION_DOWNLOADER_TASK, MinecraftDownloader.class, task -> {
             task.setGroup(MANIFEST_GROUP);
             task.dependsOn(manifestParserTask);
-            task.getManifests().set(manifestParserTask.map(ManifestParser::getVersionMetadata).get());
+            task.getManifests().set(manifestParserTask.map(ManifestDownloader::getManifests).get());
         });
     }
 
