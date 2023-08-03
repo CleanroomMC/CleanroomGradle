@@ -16,7 +16,8 @@ public final class CleanroomGradle {
 
     public static final String EXTENSION_NAME = "cg";
 
-    private static final Set<String> versions = new HashSet<>();
+    //Version registered to this project instance
+    private final Set<String> versions = new HashSet<>();
 
     private final Set<MinecraftDependency> minecraftDependencies = new HashSet<>();
 
@@ -27,7 +28,7 @@ public final class CleanroomGradle {
     }
 
     @Unmodifiable
-    public static Set<String> getVersions() {
+    public Set<String> getVersions() {
         return Collections.unmodifiableSet(versions);
     }
 

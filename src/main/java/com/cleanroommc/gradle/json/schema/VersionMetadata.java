@@ -91,7 +91,7 @@ public record VersionMetadata(Object arguments, AssetIndex assetIndex, String as
 
     }
 
-    public record Download(String path, String sha1, long size, String url) implements IDownload {
+    public record Download(String path, String sha1, long size, String url) {
 
         public File relativeFile(File baseDirectory) {
             Objects.requireNonNull(path(), "Cannot get relative file from a null path");

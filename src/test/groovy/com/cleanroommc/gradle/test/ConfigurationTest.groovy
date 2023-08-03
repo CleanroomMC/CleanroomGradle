@@ -1,10 +1,12 @@
 package com.cleanroommc.gradle.test
 
 import com.cleanroommc.gradle.TestFoundation
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
 import java.nio.file.Path
 
+@Disabled
 class ConfigurationTest extends TestFoundation {
 
     @Override

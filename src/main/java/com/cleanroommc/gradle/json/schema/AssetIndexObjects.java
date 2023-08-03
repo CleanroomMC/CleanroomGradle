@@ -2,9 +2,11 @@ package com.cleanroommc.gradle.json.schema;
 
 import com.google.gson.annotations.SerializedName;
 
+import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
@@ -44,6 +46,11 @@ public record AssetIndexObjects(Map<String, Entry> objects, boolean virtual,
                 return path().substring(end);
             }
             return path();
+        }
+
+        public File relativeFile(File baseDirectory) {
+            Objects.requireNonNull(path(), "Cannot get relative file from a null path");
+            return new File(baseDirectory, getPath());
         }
     }
 

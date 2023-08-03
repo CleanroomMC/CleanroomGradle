@@ -24,13 +24,15 @@ public final class CacheUtil {
         }
     }
 
-    public static void checkSha1ForFile(final File file, final String expectedSha1) throws ChecksumMismatch{
+    public static void checkSha1ForFile(final File file, final String expectedSha1) throws ChecksumMismatch {
         if (file.exists()) {
             if (file.isDirectory()) {
-                throw new RuntimeException(String.format("File at %s is pointing to a directory", file.getAbsolutePath()));
+                throw new UncheckedIOException(
+                        new IOException(String.format("File at %s is pointing to a directory", file.getAbsolutePath())));
             }
         } else {
-            throw new RuntimeException(String.format("File at %s does not exist", file.getAbsolutePath()));
+            throw new UncheckedIOException(
+                    new IOException(String.format("File at %s does not exist", file.getAbsolutePath())));
         }
 
         final String fileSha1;
