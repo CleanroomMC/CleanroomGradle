@@ -8,6 +8,7 @@ import com.cleanroommc.gradle.util.DownloadUtil;
 import com.google.gson.Gson;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
@@ -24,7 +25,7 @@ public abstract class ManifestDownloader extends DefaultTask {
     private final List<File> manifests;
 
     @Input
-    public abstract Property<List<String>> getVersionsToGet();
+    public abstract ListProperty<String> getVersionsToGet();
 
     @OutputFiles
     public List<File> getManifests() {

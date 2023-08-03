@@ -20,10 +20,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public abstract class MinecraftDownloader extends DefaultTask {
+    private final List<File> files;
+
     @Input
     public abstract ListProperty<File> getManifests();
 
-    public List<File> files;
     @OutputFiles
     public List<File> getFiles() {
         return files;
