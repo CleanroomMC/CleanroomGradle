@@ -5,6 +5,14 @@ public enum Loader {
     FORGE("forge"),
     CLEANROOM("cleanroom");
 
+    public static Loader parse(String loader) {
+        try {
+            return Loader.valueOf(loader.toUpperCase());
+        } catch (IllegalArgumentException e) {
+           throw new UnsupportedOperationException(String.format("%s loader not supported!", loader));
+        }
+    }
+
     private final String value;
 
     Loader(String value) {

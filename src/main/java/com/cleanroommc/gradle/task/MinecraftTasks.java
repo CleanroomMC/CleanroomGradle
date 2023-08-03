@@ -23,16 +23,17 @@ public final class MinecraftTasks {
         public static final String GATHER_MANIFEST = "gatherManifest";
         private final TaskProvider<Download> gatherManifestTask;
         public static final String PREPARE_NEEDED_MANIFESTS = "prepareNeededManifests";
-        private final TaskProvider<ManifestDownloader> manifestParserTask;
+        private TaskProvider<ManifestDownloader> manifestParserTask;
         public static final String VERSION_DOWNLOADER_TASK = "versionDownloaderTask";
-        private final TaskProvider<MinecraftDownloader> versionDownloaderTask;
+        private TaskProvider<MinecraftDownloader> versionDownloaderTask;
 
         public static void create(Logger logger, Project project) {
             CleanroomLogging.step(logger, "Registering manifest tasks...");
-            new ManifestTasks(project);
+            var tasks = new ManifestTasks(project);
+            project.afterEvaluate(tasks::afterEval);
         }
 
-        public ManifestTasks(Project project) {
+        private ManifestTasks(Project project) {
             TaskContainer taskContainer = project.getTasks();
             gatherManifestTask = taskContainer.register(GATHER_MANIFEST, Download.class, task -> {
                 task.setGroup(MANIFEST_GROUP);
@@ -43,6 +44,10 @@ public final class MinecraftTasks {
                 task.onlyIfModified(true);
                 task.useETag(true);
             });
+        }
+
+        private void afterEval(Project project) {
+            TaskContainer taskContainer = project.getTasks();
             manifestParserTask = taskContainer.register(PREPARE_NEEDED_MANIFESTS, ManifestDownloader.class, task -> {
                 task.setGroup(MANIFEST_GROUP);
                 task.dependsOn(gatherManifestTask);
@@ -53,7 +58,6 @@ public final class MinecraftTasks {
                 task.dependsOn(manifestParserTask);
                 task.getManifests().set(manifestParserTask.map(ManifestDownloader::getManifests).get());
             });
-
         }
     }
 
@@ -77,6 +81,7 @@ public final class MinecraftTasks {
         public RunTask(Project project, MinecraftDependency mcDep) {
             run = project.getTasks().register(getName(mcDep), RunMinecraftTask.class, task -> {
                 task.getVersion().set(mcDep.getVersion());
+                task.setClasspath(mcDep.getFiles());
             });
         }
 

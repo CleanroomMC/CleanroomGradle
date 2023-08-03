@@ -37,10 +37,6 @@ public final class CleanroomGradle {
         return Collections.unmodifiableSet(minecraftDependencies);
     }
 
-    public Project getProject() {
-        return project;
-    }
-
 
     /* Dependency-related Methods */
 
@@ -69,7 +65,7 @@ public final class CleanroomGradle {
     }
 
     public MinecraftDependency minecraft(String version) {
-        return registerDep(new MinecraftDependency(version, Loader.VANILLA.getValue()));
+        return registerDep(new MinecraftDependency(project, version, Loader.VANILLA.getValue()));
     }
 
     public MinecraftDependency minecraft(String version, Action<MinecraftDependency> configurationAction) {
@@ -78,12 +74,14 @@ public final class CleanroomGradle {
         return minecraftDependency;
     }
 
+/*
     public MinecraftDependency minecraft(String version, Map<String, ?> configurationMap) {
         return registerDep(MinecraftDependency.parseFromMap(version, configurationMap));
     }
+*/
 
     public MinecraftDependency minecraft(String version, String loader, String loaderVersion, String mappingProvider, String mappingVersion) {
-        return registerDep(new MinecraftDependency(version, loader, loaderVersion, mappingProvider, mappingVersion));
+        return registerDep(new MinecraftDependency(project, version, loader, loaderVersion, mappingProvider, mappingVersion));
     }
 
     private MinecraftDependency registerDep(MinecraftDependency dep) {

@@ -3,23 +3,26 @@ package com.cleanroommc.gradle.dependency;
 import groovy.lang.Closure;
 import groovy.lang.DelegatesTo;
 import org.apache.commons.lang3.StringUtils;
-import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.*;
+import org.gradle.api.file.ConfigurableFileCollection;
+import org.gradle.api.file.FileCollection;
 import org.gradle.api.internal.artifacts.DefaultModuleIdentifier;
 import org.gradle.api.internal.artifacts.DefaultModuleVersionIdentifier;
-import org.gradle.api.internal.artifacts.dependencies.AbstractModuleDependency;
-import org.gradle.api.internal.artifacts.dependencies.DefaultMutableVersionConstraint;
+import org.gradle.api.tasks.TaskDependency;
 import org.gradle.util.Configurable;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.io.File;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 import static com.cleanroommc.gradle.dependency.Side.JOINED;
 
-public class MinecraftDependency extends AbstractModuleDependency implements ExternalModuleDependency, Configurable<MinecraftDependency> {
-
+public class MinecraftDependency implements SelfResolvingDependency, FileCollectionDependency, Configurable<MinecraftDependency> {
+/*
     public static MinecraftDependency parseFromMap(String version, Map<String, ?> configurationMap) {
         if (configurationMap.get("loader") instanceof String loader) {
             if (Loader.VANILLA != Loader.valueOf(loader.toUpperCase())) {
@@ -39,38 +42,46 @@ public class MinecraftDependency extends AbstractModuleDependency implements Ext
         }
         return new MinecraftDependency(version, Loader.VANILLA.getValue());
     }
+*/
 
-    // Temporary
-    public static Set<String> getUniqueVanillaVersions(Set<MinecraftDependency> minecraftDependencies) {
-        return minecraftDependencies.stream().map(MinecraftDependency::getVanillaVersion).collect(Collectors.toSet());
-    }
 
-    public static Set<MinecraftDependency> getMinecraftDependencies(Project project) {
-        return project.getConfigurations().stream()
-                .map(Configuration::getDependencies)
-                .flatMap(Collection::stream)
-                .filter(MinecraftDependency.class::isInstance)
-                .map(MinecraftDependency.class::cast)
-                .collect(Collectors.toSet());
-    }
+    private Project project;
 
-    protected String version, loader, loaderVersion, mappingProvider, mappingVersion;
-    protected String side = JOINED.getValue();
-    private Side internalSide;
-    private Loader internalLoader;
-    private Mapping internalMappingProvider;
+    protected ConfigurableFileCollection files;
+    protected String version, loaderVersion, mappingVersion;
+    protected Side side;
+    protected Loader loader;
+    protected Mapping mappingProvider;
 
-    public MinecraftDependency(String version, String loader) {
-        super(null);
+    private MinecraftDependency(Project project, String version) {
+        this.project = project;
         this.version = version;
-        this.loader = loader;
-        validateDep();
+        side = JOINED;
+        mappingProvider = Mapping.MCP;
+        files = project.getObjects().fileCollection();
     }
 
-    public MinecraftDependency(String version, String loader, String loaderVersion, String mappingProvider, String mappingVersion) {
-        this(version, loader);
+    public MinecraftDependency(Project project, String version, Loader loader) {
+        this(project, version);
+        this.loader = loader;
+    }
+
+    public MinecraftDependency(Project project, String version, String loader) {
+        this(project, version);
+        this.loader = Loader.parse(loader);
+    }
+
+    public MinecraftDependency(Project project, String version, Loader loader, String loaderVersion, Mapping mappingProvider, String mappingVersion) {
+        this(project, version, loader);
         this.loaderVersion = loaderVersion;
         this.mappingProvider = mappingProvider;
+        this.mappingVersion = mappingVersion;
+    }
+
+    public MinecraftDependency(Project project, String version, String loader, String loaderVersion, String mappingProvider, String mappingVersion) {
+        this(project, version, loader);
+        this.loaderVersion = loaderVersion;
+        this.mappingProvider = Mapping.parse(mappingProvider);
         this.mappingVersion = mappingVersion;
     }
 
@@ -79,22 +90,7 @@ public class MinecraftDependency extends AbstractModuleDependency implements Ext
     }
 
     public String getTaskDescription() {
-        return internalLoader.getValue() + "_" + this.version + "_" + this.loaderVersion + "_" + internalMappingProvider.getValue() + "_" + this.mappingVersion;
-    }
-
-    @Override
-    public boolean isChanging() {
-        return false;
-    }
-
-    @Override
-    public ExternalModuleDependency setChanging(boolean changing) {
-        return copy();
-    }
-
-    @Override
-    public boolean isForce() {
-        return false;
+        return loader.getValue() + "_" + this.version + "_" + this.loaderVersion + "_" + mappingProvider.getValue() + "_" + this.mappingVersion;
     }
 
     @Override
@@ -103,7 +99,7 @@ public class MinecraftDependency extends AbstractModuleDependency implements Ext
     }
 
     @Override
-    public String getName() {
+    public @NotNull String getName() {
         return createModuleIdentifier().getName();
     }
 
@@ -114,33 +110,24 @@ public class MinecraftDependency extends AbstractModuleDependency implements Ext
     }
 
     @Override
-    public boolean matchesStrictly(ModuleVersionIdentifier identifier) {
-        return identifier.equals(createDefaultModuleVersionIdentifier());
-    }
-
-    @Override
-    public ModuleIdentifier getModule() {
-        return createModuleIdentifier();
-    }
-
-    @Override
     public boolean contentEquals(Dependency dependency) {
         return this.equals(dependency);
     }
 
     @Override
-    public MinecraftDependency copy() {
-        return new MinecraftDependency(this.version, this.loader, this.loaderVersion, this.mappingProvider, this.mappingVersion);
+    public @NotNull MinecraftDependency copy() {
+        return new MinecraftDependency(this.project, this.version, this.loader, this.loaderVersion, this.mappingProvider, this.mappingVersion);
+    }
+
+    @Nullable
+    @Override
+    public String getReason() {
+        return null;
     }
 
     @Override
-    public void version(Action<? super MutableVersionConstraint> configureAction) {
-        throw new UnsupportedOperationException("Cannot configure mutable version constraints");
-    }
+    public void because(@org.jetbrains.annotations.Nullable String reason) {
 
-    @Override
-    public VersionConstraint getVersionConstraint() {
-        return createPlaceholderVersionConstraint();
     }
 
     @Override
@@ -159,11 +146,11 @@ public class MinecraftDependency extends AbstractModuleDependency implements Ext
 
     @Override
     public String toString() {
-        if (Loader.VANILLA == this.internalLoader) {
+        if (Loader.VANILLA == this.loader) {
             return String.format("Vanilla Minecraft Dependency: { Version: %s }", this.version);
         } else {
             return String.format("%s Minecraft Dependency: { Version: %s | Loader Version: %s | Mapping: %s@%s }",
-                    StringUtils.capitalize(this.internalLoader.getValue()), this.version, this.loaderVersion, this.mappingProvider, this.mappingVersion);
+                    StringUtils.capitalize(this.loader.getValue()), this.version, this.loaderVersion, this.mappingProvider, this.mappingVersion);
         }
     }
 
@@ -174,66 +161,46 @@ public class MinecraftDependency extends AbstractModuleDependency implements Ext
     }
 
     private ModuleIdentifier createModuleIdentifier() {
-        return DefaultModuleIdentifier.newId("cleanroom_internal", this.internalLoader.getValue());
-    }
-
-    private VersionConstraint createPlaceholderVersionConstraint() {
-        return new DefaultMutableVersionConstraint(this.version);
+        return DefaultModuleIdentifier.newId("cleanroom_internal", this.loader.getValue());
     }
 
     private ModuleVersionIdentifier createDefaultModuleVersionIdentifier() {
         return DefaultModuleVersionIdentifier.newId(createModuleIdentifier(), this.version + (this.loader == null ? "" : "@" + this.loaderVersion));
     }
 
-    private void validateDep() {
-        parseLoader();
-        parseSide();
-        parseMapping();
+    public Side getSide() {
+        return side;
     }
 
-    private void parseLoader() {
-        try {
-            internalLoader = Loader.valueOf(loader.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            UnsupportedOperationException exception = new UnsupportedOperationException(String.format("%s loader not supported!", loader));
-            exception.addSuppressed(e);
-            throw exception;
-        }
+    public Loader getLoader() {
+        return loader;
     }
 
-    private void parseSide() {
-        try {
-            internalSide = Side.valueOf(side.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            UnsupportedOperationException exception = new UnsupportedOperationException(String.format("%s side not supported!", side));
-            exception.addSuppressed(e);
-            throw exception;
-        }
+    public Mapping getMappingProvider() {
+        return mappingProvider;
     }
 
-    private void parseMapping() {
-        if (mappingProvider == null) {
-            internalMappingProvider = Mapping.MCP;
-            return;
-        }
-        try {
-            internalMappingProvider = Mapping.valueOf(mappingProvider.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            UnsupportedOperationException exception = new UnsupportedOperationException(String.format("%s mapping provider not supported!", mappingProvider));
-            exception.addSuppressed(e);
-            throw exception;
-        }
+    @Override
+    public Set<File> resolve() {
+        return files.getFiles();
     }
 
-    public Side getInternalSide() {
-        return internalSide;
+    @Override
+    public FileCollection getFiles() {
+        return files;
     }
 
-    public Loader getInternalLoader() {
-        return internalLoader;
+    @Override
+    public Set<File> resolve(boolean transitive) {
+        return resolve();
     }
 
-    public Mapping getInternalMappingProvider() {
-        return internalMappingProvider;
+    @Override
+    public TaskDependency getBuildDependencies() {
+        return files.getBuildDependencies();
+    }
+
+    public void addFiles(List<File> files) {
+        this.files.setFrom(files);
     }
 }
