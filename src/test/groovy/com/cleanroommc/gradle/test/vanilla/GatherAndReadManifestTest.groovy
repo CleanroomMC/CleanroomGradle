@@ -1,7 +1,7 @@
 package com.cleanroommc.gradle.test.vanilla
 
 import com.cleanroommc.gradle.TestFoundation
-import com.cleanroommc.gradle.task.ManifestTasks
+import com.cleanroommc.gradle.task.MinecraftTasks
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
@@ -15,11 +15,11 @@ class GatherAndReadManifestTest extends TestFoundation {
         buildFile <<
                 """
                 task gatherAndReadManifestTest {
-                    dependsOn '${ManifestTasks.PREPARE_NEEDED_MANIFESTS}'
+                    dependsOn '${MinecraftTasks.PREPARE_NEEDED_MANIFESTS}'
                     doLast {
-                        def file = project.tasks.getByName('${ManifestTasks.GATHER_MANIFEST}').getDest()
+                        def file = project.tasks.getByName('${MinecraftTasks.GATHER_MANIFEST}').getDest()
                         assert file.exists() : "Manifest does not exist: \${file}"
-                        def output = project.tasks.getByName('${ManifestTasks.PREPARE_NEEDED_MANIFESTS}').output
+                        def output = project.tasks.getByName('${MinecraftTasks.PREPARE_NEEDED_MANIFESTS}').output
                         assert output != null : "Manifest json not parsed"
                     }
                 }
