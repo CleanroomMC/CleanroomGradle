@@ -278,6 +278,17 @@ public class VanillaTasks {
             t.classpath(vanillaConfig);
             t.getMainClass().set("net.minecraft.client.main.Main");
         }));
+
+        runVanillaServer = group.add(Tasks.with(project, taskName(RUN_VANILLA_SERVER), RunMinecraft.class, t -> {
+            t.dependsOn(extractNatives);
+            t.getMinecraftVersion().set(version);
+            t.getSide().set(Side.SERVER);
+            t.getNatives().fileProvider(extractNatives.map(Copy::getDestinationDir));
+            t.setWorkingDir(Locations.file(Locations.run(project), "vanilla", "server"));
+            t.classpath(serverJar());
+            t.classpath(vanillaConfig);
+            t.getMainClass().set("net.minecraft.server.MinecraftServer");
+        }));
     }
 
     private String taskName(String taskName) {

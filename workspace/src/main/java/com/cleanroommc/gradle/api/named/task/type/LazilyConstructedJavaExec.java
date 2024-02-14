@@ -30,7 +30,6 @@ public abstract class LazilyConstructedJavaExec extends JavaExec {
     @Override
     @TaskAction
     public void exec() {
-        beforeExec();
         getWorkingDir().mkdirs();
         if (getLogFile().isPresent()) {
             try {
@@ -39,6 +38,7 @@ public abstract class LazilyConstructedJavaExec extends JavaExec {
                 throw new RuntimeException(e);
             }
         }
+        beforeExec();
         super.exec();
     }
 
