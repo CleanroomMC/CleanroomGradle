@@ -166,8 +166,8 @@ public class VanillaTasks {
     }
 
     private void initConfigs() {
-        vanillaConfig = Configurations.of(project, "vanilla");
-        vanillaNativesConfig = Configurations.of(project, "vanillaNatives");
+        vanillaConfig = Configurations.of(project, "vanilla", false);
+        vanillaNativesConfig = Configurations.of(project, "vanillaNatives", false);
 
         project.afterEvaluate($ -> {
             for (var library : versionMeta().get().libraries()) {
@@ -195,8 +195,7 @@ public class VanillaTasks {
             if (upgradeLog4j2.get()) {
                 Configurations.all(project).forEach(config -> config.resolutionStrategy(rs -> rs.eachDependency(drd -> {
                     var requested = drd.getRequested();
-                    if ("org.apache.logging.log4j".equals(requested.getGroup()) && "log4j-core".equals(requested.getName()) &&
-                            Versioning.lowerThan(requested.getVersion(), "2.17.1")) {
+                    if ("org.apache.logging.log4j".equals(requested.getGroup()) && Versioning.lowerThan(requested.getVersion(), "2.17.1")) {
                         drd.because("Upgrade Log4J2 property is enabled, hence all versions of Log4J2 below 2.17.1 will be updated to latest.");
                         drd.useVersion("2.22.1");
                     }
