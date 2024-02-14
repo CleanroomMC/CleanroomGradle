@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.env.vanilla;
 
+import com.cleanroommc.gradle.api.Environment;
 import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.lazy.Providers;
 import com.cleanroommc.gradle.api.named.Configurations;
@@ -273,7 +274,7 @@ public class VanillaTasks {
             t.getNatives().fileProvider(extractNatives.map(Copy::getDestinationDir));
             t.getAssetIndexVersion().set(assetIndexId());
             t.getVanillaAssetsLocation().set(Locations.global(project, Meta.CG_FOLDER, "assets"));
-            t.setWorkingDir(Locations.file(Locations.run(project), "vanilla", "client"));
+            t.setWorkingDir(Locations.run(project, version, Environment.VANILLA, Side.CLIENT));
             t.classpath(clientJar());
             t.classpath(vanillaConfig);
             t.getMainClass().set("net.minecraft.client.main.Main");
@@ -284,7 +285,7 @@ public class VanillaTasks {
             t.getMinecraftVersion().set(version);
             t.getSide().set(Side.SERVER);
             t.getNatives().fileProvider(extractNatives.map(Copy::getDestinationDir));
-            t.setWorkingDir(Locations.file(Locations.run(project), "vanilla", "server"));
+            t.setWorkingDir(Locations.run(project, version, Environment.VANILLA, Side.SERVER));
             t.classpath(serverJar());
             t.classpath(vanillaConfig);
             t.getMainClass().set("net.minecraft.server.MinecraftServer");

@@ -1,8 +1,11 @@
 package com.cleanroommc.gradle.api.structure;
 
+import com.cleanroommc.gradle.api.Environment;
+import net.minecraftforge.fml.relauncher.Side;
 import org.gradle.api.Project;
 
 import java.io.File;
+import java.util.Locale;
 
 public final class Locations {
 
@@ -13,8 +16,9 @@ public final class Locations {
         return file;
     }
 
-    public static File run(Project project) {
-        return project.getLayout().getProjectDirectory().dir("run").getAsFile();
+    public static File run(Project project, String version, Environment env, Side side) {
+        return file(project.getLayout().getProjectDirectory().dir("run").getAsFile(),
+                    version, env.name().toLowerCase(Locale.ENGLISH), side.name().toLowerCase(Locale.ENGLISH));
     }
 
     public static File global(Project project, String... paths) {
