@@ -176,6 +176,7 @@ public class VanillaTasks {
 
     private void initRepos() {
         var repos = project.getRepositories();
+        repos.mavenCentral();
         repos.maven(mar -> {
             mar.setName("Mojang");
             mar.setUrl(Meta.MOJANG_REPO);
@@ -183,7 +184,7 @@ public class VanillaTasks {
     }
 
     private void initConfigs() {
-        vanillaConfig = Configurations.of(project, "vanilla", false);
+        vanillaConfig = Configurations.of(project, "vanilla", true);
         vanillaNativesConfig = Configurations.of(project, "vanillaNatives", false);
 
         project.afterEvaluate($ -> {
