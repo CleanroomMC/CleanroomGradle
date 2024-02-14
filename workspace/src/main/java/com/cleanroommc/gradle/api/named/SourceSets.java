@@ -3,6 +3,7 @@ package com.cleanroommc.gradle.api.named;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.UnknownDomainObjectException;
+import org.gradle.api.file.FileCollection;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.SourceSet;
@@ -25,6 +26,14 @@ public final class SourceSets {
             return container(project).named(name);
         } catch (UnknownDomainObjectException ignored) { }
         return container(project).register(name);
+    }
+
+    public static void addCompileClasspath(SourceSet sources, FileCollection files) {
+        sources.setCompileClasspath(sources.getCompileClasspath().plus(files));
+    }
+
+    public static void addRuntimeClasspath(SourceSet sources, FileCollection files) {
+        sources.setRuntimeClasspath(sources.getRuntimeClasspath().plus(files));
     }
 
     public static Provider<File> sourceFrom(NamedDomainObjectProvider<SourceSet> sourceSet) {

@@ -1,7 +1,10 @@
 package com.cleanroommc.gradle.env.mcp;
 
+import com.cleanroommc.gradle.api.Environment;
 import com.cleanroommc.gradle.api.Meta;
+import com.cleanroommc.gradle.api.lazy.Providers;
 import com.cleanroommc.gradle.api.named.Configurations;
+import com.cleanroommc.gradle.api.named.SourceSets;
 import com.cleanroommc.gradle.api.named.dependency.Dependencies;
 import com.cleanroommc.gradle.api.named.extension.Properties;
 import com.cleanroommc.gradle.api.named.task.TaskGroup;
@@ -10,17 +13,22 @@ import com.cleanroommc.gradle.api.patch.ApplyDiffs;
 import com.cleanroommc.gradle.api.structure.IO;
 import com.cleanroommc.gradle.api.structure.Locations;
 import com.cleanroommc.gradle.env.common.task.Decompile;
+import com.cleanroommc.gradle.env.common.task.RunMinecraft;
 import com.cleanroommc.gradle.env.mcp.task.Deobfuscate;
 import com.cleanroommc.gradle.env.mcp.task.MergeJars;
 import com.cleanroommc.gradle.env.mcp.task.PolishDeobfuscation;
 import com.cleanroommc.gradle.env.mcp.task.Remap;
 import com.cleanroommc.gradle.env.vanilla.VanillaTasks;
 import org.gradle.api.DefaultTask;
+import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
+import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
+import org.gradle.api.tasks.bundling.Jar;
+import org.gradle.api.tasks.compile.JavaCompile;
 
 import java.io.File;
 
@@ -35,7 +43,9 @@ public class MCPTasks {
     public static final String PATCH_JAR = "patchJar";
     public static final String EXTRACT_MCP_MAPPINGS = "extractMcpMappings";
     public static final String REMAP_JAR = "remapJar";
+    public static final String ADD_MINECRAFT_SOURCES = "addMinecraftSources";
     public static final String RUN_SRG_CLIENT = "runSrgClient";
+    public static final String RUN_SRG_SERVER = "runSrgServer";
 
     public static MCPTasks make(Project project, String version) {
         return Properties.getOrSet(project, version.replace('.', '_') + "_MCPTasks", () -> new MCPTasks(project, version));
@@ -49,6 +59,8 @@ public class MCPTasks {
 
     private Configuration mcpConfig, mcpMappingConfig;
 
+    private NamedDomainObjectProvider<SourceSet> minecraft;
+
     private TaskProvider<Copy> extractMcpConfig, extractMcpMappings;
     private TaskProvider<MergeJars> mergeJars;
     private TaskProvider<Deobfuscate> deobfuscate;
@@ -57,15 +69,17 @@ public class MCPTasks {
     private TaskProvider<DefaultTask> extractSrgPatches;
     private TaskProvider<ApplyDiffs> patchJar;
     private TaskProvider<Remap> remapJar;
+    private TaskProvider<RunMinecraft> runSrgClient, runSrgServer;
 
     private MCPTasks(Project project, String minecraftVersion) {
         this.project = project;
         this.version = minecraftVersion;
         vanillaTasks = VanillaTasks.make(project, minecraftVersion);
-        group = TaskGroup.of("vanilla " + minecraftVersion);
+        group = TaskGroup.of("mcp " + minecraftVersion);
         cache = Locations.global(project, Meta.CG_FOLDER, "versions", minecraftVersion, "mcp_config");
         initRepos();
         initConfigs();
+        initSourceSets();
         initTasks();
     }
 
@@ -120,6 +134,14 @@ public class MCPTasks {
         project.afterEvaluate($ -> {
             Dependencies.add(project, mcpConfig, "de.oceanlabs.mcp:mcp_config:1.12.2-20201025.185735");
             Dependencies.add(project, mcpMappingConfig, "de.oceanlabs.mcp:mcp_stable:39-1.12@zip");
+        });
+    }
+
+    private void initSourceSets() {
+        minecraft = SourceSets.getOrCreate(project, "minecraft");
+        minecraft.configure(set -> {
+            SourceSets.addCompileClasspath(set, vanillaTasks().vanillaConfig());
+            SourceSets.addRuntimeClasspath(set, vanillaTasks().vanillaConfig());
         });
     }
 
@@ -181,6 +203,20 @@ public class MCPTasks {
             t.getParameterMappings().set(Locations.file(mcpMappingFolder, "params.csv"));
             t.getRemappedJar().set(location("remapped.jar"));
         }));
+
+        minecraft.configure(sources -> {
+            group.add(Tasks.with(project, taskName(sources.getCompileJavaTaskName()), JavaCompile.class,
+                                 t -> t.getJavaCompiler().set(Providers.javaCompiler(project, 8))));
+
+            group.add(Tasks.with(project, taskName(sources.getJarTaskName()), Jar.class, t -> {
+                t.from(sources.getOutput());
+                t.getDestinationDirectory().set(Locations.build(project, "libs"));
+                t.getArchiveClassifier().set(sources.getName());
+            }));
+        });
+
+        var addMinecraftSources = group.add(Tasks.unzip(project, taskName(ADD_MINECRAFT_SOURCES),
+                                                        remapJar.map(Remap::getRemappedJar), SourceSets.sourceFrom(minecraft)));
 
     }
 

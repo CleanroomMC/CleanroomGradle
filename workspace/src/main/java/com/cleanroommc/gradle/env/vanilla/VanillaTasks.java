@@ -268,7 +268,6 @@ public class VanillaTasks {
         extractNatives = group.add(Tasks.unzip(project, taskName(EXTRACT_NATIVES), vanillaNativesConfig, location("natives"), t -> t.exclude("META-INF/**")));
 
         runVanillaClient = group.add(Tasks.with(project, taskName(RUN_VANILLA_CLIENT), RunMinecraft.class, t -> {
-            t.dependsOn(extractNatives);
             t.getMinecraftVersion().set(version);
             t.getSide().set(Side.CLIENT);
             t.getNatives().fileProvider(extractNatives.map(Copy::getDestinationDir));
@@ -281,7 +280,6 @@ public class VanillaTasks {
         }));
 
         runVanillaServer = group.add(Tasks.with(project, taskName(RUN_VANILLA_SERVER), RunMinecraft.class, t -> {
-            t.dependsOn(extractNatives);
             t.getMinecraftVersion().set(version);
             t.getSide().set(Side.SERVER);
             t.getNatives().fileProvider(extractNatives.map(Copy::getDestinationDir));

@@ -25,6 +25,10 @@ public final class Locations {
         return file(new File(project.getGradle().getGradleUserHomeDir(), "caches"), paths);
     }
 
+    public static File build(Project project, String... paths) {
+        return file(project.getLayout().getBuildDirectory().get().getAsFile(), paths);
+    }
+
     public static File temp(Project project, String... paths) {
         return file(new File(project.getLayout().getBuildDirectory().get().getAsFile(), "tmp"), paths);
     }
