@@ -1,0 +1,6 @@
+plugins {
+    id 'java'
+    id 'com.cleanroommc.gradle'
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)

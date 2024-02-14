@@ -1,2 +1,9 @@
-rootProject.name = 'cleanroom-gradle'
+pluginManagement {
+    includeBuild('workspace') {
+        name = 'cleanroomgradle'
+    }
+}
 
+rootProject.name = 'CleanroomGradleEnvironment'
+
+include 'test_area'
