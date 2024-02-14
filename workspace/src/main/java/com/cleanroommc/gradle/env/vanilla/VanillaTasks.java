@@ -16,7 +16,9 @@ import com.cleanroommc.gradle.api.types.json.schema.AssetIndex;
 import com.cleanroommc.gradle.api.types.json.schema.VersionManifest;
 import com.cleanroommc.gradle.api.types.json.schema.VersionMeta;
 import com.cleanroommc.gradle.env.common.task.DownloadAssets;
+import com.cleanroommc.gradle.env.common.task.RunMinecraft;
 import de.undercouch.gradle.tasks.download.Download;
+import net.minecraftforge.fml.relauncher.Side;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.provider.Property;
@@ -38,6 +40,8 @@ public class VanillaTasks {
     public static final String DOWNLOAD_ASSET_INDEX = "downloadAssetIndex";
     public static final String DOWNLOAD_ASSETS = "downloadAssets";
     public static final String EXTRACT_NATIVES = "extractNatives";
+    public static final String RUN_VANILLA_CLIENT = "runVanillaClient";
+    public static final String RUN_VANILLA_SERVER = "runVanillaServer";
 
     public static VanillaTasks make(Project project, String version) {
         return Properties.getOrSet(project, version.replace('.', '_') + "_VanillaTasks", () -> new VanillaTasks(project, version));
@@ -72,6 +76,7 @@ public class VanillaTasks {
     private TaskProvider<Download> downloadVersionMeta, downloadClientJar, downloadServerJar, downloadAssetIndex;
     private TaskProvider<DownloadAssets> downloadAssets;
     private TaskProvider<Copy> extractNatives;
+    private TaskProvider<RunMinecraft> runVanillaClient, runVanillaServer;
 
     private VanillaTasks(Project project, String minecraftVersion) {
         this.project = project;
@@ -95,6 +100,10 @@ public class VanillaTasks {
         return version;
     }
 
+    public Provider<String> assetIndexId() {
+        return Providers.of(() -> versionMeta().get().assetIndexId());
+    }
+
     public Supplier<VersionMeta> versionMeta() {
         return Types.memoizedSupplier(() -> {
             try {
@@ -108,8 +117,7 @@ public class VanillaTasks {
     public Supplier<AssetIndex> assetIndex() {
         return Types.memoizedSupplier(() -> {
             try {
-                var assetIndexId = versionMeta().get().assetIndexId();
-                var assetIndexFile = Locations.global(project, "assets", "indexes", assetIndexId + ".json");
+                var assetIndexFile = Locations.global(project, "assets", "indexes", assetIndexId().get() + ".json");
                 return Types.readJson(assetIndexFile, AssetIndex.class);
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -123,6 +131,14 @@ public class VanillaTasks {
 
     public Provider<File> serverJar() {
         return downloadServerJar.map(Download::getDest);
+    }
+
+    public Configuration vanillaConfig() {
+        return vanillaConfig;
+    }
+
+    public Configuration vanillaNativesConfig() {
+        return vanillaNativesConfig;
     }
 
     public TaskProvider<Download> downloadVersionMeta() {
@@ -149,12 +165,12 @@ public class VanillaTasks {
         return extractNatives;
     }
 
-    public Configuration vanillaConfig() {
-        return vanillaConfig;
+    public TaskProvider<RunMinecraft> runVanillaClient() {
+        return runVanillaClient;
     }
 
-    public Configuration vanillaNativesConfig() {
-        return vanillaNativesConfig;
+    public TaskProvider<RunMinecraft> runVanillaServer() {
+        return runVanillaServer;
     }
 
     private void initRepos() {
@@ -249,6 +265,19 @@ public class VanillaTasks {
         }));
 
         extractNatives = group.add(Tasks.unzip(project, taskName(EXTRACT_NATIVES), vanillaNativesConfig, location("natives"), t -> t.exclude("META-INF/**")));
+
+        runVanillaClient = group.add(Tasks.with(project, taskName(RUN_VANILLA_CLIENT), RunMinecraft.class, t -> {
+            t.dependsOn(extractNatives);
+            t.getMinecraftVersion().set(version);
+            t.getSide().set(Side.CLIENT);
+            t.getNatives().fileProvider(extractNatives.map(Copy::getDestinationDir));
+            t.getAssetIndexVersion().set(assetIndexId());
+            t.getVanillaAssetsLocation().set(Locations.global(project, Meta.CG_FOLDER, "assets"));
+            t.setWorkingDir(Locations.file(Locations.run(project), "vanilla", "client"));
+            t.classpath(clientJar());
+            t.classpath(vanillaConfig);
+            t.getMainClass().set("net.minecraft.client.main.Main");
+        }));
     }
 
     private String taskName(String taskName) {

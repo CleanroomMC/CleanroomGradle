@@ -45,7 +45,7 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     public abstract Property<String> getAccessToken();
 
     public RunMinecraft() {
-        getAssetIndexVersion().convention("");
+        getAssetIndexVersion().convention(getMinecraftVersion());
         getVanillaAssetsLocation().convention(getProject().getLayout().getProjectDirectory());
         getAccessToken().convention("0");
 
@@ -68,7 +68,7 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         );
 
         setMinHeapSize("1G");
-        setMinHeapSize("1G");
+        setMaxHeapSize("1G");
     }
 
 }
