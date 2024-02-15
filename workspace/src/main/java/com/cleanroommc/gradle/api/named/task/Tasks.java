@@ -72,6 +72,14 @@ public final class Tasks {
         return task;
     }
 
+    public static <T extends Task> TaskProvider<T> named(Project project, String taskName, Class<T> type) {
+        return project.getTasks().named(taskName, type);
+    }
+
+    public static <T extends Task> void configure(Project project, String taskName, Action<? super T> action) {
+        project.getTasks().named(taskName).configure((Action<? super Task>) action);
+    }
+
     private Tasks() { }
 
 }
