@@ -184,8 +184,8 @@ public class VanillaTasks {
     }
 
     private void initConfigs() {
-        vanillaConfig = Configurations.of(project, "vanilla", true);
-        vanillaNativesConfig = Configurations.of(project, "vanillaNatives", false);
+        vanillaConfig = Configurations.of(project, "vanilla_" + version.replace('.', '_'), true);
+        vanillaNativesConfig = Configurations.of(project, "vanillaNatives_" + version.replace('.', '_'), false);
 
         project.afterEvaluate($ -> {
             for (var library : versionMeta().get().libraries()) {
