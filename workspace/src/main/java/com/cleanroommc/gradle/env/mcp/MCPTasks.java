@@ -249,7 +249,7 @@ public class MCPTasks {
                 t.classpath(minecraftJar.map(Jar::getArchiveFile));
                 t.classpath(extractClientResources.map(Copy::getDestinationDir));
                 t.classpath(extractServerResources.map(Copy::getDestinationDir));
-                t.classpath(sources.getRuntimeClasspath());
+                t.classpath(vanillaTasks.vanillaConfig());
                 t.getMainClass().set("net.minecraft.client.main.Main");
             }));
 
@@ -260,7 +260,7 @@ public class MCPTasks {
                 t.setWorkingDir(Locations.run(project, version, Environment.MCP, Side.SERVER));
                 t.classpath(minecraftJar.map(Jar::getArchiveFile));
                 t.classpath(extractServerResources.map(Copy::getDestinationDir));
-                t.classpath(sources.getRuntimeClasspath());
+                t.classpath(vanillaTasks.vanillaConfig());
                 t.getMainClass().set("net.minecraft.server.MinecraftServer");
             }));
         });
