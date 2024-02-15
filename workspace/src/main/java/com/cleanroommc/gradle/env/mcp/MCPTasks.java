@@ -48,6 +48,8 @@ public class MCPTasks {
     public static final String EXTRACT_MCP_MAPPINGS = "extractMcpMappings";
     public static final String REMAP_JAR = "remapJar";
     public static final String ADD_MINECRAFT_SOURCES = "addMinecraftSources";
+    public static final String RUN_SRG_CLIENT = "runSrgClient";
+    public static final String RUN_SRG_SERVER = "runSrgServer";
     public static final String RUN_MCP_CLIENT = "runMcpClient";
     public static final String RUN_MCP_SERVER = "runMcpServer";
 
@@ -73,7 +75,7 @@ public class MCPTasks {
     private TaskProvider<DefaultTask> extractSrgPatches;
     private TaskProvider<ApplyDiffs> patchJar;
     private TaskProvider<Remap> remapJar;
-    private TaskProvider<RunMinecraft> runMcpClient, runMcpServer;
+    private TaskProvider<RunMinecraft> runSrgClient, runSrgServer, runMcpClient, runMcpServer;
 
     private MCPTasks(Project project, String minecraftVersion) {
         this.project = project;
@@ -220,6 +222,31 @@ public class MCPTasks {
 
         var addMinecraftSources = group.add(Tasks.unzip(project, taskName(ADD_MINECRAFT_SOURCES),
                                                         remapJar.map(Remap::getRemappedJar), SourceSets.sourceFrom(minecraft)));
+
+        runSrgClient = group.add(Tasks.with(project, taskName(RUN_SRG_CLIENT), RunMinecraft.class, t -> {
+            t.getMinecraftVersion().set(version);
+            t.getSide().set(Side.CLIENT);
+            t.getNatives().fileProvider(vanillaTasks.extractNatives().map(Copy::getDestinationDir));
+            t.getAssetIndexVersion().set(vanillaTasks.assetIndexId());
+            t.getVanillaAssetsLocation().set(Locations.global(project, Meta.CG_FOLDER, "assets"));
+            t.setWorkingDir(Locations.run(project, version, Environment.SRG, Side.CLIENT));
+            t.classpath(polishDeobfuscatedJar.map(PolishDeobfuscation::getPolishedJar));
+            t.classpath(extractClientResources.map(Copy::getDestinationDir));
+            t.classpath(extractServerResources.map(Copy::getDestinationDir));
+            t.classpath(vanillaTasks.vanillaConfig());
+            t.getMainClass().set("net.minecraft.client.main.Main");
+        }));
+
+        runSrgServer = group.add(Tasks.with(project, taskName(RUN_SRG_SERVER), RunMinecraft.class, t -> {
+            t.getMinecraftVersion().set(version);
+            t.getSide().set(Side.SERVER);
+            t.getNatives().fileProvider(vanillaTasks.extractNatives().map(Copy::getDestinationDir));
+            t.setWorkingDir(Locations.run(project, version, Environment.SRG, Side.SERVER));
+            t.classpath(polishDeobfuscatedJar.map(PolishDeobfuscation::getPolishedJar));
+            t.classpath(extractServerResources.map(Copy::getDestinationDir));
+            t.classpath(vanillaTasks.vanillaConfig());
+            t.getMainClass().set("net.minecraft.server.MinecraftServer");
+        }));
 
         minecraft.configure(sources -> {
             Tasks.<JavaCompile>configure(project, sources.getCompileJavaTaskName(), t -> {
