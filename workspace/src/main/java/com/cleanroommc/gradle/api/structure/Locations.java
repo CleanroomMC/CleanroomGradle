@@ -1,6 +1,7 @@
 package com.cleanroommc.gradle.api.structure;
 
 import com.cleanroommc.gradle.api.Environment;
+import com.cleanroommc.gradle.api.Meta;
 import net.minecraftforge.fml.relauncher.Side;
 import org.gradle.api.Project;
 
@@ -26,7 +27,7 @@ public final class Locations {
     }
 
     public static File build(Project project, String... paths) {
-        return file(project.getLayout().getBuildDirectory().get().getAsFile(), paths);
+        return file(new File(project.getLayout().getBuildDirectory().get().getAsFile(), Meta.CG_FOLDER), paths);
     }
 
     public static File temp(Project project, String... paths) {
