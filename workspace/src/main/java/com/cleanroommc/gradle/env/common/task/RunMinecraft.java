@@ -67,6 +67,8 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         setStandardOutput(System.out);
         setErrorOutput(System.err);
 
+        jvmArgs("-Dfile.encoding=UTF-8");
+
         systemProperty("java.library.path", Providers.libraryPath(getProject(), getNatives().map(Directory::getAsFile)));
 
         args("--gameDir", Providers.of(this::getWorkingDir),
