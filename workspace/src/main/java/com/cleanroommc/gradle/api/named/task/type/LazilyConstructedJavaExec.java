@@ -4,7 +4,6 @@ import com.cleanroommc.gradle.api.lazy.Providers;
 import com.cleanroommc.gradle.api.lazy.Streams;
 import org.apache.commons.io.FileUtils;
 import org.gradle.api.file.RegularFileProperty;
-import org.gradle.api.internal.tasks.TaskExecutionOutcome;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.JavaExec;
