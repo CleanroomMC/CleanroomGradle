@@ -187,38 +187,40 @@ public class VanillaTasks {
         vanillaConfig = Configurations.of(project, "vanilla_" + version.replace('.', '_'), true);
         vanillaNativesConfig = Configurations.of(project, "vanillaNatives_" + version.replace('.', '_'), false);
 
-        project.afterEvaluate($ -> {
-            for (var library : versionMeta().get().libraries()) {
-                if (library.isValidForOS(Platform.CURRENT)) {
-                    Dependencies.add($, vanillaConfig, library.name());
-                    if (library.hasNativesForOS(Platform.CURRENT)) {
-                        var osClassifier = library.classifierForOS(Platform.CURRENT);
-                        if (osClassifier != null) {
-                            var path = osClassifier.path();
-                            var matcher = Meta.NATIVES_PATTERN.matcher(path);
-                            if (!matcher.find()) {
-                                throw new IllegalStateException("Failed to match regex for natives path : " + path);
+        project.afterEvaluate(project -> {
+            downloadVersionMeta.configure(t -> t.doLast($ -> {
+                for (var library : versionMeta().get().libraries()) {
+                    if (library.isValidForOS(Platform.CURRENT)) {
+                        Dependencies.add(project, vanillaConfig, library.name());
+                        if (library.hasNativesForOS(Platform.CURRENT)) {
+                            var osClassifier = library.classifierForOS(Platform.CURRENT);
+                            if (osClassifier != null) {
+                                var path = osClassifier.path();
+                                var matcher = Meta.NATIVES_PATTERN.matcher(path);
+                                if (!matcher.find()) {
+                                    throw new IllegalStateException("Failed to match regex for natives path : " + path);
+                                }
+                                var group = matcher.group("group").replace('/', '.');
+                                var name = matcher.group("name");
+                                var version = matcher.group("version");
+                                var classifier = matcher.group("classifier");
+                                var dependencyNotation = "%s:%s:%s:%s".formatted(group, name, version, classifier);
+                                Dependencies.add(project, vanillaNativesConfig, dependencyNotation);
                             }
-                            var group = matcher.group("group").replace('/', '.');
-                            var name = matcher.group("name");
-                            var version = matcher.group("version");
-                            var classifier = matcher.group("classifier");
-                            var dependencyNotation = "%s:%s:%s:%s".formatted(group, name, version, classifier);
-                            Dependencies.add($, vanillaNativesConfig, dependencyNotation);
                         }
                     }
                 }
-            }
 
-            if (upgradeLog4j2.get()) {
-                Configurations.all(project).forEach(config -> config.resolutionStrategy(rs -> rs.eachDependency(drd -> {
-                    var requested = drd.getRequested();
-                    if ("org.apache.logging.log4j".equals(requested.getGroup()) && Versioning.lowerThan(requested.getVersion(), "2.17.1")) {
-                        drd.because("Upgrade Log4J2 property is enabled, hence all versions of Log4J2 below 2.17.1 will be updated to latest.");
-                        drd.useVersion("2.22.1");
-                    }
-                })));
-            }
+                if (upgradeLog4j2.get()) {
+                    Configurations.all(project).forEach(config -> config.resolutionStrategy(rs -> rs.eachDependency(drd -> {
+                        var requested = drd.getRequested();
+                        if ("org.apache.logging.log4j".equals(requested.getGroup()) && Versioning.lowerThan(requested.getVersion(), "2.17.1")) {
+                            drd.because("Upgrade Log4J2 property is enabled, hence all versions of Log4J2 below 2.17.1 will be updated to latest.");
+                            drd.useVersion("2.22.1");
+                        }
+                    })));
+                }
+            }));
         });
     }
 
