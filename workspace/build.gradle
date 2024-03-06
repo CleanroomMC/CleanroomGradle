@@ -4,6 +4,7 @@ plugins {
     id 'idea'
     id 'java-gradle-plugin'
     id 'com.diffplug.spotless' version '6.23.3'
+    id 'maven-publish'
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
