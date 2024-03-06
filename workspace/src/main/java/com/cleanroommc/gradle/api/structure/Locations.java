@@ -23,7 +23,7 @@ public final class Locations {
     }
 
     public static File global(Project project, String... paths) {
-        return file(new File(project.getGradle().getGradleUserHomeDir(), "caches"), paths);
+        return file(file(new File(project.getGradle().getGradleUserHomeDir(), "caches"), Meta.CG_FOLDER), paths);
     }
 
     public static File build(Project project, String... paths) {

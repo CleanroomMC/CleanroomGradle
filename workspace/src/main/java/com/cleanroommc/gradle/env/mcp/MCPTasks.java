@@ -82,7 +82,7 @@ public class MCPTasks {
         this.version = minecraftVersion;
         vanillaTasks = VanillaTasks.make(project, minecraftVersion);
         group = TaskGroup.of("mcp " + minecraftVersion);
-        cache = Locations.global(project, Meta.CG_FOLDER, "versions", minecraftVersion, "mcp_config");
+        cache = Locations.global(project, "versions", minecraftVersion, "mcp_config");
         initRepos();
         initConfigs();
         initSourceSets();
@@ -146,8 +146,8 @@ public class MCPTasks {
     private void initSourceSets() {
         minecraft = SourceSets.getOrCreate(project, "minecraft_" + version.replace('.', '_'));
         minecraft.configure(set -> {
-            set.java(sds -> sds.setSrcDirs(List.of(location("sources", set.getName()))));
-            set.resources(sds -> sds.setSrcDirs(List.of(location("resources", set.getName()))));
+            set.java(sds -> sds.setSrcDirs(List.of("sources", set.getName())));
+            set.resources(sds -> sds.setSrcDirs(List.of("resources", set.getName())));
             SourceSets.addCompileClasspath(set, vanillaTasks().vanillaConfig());
             SourceSets.addRuntimeClasspath(set, vanillaTasks().vanillaConfig());
         });
@@ -224,11 +224,12 @@ public class MCPTasks {
                                                         remapJar.map(Remap::getRemappedJar), SourceSets.sourceFrom(minecraft)));
 
         runSrgClient = group.add(Tasks.with(project, taskName(RUN_SRG_CLIENT), RunMinecraft.class, t -> {
+            t.dependsOn(vanillaTasks.downloadAssets());
             t.getMinecraftVersion().set(version);
             t.getSide().set(Side.CLIENT);
             t.getNatives().fileProvider(vanillaTasks.extractNatives().map(Copy::getDestinationDir));
             t.getAssetIndexVersion().set(vanillaTasks.assetIndexId());
-            t.getVanillaAssetsLocation().set(Locations.global(project, Meta.CG_FOLDER, "assets"));
+            t.getVanillaAssetsLocation().set(Locations.global(project, "assets"));
             t.setWorkingDir(Locations.run(project, version, Environment.SRG, Side.CLIENT));
             t.classpath(polishDeobfuscatedJar.map(PolishDeobfuscation::getPolishedJar));
             t.classpath(extractClientResources.map(Copy::getDestinationDir));
@@ -271,7 +272,7 @@ public class MCPTasks {
                 t.getSide().set(Side.CLIENT);
                 t.getNatives().fileProvider(vanillaTasks.extractNatives().map(Copy::getDestinationDir));
                 t.getAssetIndexVersion().set(vanillaTasks.assetIndexId());
-                t.getVanillaAssetsLocation().set(Locations.global(project, Meta.CG_FOLDER, "assets"));
+                t.getVanillaAssetsLocation().set(Locations.global(project, "assets"));
                 t.setWorkingDir(Locations.run(project, version, Environment.MCP, Side.CLIENT));
                 t.classpath(minecraftJar.map(Jar::getArchiveFile));
                 t.classpath(extractClientResources.map(Copy::getDestinationDir));

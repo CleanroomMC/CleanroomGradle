@@ -19,8 +19,10 @@ import com.cleanroommc.gradle.api.types.json.schema.VersionMeta;
 import com.cleanroommc.gradle.env.common.task.DownloadAssets;
 import com.cleanroommc.gradle.env.common.task.RunMinecraft;
 import de.undercouch.gradle.tasks.download.Download;
+import de.undercouch.gradle.tasks.download.DownloadAction;
 import net.minecraftforge.fml.relauncher.Side;
 import org.gradle.api.Project;
+import org.gradle.api.Task;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
@@ -74,7 +76,7 @@ public class VanillaTasks {
 
     private Configuration vanillaConfig, vanillaNativesConfig;
 
-    private TaskProvider<Download> downloadVersionMeta, downloadClientJar, downloadServerJar, downloadAssetIndex;
+    private TaskProvider<Download> downloadClientJar, downloadServerJar;
     private TaskProvider<DownloadAssets> downloadAssets;
     private TaskProvider<Copy> extractNatives;
     private TaskProvider<RunMinecraft> runVanillaClient, runVanillaServer;
@@ -83,7 +85,7 @@ public class VanillaTasks {
         this.project = project;
         this.version = minecraftVersion;
         group = TaskGroup.of("vanilla " + minecraftVersion);
-        cache = Locations.global(project, Meta.CG_FOLDER, "versions", minecraftVersion, "vanilla");
+        cache = Locations.global(project, "versions", minecraftVersion, "vanilla");
 
         upgradeLog4j2 = Providers.property(Boolean.class, true);
 
@@ -108,7 +110,17 @@ public class VanillaTasks {
     public Supplier<VersionMeta> versionMeta() {
         return Types.memoizedSupplier(() -> {
             try {
-                return Types.readJson(location("version.json"), VersionMeta.class);
+                var file = location("version.json");
+                if (!file.exists()) {
+                    var manifestLocation = Locations.global(project, "version_manifest_v2.json");
+                    var download = new DownloadAction(project);
+                    download.overwrite(false);
+                    download.onlyIfModified(true);
+                    download.src(Providers.of(() -> Types.readJson(manifestLocation, VersionManifest.class)).map(manifest -> manifest.version(version).url));
+                    download.dest(file);
+                    download.execute();
+                }
+                return Types.readJson(file, VersionMeta.class);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -118,8 +130,16 @@ public class VanillaTasks {
     public Supplier<AssetIndex> assetIndex() {
         return Types.memoizedSupplier(() -> {
             try {
-                var assetIndexFile = Locations.global(project, "assets", "indexes", assetIndexId().get() + ".json");
-                return Types.readJson(assetIndexFile, AssetIndex.class);
+                var file = Locations.global(project, "assets", "indexes", assetIndexId().get() + ".json");
+                if (!file.exists()) {
+                    var download = new DownloadAction(project);
+                    download.overwrite(false);
+                    download.onlyIfModified(true);
+                    download.src(Providers.of(() -> versionMeta().get().assetIndexUrl()));
+                    download.dest(Providers.of(() -> Locations.global(project, "assets", "indexes", versionMeta().get().assetIndexId() + ".json")));
+                    download.execute();
+                }
+                return Types.readJson(file, AssetIndex.class);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -142,20 +162,12 @@ public class VanillaTasks {
         return vanillaNativesConfig;
     }
 
-    public TaskProvider<Download> downloadVersionMeta() {
-        return downloadVersionMeta;
-    }
-
     public TaskProvider<Download> downloadClientJar() {
         return downloadClientJar;
     }
 
     public TaskProvider<Download> downloadServerJar() {
         return downloadServerJar;
-    }
-
-    public TaskProvider<Download> downloadAssetIndex() {
-        return downloadAssetIndex;
     }
 
     public TaskProvider<DownloadAssets> downloadAssets() {
@@ -188,56 +200,45 @@ public class VanillaTasks {
         vanillaNativesConfig = Configurations.of(project, "vanillaNatives_" + version.replace('.', '_'), false);
 
         project.afterEvaluate(project -> {
-            downloadVersionMeta.configure(t -> t.doLast($ -> {
-                for (var library : versionMeta().get().libraries()) {
-                    if (library.isValidForOS(Platform.CURRENT)) {
-                        Dependencies.add(project, vanillaConfig, library.name());
-                        if (library.hasNativesForOS(Platform.CURRENT)) {
-                            var osClassifier = library.classifierForOS(Platform.CURRENT);
-                            if (osClassifier != null) {
-                                var path = osClassifier.path();
-                                var matcher = Meta.NATIVES_PATTERN.matcher(path);
-                                if (!matcher.find()) {
-                                    throw new IllegalStateException("Failed to match regex for natives path : " + path);
-                                }
-                                var group = matcher.group("group").replace('/', '.');
-                                var name = matcher.group("name");
-                                var version = matcher.group("version");
-                                var classifier = matcher.group("classifier");
-                                var dependencyNotation = "%s:%s:%s:%s".formatted(group, name, version, classifier);
-                                Dependencies.add(project, vanillaNativesConfig, dependencyNotation);
+            for (var library : versionMeta().get().libraries()) {
+                if (library.isValidForOS(Platform.CURRENT)) {
+                    Dependencies.add(project, vanillaConfig, library.name());
+                    if (library.hasNativesForOS(Platform.CURRENT)) {
+                        var osClassifier = library.classifierForOS(Platform.CURRENT);
+                        if (osClassifier != null) {
+                            var path = osClassifier.path();
+                            var matcher = Meta.NATIVES_PATTERN.matcher(path);
+                            if (!matcher.find()) {
+                                throw new IllegalStateException("Failed to match regex for natives path: " + path);
                             }
+                            var group = matcher.group("group").replace('/', '.');
+                            var name = matcher.group("name");
+                            var version = matcher.group("version");
+                            var classifier = matcher.group("classifier");
+                            var dependencyNotation = "%s:%s:%s:%s".formatted(group, name, version, classifier);
+                            Dependencies.add(project, vanillaNativesConfig, dependencyNotation);
                         }
                     }
                 }
+            }
 
-                if (upgradeLog4j2.get()) {
-                    Configurations.all(project).forEach(config -> config.resolutionStrategy(rs -> rs.eachDependency(drd -> {
-                        var requested = drd.getRequested();
-                        if ("org.apache.logging.log4j".equals(requested.getGroup()) && Versioning.lowerThan(requested.getVersion(), "2.17.1")) {
-                            drd.because("Upgrade Log4J2 property is enabled, hence all versions of Log4J2 below 2.17.1 will be updated to latest.");
-                            drd.useVersion("2.22.1");
-                        }
-                    })));
-                }
-            }));
+            if (upgradeLog4j2.get()) {
+                Configurations.all(project).forEach(config -> config.resolutionStrategy(rs -> rs.eachDependency(drd -> {
+                    var requested = drd.getRequested();
+                    if ("org.apache.logging.log4j".equals(requested.getGroup()) && Versioning.lowerThan(requested.getVersion(), "2.17.1")) {
+                        drd.because("Upgrade Log4J2 property is enabled, hence all versions of Log4J2 below 2.17.1 will be updated to latest.");
+                        drd.useVersion("2.22.1");
+                    }
+                })));
+            }
         });
     }
 
     private void initTasks() {
         var manifestLocation = Locations.global(project, "version_manifest_v2.json");
 
-        downloadVersionMeta = group.add(Tasks.withDownload(project, taskName(DOWNLOAD_VERSION_META), dl -> {
-            dl.onlyIf($ -> !location("version.json").exists());
-            dl.overwrite(false);
-            dl.onlyIfModified(true);
-            dl.src(Providers.of(() -> Types.readJson(manifestLocation, VersionManifest.class)).map(manifest -> manifest.version(version).url));
-            dl.dest(location("version.json"));
-        }));
-
         downloadClientJar = group.add(Tasks.withDownload(project, taskName(DOWNLOAD_CLIENT_JAR), dl -> {
             dl.onlyIf($ -> !location("client.jar").exists());
-            dl.dependsOn(downloadVersionMeta);
             dl.overwrite(false);
             dl.onlyIfModified(true);
             dl.src(Providers.of(() -> versionMeta().get().clientUrl()));
@@ -246,24 +247,13 @@ public class VanillaTasks {
 
         downloadServerJar = group.add(Tasks.withDownload(project, taskName(DOWNLOAD_SERVER_JAR), dl -> {
             dl.onlyIf($ -> !location("server.jar").exists());
-            dl.dependsOn(downloadVersionMeta);
             dl.overwrite(false);
             dl.onlyIfModified(true);
             dl.src(Providers.of(() -> versionMeta().get().serverUrl()));
             dl.dest(location("server.jar"));
         }));
 
-        // TODO: technically can be duplicated
-        downloadAssetIndex = group.add(Tasks.withDownload(project, taskName(DOWNLOAD_ASSET_INDEX), dl -> {
-            dl.dependsOn(downloadVersionMeta);
-            dl.overwrite(false);
-            dl.onlyIfModified(true);
-            dl.src(Providers.of(() -> versionMeta().get().assetIndexUrl()));
-            dl.dest(Providers.of(() -> Locations.global(project, "assets", "indexes", versionMeta().get().assetIndexId() + ".json")));
-        }));
-
         downloadAssets = group.add(Tasks.with(project, taskName(DOWNLOAD_ASSETS), DownloadAssets.class, dl -> {
-            dl.dependsOn(downloadAssetIndex);
             dl.getAssetIndex().set(Providers.of(() -> assetIndex().get()));
             dl.getObjects().set(Locations.global(project, "assets", "objects"));
         }));
@@ -271,11 +261,12 @@ public class VanillaTasks {
         extractNatives = group.add(Tasks.unzip(project, taskName(EXTRACT_NATIVES), vanillaNativesConfig, location("natives"), t -> t.exclude("META-INF/**")));
 
         runVanillaClient = group.add(Tasks.with(project, taskName(RUN_VANILLA_CLIENT), RunMinecraft.class, t -> {
+            t.dependsOn(downloadAssets);
             t.getMinecraftVersion().set(version);
             t.getSide().set(Side.CLIENT);
             t.getNatives().fileProvider(extractNatives.map(Copy::getDestinationDir));
             t.getAssetIndexVersion().set(assetIndexId());
-            t.getVanillaAssetsLocation().set(Locations.global(project, Meta.CG_FOLDER, "assets"));
+            t.getVanillaAssetsLocation().set(Locations.global(project, "assets"));
             t.setWorkingDir(Locations.run(project, version, Environment.VANILLA, Side.CLIENT));
             t.classpath(clientJar());
             t.classpath(vanillaConfig);
