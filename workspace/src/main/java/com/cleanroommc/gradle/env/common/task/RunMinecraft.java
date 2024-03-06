@@ -8,9 +8,12 @@ import net.minecraftforge.fml.relauncher.Side;
 import org.apache.commons.io.FileUtils;
 import org.gradle.api.file.Directory;
 import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.file.RegularFile;
+import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputDirectory;
+import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Optional;
 import org.gradle.work.DisableCachingByDefault;
 
@@ -34,14 +37,14 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     @Input
     public abstract Property<Side> getSide();
 
-    @InputDirectory
-    public abstract DirectoryProperty getNatives();
+    @InputFiles
+    public abstract RegularFileProperty getNatives();
 
     @Input
     public abstract Property<String> getAssetIndexVersion();
 
-    @InputDirectory
-    public abstract DirectoryProperty getVanillaAssetsLocation();
+    @InputFiles
+    public abstract RegularFileProperty getVanillaAssetsLocation();
 
     @Input
     @Optional
@@ -57,7 +60,7 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
 
     public RunMinecraft() {
         getAssetIndexVersion().convention(getMinecraftVersion());
-        getVanillaAssetsLocation().convention(getProject().getLayout().getProjectDirectory());
+        getVanillaAssetsLocation().convention(getProject().getLayout().getProjectDirectory().file("."));
         getAccessToken().convention("0");
 
         getUsername().convention("Developer");
@@ -69,7 +72,7 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
 
         jvmArgs("-Dfile.encoding=UTF-8");
 
-        systemProperty("java.library.path", Providers.libraryPath(getProject(), getNatives().map(Directory::getAsFile)));
+        systemProperty("java.library.path", Providers.libraryPath(getProject(), getNatives().map(RegularFile::getAsFile)));
 
         args("--gameDir", Providers.of(this::getWorkingDir),
              "--version", getMinecraftVersion(),
