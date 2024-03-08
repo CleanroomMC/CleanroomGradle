@@ -26,7 +26,7 @@ public class StringableProvider extends AbstractProviderWithValue<String> {
     }
 
     @Override
-    public String toString() {
+    protected String toStringNoReentrance() {
         if (cachedString == null) {
             cachedString = Types.resolveString(object);
         }

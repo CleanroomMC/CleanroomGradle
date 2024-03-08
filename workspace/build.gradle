@@ -9,6 +9,9 @@ plugins {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+group 'com.cleanroommc'
+version '0.0.1'
+
 repositories {
     maven {
         name 'MinecraftForge'
@@ -35,9 +38,6 @@ dependencies {
     implementation 'de.siegmar:fastcsv:3.0.0'
     //implementation 'fr.inria.gforge.spoon:spoon-core:10.3.0'
 }
-
-group 'com.cleanroommc'
-version '0.1'
 
 gradlePlugin {
     plugins {
