@@ -14,8 +14,7 @@ package net.minecraftforge.fml.relauncher;
 public enum Side {
 
     CLIENT,
-    SERVER,
-    BUKKIT;
+    SERVER;
 
     /**
      * @return If this is the server environment
