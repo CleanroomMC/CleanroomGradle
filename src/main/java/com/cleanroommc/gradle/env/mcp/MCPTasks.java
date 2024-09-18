@@ -143,7 +143,7 @@ public class MCPTasks {
     }
 
     private void initSourceSets() {
-        this.minecraft = SourceSets.getOrCreate(this.project, "minecraft_" + this.version.replace('.', '_'));
+        this.minecraft = SourceSets.getOrCreate(this.project, "minecraft");
         this.minecraft.configure(set -> {
             SourceSets.addCompileClasspath(set, this.vanillaTasks().vanillaConfig());
             SourceSets.addRuntimeClasspath(set, this.vanillaTasks().vanillaConfig());
