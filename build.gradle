@@ -1,0 +1,79 @@
+plugins {
+    id 'java'
+    // id 'groovy'
+    id 'idea'
+    id 'java-gradle-plugin'
+    id 'com.diffplug.spotless' version '6.23.3'
+    id 'maven-publish'
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+group 'com.cleanroommc'
+version '0.0.1'
+
+repositories {
+    maven {
+        name 'MinecraftForge'
+        url "https://maven.minecraftforge.net/"
+        mavenContent {
+            includeGroup 'de.oceanlabs.mcp'
+            includeGroup 'net.minecraftforge'
+        }
+    }
+    mavenCentral()
+    gradlePluginPortal()
+}
+
+dependencies {
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'commons-io:commons-io:2.15.1'
+    implementation 'commons-codec:commons-codec:1.16.0'
+    implementation 'io.github.java-diff-utils:java-diff-utils:4.12'
+    implementation 'org.ow2.asm:asm:9.6'
+    implementation 'org.ow2.asm:asm-commons:9.6'
+    implementation 'org.ow2.asm:asm-tree:9.6'
+    implementation 'org.ow2.asm:asm-util:9.6'
+    implementation 'de.undercouch.download:de.undercouch.download.gradle.plugin:5.5.0'
+    implementation 'de.siegmar:fastcsv:3.0.0'
+    //implementation 'fr.inria.gforge.spoon:spoon-core:10.3.0'
+}
+
+gradlePlugin {
+    plugins {
+        cleanroomGradle {
+            id = "${group}.gradle"
+            implementationClass = "${group}.gradle.CleanroomGradle"
+        }
+    }
+}
+
+//spotless {
+//    encoding 'UTF-8'
+//    format ('misc') {
+//        target '*.gradle', '.gitattributes', '.gitignore', '*.properties'
+//        indentWithSpaces()
+//        trimTrailingWhitespace()
+//        endWithNewline()
+//    }
+//    java {
+//        importOrder 'java', 'javax', 'org', 'com', '', '\\#'
+//        removeUnusedImports()
+//        indentWithSpaces()
+//        trimTrailingWhitespace()
+//        endWithNewline()
+//        formatAnnotations()
+//        eclipse('4.26').configFile('../cleanroom_format.xml')
+//        custom 'noWildcardImports', com.diffplug.spotless.FormatterFunc.needsFile((text, file) -> {
+//            text.eachLine {
+//                if (it.trim() ==~ /^import\s(static\s)?\S+\*;/) {
+//                    throw new Error("${file.getName()}\n\t $it\n\t\tNo wildcard imports allowed, import individually.")
+//                }
+//            }
+//        })
+//    }
+//    json {
+//        target 'src/**/*.json'
+//        simple().indentWithSpaces(4)
+//    }
+//}

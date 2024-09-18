@@ -2,9 +2,6 @@ pluginManagement {
     repositories {
         gradlePluginPortal()
     }
-    includeBuild('workspace') {
-        name = 'cleanroomgradle'
-    }
 }
 
 plugins {
@@ -12,6 +9,4 @@ plugins {
     id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
 }
 
-rootProject.name = 'CleanroomGradleEnvironment'
-
-include 'test_area'
+rootProject.name = 'CleanroomGradle'
