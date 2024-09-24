@@ -188,6 +188,7 @@ public class MCPTasks {
         this.decompile = group.add(Tasks.with(project, this.taskName(DECOMPILE), Decompile.class, t -> {
             t.getCompiledJar().set(this.polishDeobfuscatedJar.flatMap(PolishDeobfuscation::getPolishedJar));
             t.getLibraries().from(this.vanillaTasks.vanillaConfig());
+            t.args("-nls=1", "-asc=1", "-iec=1", "-jvn=1", "-ind=    ");
             t.getDecompiledJar().set(this.location("decompiled.jar"));
             t.getLogFile().set(Locations.temp(project, "decompile.log"));
         }));

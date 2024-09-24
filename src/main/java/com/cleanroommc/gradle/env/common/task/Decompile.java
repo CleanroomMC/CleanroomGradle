@@ -26,8 +26,9 @@ public abstract class Decompile extends MavenJarExec implements JarTransformer {
 
     public Decompile() {
         super("decompile", "org.vineflower:vineflower:1.9.3");
+        // TODO: make these settings configurable
         // The default for -nls is OS-dependent for some reason
-        this.args("-nls=1", "-asc=1", "-iec=1", "-jvn=1", "-ind=    "); // TODO: make these settings configurable
+        // this.args("-nls=1", "-asc=1", "-iec=1", "-jvn=1", "-ind=    ");
         this.getJavaLauncher().set(Providers.javaLauncher(this.getProject(), 21));
         this.setup(true);
     }
@@ -38,7 +39,7 @@ public abstract class Decompile extends MavenJarExec implements JarTransformer {
         for (var file : getLibraries().getFiles()) {
             this.args("-e=" + file.getAbsolutePath());
         }
-        this.args(getCompiledJar(), getDecompiledJar());
+        this.args(this.getCompiledJar(), this.getDecompiledJar());
     }
 
 }
