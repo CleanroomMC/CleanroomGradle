@@ -44,6 +44,14 @@ public final class SourceSets {
         return sourceSet.getAllJava().getSrcDirs().iterator().next();
     }
 
+    public static Provider<File> resourceFrom(NamedDomainObjectProvider<SourceSet> sourceSet) {
+        return sourceSet.map(SourceSets::resourceFrom);
+    }
+
+    public static File resourceFrom(SourceSet sourceSet) {
+        return sourceSet.getResources().getSrcDirs().iterator().next();
+    }
+
     private SourceSets() { }
 
 }
