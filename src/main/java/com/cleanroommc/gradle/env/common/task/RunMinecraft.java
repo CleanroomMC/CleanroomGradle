@@ -6,15 +6,10 @@ import com.cleanroommc.gradle.api.structure.Locations;
 import com.cleanroommc.gradle.api.types.Types;
 import net.minecraftforge.fml.relauncher.Side;
 import org.apache.commons.io.FileUtils;
-import org.gradle.BuildAdapter;
-import org.gradle.BuildResult;
-import org.gradle.api.file.Directory;
-import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
-import org.gradle.api.tasks.InputDirectory;
 import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Optional;
 import org.gradle.work.DisableCachingByDefault;
@@ -87,15 +82,6 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
 
         this.setMinHeapSize("1G");
         this.setMaxHeapSize("1G");
-
-        this.getProject().getGradle().addBuildListener(new BuildAdapter() {
-            @Override
-            public void buildFinished(BuildResult result) {
-                if ("Build".equals(result.getAction()) && result.getFailure() == null) {
-                    RunMinecraft.this.getProject().getLogger().lifecycle("\nMinecraft ended successfully.");
-                }
-            }
-        });
     }
 
     /**
