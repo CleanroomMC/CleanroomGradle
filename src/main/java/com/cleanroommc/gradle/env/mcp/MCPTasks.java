@@ -62,7 +62,7 @@ public class MCPTasks {
     private final TaskGroup group;
     private final File cache;
 
-    private Configuration mcpConfig, mcpMappingConfig;
+    private NamedDomainObjectProvider<Configuration> mcpConfig, mcpMappingConfig;
 
     private NamedDomainObjectProvider<SourceSet> minecraft;
 
@@ -96,11 +96,11 @@ public class MCPTasks {
         return vanillaTasks;
     }
 
-    public Configuration mcpConfig() {
+    public NamedDomainObjectProvider<Configuration> mcpConfig() {
         return mcpConfig;
     }
 
-    public Configuration mcpMappingConfig() {
+    public NamedDomainObjectProvider<Configuration> mcpMappingConfig() {
         return mcpMappingConfig;
     }
 
@@ -145,8 +145,8 @@ public class MCPTasks {
     private void initSourceSets() {
         this.minecraft = SourceSets.getOrCreate(this.project, "minecraft");
         this.minecraft.configure(set -> {
-            SourceSets.addCompileClasspath(set, this.vanillaTasks().vanillaConfig());
-            SourceSets.addRuntimeClasspath(set, this.vanillaTasks().vanillaConfig());
+            SourceSets.addCompileClasspath(set, this.vanillaTasks().vanillaConfig().get());
+            SourceSets.addRuntimeClasspath(set, this.vanillaTasks().vanillaConfig().get());
         });
     }
 

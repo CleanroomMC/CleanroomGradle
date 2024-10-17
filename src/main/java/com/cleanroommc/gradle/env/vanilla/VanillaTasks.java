@@ -18,6 +18,7 @@ import com.cleanroommc.gradle.env.common.task.DownloadAssets;
 import com.cleanroommc.gradle.env.common.task.RunMinecraft;
 import de.undercouch.gradle.tasks.download.Download;
 import net.minecraftforge.fml.relauncher.Side;
+import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.provider.Provider;
@@ -27,6 +28,7 @@ import org.gradle.api.tasks.TaskProvider;
 import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 public class VanillaTasks {
@@ -52,8 +54,8 @@ public class VanillaTasks {
                     dl.onlyIfNewer(true);
                     dl.useETag(true);
                 });
-                result.join();
-            } catch (IOException e) {
+                result.get();
+            } catch (IOException | ExecutionException | InterruptedException e) {
                 throw new RuntimeException("Unable to download version manifest!", e);
             }
         }
@@ -64,7 +66,7 @@ public class VanillaTasks {
     private final TaskGroup group;
     private final File cache;
 
-    private Configuration vanillaConfig, vanillaNativesConfig;
+    private NamedDomainObjectProvider<Configuration> vanillaConfig, vanillaNativesConfig;
 
     private TaskProvider<Download> downloadClientJar, downloadServerJar;
     private TaskProvider<DownloadAssets> downloadAssets;
@@ -100,17 +102,17 @@ public class VanillaTasks {
                     var result = IO.download(project,
                             Providers.of(() -> Types.readJson(manifestLocation, VersionManifest.class))
                                     .map(manifest -> manifest.version(this.version).url),
-                            manifestLocation,
+                            file,
                             dl -> {
                         dl.overwrite(false);
                         dl.onlyIfModified(true);
                         dl.onlyIfNewer(true);
                     });
-                    result.join();
+                    result.get();
                 }
                 return Types.readJson(file, VersionMeta.class);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+            } catch (IOException | ExecutionException | InterruptedException e) {
+                throw new RuntimeException("Unable to download version meta!", e);
             }
         });
     }
@@ -144,11 +146,11 @@ public class VanillaTasks {
         return downloadServerJar.map(Download::getDest);
     }
 
-    public Configuration vanillaConfig() {
+    public NamedDomainObjectProvider<Configuration> vanillaConfig() {
         return vanillaConfig;
     }
 
-    public Configuration vanillaNativesConfig() {
+    public NamedDomainObjectProvider<Configuration> vanillaNativesConfig() {
         return vanillaNativesConfig;
     }
 
