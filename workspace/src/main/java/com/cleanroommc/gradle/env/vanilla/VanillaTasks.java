@@ -104,10 +104,10 @@ public class VanillaTasks {
                                     .map(manifest -> manifest.version(this.version).url),
                             file,
                             dl -> {
-                        dl.overwrite(false);
-                        dl.onlyIfModified(true);
-                        dl.onlyIfNewer(true);
-                    });
+                                dl.overwrite(false);
+                                dl.onlyIfModified(true);
+                                dl.onlyIfNewer(true);
+                            });
                     result.get();
                 }
                 return Types.readJson(file, VersionMeta.class);

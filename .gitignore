@@ -7,3 +7,5 @@
 /test_area/src/
 /workspace/.gradle/
 /workspace/build/
+/plugin-test/build/
+/plugin-test/run/
