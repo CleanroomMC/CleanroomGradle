@@ -1,15 +1,16 @@
 package com.cleanroommc.gradle.api.named.task;
 
 import de.undercouch.gradle.tasks.download.Download;
-import org.gradle.api.Action;
-import org.gradle.api.DefaultTask;
-import org.gradle.api.Project;
-import org.gradle.api.Task;
+import org.gradle.api.*;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.file.CopySpec;
+import org.gradle.api.file.FileCollection;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.TaskProvider;
+import org.gradle.internal.Actions;
+
+import java.util.function.Supplier;
 
 public final class Tasks {
 
@@ -39,8 +40,22 @@ public final class Tasks {
     }
 
     public static TaskProvider<Copy> unzip(Project project, String name, Configuration from, Object to, Action<CopySpec> specAction) {
+        return unzip(project, name, () -> from, to, specAction);
+    }
+
+    public static TaskProvider<Copy> unzipConf(Project project, String name, NamedDomainObjectProvider<Configuration> from, Object to) {
+        return unzip(project, name, from::get, to, Actions.doNothing());
+    }
+
+    public static TaskProvider<Copy> unzipConf(Project project, String name, NamedDomainObjectProvider<Configuration> from, Object to, Action<CopySpec> specAction) {
+        return unzip(project, name, from::get, to, specAction);
+    }
+
+    //might want to make this a type specific signature
+    public static TaskProvider<Copy> unzip(Project project, String name, Supplier<FileCollection> from, Object to, Action<CopySpec> specAction) {
         return withCopy(project, name, copy -> {
-            from.getAsFileTree().forEach(f -> copy.from(project.zipTree(f)));
+            FileCollection collection = from.get();
+            collection.getAsFileTree().forEach(f -> copy.from(project.zipTree(f)));
             copy.into(to);
             specAction.execute(copy);
         });
@@ -80,6 +95,7 @@ public final class Tasks {
         project.getTasks().named(taskName).configure((Action<? super Task>) action);
     }
 
-    private Tasks() { }
+    private Tasks() {
+    }
 
 }

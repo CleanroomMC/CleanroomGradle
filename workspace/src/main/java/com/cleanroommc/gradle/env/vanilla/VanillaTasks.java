@@ -254,7 +254,8 @@ public class VanillaTasks {
             dl.getObjects().set(Locations.build(project, "assets", "objects"));
         }));
 
-        this.extractNatives = group.add(Tasks.unzip(project, this.taskName(EXTRACT_NATIVES), vanillaNativesConfig, location("natives"), t -> t.exclude("META-INF/**")));
+        this.extractNatives = group.add(Tasks.unzipConf(project, this.taskName(EXTRACT_NATIVES),
+                vanillaNativesConfig, location("natives"), t -> t.exclude("META-INF/**")));
 
         this.runVanillaClient = group.add(Tasks.with(project, this.taskName(RUN_VANILLA_CLIENT), RunMinecraft.class, t -> {
             t.dependsOn(downloadAssets);

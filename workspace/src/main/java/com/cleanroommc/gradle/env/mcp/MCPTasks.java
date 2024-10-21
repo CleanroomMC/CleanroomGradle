@@ -154,7 +154,7 @@ public class MCPTasks {
         var project = this.project;
         var group = this.group;
 
-        this.extractMcpConfig = group.add(Tasks.unzip(project, this.taskName(EXTRACT_MCP_CONFIG), this.mcpConfig, this.location("20201025_185735")));
+        this.extractMcpConfig = group.add(Tasks.unzipConf(project, this.taskName(EXTRACT_MCP_CONFIG), this.mcpConfig, this.location("20201025_185735")));
 
         this.extractClientResources = group.add(Tasks.unzip(project, this.taskName(EXTRACT_CLIENT_RESOURCES), this.vanillaTasks.clientJar(),
                 location("build", "client_resources", version), spec -> spec.exclude("**/*.class").setIncludeEmptyDirs(false)));
