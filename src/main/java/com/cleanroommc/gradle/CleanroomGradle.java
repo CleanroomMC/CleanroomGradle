@@ -1,8 +1,10 @@
 package com.cleanroommc.gradle;
 
-import com.cleanroommc.gradle.api.named.extension.Properties;
-import com.cleanroommc.gradle.env.mcp.MCPTasks;
-import com.cleanroommc.gradle.env.vanilla.VanillaTasks;
+import com.cleanroommc.gradle.newapi.ext.CleanroomExtension;
+import com.cleanroommc.gradle.newapi.util.Objects;
+import com.cleanroommc.gradle.newenv.MCPTasks;
+import com.cleanroommc.gradle.newenv.SetupTasks;
+import com.cleanroommc.gradle.newenv.VanillaTasks;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 
@@ -10,18 +12,17 @@ public class CleanroomGradle implements Plugin<Project> {
 
     @Override
     public void apply(Project project) {
-        project.getLogger().lifecycle("Welcome to CleanroomGradle!");
+        project.getLogger().lifecycle("Running CleanroomGradle v" + this.getClass().getPackage().getImplementationVersion());
 
-        // After Evaluation
-        project.afterEvaluate(VanillaTasks::downloadVersionManifest);
+        final var cleanroomExtension = Objects.extension(project, "cleanroom", CleanroomExtension.class);
 
-        // TODO: move elsewhere
-        var objectFactory = project.getObjects();
+        VanillaTasks.init(project, cleanroomExtension);
+        MCPTasks.init(project, cleanroomExtension);
 
-        var vanillaTasks = new VanillaTasks(project, "1.12.2");
-        // var vanillaTasks = objectFactory.newInstance(VanillaTasks.class, project, "1.12.2");
-        var mcpTasks = new MCPTasks(project, vanillaTasks);
-        // var mcpTasks = objectFactory.newInstance(MCPTasks.class, project, vanillaTasks);
+        project.afterEvaluate($ -> {
+            VanillaTasks.afterEvaluate($, cleanroomExtension);
+            MCPTasks.afterEvaluate($, cleanroomExtension);
+        });
     }
 
 }

@@ -16,10 +16,6 @@ repositories {
     maven {
         name 'MinecraftForge'
         url "https://maven.minecraftforge.net/"
-        mavenContent {
-            includeGroup 'de.oceanlabs.mcp'
-            includeGroup 'net.minecraftforge'
-        }
     }
     mavenCentral()
     gradlePluginPortal()
@@ -37,6 +33,9 @@ dependencies {
     implementation 'de.undercouch.download:de.undercouch.download.gradle.plugin:5.6.0'
     implementation 'de.siegmar:fastcsv:3.0.0'
     //implementation 'fr.inria.gforge.spoon:spoon-core:10.3.0'
+
+    // Forge
+    implementation 'net.minecraftforge:srgutils:0.5.3'
 }
 
 gradlePlugin {
@@ -45,6 +44,19 @@ gradlePlugin {
             id = "${group}.gradle"
             implementationClass = "${group}.gradle.CleanroomGradle"
         }
+    }
+    automatedPublishing = true
+}
+
+jar {
+    manifest {
+        attributes "Implementation-Version": version
+    }
+}
+
+publishing {
+    publications {
+        pluginMaven(MavenPublication)
     }
 }
 
