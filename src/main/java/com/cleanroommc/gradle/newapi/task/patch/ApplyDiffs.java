@@ -21,12 +21,12 @@ public abstract class ApplyDiffs extends DefaultTask {
     @InputDirectory
     public abstract DirectoryProperty getPatchesDirectory();
 
+    @Input
+    public abstract Property<Boolean> getInPlace();
+
     @Optional
     @OutputDirectory
     public abstract DirectoryProperty getModifiedDirectory();
-
-    @Input
-    public abstract Property<Boolean> getInPlace();
 
     public ApplyDiffs() {
         this.getInPlace().convention(false);
@@ -36,7 +36,7 @@ public abstract class ApplyDiffs extends DefaultTask {
     public void applyDiffs() {
         var inPlace = this.getInPlace().get();
         if (!inPlace && !this.getModifiedDirectory().isPresent()) {
-            throw new InvalidUserDataException("When inplace is false, modifiedDirectory must be specified.");
+            throw new InvalidUserDataException("When inPlace is false, modifiedDirectory must be specified.");
         }
 
         var project = this.getProject();
@@ -48,22 +48,20 @@ public abstract class ApplyDiffs extends DefaultTask {
         int totalPatches = patchesTree.getFiles().size();
         var counter = new AtomicInteger();
 
+        if (!inPlace) {
+            project.copy(spec -> {
+                spec.from(originalDir);
+                spec.into(modifiedDir);
+            });
+        }
+
         patchesTree.visit(fvd -> {
             if (!fvd.isDirectory()) {
                 var patchFile = fvd.getFile();
                 var relativePath = fvd.getRelativePath().getPathString();
                 relativePath = relativePath.substring(0, relativePath.lastIndexOf('.')); // Remove .patch
                 var originalFile = new File(originalDir, relativePath);
-                File targetFile;
-                if (inPlace) {
-                    targetFile = new File(originalDir, relativePath);
-                } else {
-                    targetFile = new File(modifiedDir, relativePath);
-                    project.copy(spec -> {
-                        spec.from(originalFile);
-                        spec.into(targetFile);
-                    });
-                }
+                File targetFile = inPlace ? originalFile : new File(modifiedDir, relativePath);
 
                 if (!targetFile.exists()) {
                     logger.lifecycle("Skipping {} as original file is not found. {}/{} patches applied.", relativePath, counter.incrementAndGet(), totalPatches);
