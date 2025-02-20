@@ -70,16 +70,19 @@ public final class MCPTasks {
         MERGE_JARS = Tasks.of(project, GROUP_NAME, "mergeJars", MergeJars.class);
         REMAP_NOTCH2SRG = Tasks.of(project, GROUP_NAME, "remapNotch2Srg", RemapNotch2Srg.class);
         INJECT_METADATA = Tasks.of(project, GROUP_NAME, "injectMetadata", InjectMetadata.class);
+        RUN_SRG_CLIENT = Tasks.of(project, GROUP_NAME, "runSrgClient", RunMinecraft.class);
+        RUN_SRG_SERVER = Tasks.of(project, GROUP_NAME, "runSrgServer", RunMinecraft.class);
         DECOMPILE = Tasks.of(project, GROUP_NAME, "decompile", Decompile.class);
         EXTRACT_INITIAL_PATCHES = Tasks.unzip(project, GROUP_NAME, "extractInitialPatches", Providers.of(() -> Objects.artifact(MCP, "initial-patches")), ext.getVersionCacheDirectory().dir("initial_patches"));
         PREPARE_APPLY_INITIAL_DIFFS = Tasks.unzip(project, GROUP_NAME, "prepareApplyInitialDiffs", DECOMPILE.map(Decompile::getDecompiledJar), DECOMPILE.map(Decompile::getDecompiledJar).map(rfd -> new File(rfd.get().getAsFile().getParent(), "files")));
         APPLY_INITIAL_DIFFS = Tasks.of(project, GROUP_NAME, "applyInitialDiffs", ApplyDiffs.class);
-        RUN_SRG_CLIENT = Tasks.of(project, GROUP_NAME, "runSrgClient", RunMinecraft.class);
-        RUN_SRG_SERVER = Tasks.of(project, GROUP_NAME, "runSrgServer", RunMinecraft.class);
+        RUN_REOBF_SRG_CLIENT = Tasks.of(project, GROUP_NAME, "runReobfSrgClient", RunMinecraft.class);
+        RUN_REOBF_SRG_SERVER = Tasks.of(project, GROUP_NAME, "runReobfSrgServer", RunMinecraft.class);
         EXTRACT_MCP_MAPPINGS = Tasks.unzip(project, GROUP_NAME, "extractMcpMappings", Providers.of(() -> Objects.artifact(MCP, "mcp_stable")), ext.getVersionCacheDirectory().dir("mcp_mappings"));
         REMAP_SRG2MCP = Tasks.of(project, GROUP_NAME, "remapSrg2Mcp", RemapSrg2Mcp.class);
 
         SourceSets.linkSource(SRG, ext.getLocalCacheDirectory().dir("srg"));
+        SourceSets.configureCompile(project, SRG, task -> task.dependsOn(APPLY_INITIAL_DIFFS));
 
 //        EXTRACT_CLIENT_RESOURCES.configure(task -> {
 //            task.dependsOn(VanillaTasks.DOWNLOAD_CLIENT_JAR);
@@ -181,7 +184,28 @@ public final class MCPTasks {
 
             task.getOriginalDirectory().fileProvider(PREPARE_APPLY_INITIAL_DIFFS.map(Copy::getDestinationDir));
             task.getPatchesDirectory().fileProvider(EXTRACT_INITIAL_PATCHES.map(Copy::getDestinationDir));
-            task.getInPlace().set(true);
+            // task.getInPlace().set(true);
+            task.getModifiedDirectory().fileProvider(SourceSets.source(SRG));
+        });
+        RUN_REOBF_SRG_CLIENT.configure(task -> {
+            task.dependsOn(APPLY_INITIAL_DIFFS, SourceSets.compile(SRG));
+            task.getMinecraftVersion().set("1.12.2");
+            task.getSide().set(Side.CLIENT);
+            task.getNatives().fileProvider(VanillaTasks.EXTRACT_NATIVES.map(Copy::getDestinationDir));
+            task.getAssetIndexVersion().set(ext.getVersionMeta().map(VersionMeta::assetIndexId));
+            task.getVanillaAssetsLocation().set(ext.getCacheDirectory().file("assets"));
+            task.setWorkingDir(IO.runDir(project, "1.12.2", Environment.REOBF_SRG, Side.CLIENT));
+            task.classpath(SourceSets.classes(SRG), VanillaTasks.VANILLA_CONFIG, SPLIT_CLIENT_JAR.map(SplitJar::getExtraJar));
+            task.getMainClass().set("net.minecraft.client.main.Main");
+        });
+        RUN_REOBF_SRG_SERVER.configure(task -> {
+            task.dependsOn(APPLY_INITIAL_DIFFS, SourceSets.compile(SRG));
+            task.getMinecraftVersion().set("1.12.2");
+            task.getSide().set(Side.SERVER);
+            task.getNatives().fileProvider(VanillaTasks.EXTRACT_NATIVES.map(Copy::getDestinationDir));
+            task.setWorkingDir(IO.runDir(project, "1.12.2", Environment.REOBF_SRG, Side.SERVER));
+            task.classpath(SourceSets.classes(SRG), VanillaTasks.VANILLA_CONFIG, SPLIT_SERVER_JAR.map(SplitJar::getExtraJar));
+            task.getMainClass().set("net.minecraft.server.MinecraftServer");
         });
         REMAP_SRG2MCP.configure(task -> {
             task.dependsOn(APPLY_INITIAL_DIFFS);
@@ -199,12 +223,10 @@ public final class MCPTasks {
         Objects.dependency(project, MCP, "com.cleanroommc:initial-patches:1.1.0");
         Objects.dependency(project, MCP, "de.oceanlabs.mcp:mcp_stable:39-1.12@zip");
 
+        SourceSets.extendFromConfiguration(project, SRG, VanillaTasks.VANILLA_CONFIG);
         if (ext.getDevelopInitialPatches().get()) {
             var patchDevTasks = new PatchDevelopmentTasks(project, "Initial", ext, DECOMPILE.map(Decompile::getDecompiledJar), DECOMPILE);
-            patchDevTasks.sourceSet().configure(sourceSet -> {
-                var config = Objects.resolvedConfig(project, sourceSet.getImplementationConfigurationName());
-                config.extendsFrom(VanillaTasks.VANILLA_CONFIG.get());
-            });
+            SourceSets.extendFromConfiguration(project, patchDevTasks.sourceSet(), VanillaTasks.VANILLA_CONFIG);
         }
     }
 

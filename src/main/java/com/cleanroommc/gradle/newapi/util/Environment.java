@@ -6,6 +6,7 @@ public enum Environment {
 
     VANILLA,
     SRG,
+    REOBF_SRG,
     MCP,
     FORGE,
     CLEANROOM;
