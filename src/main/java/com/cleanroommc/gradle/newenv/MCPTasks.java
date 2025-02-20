@@ -31,14 +31,14 @@ public final class MCPTasks {
     public static NamedDomainObjectProvider<Configuration> MCP;
     public static NamedDomainObjectProvider<SourceSet> SRG;
 
-    public static TaskProvider<Copy> EXTRACT_CLIENT_RESOURCES, EXTRACT_SERVER_RESOURCES, EXTRACT_MCP_CONFIG, EXTRACT_INITIAL_PATCHES, PREPARE_APPLY_INITIAL_DIFFS, EXTRACT_MCP_MAPPINGS;
+    public static TaskProvider<Copy> EXTRACT_MCP_CONFIG, EXTRACT_INITIAL_PATCHES, PREPARE_APPLY_INITIAL_DIFFS, EXTRACT_MCP_MAPPINGS;
     public static TaskProvider<SplitJar> SPLIT_CLIENT_JAR, SPLIT_SERVER_JAR;
     public static TaskProvider<MergeJars> MERGE_JARS;
     public static TaskProvider<RemapNotch2Srg> REMAP_NOTCH2SRG;
     public static TaskProvider<InjectMetadata> INJECT_METADATA;
+    public static TaskProvider<RunMinecraft> RUN_SRG_CLIENT, RUN_SRG_SERVER, RUN_REOBF_SRG_CLIENT, RUN_REOBF_SRG_SERVER;
     public static TaskProvider<Decompile> DECOMPILE;
     public static TaskProvider<ApplyDiffs> APPLY_INITIAL_DIFFS;
-    public static TaskProvider<RunMinecraft> RUN_SRG_CLIENT, RUN_SRG_SERVER;
     public static TaskProvider<RemapSrg2Mcp> REMAP_SRG2MCP;
 
     public static void init(Project project, CleanroomExtension ext) {
@@ -62,8 +62,8 @@ public final class MCPTasks {
         var mcpConfigDir = ext.getVersionCacheDirectory().dir("mcp_config/config");
         var srgMapping = ext.getVersionCacheDirectory().file("mcp_config/config/joined.tsrg");
 
-        EXTRACT_CLIENT_RESOURCES = Tasks.unzip(project, GROUP_NAME, "extractClientResources", VanillaTasks.DOWNLOAD_CLIENT_JAR.map(Download::getDest), ext.getVersionCacheDirectory().dir("resources/client"));
-        EXTRACT_SERVER_RESOURCES = Tasks.unzip(project, GROUP_NAME, "extractServerResources", VanillaTasks.DOWNLOAD_SERVER_JAR.map(Download::getDest), ext.getVersionCacheDirectory().dir("resources/server"));
+        // EXTRACT_CLIENT_RESOURCES = Tasks.unzip(project, GROUP_NAME, "extractClientResources", VanillaTasks.DOWNLOAD_CLIENT_JAR.map(Download::getDest), ext.getVersionCacheDirectory().dir("resources/client"));
+        // EXTRACT_SERVER_RESOURCES = Tasks.unzip(project, GROUP_NAME, "extractServerResources", VanillaTasks.DOWNLOAD_SERVER_JAR.map(Download::getDest), ext.getVersionCacheDirectory().dir("resources/server"));
         EXTRACT_MCP_CONFIG = Tasks.unzip(project, GROUP_NAME, "extractMcpConfig", Providers.of(() -> Objects.artifact(MCP, "mcp_config")), ext.getVersionCacheDirectory().dir("mcp_config"));
         SPLIT_CLIENT_JAR = Tasks.of(project, GROUP_NAME, "splitClientJar", SplitJar.class);
         SPLIT_SERVER_JAR = Tasks.of(project, GROUP_NAME, "splitServerJar", SplitJar.class);
@@ -79,14 +79,17 @@ public final class MCPTasks {
         EXTRACT_MCP_MAPPINGS = Tasks.unzip(project, GROUP_NAME, "extractMcpMappings", Providers.of(() -> Objects.artifact(MCP, "mcp_stable")), ext.getVersionCacheDirectory().dir("mcp_mappings"));
         REMAP_SRG2MCP = Tasks.of(project, GROUP_NAME, "remapSrg2Mcp", RemapSrg2Mcp.class);
 
-        EXTRACT_CLIENT_RESOURCES.configure(task -> {
-            task.dependsOn(VanillaTasks.DOWNLOAD_CLIENT_JAR);
-            task.exclude("**/*.class").setIncludeEmptyDirs(false);
-        });
-        EXTRACT_SERVER_RESOURCES.configure(task -> {
-            task.dependsOn(VanillaTasks.DOWNLOAD_SERVER_JAR);
-            task.exclude("**/*.class").setIncludeEmptyDirs(false);
-        });
+        SourceSets.linkSource(SRG, ext.getLocalCacheDirectory().dir("srg"));
+
+//        EXTRACT_CLIENT_RESOURCES.configure(task -> {
+//            task.dependsOn(VanillaTasks.DOWNLOAD_CLIENT_JAR);
+//            task.exclude("**/*.class").setIncludeEmptyDirs(false);
+//        });
+//        EXTRACT_SERVER_RESOURCES.configure(task -> {
+//            task.dependsOn(VanillaTasks.DOWNLOAD_SERVER_JAR);
+//            task.exclude("**/*.class").setIncludeEmptyDirs(false);
+//        });
+
         SPLIT_CLIENT_JAR.configure(task -> {
             task.dependsOn(VanillaTasks.DOWNLOAD_CLIENT_JAR, EXTRACT_MCP_CONFIG);
             task.checkExistence(task, task.getSlimJar(), task.getExtraJar());
@@ -95,8 +98,8 @@ public final class MCPTasks {
 
             task.getSourceJar().fileProvider(VanillaTasks.DOWNLOAD_CLIENT_JAR.map(Download::getDest));
             task.getSrgMappingFile().value(srgMapping);
-            task.getSlimJar().set(mcpDir.map(d -> d.file("client-slim.jar")));
-            task.getExtraJar().set(mcpDir.map(d -> d.file("client-extra.jar")));
+            task.getSlimJar().set(ext.getVersionCacheDirectory().map(d -> d.file("client-slim.jar")));
+            task.getExtraJar().set(ext.getVersionCacheDirectory().map(d -> d.file("client-extra.jar")));
         });
         SPLIT_SERVER_JAR.configure(task -> {
             task.dependsOn(VanillaTasks.DOWNLOAD_SERVER_JAR, EXTRACT_MCP_CONFIG);
@@ -106,8 +109,8 @@ public final class MCPTasks {
 
             task.getSourceJar().fileProvider(VanillaTasks.DOWNLOAD_SERVER_JAR.map(Download::getDest));
             task.getSrgMappingFile().value(srgMapping);
-            task.getSlimJar().set(mcpDir.map(d -> d.file("server-slim.jar")));
-            task.getExtraJar().set(mcpDir.map(d -> d.file("server-extra.jar")));
+            task.getSlimJar().set(ext.getVersionCacheDirectory().map(d -> d.file("server-slim.jar")));
+            task.getExtraJar().set(ext.getVersionCacheDirectory().map(d -> d.file("server-extra.jar")));
         });
         // TODO: RenameMappings TSRG => TSRG2 by using `static_methods.txt` and inserting into srgutils' IMethod metadata when loading
         MERGE_JARS.configure(task -> {
@@ -142,6 +145,26 @@ public final class MCPTasks {
             task.getExceptionsFile().set(mcpConfigDir.map(dir -> dir.file("exceptions.txt")));
             task.getInjectedJar().set(new File(task.getWorkingDir(), "injected.jar"));
         });
+        RUN_SRG_CLIENT.configure(task -> {
+            task.dependsOn(INJECT_METADATA);
+            task.getMinecraftVersion().set("1.12.2");
+            task.getSide().set(Side.CLIENT);
+            task.getNatives().fileProvider(VanillaTasks.EXTRACT_NATIVES.map(Copy::getDestinationDir));
+            task.getAssetIndexVersion().set(ext.getVersionMeta().map(VersionMeta::assetIndexId));
+            task.getVanillaAssetsLocation().set(ext.getCacheDirectory().file("assets"));
+            task.setWorkingDir(IO.runDir(project, "1.12.2", Environment.SRG, Side.CLIENT));
+            task.classpath(INJECT_METADATA.map(InjectMetadata::getInjectedJar), VanillaTasks.VANILLA_CONFIG, SPLIT_CLIENT_JAR.map(SplitJar::getExtraJar));
+            task.getMainClass().set("net.minecraft.client.main.Main");
+        });
+        RUN_SRG_SERVER.configure(task -> {
+            task.dependsOn(INJECT_METADATA);
+            task.getMinecraftVersion().set("1.12.2");
+            task.getSide().set(Side.SERVER);
+            task.getNatives().fileProvider(VanillaTasks.EXTRACT_NATIVES.map(Copy::getDestinationDir));
+            task.setWorkingDir(IO.runDir(project, "1.12.2", Environment.SRG, Side.SERVER));
+            task.classpath(INJECT_METADATA.map(InjectMetadata::getInjectedJar), VanillaTasks.VANILLA_CONFIG, SPLIT_SERVER_JAR.map(SplitJar::getExtraJar));
+            task.getMainClass().set("net.minecraft.server.MinecraftServer");
+        });
         DECOMPILE.configure(task -> {
             task.dependsOn(INJECT_METADATA);
             task.checkExistence(task, task.getDecompiledJar());
@@ -159,28 +182,6 @@ public final class MCPTasks {
             task.getOriginalDirectory().fileProvider(PREPARE_APPLY_INITIAL_DIFFS.map(Copy::getDestinationDir));
             task.getPatchesDirectory().fileProvider(EXTRACT_INITIAL_PATCHES.map(Copy::getDestinationDir));
             task.getInPlace().set(true);
-        });
-        RUN_SRG_CLIENT.configure(task -> {
-            task.dependsOn(APPLY_INITIAL_DIFFS);
-            task.getMinecraftVersion().set("1.12.2");
-            task.getSide().set(Side.CLIENT);
-            task.getNatives().fileProvider(VanillaTasks.EXTRACT_NATIVES.map(Copy::getDestinationDir));
-            task.getAssetIndexVersion().set(ext.getVersionMeta().map(VersionMeta::assetIndexId));
-            task.getVanillaAssetsLocation().set(ext.getCacheDirectory().file("assets"));
-            task.setWorkingDir(IO.runDir(project, "1.12.2", Environment.SRG, Side.CLIENT));
-            task.classpath(APPLY_INITIAL_DIFFS.flatMap(applyDiffs -> applyDiffs.getInPlace().get() ? applyDiffs.getOriginalDirectory() : applyDiffs.getModifiedDirectory()));
-            task.classpath(VanillaTasks.VANILLA_CONFIG);
-            task.getMainClass().set("net.minecraft.client.main.Main");
-        });
-        RUN_SRG_SERVER.configure(task -> {
-            task.dependsOn(APPLY_INITIAL_DIFFS);
-            task.getMinecraftVersion().set("1.12.2");
-            task.getSide().set(Side.SERVER);
-            task.getNatives().fileProvider(VanillaTasks.EXTRACT_NATIVES.map(Copy::getDestinationDir));
-            task.setWorkingDir(IO.runDir(project, "1.12.2", Environment.SRG, Side.SERVER));
-            task.classpath(APPLY_INITIAL_DIFFS.flatMap(applyDiffs -> applyDiffs.getInPlace().get() ? applyDiffs.getOriginalDirectory() : applyDiffs.getModifiedDirectory()));
-            task.classpath(VanillaTasks.VANILLA_CONFIG);
-            task.getMainClass().set("net.minecraft.server.MinecraftServer");
         });
         REMAP_SRG2MCP.configure(task -> {
             task.dependsOn(APPLY_INITIAL_DIFFS);
