@@ -12,12 +12,14 @@ import com.cleanroommc.gradle.newapi.util.Environment;
 import com.cleanroommc.gradle.newapi.util.IO;
 import com.cleanroommc.gradle.newapi.util.Objects;
 import com.cleanroommc.gradle.newapi.util.lazy.Providers;
+import com.cleanroommc.gradle.newapi.util.lazy.SourceSets;
 import de.undercouch.gradle.tasks.download.Download;
 import net.minecraftforge.fml.relauncher.Side;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.tasks.Copy;
+import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
 
 import java.io.File;
@@ -27,6 +29,7 @@ public final class MCPTasks {
     private static final String GROUP_NAME = "MCP Tasks";
 
     public static NamedDomainObjectProvider<Configuration> MCP;
+    public static NamedDomainObjectProvider<SourceSet> SRG;
 
     public static TaskProvider<Copy> EXTRACT_CLIENT_RESOURCES, EXTRACT_SERVER_RESOURCES, EXTRACT_MCP_CONFIG, EXTRACT_INITIAL_PATCHES, PREPARE_APPLY_INITIAL_DIFFS, EXTRACT_MCP_MAPPINGS;
     public static TaskProvider<SplitJar> SPLIT_CLIENT_JAR, SPLIT_SERVER_JAR;
@@ -52,6 +55,8 @@ public final class MCPTasks {
         });
 
         MCP = Objects.config(project, "mcp");
+
+        SRG = SourceSets.of(project, "srg");
 
         var mcpDir = ext.getVersionCacheDirectory().dir("mcp");
         var mcpConfigDir = ext.getVersionCacheDirectory().dir("mcp_config/config");

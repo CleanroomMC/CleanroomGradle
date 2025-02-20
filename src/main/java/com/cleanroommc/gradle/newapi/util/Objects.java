@@ -11,9 +11,7 @@ import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ModuleDependency;
 import org.gradle.api.file.FileSystemLocation;
-import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Provider;
-import org.gradle.api.tasks.SourceSet;
 
 import java.io.File;
 import java.io.IOException;
@@ -49,10 +47,6 @@ public final class Objects {
         return project.getConfigurations().getByName(name);
     }
 
-    public static NamedDomainObjectProvider<SourceSet> sourceSet(Project project, String name) {
-        return project.getExtensions().getByType(JavaPluginExtension.class).getSourceSets().register(name);
-    }
-
     public static ModuleDependency dependency(Project project, NamedDomainObjectProvider<Configuration> configuration, String notation) {
         return (ModuleDependency) project.getDependencies().add(configuration.getName(), notation);
     }
@@ -76,6 +70,8 @@ public final class Objects {
                 .findFirst()
                 .orElseThrow().getFile();
     }
+
+
 
     public static Object unravel(Object object) {
         if (object instanceof Provider<?> provider) {

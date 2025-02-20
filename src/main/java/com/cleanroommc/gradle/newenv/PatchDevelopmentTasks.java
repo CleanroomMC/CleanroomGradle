@@ -4,6 +4,7 @@ import com.cleanroommc.gradle.newapi.ext.CleanroomExtension;
 import com.cleanroommc.gradle.newapi.task.Tasks;
 import com.cleanroommc.gradle.newapi.task.patch.GenerateDiffs;
 import com.cleanroommc.gradle.newapi.util.Objects;
+import com.cleanroommc.gradle.newapi.util.lazy.SourceSets;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.file.Directory;
@@ -35,8 +36,8 @@ public final class PatchDevelopmentTasks {
         var sourceDirectory = this.directory.map(dir -> dir.file("sources"));
         var patchesZip = this.directory.map(dir -> dir.file("patches.zip").getAsFile());
 
-        this.sourceSet = Objects.sourceSet(project, setName);
-        var sourceSetDir = this.sourceSet.map(SourceSet::getAllJava).map(SourceDirectorySet::getSourceDirectories).map(FileCollection::getSingleFile);
+        this.sourceSet = SourceSets.of(project, setName);
+        var sourceSetDir = SourceSets.source(this.sourceSet);
 
         this.prepareSources = Tasks.unzip(project, groupName, "prepare" + name + "Sources", sourceLocation, sourceDirectory);
         this.copySources = Tasks.copy(project, groupName, "copy" + name + "Sources", sourceDirectory, sourceSetDir);
