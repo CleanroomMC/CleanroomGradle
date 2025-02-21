@@ -2,7 +2,6 @@ package com.cleanroommc.gradle.newapi.util.lazy;
 
 import com.cleanroommc.gradle.newapi.util.Platform;
 import org.gradle.api.Project;
-import org.gradle.api.internal.provider.DefaultProvider;
 import org.gradle.api.provider.Provider;
 import org.gradle.jvm.toolchain.JavaCompiler;
 import org.gradle.jvm.toolchain.JavaLanguageVersion;
@@ -12,13 +11,8 @@ import org.gradle.jvm.toolchain.JvmImplementation;
 import org.gradle.jvm.toolchain.JvmVendorSpec;
 
 import java.io.File;
-import java.util.concurrent.Callable;
 
 public final class Providers {
-
-    public static <V> Provider<V> of(Callable<V> callable) {
-        return new DefaultProvider<>(callable);
-    }
 
     public static Provider<String> libraryPath(Project project, Provider<File> moreLibraries) {
         return project.getProviders().systemProperty("java.library.path").zip(moreLibraries, (a, b) -> a + ';' + Platform.fixCommandLine(b.getAbsolutePath()));

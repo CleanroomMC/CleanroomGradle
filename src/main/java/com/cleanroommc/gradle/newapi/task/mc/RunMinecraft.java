@@ -83,7 +83,7 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
 
         this.systemProperty("java.library.path", Providers.libraryPath(getProject(), this.getNatives().map(RegularFile::getAsFile)));
 
-        this.args("--gameDir", Providers.of(this::getWorkingDir),
+        this.args("--gameDir", this.getProject().provider(this::getWorkingDir),
                 "--version", getMinecraftVersion(),
                 "--assetIndex", getAssetIndexVersion(),
                 "--assetsDir", getVanillaAssetsLocation(),

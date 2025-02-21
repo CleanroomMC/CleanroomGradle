@@ -9,9 +9,7 @@ import com.cleanroommc.gradle.newapi.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.newapi.task.mcp.*;
 import com.cleanroommc.gradle.newapi.task.patch.ApplyDiffs;
 import com.cleanroommc.gradle.newapi.util.Environment;
-import com.cleanroommc.gradle.newapi.util.IO;
 import com.cleanroommc.gradle.newapi.util.Objects;
-import com.cleanroommc.gradle.newapi.util.lazy.Providers;
 import com.cleanroommc.gradle.newapi.util.lazy.SourceSets;
 import de.undercouch.gradle.tasks.download.Download;
 import net.minecraftforge.fml.relauncher.Side;
@@ -65,7 +63,7 @@ public final class MCPTasks {
 
         // EXTRACT_CLIENT_RESOURCES = Tasks.unzip(project, GROUP_NAME, "extractClientResources", VanillaTasks.DOWNLOAD_CLIENT_JAR.map(Download::getDest), ext.getVersionCacheDirectory().dir("resources/client"));
         // EXTRACT_SERVER_RESOURCES = Tasks.unzip(project, GROUP_NAME, "extractServerResources", VanillaTasks.DOWNLOAD_SERVER_JAR.map(Download::getDest), ext.getVersionCacheDirectory().dir("resources/server"));
-        EXTRACT_MCP_CONFIG = Tasks.unzip(project, GROUP_NAME, "extractMcpConfig", Providers.of(() -> Objects.artifact(MCP, "mcp_config")), ext.getVersionCacheDirectory().dir("mcp_config"));
+        EXTRACT_MCP_CONFIG = Tasks.unzip(project, GROUP_NAME, "extractMcpConfig", project.provider(() -> Objects.artifact(MCP, "mcp_config")), ext.getVersionCacheDirectory().dir("mcp_config"));
         SPLIT_CLIENT_JAR = Tasks.of(project, GROUP_NAME, "splitClientJar", SplitJar.class);
         SPLIT_SERVER_JAR = Tasks.of(project, GROUP_NAME, "splitServerJar", SplitJar.class);
         MERGE_JARS = Tasks.of(project, GROUP_NAME, "mergeJars", MergeJars.class);
@@ -74,12 +72,12 @@ public final class MCPTasks {
         RUN_SRG_CLIENT = Tasks.of(project, GROUP_NAME, "runSrgClient", RunMinecraft.class);
         RUN_SRG_SERVER = Tasks.of(project, GROUP_NAME, "runSrgServer", RunMinecraft.class);
         DECOMPILE = Tasks.of(project, GROUP_NAME, "decompile", Decompile.class);
-        EXTRACT_INITIAL_PATCHES = Tasks.unzip(project, GROUP_NAME, "extractInitialPatches", Providers.of(() -> Objects.artifact(MCP, "initial-patches")), ext.getVersionCacheDirectory().dir("initial_patches"));
+        EXTRACT_INITIAL_PATCHES = Tasks.unzip(project, GROUP_NAME, "extractInitialPatches", project.provider(() -> Objects.artifact(MCP, "initial-patches")), ext.getVersionCacheDirectory().dir("initial_patches"));
         PREPARE_APPLY_INITIAL_DIFFS = Tasks.unzip(project, GROUP_NAME, "prepareApplyInitialDiffs", DECOMPILE.map(Decompile::getDecompiledJar), DECOMPILE.map(Decompile::getDecompiledJar).map(rfd -> new File(rfd.get().getAsFile().getParent(), "files")));
         APPLY_INITIAL_DIFFS = Tasks.of(project, GROUP_NAME, "applyInitialDiffs", ApplyDiffs.class);
         RUN_REOBF_SRG_CLIENT = Tasks.of(project, GROUP_NAME, "runReobfSrgClient", RunMinecraft.class);
         RUN_REOBF_SRG_SERVER = Tasks.of(project, GROUP_NAME, "runReobfSrgServer", RunMinecraft.class);
-        EXTRACT_MCP_MAPPINGS = Tasks.unzip(project, GROUP_NAME, "extractMcpMappings", Providers.of(() -> Objects.artifact(MCP, "mcp_stable")), ext.getVersionCacheDirectory().dir("mcp_mappings"));
+        EXTRACT_MCP_MAPPINGS = Tasks.unzip(project, GROUP_NAME, "extractMcpMappings", project.provider(() -> Objects.artifact(MCP, "mcp_stable")), ext.getVersionCacheDirectory().dir("mcp_mappings"));
         REMAP_SRG2MCP = Tasks.of(project, GROUP_NAME, "remapSrg2Mcp", RemapSrg2Mcp.class);
         RUN_MCP_CLIENT = Tasks.of(project, GROUP_NAME, "runMcpClient", RunMinecraft.class);
         RUN_MCP_SERVER = Tasks.of(project, GROUP_NAME, "runMcpServer", RunMinecraft.class);
