@@ -1,10 +1,9 @@
 package com.cleanroommc.gradle;
 
-import com.cleanroommc.gradle.newapi.ext.CleanroomExtension;
-import com.cleanroommc.gradle.newapi.util.Objects;
-import com.cleanroommc.gradle.newenv.MCPTasks;
-import com.cleanroommc.gradle.newenv.SetupTasks;
-import com.cleanroommc.gradle.newenv.VanillaTasks;
+import com.cleanroommc.gradle.api.ext.CleanroomExtension;
+import com.cleanroommc.gradle.api.util.Objects;
+import com.cleanroommc.gradle.env.MCPTasks;
+import com.cleanroommc.gradle.env.VanillaTasks;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 
