@@ -1,22 +1,23 @@
 package com.cleanroommc.gradle.newapi.task.mcp;
 
-import com.cleanroommc.gradle.newapi.task.IntermediateProcessor;
 import com.cleanroommc.gradle.newapi.task.MavenJarExec;
 import org.gradle.api.file.RegularFileProperty;
-import org.gradle.api.tasks.InputFile;
-import org.gradle.api.tasks.Optional;
-import org.gradle.api.tasks.OutputFile;
+import org.gradle.api.tasks.*;
 
-public abstract class RemapNotch2Srg extends MavenJarExec implements IntermediateProcessor {
+@CacheableTask
+public abstract class RemapNotch2Srg extends MavenJarExec {
 
     @InputFile
+    @PathSensitive(PathSensitivity.RELATIVE)
     public abstract RegularFileProperty getNotchJar();
 
     @InputFile
+    @PathSensitive(PathSensitivity.RELATIVE)
     public abstract RegularFileProperty getSrgMappingFile();
 
-    @InputFile
     @Optional
+    @InputFile
+    @PathSensitive(PathSensitivity.RELATIVE)
     public abstract RegularFileProperty getAccessTransformerFile();
 
     @OutputFile

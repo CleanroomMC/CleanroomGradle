@@ -49,8 +49,7 @@ public final class VanillaTasks {
         DOWNLOAD_CLIENT_JAR = Tasks.of(project, GROUP_NAME, "downloadClientJar", Download.class);
         DOWNLOAD_SERVER_JAR = Tasks.of(project, GROUP_NAME, "downloadServerJar", Download.class);
         DOWNLOAD_ASSETS = Tasks.of(project, GROUP_NAME, "downloadAssets", DownloadAssets.class);
-        EXTRACT_NATIVES = Tasks.unzip(project, GROUP_NAME, "extractNatives", VANILLA_NATIVES_CONFIG,
-                ext.getVersionCacheDirectory().dir("natives/vanilla"));
+        EXTRACT_NATIVES = Tasks.unzip(project, GROUP_NAME, "extractNatives", VANILLA_NATIVES_CONFIG, ext.getVersionCacheDirectory().dir("natives/vanilla"));
         RUN_VANILLA_CLIENT = Tasks.of(project, GROUP_NAME, "runVanillaClient", RunMinecraft.class);
         RUN_VANILLA_SERVER = Tasks.of(project, GROUP_NAME, "runVanillaServer", RunMinecraft.class);
 
@@ -69,8 +68,8 @@ public final class VanillaTasks {
         });
         DOWNLOAD_ASSETS.configure(task -> {
             task.dependsOn(DOWNLOAD_ASSET_INDEX);
-            task.getAssetIndex().set(DOWNLOAD_ASSET_INDEX.map(Download::getDest)
-                    .map(file -> IO.readJson(file, AssetIndex.class)));
+
+            task.getAssetIndex().set(DOWNLOAD_ASSET_INDEX.map(Download::getDest).map(file -> IO.readJson(file, AssetIndex.class)));
             task.getObjects().set(ext.getCacheDirectory().dir("assets/objects"));
         });
         EXTRACT_NATIVES.configure(task -> {
@@ -78,6 +77,7 @@ public final class VanillaTasks {
         });
         RUN_VANILLA_CLIENT.configure(task -> {
             task.dependsOn(DOWNLOAD_ASSETS, DOWNLOAD_CLIENT_JAR);
+
             task.getSide().set(Side.CLIENT);
             task.getEnv().set(Environment.VANILLA);
             task.getNatives().fileProvider(EXTRACT_NATIVES.map(Copy::getDestinationDir));
@@ -87,6 +87,7 @@ public final class VanillaTasks {
         });
         RUN_VANILLA_SERVER.configure(task -> {
             task.dependsOn(DOWNLOAD_SERVER_JAR);
+
             task.getSide().set(Side.SERVER);
             task.getEnv().set(Environment.VANILLA);
             task.getNatives().fileProvider(EXTRACT_NATIVES.map(Copy::getDestinationDir));
@@ -97,7 +98,6 @@ public final class VanillaTasks {
     public static void afterEvaluate(Project project, CleanroomExtension ext) {
         for (var library : ext.getVersionMeta().get().libraries()) {
             if (library.isValidForOS(Platform.CURRENT)) {
-                // Objects.dependency(project, VANILLA_CONFIG, library.name()).setTransitive(false);
                 Objects.dependency(project, VANILLA_CONFIG, library.name());
                 if (library.hasNativesForOS(Platform.CURRENT)) {
                     var osClassifier = library.classifierForOS(Platform.CURRENT);

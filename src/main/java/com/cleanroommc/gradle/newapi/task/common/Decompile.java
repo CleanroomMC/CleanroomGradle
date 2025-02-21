@@ -1,6 +1,5 @@
 package com.cleanroommc.gradle.newapi.task.common;
 
-import com.cleanroommc.gradle.newapi.task.IntermediateProcessor;
 import com.cleanroommc.gradle.newapi.task.MavenJarExec;
 import com.cleanroommc.gradle.newapi.util.lazy.Providers;
 import org.gradle.api.file.ConfigurableFileCollection;
@@ -9,14 +8,16 @@ import org.gradle.api.tasks.*;
 
 import java.io.File;
 
-public abstract class Decompile extends MavenJarExec implements IntermediateProcessor {
+@CacheableTask
+public abstract class Decompile extends MavenJarExec {
 
     @InputFile
+    @PathSensitive(PathSensitivity.RELATIVE)
     public abstract RegularFileProperty getCompiledJar();
 
+    @Optional
     @Classpath
     @InputFiles
-    @Optional
     public abstract ConfigurableFileCollection getLibraries();
 
     @OutputFile

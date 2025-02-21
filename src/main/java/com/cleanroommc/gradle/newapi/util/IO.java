@@ -79,8 +79,8 @@ public final class IO {
         return new ZipInputStream(in(file));
     }
 
-    public static File runDir(Project project, String version, Environment env, Side side) {
-        return FileUtils.getFile(project.getProjectDir(), "run", version, env.toString(), side.name().toLowerCase(Locale.ENGLISH));
+    public static File runDir(File projectDir, String version, Environment env, Side side) {
+        return FileUtils.getFile(projectDir, "run", version, env.toString(), side.name().toLowerCase(Locale.ENGLISH));
     }
 
     private IO() { }

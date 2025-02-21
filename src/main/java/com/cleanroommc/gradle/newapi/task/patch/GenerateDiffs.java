@@ -5,17 +5,22 @@ import com.github.difflib.UnifiedDiffUtils;
 import org.apache.commons.io.FileUtils;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.internal.file.FileOperations;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputDirectory;
 import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.TaskAction;
 
+import javax.inject.Inject;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class GenerateDiffs extends DefaultTask {
+
+    @Inject
+    public abstract FileOperations getFileOperations();
 
     @InputDirectory
     public abstract DirectoryProperty getOriginalDirectory();
@@ -35,14 +40,12 @@ public abstract class GenerateDiffs extends DefaultTask {
 
     @TaskAction
     public void generateDiffs() {
-        var project = this.getProject();
-        var logger = project.getLogger();
         var counter = new AtomicInteger();
         var originalDir = this.getOriginalDirectory().get().getAsFile();
         var patchesDir = this.getPatchesDirectory().get().getAsFile();
         var contextLines = this.getContextLines().get();
 
-        project.fileTree(this.getModifiedDirectory()).visit(fvd -> {
+        this.getFileOperations().fileTree(this.getModifiedDirectory()).visit(fvd -> {
             if (!fvd.isDirectory()) {
                 var modifiedFile = fvd.getFile();
                 var relativePath = fvd.getRelativePath().getPathString();
@@ -56,7 +59,7 @@ public abstract class GenerateDiffs extends DefaultTask {
                         var diff = DiffUtils.diff(originalLines, modifiedLines);
 
                         if (!diff.getDeltas().isEmpty()) {
-                            logger.lifecycle("Patching {}", relativePath);
+                            this.getLogger().lifecycle("Patching {}", relativePath);
                             counter.incrementAndGet();
                             var header = relativePath.replace("\\", "/");
                             var unifiedDiff = UnifiedDiffUtils.generateUnifiedDiff("original/" + header, "modified/" + header, originalLines, diff, contextLines);
@@ -72,7 +75,7 @@ public abstract class GenerateDiffs extends DefaultTask {
                 }
             }
         });
-        logger.lifecycle("{} files were patched.", counter.get());
+        this.getLogger().lifecycle("{} files were patched.", counter.get());
     }
 
 }

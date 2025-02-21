@@ -8,12 +8,14 @@ import com.cleanroommc.gradle.newapi.util.lazy.Providers;
 import com.cleanroommc.gradle.newapi.task.LazilyConstructedJavaExec;
 import net.minecraftforge.fml.relauncher.Side;
 import org.apache.commons.io.FileUtils;
+import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.*;
 import org.gradle.work.DisableCachingByDefault;
 
+import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -29,6 +31,9 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         return userInput.startsWith("y") || userInput.startsWith("Y");
     }
 
+    @Inject
+    public abstract ProjectLayout getProjectLayout();
+
     @Input
     public abstract Property<String> getMinecraftVersion();
 
@@ -41,11 +46,11 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     @InputFiles
     public abstract RegularFileProperty getNatives();
 
-    @Input
-    public abstract Property<String> getAssetIndexVersion();
-
     @InputFiles
     public abstract RegularFileProperty getVanillaAssetsLocation();
+
+    @Input
+    public abstract Property<String> getAssetIndexVersion();
 
     @Input
     @Optional
@@ -81,7 +86,7 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
 
         this.jvmArgs("-Dfile.encoding=UTF-8");
 
-        this.systemProperty("java.library.path", Providers.libraryPath(getProject(), this.getNatives().map(RegularFile::getAsFile)));
+        this.systemProperty("java.library.path", Providers.libraryPath(this.getProject(), this.getNatives().map(RegularFile::getAsFile)));
 
         this.args("--gameDir", this.getProject().provider(this::getWorkingDir),
                 "--version", getMinecraftVersion(),
@@ -101,14 +106,14 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         var logger = this.getLogger();
 
         if (!this.setCustomWorkingDir) {
-            super.setWorkingDir(IO.runDir(this.getProject(), this.getMinecraftVersion().get(), this.getEnv().get(), this.getSide().get()));
+            super.setWorkingDir(IO.runDir(this.getProjectLayout().getProjectDirectory().getAsFile(), this.getMinecraftVersion().get(), this.getEnv().get(), this.getSide().get()));
         }
 
         // Thanks to RetroFuturaGradle for this QoL
         if (this.getSide().get().isServer()) {
             this.args("nogui");
 
-            var serverProperties = new File(getWorkingDir(), "server.properties");
+            var serverProperties = new File(this.getWorkingDir(), "server.properties");
             if (!serverProperties.exists()) {
                 logger.warn("Start the server in offline mode? If yes, type 'y': ");
                 try {
@@ -117,7 +122,7 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
                     logger.error("Issue writing online mode to file, it will be set to true at runtime by default.", e);
                 }
             }
-            var eula = new File(getWorkingDir(), "eula.txt");
+            var eula = new File(this.getWorkingDir(), "eula.txt");
             if (!eula.exists()) {
                 logger.warn("Do you accept the Minecraft EULA (https://www.minecraft.net/en-us/eula)? If yes, type 'y': ");
                 try {

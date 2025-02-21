@@ -17,6 +17,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 // Pretty much ForgeGradle net/minecraftforge/gradle/common/util/McpNames
+@CacheableTask
 public abstract class RemapSrg2Mcp extends DefaultTask {
 
     private static final Pattern SRG_FINDER = Pattern.compile("[fF]unc_\\d+_[a-zA-Z_]+|m_\\d+_|[fF]ield_\\d+_[a-zA-Z_]+|f_\\d+_|p_\\w+_\\d+_|p_\\d+_");
