@@ -6,8 +6,10 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.internal.file.FileOperations;
 import org.gradle.api.tasks.*;
 
+import javax.inject.Inject;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -144,6 +146,9 @@ public abstract class RemapSrg2Mcp extends DefaultTask {
         return buf.toString();
     }
 
+    @Inject
+    public abstract FileOperations getFileOperations();
+
     @InputDirectory
     public abstract DirectoryProperty getSrgSource();
 
@@ -199,14 +204,13 @@ public abstract class RemapSrg2Mcp extends DefaultTask {
             }
         }
 
-        var logger = this.getProject().getLogger();
         var mcpSourceDir = this.getMcpSource().get().getAsFile();
 
-        this.getProject().fileTree(this.getSrgSource()).visit(fvd -> {
+        this.getFileOperations().fileTree(this.getSrgSource()).visit(fvd -> {
             if (!fvd.isDirectory()) {
                 var file = fvd.getFile();
                 if (!file.getName().endsWith(".java")) {
-                    logger.lifecycle("Skipping over {} when remapping.", file);
+                    this.getLogger().lifecycle("Skipping over {} when remapping.", file);
                 } else {
                     var relativePath = fvd.getRelativePath().getPathString();
                     var newFile = new File(mcpSourceDir, relativePath);
@@ -214,7 +218,7 @@ public abstract class RemapSrg2Mcp extends DefaultTask {
                         var data = FileUtils.readLines(file, StandardCharsets.UTF_8);
 
                         if (data.isEmpty()) {
-                            logger.lifecycle("Skipping over {} when remapping. As file is empty.", file);
+                            this.getLogger().lifecycle("Skipping over {} when remapping. As file is empty.", file);
                         } else {
                             var newData = new ArrayList<String>();
 
