@@ -151,15 +151,19 @@ public abstract class RemapSrg2Mcp extends DefaultTask {
     public abstract FileOperations getFileOperations();
 
     @InputDirectory
+    @PathSensitive(PathSensitivity.RELATIVE)
     public abstract DirectoryProperty getSrgSource();
 
     @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
     public abstract ConfigurableFileCollection getFieldMappings();
 
     @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
     public abstract ConfigurableFileCollection getMethodMappings();
 
     @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
     public abstract ConfigurableFileCollection getParameterMappings();
 
     @OutputDirectory

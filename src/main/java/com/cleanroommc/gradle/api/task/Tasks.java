@@ -5,6 +5,7 @@ import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.TaskProvider;
+import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.api.tasks.bundling.Zip;
 
 public final class Tasks {
@@ -48,6 +49,20 @@ public final class Tasks {
     public static TaskProvider<Zip> zip(Project project, String group, String name, Object from, Object to) {
         var provider = project.getTasks().register(name, Zip.class);
         provider.configure(task -> {
+            task.setGroup(group);
+
+            task.from(from);
+            var file = project.file(to);
+            task.getDestinationDirectory().set(file.getParentFile());
+            task.getArchiveFileName().set(file.getName());
+        });
+        return provider;
+    }
+
+    public static TaskProvider<Jar> jar(Project project, String group, String name, Object from, Object to) {
+        var provider = project.getTasks().register(name, Jar.class);
+        provider.configure(task -> {
+            task.setDescription("Assembles a jar archive containing the classes of the '" + name + "' feature.");
             task.setGroup(group);
 
             task.from(from);

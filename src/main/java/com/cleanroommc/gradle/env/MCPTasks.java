@@ -19,6 +19,7 @@ import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
+import org.gradle.api.tasks.compile.JavaCompile;
 
 import java.io.File;
 
@@ -80,12 +81,24 @@ public final class MCPTasks {
         RUN_MCP_CLIENT = Tasks.of(project, GROUP_NAME, "runMcpClient", RunMinecraft.class);
         RUN_MCP_SERVER = Tasks.of(project, GROUP_NAME, "runMcpServer", RunMinecraft.class);
 
-        SourceSets.linkSource(SRG_SOURCE, ext.getLocalCacheDirectory().dir("sourceSets/srg"));
-        SourceSets.configureCompile(project, SRG_SOURCE, task -> task.dependsOn(APPLY_INITIAL_DIFFS));
+        SourceSets.linkSource(SRG_SOURCE, ext.getLocalCacheDirectory().dir("sourceSets/srg/sources"));
         SourceSets.extendFromConfiguration(project, SRG_SOURCE, VanillaTasks.VANILLA_CONFIG);
-        SourceSets.linkSource(MCP_SOURCE, ext.getLocalCacheDirectory().dir("sourceSets/mcp"));
-        SourceSets.configureCompile(project, MCP_SOURCE, task -> task.dependsOn(REMAP_SRG2MCP));
+        SourceSets.linkSource(MCP_SOURCE, ext.getLocalCacheDirectory().dir("sourceSets/mcp/sources"));
         SourceSets.extendFromConfiguration(project, MCP_SOURCE, VanillaTasks.VANILLA_CONFIG);
+        SRG_SOURCE.configure(sourceSet -> {
+            Tasks.<JavaCompile>named(project, sourceSet.getCompileJavaTaskName()).configure(task -> {
+                task.dependsOn(APPLY_INITIAL_DIFFS);
+                task.setGroup(GROUP_NAME);
+            });
+            Tasks.jar(project, GROUP_NAME, sourceSet.getJarTaskName(), sourceSet.getOutput(), ext.getLocalCacheDirectory().file("sourceSets/srg/srg.jar"));
+        });
+        MCP_SOURCE.configure(sourceSet -> {
+            Tasks.<JavaCompile>named(project, sourceSet.getCompileJavaTaskName()).configure(task -> {
+                task.dependsOn(REMAP_SRG2MCP);
+                task.setGroup(GROUP_NAME);
+            });
+            Tasks.jar(project, GROUP_NAME, sourceSet.getJarTaskName(), sourceSet.getOutput(), ext.getLocalCacheDirectory().file("sourceSets/mcp/mcp.jar"));
+        });
 
         SPLIT_CLIENT_JAR.configure(task -> {
             task.dependsOn(VanillaTasks.DOWNLOAD_CLIENT_JAR, EXTRACT_MCP_CONFIG);
