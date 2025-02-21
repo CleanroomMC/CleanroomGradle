@@ -1,6 +1,8 @@
 package com.cleanroommc.gradle.newapi.task.mc;
 
 import com.cleanroommc.gradle.newapi.ext.CleanroomExtension;
+import com.cleanroommc.gradle.newapi.util.Environment;
+import com.cleanroommc.gradle.newapi.util.IO;
 import com.cleanroommc.gradle.newapi.util.Objects;
 import com.cleanroommc.gradle.newapi.util.lazy.Providers;
 import com.cleanroommc.gradle.newapi.task.LazilyConstructedJavaExec;
@@ -9,9 +11,7 @@ import org.apache.commons.io.FileUtils;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
-import org.gradle.api.tasks.Input;
-import org.gradle.api.tasks.InputFiles;
-import org.gradle.api.tasks.Optional;
+import org.gradle.api.tasks.*;
 import org.gradle.work.DisableCachingByDefault;
 
 import java.io.File;
@@ -35,6 +35,9 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     @Input
     public abstract Property<Side> getSide();
 
+    @Input
+    public abstract Property<Environment> getEnv();
+
     @InputFiles
     public abstract RegularFileProperty getNatives();
 
@@ -56,15 +59,21 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     @Optional
     public abstract Property<String> getAccessToken();
 
+    @Internal
+    private boolean setCustomWorkingDir = false;
+
     public RunMinecraft() {
-        this.getAssetIndexVersion().convention(this.getMinecraftVersion());
-        this.getVanillaAssetsLocation().convention(this.getProject().getLayout().getProjectDirectory().file("."));
+        this.getMinecraftVersion().convention("1.12.2");
+        this.getAssetIndexVersion().convention("1.12");
+        this.getVanillaAssetsLocation().convention(CleanroomExtension.get(this.getProject()).getCacheDirectory().file("assets"));
         this.getAccessToken().convention("0");
 
         this.getUsername().convention("Developer");
         this.getUUID().convention(getUsername()
                 .map(u -> Objects.resolveUuid(this.getProject(), CleanroomExtension.get(this.getProject()), u))
                 .map(UUID::toString));
+
+        this.getMainClass().convention(this.getSide().map(side -> side.isClient() ? "net.minecraft.client.main.Main" : "net.minecraft.server.MinecraftServer"));
 
         this.setStandardInput(System.in);
         this.setStandardOutput(System.out);
@@ -87,13 +96,16 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         this.setMaxHeapSize("1G");
     }
 
-    /**
-     * Thanks to RetroFuturaGradle for this QoL idea
-     */
     @Override
     protected void beforeExec() {
         var logger = this.getLogger();
-        if (getSide().get().isServer()) {
+
+        if (!this.setCustomWorkingDir) {
+            super.setWorkingDir(IO.runDir(this.getProject(), this.getMinecraftVersion().get(), this.getEnv().get(), this.getSide().get()));
+        }
+
+        // Thanks to RetroFuturaGradle for this QoL
+        if (this.getSide().get().isServer()) {
             this.args("nogui");
 
             var serverProperties = new File(getWorkingDir(), "server.properties");
@@ -115,6 +127,24 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
                 }
             }
         }
+    }
+
+    @Override
+    public void setWorkingDir(File dir) {
+        this.setCustomWorkingDir = true;
+        super.setWorkingDir(dir);
+    }
+
+    @Override
+    public void setWorkingDir(Object dir) {
+        this.setCustomWorkingDir = true;
+        super.setWorkingDir(dir);
+    }
+
+    @Override
+    public JavaExec workingDir(Object dir) {
+        this.setCustomWorkingDir = true;
+        return super.workingDir(dir);
     }
 
 }

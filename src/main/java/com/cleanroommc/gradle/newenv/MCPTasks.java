@@ -157,23 +157,19 @@ public final class MCPTasks {
         });
         RUN_SRG_CLIENT.configure(task -> {
             task.dependsOn(INJECT_METADATA);
-            task.getMinecraftVersion().set("1.12.2");
             task.getSide().set(Side.CLIENT);
+            task.getEnv().set(Environment.SRG);
             task.getNatives().fileProvider(VanillaTasks.EXTRACT_NATIVES.map(Copy::getDestinationDir));
             task.getAssetIndexVersion().set(ext.getVersionMeta().map(VersionMeta::assetIndexId));
             task.getVanillaAssetsLocation().set(ext.getCacheDirectory().file("assets"));
-            task.setWorkingDir(IO.runDir(project, "1.12.2", Environment.SRG, Side.CLIENT));
             task.classpath(INJECT_METADATA.map(InjectMetadata::getInjectedJar), VanillaTasks.VANILLA_CONFIG, SPLIT_CLIENT_JAR.map(SplitJar::getExtraJar));
-            task.getMainClass().set("net.minecraft.client.main.Main");
         });
         RUN_SRG_SERVER.configure(task -> {
             task.dependsOn(INJECT_METADATA);
-            task.getMinecraftVersion().set("1.12.2");
             task.getSide().set(Side.SERVER);
+            task.getEnv().set(Environment.SRG);
             task.getNatives().fileProvider(VanillaTasks.EXTRACT_NATIVES.map(Copy::getDestinationDir));
-            task.setWorkingDir(IO.runDir(project, "1.12.2", Environment.SRG, Side.SERVER));
             task.classpath(INJECT_METADATA.map(InjectMetadata::getInjectedJar), VanillaTasks.VANILLA_CONFIG, SPLIT_SERVER_JAR.map(SplitJar::getExtraJar));
-            task.getMainClass().set("net.minecraft.server.MinecraftServer");
         });
         DECOMPILE.configure(task -> {
             task.dependsOn(INJECT_METADATA);
@@ -196,23 +192,19 @@ public final class MCPTasks {
         });
         RUN_REOBF_SRG_CLIENT.configure(task -> {
             task.dependsOn(SourceSets.compile(SRG_SOURCE));
-            task.getMinecraftVersion().set("1.12.2");
             task.getSide().set(Side.CLIENT);
+            task.getEnv().set(Environment.REOBF_SRG);
             task.getNatives().fileProvider(VanillaTasks.EXTRACT_NATIVES.map(Copy::getDestinationDir));
             task.getAssetIndexVersion().set(ext.getVersionMeta().map(VersionMeta::assetIndexId));
             task.getVanillaAssetsLocation().set(ext.getCacheDirectory().file("assets"));
-            task.setWorkingDir(IO.runDir(project, "1.12.2", Environment.REOBF_SRG, Side.CLIENT));
             task.classpath(SourceSets.classes(SRG_SOURCE), VanillaTasks.VANILLA_CONFIG, SPLIT_CLIENT_JAR.map(SplitJar::getExtraJar));
-            task.getMainClass().set("net.minecraft.client.main.Main");
         });
         RUN_REOBF_SRG_SERVER.configure(task -> {
             task.dependsOn(SourceSets.compile(SRG_SOURCE));
-            task.getMinecraftVersion().set("1.12.2");
             task.getSide().set(Side.SERVER);
+            task.getEnv().set(Environment.REOBF_SRG);
             task.getNatives().fileProvider(VanillaTasks.EXTRACT_NATIVES.map(Copy::getDestinationDir));
-            task.setWorkingDir(IO.runDir(project, "1.12.2", Environment.REOBF_SRG, Side.SERVER));
             task.classpath(SourceSets.classes(SRG_SOURCE), VanillaTasks.VANILLA_CONFIG, SPLIT_SERVER_JAR.map(SplitJar::getExtraJar));
-            task.getMainClass().set("net.minecraft.server.MinecraftServer");
         });
         REMAP_SRG2MCP.configure(task -> {
             task.dependsOn(APPLY_INITIAL_DIFFS);
@@ -225,23 +217,19 @@ public final class MCPTasks {
         });
         RUN_MCP_CLIENT.configure(task -> {
             task.dependsOn(SourceSets.compile(MCP_SOURCE));
-            task.getMinecraftVersion().set("1.12.2");
             task.getSide().set(Side.CLIENT);
+            task.getEnv().set(Environment.MCP);
             task.getNatives().fileProvider(VanillaTasks.EXTRACT_NATIVES.map(Copy::getDestinationDir));
             task.getAssetIndexVersion().set(ext.getVersionMeta().map(VersionMeta::assetIndexId));
             task.getVanillaAssetsLocation().set(ext.getCacheDirectory().file("assets"));
-            task.setWorkingDir(IO.runDir(project, "1.12.2", Environment.MCP, Side.CLIENT));
             task.classpath(SourceSets.classes(MCP_SOURCE), VanillaTasks.VANILLA_CONFIG, SPLIT_CLIENT_JAR.map(SplitJar::getExtraJar));
-            task.getMainClass().set("net.minecraft.client.main.Main");
         });
         RUN_MCP_SERVER.configure(task -> {
             task.dependsOn(SourceSets.compile(MCP_SOURCE));
-            task.getMinecraftVersion().set("1.12.2");
             task.getSide().set(Side.SERVER);
+            task.getEnv().set(Environment.MCP);
             task.getNatives().fileProvider(VanillaTasks.EXTRACT_NATIVES.map(Copy::getDestinationDir));
-            task.setWorkingDir(IO.runDir(project, "1.12.2", Environment.MCP, Side.SERVER));
             task.classpath(SourceSets.classes(MCP_SOURCE), VanillaTasks.VANILLA_CONFIG, SPLIT_SERVER_JAR.map(SplitJar::getExtraJar));
-            task.getMainClass().set("net.minecraft.server.MinecraftServer");
         });
     }
 

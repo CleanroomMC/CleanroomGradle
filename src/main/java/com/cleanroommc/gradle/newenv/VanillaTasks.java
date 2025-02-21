@@ -78,25 +78,19 @@ public final class VanillaTasks {
         });
         RUN_VANILLA_CLIENT.configure(task -> {
             task.dependsOn(DOWNLOAD_ASSETS, DOWNLOAD_CLIENT_JAR);
-            task.getMinecraftVersion().set("1.12.2");
             task.getSide().set(Side.CLIENT);
+            task.getEnv().set(Environment.VANILLA);
             task.getNatives().fileProvider(EXTRACT_NATIVES.map(Copy::getDestinationDir));
             task.getAssetIndexVersion().set(ext.getVersionMeta().map(VersionMeta::assetIndexId));
             task.getVanillaAssetsLocation().set(ext.getCacheDirectory().file("assets"));
-            task.setWorkingDir(IO.runDir(project, "1.12.2", Environment.VANILLA, Side.CLIENT));
-            task.classpath(DOWNLOAD_CLIENT_JAR.map(Download::getDest));
-            task.classpath(VANILLA_CONFIG);
-            task.getMainClass().set("net.minecraft.client.main.Main");
+            task.classpath(DOWNLOAD_CLIENT_JAR.map(Download::getDest), VANILLA_CONFIG);
         });
         RUN_VANILLA_SERVER.configure(task -> {
             task.dependsOn(DOWNLOAD_SERVER_JAR);
-            task.getMinecraftVersion().set("1.12.2");
             task.getSide().set(Side.SERVER);
+            task.getEnv().set(Environment.VANILLA);
             task.getNatives().fileProvider(EXTRACT_NATIVES.map(Copy::getDestinationDir));
-            task.setWorkingDir(IO.runDir(project, "1.12.2", Environment.VANILLA, Side.SERVER));
-            task.classpath(DOWNLOAD_SERVER_JAR.map(Download::getDest));
-            task.classpath(VANILLA_CONFIG);
-            task.getMainClass().set("net.minecraft.server.MinecraftServer");
+            task.classpath(DOWNLOAD_SERVER_JAR.map(Download::getDest), VANILLA_CONFIG);
         });
     }
 
