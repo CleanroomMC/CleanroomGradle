@@ -177,7 +177,7 @@ public final class MCPTasks {
             task.getCompiledJar().value(INJECT_METADATA.flatMap(InjectMetadata::getInjectedJar));
             task.getLibraries().from(VanillaTasks.VANILLA_CONFIG);
             task.getDecompiledJar().set(new File(task.getWorkingDir(), "decompiled.jar"));
-            task.args("-nls=1", "-asc=1", "-iec=1", "-jvn=1", "-ind=    ");
+            task.args("-nls=1", "-asc=1", "-iec=1", "-jvn=1", "-thr=-1", "-ind=    ");
         });
         PREPARE_APPLY_INITIAL_DIFFS.configure(task -> task.dependsOn(DECOMPILE));
         APPLY_INITIAL_DIFFS.configure(task -> {

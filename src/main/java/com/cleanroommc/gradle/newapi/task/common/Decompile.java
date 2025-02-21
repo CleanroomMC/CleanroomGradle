@@ -7,6 +7,8 @@ import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.tasks.*;
 
+import java.io.File;
+
 public abstract class Decompile extends MavenJarExec implements IntermediateProcessor {
 
     @InputFile
@@ -26,7 +28,7 @@ public abstract class Decompile extends MavenJarExec implements IntermediateProc
         // The default for -nls is OS-dependent for some reason
         // this.args("-nls=1", "-asc=1", "-iec=1", "-jvn=1", "-ind=    ");
         this.getJavaLauncher().convention(Providers.javaLauncher(this.getProject(), 21));
-        this.getLogFile().fileProvider(this.getProject().provider(this::getWorkingDir));
+        this.getLogFile().fileProvider(this.getProject().provider(this::getWorkingDir).map(dir -> new File(dir, "decompile.log")));
     }
 
     @Override
