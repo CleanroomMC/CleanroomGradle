@@ -1,6 +1,6 @@
 package com.cleanroommc.gradle.newapi.task.mcp;
 
-import com.cleanroommc.gradle.newapi.task.JarProcessingTypeTask;
+import com.cleanroommc.gradle.newapi.task.IntermediateProcessor;
 import com.cleanroommc.gradle.newapi.task.MavenJarExec;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
@@ -8,7 +8,7 @@ import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.OutputFile;
 
-public abstract class MergeJars extends MavenJarExec implements JarProcessingTypeTask {
+public abstract class MergeJars extends MavenJarExec implements IntermediateProcessor {
 
     @InputFile
     public abstract RegularFileProperty getClientJar();

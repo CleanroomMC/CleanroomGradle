@@ -4,7 +4,7 @@ import com.cleanroommc.gradle.newapi.util.IO;
 import org.gradle.api.Task;
 import org.gradle.api.file.RegularFileProperty;
 
-public interface JarProcessingTypeTask {
+public interface IntermediateProcessor {
 
     default void checkExistence(Task task, RegularFileProperty... files) {
         task.onlyIf("existenceCheck", $ -> {

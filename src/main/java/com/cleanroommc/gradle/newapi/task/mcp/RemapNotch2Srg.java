@@ -1,13 +1,13 @@
 package com.cleanroommc.gradle.newapi.task.mcp;
 
-import com.cleanroommc.gradle.newapi.task.JarProcessingTypeTask;
+import com.cleanroommc.gradle.newapi.task.IntermediateProcessor;
 import com.cleanroommc.gradle.newapi.task.MavenJarExec;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.OutputFile;
 
-public abstract class RemapNotch2Srg extends MavenJarExec implements JarProcessingTypeTask {
+public abstract class RemapNotch2Srg extends MavenJarExec implements IntermediateProcessor {
 
     @InputFile
     public abstract RegularFileProperty getNotchJar();

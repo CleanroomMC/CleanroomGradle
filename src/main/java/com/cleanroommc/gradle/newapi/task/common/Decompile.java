@@ -1,13 +1,13 @@
 package com.cleanroommc.gradle.newapi.task.common;
 
-import com.cleanroommc.gradle.newapi.task.JarProcessingTypeTask;
+import com.cleanroommc.gradle.newapi.task.IntermediateProcessor;
 import com.cleanroommc.gradle.newapi.task.MavenJarExec;
 import com.cleanroommc.gradle.newapi.util.lazy.Providers;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.tasks.*;
 
-public abstract class Decompile extends MavenJarExec implements JarProcessingTypeTask {
+public abstract class Decompile extends MavenJarExec implements IntermediateProcessor {
 
     @InputFile
     public abstract RegularFileProperty getCompiledJar();

@@ -35,10 +35,6 @@ public final class Objects {
         return project.getExtensions().create(name, extensionClass, args);
     }
 
-    public static <T> T extension(Project project, Class<T> extensionClass) {
-        return project.getExtensions().getByType(extensionClass);
-    }
-
     public static NamedDomainObjectProvider<Configuration> config(Project project, String name) {
         return project.getConfigurations().register(name);
     }

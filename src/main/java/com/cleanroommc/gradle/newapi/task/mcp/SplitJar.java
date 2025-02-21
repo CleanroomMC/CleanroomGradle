@@ -1,6 +1,6 @@
 package com.cleanroommc.gradle.newapi.task.mcp;
 
-import com.cleanroommc.gradle.newapi.task.JarProcessingTypeTask;
+import com.cleanroommc.gradle.newapi.task.IntermediateProcessor;
 import com.cleanroommc.gradle.newapi.util.IO;
 import net.minecraftforge.srgutils.IMappingFile;
 import org.gradle.api.DefaultTask;
@@ -13,7 +13,7 @@ import java.io.IOException;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 
-public abstract class SplitJar extends DefaultTask implements JarProcessingTypeTask {
+public abstract class SplitJar extends DefaultTask implements IntermediateProcessor {
 
     @InputFile
     public abstract RegularFileProperty getSourceJar();

@@ -9,7 +9,7 @@ public abstract class MavenJarExec extends LazilyConstructedJavaExec {
         var configuration = Objects.config(this.getProject(), configurationName);
         Objects.dependency(this.getProject(), configuration, artifactNotation);
         this.classpath(configuration);
-        this.setWorkingDir(Objects.extension(this.getProject(), CleanroomExtension.class).getLocalCacheDirectory().dir(this.getName()));
+        this.setWorkingDir(CleanroomExtension.get(this.getProject()).getLocalCacheDirectory().dir(this.getName()));
     }
 
 }
