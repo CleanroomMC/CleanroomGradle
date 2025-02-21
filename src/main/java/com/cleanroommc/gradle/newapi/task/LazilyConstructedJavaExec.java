@@ -1,7 +1,8 @@
 package com.cleanroommc.gradle.newapi.task;
 
-import com.cleanroommc.gradle.newapi.util.lazy.Providers;
+import com.cleanroommc.gradle.newapi.util.lazy.LazyStringable;
 import com.cleanroommc.gradle.newapi.util.lazy.Streams;
+import kotlin.jvm.functions.Function0;
 import org.apache.commons.io.FileUtils;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Provider;
@@ -13,12 +14,23 @@ import org.gradle.process.JavaExecSpec;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 
 public abstract class LazilyConstructedJavaExec extends JavaExec {
 
-    private static Object mapToLazyIfPossible(Object object) {
+    private static Object mapToLazyString(Object object) {
         if (object instanceof Provider<?> provider) {
-            return Providers.stringable(provider);
+            return LazyStringable.of(provider);
+        }
+        if (object instanceof Callable<?> callable) {
+            return LazyStringable.of(callable);
+        }
+        if (object instanceof Supplier<?> supplier) {
+            return LazyStringable.of(supplier);
+        }
+        if (object instanceof Function0<?> function) {
+            return LazyStringable.of(function);
         }
         return object;
     }
@@ -45,18 +57,18 @@ public abstract class LazilyConstructedJavaExec extends JavaExec {
 
     @Override
     public void setAllJvmArgs(Iterable<?> arguments) {
-        var newArguments = Streams.of(arguments).map(LazilyConstructedJavaExec::mapToLazyIfPossible).toList();
+        var newArguments = Streams.of(arguments).map(LazilyConstructedJavaExec::mapToLazyString).toList();
         super.setAllJvmArgs(newArguments);
     }
 
     @Override
     public void setJvmArgs(Iterable<?> arguments) {
-        super.setJvmArgs(Streams.of(arguments).map(LazilyConstructedJavaExec::mapToLazyIfPossible).toList());
+        super.setJvmArgs(Streams.of(arguments).map(LazilyConstructedJavaExec::mapToLazyString).toList());
     }
 
     @Override
     public JavaExec jvmArgs(Iterable<?> arguments) {
-        return super.jvmArgs(Streams.of(arguments).map(LazilyConstructedJavaExec::mapToLazyIfPossible).toList());
+        return super.jvmArgs(Streams.of(arguments).map(LazilyConstructedJavaExec::mapToLazyString).toList());
     }
 
     @Override
@@ -66,12 +78,12 @@ public abstract class LazilyConstructedJavaExec extends JavaExec {
 
     @Override
     public JavaExec setArgs(Iterable<?> applicationArgs) {
-        return super.setArgs(Streams.of(applicationArgs).map(LazilyConstructedJavaExec::mapToLazyIfPossible).toList());
+        return super.setArgs(Streams.of(applicationArgs).map(LazilyConstructedJavaExec::mapToLazyString).toList());
     }
 
     @Override
     public JavaExecSpec args(Iterable<?> args) {
-        return super.args(Streams.of(args).map(LazilyConstructedJavaExec::mapToLazyIfPossible).toList());
+        return super.args(Streams.of(args).map(LazilyConstructedJavaExec::mapToLazyString).toList());
     }
 
     @Override
@@ -81,32 +93,32 @@ public abstract class LazilyConstructedJavaExec extends JavaExec {
 
     @Override
     public void setEnvironment(Map<String, ?> environmentVariables) {
-        super.setEnvironment(Streams.convertValues(environmentVariables, LazilyConstructedJavaExec::mapToLazyIfPossible));
+        super.setEnvironment(Streams.convertValues(environmentVariables, LazilyConstructedJavaExec::mapToLazyString));
     }
 
     @Override
     public JavaExec environment(String name, Object value) {
-        return super.environment(name, mapToLazyIfPossible(value));
+        return super.environment(name, mapToLazyString(value));
     }
 
     @Override
     public JavaExec environment(Map<String, ?> environmentVariables) {
-        return super.environment(Streams.convertValues(environmentVariables, LazilyConstructedJavaExec::mapToLazyIfPossible));
+        return super.environment(Streams.convertValues(environmentVariables, LazilyConstructedJavaExec::mapToLazyString));
     }
 
     @Override
     public void setSystemProperties(Map<String, ?> properties) {
-        super.setSystemProperties(Streams.convertValues(properties, LazilyConstructedJavaExec::mapToLazyIfPossible));
+        super.setSystemProperties(Streams.convertValues(properties, LazilyConstructedJavaExec::mapToLazyString));
     }
 
     @Override
     public JavaExec systemProperties(Map<String, ?> properties) {
-        return super.systemProperties(Streams.convertValues(properties, LazilyConstructedJavaExec::mapToLazyIfPossible));
+        return super.systemProperties(Streams.convertValues(properties, LazilyConstructedJavaExec::mapToLazyString));
     }
 
     @Override
     public JavaExec systemProperty(String name, Object value) {
-        return super.systemProperty(name, mapToLazyIfPossible(value));
+        return super.systemProperty(name, mapToLazyString(value));
     }
 
 }

@@ -2,10 +2,7 @@ package com.cleanroommc.gradle.newapi.util.lazy;
 
 import com.cleanroommc.gradle.newapi.util.Platform;
 import org.gradle.api.Project;
-import org.gradle.api.internal.provider.DefaultProperty;
 import org.gradle.api.internal.provider.DefaultProvider;
-import org.gradle.api.internal.provider.PropertyHost;
-import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
 import org.gradle.jvm.toolchain.JavaCompiler;
 import org.gradle.jvm.toolchain.JavaLanguageVersion;
@@ -19,20 +16,8 @@ import java.util.concurrent.Callable;
 
 public final class Providers {
 
-    public static <T> Property<T> property(Class<T> clazz) {
-        return new DefaultProperty<>(PropertyHost.NO_OP, clazz);
-    }
-
-    public static <T> Property<T> property(Class<T> clazz, T convention) {
-        return property(clazz).convention(convention);
-    }
-
     public static <V> Provider<V> of(Callable<V> callable) {
         return new DefaultProvider<>(callable);
-    }
-
-    public static StringableProvider stringable(Object object) {
-        return new StringableProvider(object);
     }
 
     public static Provider<String> libraryPath(Project project, Provider<File> moreLibraries) {
