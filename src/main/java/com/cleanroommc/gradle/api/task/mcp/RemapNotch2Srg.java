@@ -4,6 +4,8 @@ import com.cleanroommc.gradle.api.task.MavenJarExec;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.tasks.*;
 
+import java.io.File;
+
 @CacheableTask
 public abstract class RemapNotch2Srg extends MavenJarExec {
 
@@ -25,6 +27,7 @@ public abstract class RemapNotch2Srg extends MavenJarExec {
 
     public RemapNotch2Srg() {
         super("specialSource", "net.md-5:SpecialSource:1.11.3");
+        this.getLogFile().fileProvider(this.getProject().provider(this::getWorkingDir).map(dir -> new File(dir, "specialSource.log")));
         this.getMainClass().set("net.md_5.specialsource.SpecialSource");
         this.args("--in-jar", this.getNotchJar(),
                 "--out-jar", this.getSrgJar(),
