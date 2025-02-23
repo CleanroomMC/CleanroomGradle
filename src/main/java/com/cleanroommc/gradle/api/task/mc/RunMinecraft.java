@@ -64,7 +64,6 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     @Optional
     public abstract Property<String> getAccessToken();
 
-    @Internal
     private boolean setCustomWorkingDir = false;
 
     public RunMinecraft() {
