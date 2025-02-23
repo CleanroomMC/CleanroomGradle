@@ -79,7 +79,9 @@ public final class IO {
     }
 
     public static File runDir(File projectDir, String version, Environment env, Side side) {
-        return FileUtils.getFile(projectDir, "run", version, env.toString(), side.name().toLowerCase(Locale.ENGLISH));
+        var runDir = FileUtils.getFile(projectDir, "run", version, env.toString(), side.name().toLowerCase(Locale.ENGLISH));
+        runDir.mkdirs();
+        return runDir;
     }
 
     private IO() { }
