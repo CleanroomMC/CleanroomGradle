@@ -25,7 +25,7 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'commons-io:commons-io:2.15.1'
     implementation 'commons-codec:commons-codec:1.16.0'
-    implementation 'io.github.java-diff-utils:java-diff-utils:4.12'
+    implementation 'io.github.java-diff-utils:java-diff-utils:4.15'
     implementation 'org.ow2.asm:asm:9.6'
     implementation 'org.ow2.asm:asm-commons:9.6'
     implementation 'org.ow2.asm:asm-tree:9.6'
