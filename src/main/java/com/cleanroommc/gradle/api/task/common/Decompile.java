@@ -24,7 +24,7 @@ public abstract class Decompile extends MavenJarExec {
     public abstract RegularFileProperty getDecompiledJar();
 
     public Decompile() {
-        super("vineflower", "org.vineflower:vineflower:1.10.1+cleanroom");
+        super("vineflower", "org.vineflower:vineflower:1.11.0+cleanroom");
         // TODO: make these settings configurable
         // The default for -nls is OS-dependent for some reason
         // this.args("-nls=1", "-asc=1", "-iec=1", "-jvn=1", "-ind=    ");
