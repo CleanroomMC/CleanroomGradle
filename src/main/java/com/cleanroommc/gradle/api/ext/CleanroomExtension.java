@@ -3,11 +3,19 @@ package com.cleanroommc.gradle.api.ext;
 import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.schema.Manifest;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
+import com.cleanroommc.gradle.api.task.Tasks;
+import com.cleanroommc.gradle.api.task.patch.GenerateDiffs;
 import com.cleanroommc.gradle.api.util.IO;
+import com.cleanroommc.gradle.api.util.lazy.SourceSets;
 import de.undercouch.gradle.tasks.download.DownloadAction;
-import org.gradle.api.Project;
+import org.apache.commons.lang3.StringUtils;
+import org.gradle.api.*;
 import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.Copy;
+import org.gradle.api.tasks.SourceSet;
+import org.gradle.api.tasks.TaskProvider;
 
 import javax.inject.Inject;
 import java.io.File;
@@ -35,6 +43,8 @@ public abstract class CleanroomExtension {
     public abstract Property<VersionMeta> getVersionMeta();
 
     public abstract Property<Boolean> getDevelopInitialPatches();
+
+    public abstract NamedDomainObjectContainer<PatchDevEnvironment> getPatchDev();
 
     public CleanroomExtension() {
         final var project = this.getProject();
@@ -74,6 +84,78 @@ public abstract class CleanroomExtension {
             return IO.readJson(file, VersionMeta.class);
         }));
         this.getDevelopInitialPatches().convention(false);
+
+        project.afterEvaluate($ -> this.getPatchDev().all(PatchDevEnvironment::afterEvaluate));
+    }
+
+    public static abstract class PatchDevEnvironment implements Named {
+
+        @Inject
+        public abstract Project getProject();
+
+        @Inject
+        public abstract ProjectLayout getLayout();
+
+        public abstract DirectoryProperty getWorkingDirectory();
+
+        public abstract DirectoryProperty getPatchesDirectory();
+
+        // Not to use DirectoryProperty or RegularFileProperty here
+        // As this can be a directory or file
+        public abstract Property<File> getSource();
+
+        private NamedDomainObjectProvider<SourceSet> sourceSet;
+        private TaskProvider<Copy> prepareEnvironment;
+        private TaskProvider<GenerateDiffs> generateDiffs;
+
+        public PatchDevEnvironment() {
+            this.getWorkingDirectory().convention(this.getLayout().getBuildDirectory().dir(this.getProject().provider(() ->Meta.CG_FOLDER + "/" + this.getName())));
+            this.getPatchesDirectory().convention(this.getWorkingDirectory().map(dir -> dir.dir("patches")));
+        }
+
+        public NamedDomainObjectProvider<SourceSet> getSourceSet() {
+            return this.sourceSet;
+        }
+
+        public TaskProvider<GenerateDiffs> getGenerateDiffs() {
+            return generateDiffs;
+        }
+
+        private void afterEvaluate() {
+            var name = this.getName();
+            if (!this.getSource().isPresent()) {
+                throw new InvalidUserDataException("source for %s must be set!".formatted(name));
+            }
+
+            var project = this.getProject();
+            this.sourceSet = SourceSets.of(project, name + "PatchDev");
+            var file = this.getSource().get();
+            if (!file.isDirectory()) {
+                if (file.isFile()) {
+                    try (var zipIn = IO.zipIn(file)) {
+                        if (zipIn.getNextEntry() == null) {
+                            throw new IOException("Zip is empty.");
+                        }
+                    } catch (IOException e) {
+                        throw new InvalidUserDataException("source for %s is an invalid zip!".formatted(name));
+                    }
+                } else {
+                    throw new InvalidUserDataException("source for %s is invalid!".formatted(name));
+                }
+            }
+
+            var groupName = name + " patch development tasks";
+            var capitalizedName = StringUtils.capitalize(name);
+            this.prepareEnvironment = Tasks.copy(project, groupName, "prepare" + capitalizedName + "PatchDevEnvironment", this.getSource(), SourceSets.source(this.sourceSet));
+            this.generateDiffs = Tasks.of(project, groupName, "generate" + capitalizedName + "Diffs", GenerateDiffs.class);
+
+            this.generateDiffs.configure(task -> {
+                task.getOriginalDirectory().fileProvider(this.getSource());
+                task.getModifiedDirectory().fileProvider(SourceSets.source(this.sourceSet));
+                task.getPatchesDirectory().value(this.getPatchesDirectory());
+            });
+        }
+
     }
 
 }
