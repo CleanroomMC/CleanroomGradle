@@ -44,6 +44,8 @@ public abstract class CleanroomExtension {
 
     public abstract Property<Boolean> getDevelopInitialPatches();
 
+    public abstract Property<Boolean> getDevelopCleanroom();
+
     public abstract NamedDomainObjectContainer<PatchDevEnvironment> getPatchDev();
 
     public CleanroomExtension() {
@@ -84,6 +86,7 @@ public abstract class CleanroomExtension {
             return IO.readJson(file, VersionMeta.class);
         }));
         this.getDevelopInitialPatches().convention(false);
+        this.getDevelopCleanroom().convention(false);
 
         project.afterEvaluate($ -> this.getPatchDev().all(PatchDevEnvironment::afterEvaluate));
     }
