@@ -9,6 +9,7 @@ import org.apache.commons.io.IOUtils;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ModuleDependency;
 import org.gradle.api.file.FileSystemLocation;
 import org.gradle.api.provider.Provider;
@@ -39,8 +40,16 @@ public final class Objects {
         return project.getConfigurations().register(name);
     }
 
+    public static Configuration detachedConfig(Project project, Dependency... dependencies) {
+        return project.getConfigurations().detachedConfiguration(dependencies);
+    }
+
     public static Configuration resolvedConfig(Project project, String name) {
         return project.getConfigurations().getByName(name);
+    }
+
+    public static Dependency dependency(Project project, String notation) {
+        return project.getDependencies().create(notation);
     }
 
     public static ModuleDependency dependency(Project project, NamedDomainObjectProvider<Configuration> configuration, String notation) {
