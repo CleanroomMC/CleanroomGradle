@@ -104,6 +104,7 @@ public abstract class CleanroomExtension {
         // As this can be a directory or file
         public abstract Property<File> getSource();
 
+        private String dependsOn;
         private NamedDomainObjectProvider<SourceSet> sourceSet;
         private TaskProvider<DefaultTask> prepareEnvironment;
         private TaskProvider<Copy> copyToSourceSet;
@@ -112,6 +113,10 @@ public abstract class CleanroomExtension {
         public PatchDevEnvironment() {
             this.getWorkingDirectory().convention(this.getLayout().getBuildDirectory().dir(this.getProject().provider(() ->Meta.CG_FOLDER + "/" + this.getName())));
             this.getPatchesDirectory().convention(this.getWorkingDirectory().map(dir -> dir.dir("patches")));
+        }
+
+        public void dependsOn(String dependsOn) {
+            this.dependsOn = dependsOn;
         }
 
         public NamedDomainObjectProvider<SourceSet> getSourceSet() {
@@ -145,24 +150,32 @@ public abstract class CleanroomExtension {
             this.copyToSourceSet = Tasks.copy(project, groupName, "copy" + capitalizedName + "ToSourceSet", this.getSource(), SourceSets.source(this.sourceSet));
             this.generateDiffs = Tasks.of(project, groupName, "generate" + capitalizedName + "Diffs", GenerateDiffs.class);
 
-            this.prepareEnvironment.configure(task -> task.doLast($ -> {
-                var file = this.getSource().get();
-                if (!file.isDirectory()) {
-                    if (file.isFile()) {
-                        try (var zipIn = IO.zipIn(file)) {
-                            if (zipIn.getNextEntry() == null) {
-                                throw new IOException("Zip is empty.");
-                            }
-                        } catch (IOException e) {
-                            throw new InvalidUserDataException("source for %s is an invalid zip!".formatted(name));
-                        }
-                    } else {
-                        throw new InvalidUserDataException("source for %s is invalid!".formatted(name));
-                    }
+            this.prepareEnvironment.configure(task -> {
+                if (this.dependsOn != null) {
+                    task.dependsOn(this.copyToSourceSet);
                 }
-            }));
-            this.copyToSourceSet.configure(task -> task.dependsOn(this.prepareEnvironment));
+                task.doLast($ -> {
+                    var file = this.getSource().get();
+                    if (!file.isDirectory()) {
+                        if (file.isFile()) {
+                            try (var zipIn = IO.zipIn(file)) {
+                                if (zipIn.getNextEntry() == null) {
+                                    throw new IOException("Zip is empty.");
+                                }
+                            } catch (IOException e) {
+                                throw new InvalidUserDataException("source for %s is an invalid zip!".formatted(name));
+                            }
+                        } else {
+                            throw new InvalidUserDataException("source for %s is invalid!".formatted(name));
+                        }
+                    }
+                });
+            });
             this.generateDiffs.configure(task -> {
+                if (this.dependsOn != null) {
+                    task.dependsOn(this.dependsOn);
+                }
+
                 task.getOriginalDirectory().fileProvider(this.getSource());
                 task.getModifiedDirectory().fileProvider(SourceSets.source(this.sourceSet));
                 task.getPatchesDirectory().value(this.getPatchesDirectory());

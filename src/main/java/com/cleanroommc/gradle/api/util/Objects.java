@@ -11,6 +11,7 @@ import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ModuleDependency;
+import org.gradle.api.artifacts.ResolvedArtifact;
 import org.gradle.api.file.FileSystemLocation;
 import org.gradle.api.provider.Provider;
 
@@ -73,7 +74,8 @@ public final class Objects {
                 .stream()
                 .filter(artifact -> artifact.getName().equals(dependencyName))
                 .findFirst()
-                .orElseThrow().getFile();
+                .map(ResolvedArtifact::getFile)
+                .orElseThrow();
     }
 
 

@@ -32,10 +32,6 @@ public final class VanillaTasks {
 
     public static void init(Project project, CleanroomExtension ext) {
         var repos = project.getRepositories();
-//        repos.maven(mar -> {
-//            mar.setName("Cleanroom");
-//            mar.setUrl(Meta.CLEANROOM_REPO);
-//        });
         repos.maven(mar -> {
             mar.setName("Mojang");
             mar.setUrl(Meta.MOJANG_REPO);

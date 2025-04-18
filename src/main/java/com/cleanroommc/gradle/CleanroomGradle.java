@@ -16,7 +16,6 @@ public class CleanroomGradle implements Plugin<Project> {
         final var cleanroomExtension = Objects.extension(project, "cleanroom", CleanroomExtension.class);
 
         VanillaTasks.init(project, cleanroomExtension);
-
         MCPTasks.init(project, cleanroomExtension);
 
         project.afterEvaluate($ -> {
