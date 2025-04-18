@@ -31,11 +31,15 @@ public abstract class GenerateDiffs extends DefaultTask {
     @Input
     public abstract Property<Integer> getContextLines();
 
+    @Input
+    public abstract Property<Boolean> getCleanOutput();
+
     @OutputDirectory
     public abstract DirectoryProperty getPatchesDirectory();
 
     public GenerateDiffs() {
         this.getContextLines().convention(3);
+        this.getCleanOutput().convention(true);
     }
 
     @TaskAction
@@ -44,6 +48,10 @@ public abstract class GenerateDiffs extends DefaultTask {
         var originalDir = this.getOriginalDirectory().get().getAsFile();
         var patchesDir = this.getPatchesDirectory().get().getAsFile();
         var contextLines = this.getContextLines().get();
+
+        if (this.getCleanOutput().get()) {
+            this.getProject().delete(patchesDir);
+        }
 
         this.getFileOperations().fileTree(this.getModifiedDirectory()).visit(fvd -> {
             if (!fvd.isDirectory()) {

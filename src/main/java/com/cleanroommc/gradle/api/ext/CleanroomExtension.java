@@ -175,7 +175,6 @@ public abstract class CleanroomExtension {
                 if (this.dependsOn != null) {
                     task.dependsOn(this.dependsOn);
                 }
-
                 task.getOriginalDirectory().fileProvider(this.getSource());
                 task.getModifiedDirectory().fileProvider(SourceSets.source(this.sourceSet));
                 task.getPatchesDirectory().value(this.getPatchesDirectory());
