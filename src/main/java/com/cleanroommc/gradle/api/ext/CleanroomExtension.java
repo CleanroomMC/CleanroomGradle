@@ -44,8 +44,6 @@ public abstract class CleanroomExtension {
 
     public abstract Property<Boolean> getDevelopInitialPatches();
 
-    public abstract Property<Boolean> getDevelopCleanroom();
-
     public abstract NamedDomainObjectContainer<PatchDevEnvironment> getPatchDev();
 
     public CleanroomExtension() {
@@ -86,7 +84,6 @@ public abstract class CleanroomExtension {
             return IO.readJson(file, VersionMeta.class);
         }));
         this.getDevelopInitialPatches().convention(false);
-        this.getDevelopCleanroom().convention(false);
 
         project.afterEvaluate($ -> this.getPatchDev().all(PatchDevEnvironment::afterEvaluate));
     }
@@ -108,7 +105,8 @@ public abstract class CleanroomExtension {
         public abstract Property<File> getSource();
 
         private NamedDomainObjectProvider<SourceSet> sourceSet;
-        private TaskProvider<Copy> prepareEnvironment;
+        private TaskProvider<DefaultTask> prepareEnvironment;
+        private TaskProvider<Copy> copyToSourceSet;
         private TaskProvider<GenerateDiffs> generateDiffs;
 
         public PatchDevEnvironment() {
@@ -118,6 +116,14 @@ public abstract class CleanroomExtension {
 
         public NamedDomainObjectProvider<SourceSet> getSourceSet() {
             return this.sourceSet;
+        }
+
+        public TaskProvider<DefaultTask> getPrepareEnvironment() {
+            return prepareEnvironment;
+        }
+
+        public TaskProvider<Copy> getCopyToSourceSet() {
+            return copyToSourceSet;
         }
 
         public TaskProvider<GenerateDiffs> getGenerateDiffs() {
@@ -132,26 +138,30 @@ public abstract class CleanroomExtension {
 
             var project = this.getProject();
             this.sourceSet = SourceSets.of(project, name + "PatchDev");
-            var file = this.getSource().get();
-            if (!file.isDirectory()) {
-                if (file.isFile()) {
-                    try (var zipIn = IO.zipIn(file)) {
-                        if (zipIn.getNextEntry() == null) {
-                            throw new IOException("Zip is empty.");
-                        }
-                    } catch (IOException e) {
-                        throw new InvalidUserDataException("source for %s is an invalid zip!".formatted(name));
-                    }
-                } else {
-                    throw new InvalidUserDataException("source for %s is invalid!".formatted(name));
-                }
-            }
 
             var groupName = name + " patch development tasks";
             var capitalizedName = StringUtils.capitalize(name);
-            this.prepareEnvironment = Tasks.copy(project, groupName, "prepare" + capitalizedName + "PatchDevEnvironment", this.getSource(), SourceSets.source(this.sourceSet));
+            this.prepareEnvironment = Tasks.of(project, groupName, "prepare" + capitalizedName + "PatchDevEnvironment");
+            this.copyToSourceSet = Tasks.copy(project, groupName, "copy" + capitalizedName + "ToSourceSet", this.getSource(), SourceSets.source(this.sourceSet));
             this.generateDiffs = Tasks.of(project, groupName, "generate" + capitalizedName + "Diffs", GenerateDiffs.class);
 
+            this.prepareEnvironment.configure(task -> task.doLast($ -> {
+                var file = this.getSource().get();
+                if (!file.isDirectory()) {
+                    if (file.isFile()) {
+                        try (var zipIn = IO.zipIn(file)) {
+                            if (zipIn.getNextEntry() == null) {
+                                throw new IOException("Zip is empty.");
+                            }
+                        } catch (IOException e) {
+                            throw new InvalidUserDataException("source for %s is an invalid zip!".formatted(name));
+                        }
+                    } else {
+                        throw new InvalidUserDataException("source for %s is invalid!".formatted(name));
+                    }
+                }
+            }));
+            this.copyToSourceSet.configure(task -> task.dependsOn(this.prepareEnvironment));
             this.generateDiffs.configure(task -> {
                 task.getOriginalDirectory().fileProvider(this.getSource());
                 task.getModifiedDirectory().fileProvider(SourceSets.source(this.sourceSet));
