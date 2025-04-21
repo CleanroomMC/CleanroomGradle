@@ -96,8 +96,6 @@ public abstract class CleanroomExtension {
         @Inject
         public abstract ProjectLayout getLayout();
 
-        public abstract DirectoryProperty getWorkingDirectory();
-
         public abstract DirectoryProperty getPatchesDirectory();
 
         // Not to use DirectoryProperty or RegularFileProperty here
@@ -111,8 +109,7 @@ public abstract class CleanroomExtension {
         private TaskProvider<GenerateDiffs> generateDiffs;
 
         public PatchDevEnvironment() {
-            this.getWorkingDirectory().convention(this.getLayout().getBuildDirectory().dir(this.getProject().provider(() ->Meta.CG_FOLDER + "/" + this.getName())));
-            this.getPatchesDirectory().convention(this.getWorkingDirectory().map(dir -> dir.dir("patches")));
+            this.getPatchesDirectory().convention(this.getLayout().getProjectDirectory().dir("patches").dir(this.getName()));
         }
 
         public void dependsOn(String dependsOn) {
