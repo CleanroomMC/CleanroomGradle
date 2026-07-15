@@ -1,13 +1,13 @@
 package com.cleanroommc.gradle.api.ext;
 
 import com.cleanroommc.gradle.api.Meta;
-import com.cleanroommc.gradle.api.schema.Manifest;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
+import com.cleanroommc.gradle.api.source.BundledVersionMetaValueSource;
+import com.cleanroommc.gradle.api.source.VersionMetaValueSource;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.patch.GenerateDiffs;
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.lazy.SourceSets;
-import de.undercouch.gradle.tasks.download.DownloadAction;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.*;
 import org.gradle.api.file.DirectoryProperty;
@@ -16,6 +16,7 @@ import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
+import org.gradle.api.tasks.bundling.Zip;
 
 import javax.inject.Inject;
 import java.io.File;
@@ -27,9 +28,6 @@ public abstract class CleanroomExtension {
         return project.getExtensions().getByType(CleanroomExtension.class);
     }
 
-    @Inject
-    public abstract Project getProject();
-
     public abstract DirectoryProperty getCacheDirectory();
 
     public abstract DirectoryProperty getVersionCacheDirectory();
@@ -38,7 +36,7 @@ public abstract class CleanroomExtension {
 
     public abstract Property<Boolean> getDebug();
 
-    public abstract Property<Manifest> getManifest();
+    public abstract Property<String> getVersionMetaUrl();
 
     public abstract Property<VersionMeta> getVersionMeta();
 
@@ -46,55 +44,31 @@ public abstract class CleanroomExtension {
 
     public abstract NamedDomainObjectContainer<PatchDevEnvironment> getPatchDev();
 
-    public CleanroomExtension() {
-        final var project = this.getProject();
+    public CleanroomExtension(Project project) {
+        final var providers = project.getProviders();
 
         this.getCacheDirectory().fileValue(new File(project.getGradle().getGradleUserHomeDir(), "caches/" + Meta.CG_FOLDER));
         this.getVersionCacheDirectory().convention(this.getCacheDirectory().dir("versions/1.12.2"));
-        this.getLocalCacheDirectory().convention(this.getProject().getLayout().getBuildDirectory().dir(Meta.CG_FOLDER));
+        this.getLocalCacheDirectory().convention(project.getLayout().getBuildDirectory().dir(Meta.CG_FOLDER));
         this.getDebug().convention(false);
-        this.getManifest().convention(this.getCacheDirectory().map(dir -> {
-            var file = dir.file("version_manifest.json").getAsFile();
-            if (!file.exists()) {
-                var downloadAction = new DownloadAction(project);
-                downloadAction.src(Meta.VERSION_MANIFEST_V2_URL);
-                downloadAction.dest(file);
-                downloadAction.useETag(true);
-                try {
-                    downloadAction.execute().join();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-            return IO.readJson(file, Manifest.class);
-        }));
-        this.getVersionMeta().convention(this.getVersionCacheDirectory().map(dir -> {
-            var file = dir.file("meta.json").getAsFile();
-            if (!file.exists()) {
-                var downloadAction = new DownloadAction(project);
-                downloadAction.src(this.getManifest().map(manifest -> manifest.version("1.12.2").url));
-                downloadAction.dest(file);
-                downloadAction.useETag(true);
-                try {
-                    downloadAction.execute().join();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-            return IO.readJson(file, VersionMeta.class);
-        }));
+
+        var versionMetaCacheFile = this.getVersionCacheDirectory().file("meta.json");
+        var offline = project.getGradle().getStartParameter().isOffline();
+        this.getVersionMeta().convention(
+            this.getVersionMetaUrl()
+                .flatMap(url -> providers.of(VersionMetaValueSource.class, spec -> {
+                    spec.getParameters().getCacheFile().set(versionMetaCacheFile);
+                    spec.getParameters().getVersionMetaUrl().set(url);
+                    spec.getParameters().getOffline().set(offline);
+                }))
+                .orElse(providers.of(BundledVersionMetaValueSource.class, spec -> {}))
+        );
         this.getDevelopInitialPatches().convention(false);
 
-        project.afterEvaluate($ -> this.getPatchDev().all(PatchDevEnvironment::afterEvaluate));
+        project.afterEvaluate($ -> this.getPatchDev().all(env -> env.afterEvaluate(project, this.getLocalCacheDirectory())));
     }
 
     public static abstract class PatchDevEnvironment implements Named {
-
-        @Inject
-        public abstract Project getProject();
-
-        @Inject
-        public abstract ProjectLayout getLayout();
 
         public abstract DirectoryProperty getPatchesDirectory();
 
@@ -102,14 +76,25 @@ public abstract class CleanroomExtension {
         // As this can be a directory or file
         public abstract Property<File> getSource();
 
+        private final String name;
+
         private String dependsOn;
         private NamedDomainObjectProvider<SourceSet> sourceSet;
+        private TaskProvider<Copy> prepareSources;
         private TaskProvider<DefaultTask> prepareEnvironment;
         private TaskProvider<Copy> copyToSourceSet;
         private TaskProvider<GenerateDiffs> generateDiffs;
+        private TaskProvider<Zip> zipPatches;
 
-        public PatchDevEnvironment() {
-            this.getPatchesDirectory().convention(this.getLayout().getProjectDirectory().dir("patches").dir(this.getName()));
+        @Inject
+        public PatchDevEnvironment(String name, ProjectLayout layout) {
+            this.name = name;
+            this.getPatchesDirectory().convention(layout.getProjectDirectory().dir("patches").dir(name));
+        }
+
+        @Override
+        public String getName() {
+            return this.name;
         }
 
         public void dependsOn(String dependsOn) {
@@ -118,6 +103,10 @@ public abstract class CleanroomExtension {
 
         public NamedDomainObjectProvider<SourceSet> getSourceSet() {
             return this.sourceSet;
+        }
+
+        public TaskProvider<Copy> getPrepareSources() {
+            return prepareSources;
         }
 
         public TaskProvider<DefaultTask> getPrepareEnvironment() {
@@ -132,27 +121,42 @@ public abstract class CleanroomExtension {
             return generateDiffs;
         }
 
-        private void afterEvaluate() {
-            var name = this.getName();
-            if (!this.getSource().isPresent()) {
-                throw new InvalidUserDataException("source for %s must be set!".formatted(name));
-            }
+        public TaskProvider<Zip> getZipPatches() {
+            return zipPatches;
+        }
 
-            var project = this.getProject();
+        private void afterEvaluate(Project project, DirectoryProperty localCache) {
+            var name = this.name;
+
             this.sourceSet = SourceSets.of(project, name + "PatchDev");
 
             var groupName = name + " patch development tasks";
             var capitalizedName = StringUtils.capitalize(name);
-            this.prepareEnvironment = Tasks.of(project, groupName, "prepare" + capitalizedName + "PatchDevEnvironment");
-            this.copyToSourceSet = Tasks.copy(project, groupName, "copy" + capitalizedName + "ToSourceSet", this.getSource(), SourceSets.source(this.sourceSet));
-            this.generateDiffs = Tasks.of(project, groupName, "generate" + capitalizedName + "Diffs", GenerateDiffs.class);
 
-            this.prepareEnvironment.configure(task -> {
+            var patchDevDir = localCache.dir("patchDev/" + name);
+            var sourcesDir = patchDevDir.map(dir -> dir.dir("sources").getAsFile());
+            var patchesZip = patchDevDir.map(dir -> dir.file("patches.zip").getAsFile());
+            var source = this.getSource();
+
+            this.prepareSources = Tasks.copy(project, groupName, "prepare" + capitalizedName + "Sources", source, sourcesDir);
+            this.prepareEnvironment = Tasks.of(project, groupName, "prepare" + capitalizedName + "PatchDevEnvironment");
+            this.copyToSourceSet = Tasks.copy(project, groupName, "copy" + capitalizedName + "ToSourceSet", sourcesDir, SourceSets.source(this.sourceSet));
+            this.generateDiffs = Tasks.of(project, groupName, "generate" + capitalizedName + "Diffs", GenerateDiffs.class);
+            this.zipPatches = Tasks.zip(project, groupName, "zip" + capitalizedName + "Patches", this.generateDiffs.map(GenerateDiffs::getPatchesDirectory), patchesZip);
+
+            this.prepareSources.configure(task -> {
                 if (this.dependsOn != null) {
-                    task.dependsOn(this.copyToSourceSet);
+                    task.dependsOn(this.dependsOn);
                 }
+            });
+            this.copyToSourceSet.configure(task -> task.dependsOn(this.prepareSources));
+            this.prepareEnvironment.configure(task -> {
+                task.dependsOn(this.copyToSourceSet);
                 task.doLast($ -> {
-                    var file = this.getSource().get();
+                    if (!source.isPresent()) {
+                        throw new InvalidUserDataException("source for %s must be set!".formatted(name));
+                    }
+                    var file = source.get();
                     if (!file.isDirectory()) {
                         if (file.isFile()) {
                             try (var zipIn = IO.zipIn(file)) {
@@ -169,13 +173,12 @@ public abstract class CleanroomExtension {
                 });
             });
             this.generateDiffs.configure(task -> {
-                if (this.dependsOn != null) {
-                    task.dependsOn(this.dependsOn);
-                }
-                task.getOriginalDirectory().fileProvider(this.getSource());
+                task.dependsOn(this.copyToSourceSet);
+                task.getOriginalDirectory().fileProvider(sourcesDir);
                 task.getModifiedDirectory().fileProvider(SourceSets.source(this.sourceSet));
                 task.getPatchesDirectory().value(this.getPatchesDirectory());
             });
+            this.zipPatches.configure(task -> task.dependsOn(this.generateDiffs));
         }
 
     }

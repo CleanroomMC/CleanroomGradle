@@ -24,7 +24,7 @@ public abstract class AccessTransform extends MavenJarExec {
     public abstract RegularFileProperty getOutputJar();
 
     public AccessTransform() {
-        super("accessTransformer", "net.minecraftforge:accesstransformers:8.2.2");
+        // super("accessTransformer", "net.minecraftforge:accesstransformers:8.2.17");
         this.getLogFile().fileProvider(this.getProject().provider(this::getWorkingDir).map(dir -> new File(dir, "accesstransform.log")));
         this.getMainClass().set("net.minecraftforge.accesstransformer.TransformerProcessor");
         this.args("--inJar", this.getInputJar(),

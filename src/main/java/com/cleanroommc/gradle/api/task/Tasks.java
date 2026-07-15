@@ -4,11 +4,13 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.file.FileTree;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.api.tasks.bundling.Zip;
 
+import java.io.File;
 import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
@@ -28,12 +30,12 @@ public final class Tasks {
         return (TaskProvider<T>) project.getTasks().named(name);
     }
 
-    public static TaskProvider<Copy> copy(Project project, String group, String name, Object from, Object to) {
+    public static TaskProvider<Copy> copy(Project project, String group, String name, Provider<File> from, Object to) {
         var provider = project.getTasks().register(name, Copy.class);
         provider.configure(task -> {
             task.setGroup(group);
 
-            task.from(from);
+            task.from(from.map(file -> file.isDirectory() ? file : project.zipTree(file)));
             task.into(to);
         });
         return provider;
@@ -43,6 +45,7 @@ public final class Tasks {
         var provider = project.getTasks().register(name, Copy.class);
         provider.configure(task -> {
             task.setGroup(group);
+
             task.from((Callable<Iterable<FileTree>>) () ->
                 project.files(from).getFiles().stream()
                     .map(project::zipTree)

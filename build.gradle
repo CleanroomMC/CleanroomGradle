@@ -1,9 +1,8 @@
 plugins {
     id 'java'
-    // id 'groovy'
     id 'idea'
     id 'java-gradle-plugin'
-    id 'com.diffplug.spotless' version '6.23.3'
+    // id 'com.diffplug.spotless' version '6.23.3'
     id 'maven-publish'
 }
 
@@ -25,7 +24,7 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'commons-io:commons-io:2.15.1'
     implementation 'commons-codec:commons-codec:1.16.0'
-    implementation 'org.apache.commons:commons-lang3:3.17.0'
+    implementation 'org.apache.commons:commons-lang3:3.18.0'
     implementation 'io.github.java-diff-utils:java-diff-utils:4.15'
     implementation 'org.ow2.asm:asm:9.6'
     implementation 'org.ow2.asm:asm-commons:9.6'
@@ -33,10 +32,10 @@ dependencies {
     implementation 'org.ow2.asm:asm-util:9.6'
     implementation 'de.undercouch.download:de.undercouch.download.gradle.plugin:5.6.0'
     implementation 'de.siegmar:fastcsv:3.0.0'
-    //implementation 'fr.inria.gforge.spoon:spoon-core:10.3.0'
 
     // Forge
     implementation 'net.minecraftforge:srgutils:0.5.3'
+    implementation 'net.minecraftforge:renamer-gradle:1.1.5'
 }
 
 gradlePlugin {

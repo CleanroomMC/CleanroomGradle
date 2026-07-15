@@ -3,11 +3,9 @@ package com.cleanroommc.gradle.env;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.ext.CleanroomExtension;
-import com.cleanroommc.gradle.api.schema.AssetIndex;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
-import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.task.mc.DownloadAssets;
 import com.cleanroommc.gradle.api.util.Platform;
@@ -23,14 +21,17 @@ public final class VanillaTasks {
 
     private static final String GROUP_NAME = "Vanilla Tasks";
 
-    public static NamedDomainObjectProvider<Configuration> VANILLA_CONFIG, VANILLA_NATIVES_CONFIG;
+    public final NamedDomainObjectProvider<Configuration> vanillaConfig;
+    public final NamedDomainObjectProvider<Configuration> vanillaNativesConfig;
+    public final TaskProvider<Download> downloadAssetIndex;
+    public final TaskProvider<Download> downloadClientJar;
+    public final TaskProvider<Download> downloadServerJar;
+    public final TaskProvider<DownloadAssets> downloadAssets;
+    public final TaskProvider<Copy> extractNatives;
+    public final TaskProvider<RunMinecraft> runVanillaClient;
+    public final TaskProvider<RunMinecraft> runVanillaServer;
 
-    public static TaskProvider<Download> DOWNLOAD_ASSET_INDEX, DOWNLOAD_CLIENT_JAR, DOWNLOAD_SERVER_JAR;
-    public static TaskProvider<DownloadAssets> DOWNLOAD_ASSETS;
-    public static TaskProvider<Copy> EXTRACT_NATIVES;
-    public static TaskProvider<RunMinecraft> RUN_VANILLA_CLIENT, RUN_VANILLA_SERVER;
-
-    public static void init(Project project, CleanroomExtension ext) {
+    public VanillaTasks(Project project, CleanroomExtension ext) {
         var repos = project.getRepositories();
         repos.maven(mar -> {
             mar.setName("Mojang");
@@ -38,63 +39,62 @@ public final class VanillaTasks {
         });
         repos.mavenCentral();
 
-        VANILLA_CONFIG = Objects.config(project, "vanilla");
-        VANILLA_NATIVES_CONFIG = Objects.config(project, "vanillaNatives");
+        this.vanillaConfig = Objects.config(project, "vanilla");
+        this.vanillaNativesConfig = Objects.config(project, "vanillaNatives");
 
-        DOWNLOAD_ASSET_INDEX = Tasks.of(project, GROUP_NAME, "downloadAssetIndex", Download.class);
-        DOWNLOAD_CLIENT_JAR = Tasks.of(project, GROUP_NAME, "downloadClientJar", Download.class);
-        DOWNLOAD_SERVER_JAR = Tasks.of(project, GROUP_NAME, "downloadServerJar", Download.class);
-        DOWNLOAD_ASSETS = Tasks.of(project, GROUP_NAME, "downloadAssets", DownloadAssets.class);
-        EXTRACT_NATIVES = Tasks.unzip(project, GROUP_NAME, "extractNatives", VANILLA_NATIVES_CONFIG, ext.getVersionCacheDirectory().dir("natives/vanilla"));
-        RUN_VANILLA_CLIENT = Tasks.of(project, GROUP_NAME, "runVanillaClient", RunMinecraft.class);
-        RUN_VANILLA_SERVER = Tasks.of(project, GROUP_NAME, "runVanillaServer", RunMinecraft.class);
+        this.downloadAssetIndex = Tasks.of(project, GROUP_NAME, "downloadAssetIndex", Download.class);
+        this.downloadClientJar = Tasks.of(project, GROUP_NAME, "downloadClientJar", Download.class);
+        this.downloadServerJar = Tasks.of(project, GROUP_NAME, "downloadServerJar", Download.class);
+        this.downloadAssets = Tasks.of(project, GROUP_NAME, "downloadAssets", DownloadAssets.class);
+        this.extractNatives = Tasks.unzip(project, GROUP_NAME, "extractNatives", this.vanillaNativesConfig, ext.getVersionCacheDirectory().dir("natives/vanilla"));
+        this.runVanillaClient = Tasks.of(project, GROUP_NAME, "runVanillaClient", RunMinecraft.class);
+        this.runVanillaServer = Tasks.of(project, GROUP_NAME, "runVanillaServer", RunMinecraft.class);
 
-        DOWNLOAD_ASSET_INDEX.configure(task -> {
+        this.downloadAssetIndex.configure(task -> {
             task.src(ext.getVersionMeta().map(VersionMeta::assetIndex).map(VersionMeta.AssetIndex::url));
             task.dest(ext.getCacheDirectory().file("assets/indexes/1.12.json"));
             task.useETag(true);
         });
-        DOWNLOAD_CLIENT_JAR.configure(task -> {
+        this.downloadClientJar.configure(task -> {
             task.src(ext.getVersionMeta().map(VersionMeta::clientUrl));
             task.dest(ext.getVersionCacheDirectory().file("client.jar"));
         });
-        DOWNLOAD_SERVER_JAR.configure(task -> {
+        this.downloadServerJar.configure(task -> {
             task.src(ext.getVersionMeta().map(VersionMeta::serverUrl));
             task.dest(ext.getVersionCacheDirectory().file("server.jar"));
         });
-        DOWNLOAD_ASSETS.configure(task -> {
-            task.dependsOn(DOWNLOAD_ASSET_INDEX);
+        this.downloadAssets.configure(task -> {
+            task.dependsOn(this.downloadAssetIndex);
 
-            task.getAssetIndex().set(DOWNLOAD_ASSET_INDEX.map(Download::getDest).map(file -> IO.readJson(file, AssetIndex.class)));
+            task.getAssetIndexFile().fileProvider(this.downloadAssetIndex.map(Download::getDest));
             task.getObjects().set(ext.getCacheDirectory().dir("assets/objects"));
         });
-        EXTRACT_NATIVES.configure(task -> {
+        this.extractNatives.configure(task -> {
             task.exclude("META-INF/**"); // TODO: Consider exclude block in version meta?
         });
-        RUN_VANILLA_CLIENT.configure(task -> {
-            task.dependsOn(DOWNLOAD_ASSETS, DOWNLOAD_CLIENT_JAR);
+        this.runVanillaClient.configure(task -> {
+            task.dependsOn(this.downloadAssets, this.downloadClientJar);
 
             task.getSide().set(Side.CLIENT);
             task.getEnv().set(Environment.VANILLA);
-            task.getNatives().fileProvider(EXTRACT_NATIVES.map(Copy::getDestinationDir));
+            task.getNatives().fileProvider(this.extractNatives.map(Copy::getDestinationDir));
             task.getAssetIndexVersion().set(ext.getVersionMeta().map(VersionMeta::assetIndexId));
-            task.getVanillaAssetsLocation().set(ext.getCacheDirectory().file("assets"));
-            task.classpath(DOWNLOAD_CLIENT_JAR.map(Download::getDest), VANILLA_CONFIG);
+            task.classpath(this.downloadClientJar.map(Download::getDest), this.vanillaConfig);
         });
-        RUN_VANILLA_SERVER.configure(task -> {
-            task.dependsOn(DOWNLOAD_SERVER_JAR);
+        this.runVanillaServer.configure(task -> {
+            task.dependsOn(this.downloadServerJar);
 
             task.getSide().set(Side.SERVER);
             task.getEnv().set(Environment.VANILLA);
-            task.getNatives().fileProvider(EXTRACT_NATIVES.map(Copy::getDestinationDir));
-            task.classpath(DOWNLOAD_SERVER_JAR.map(Download::getDest), VANILLA_CONFIG);
+            task.getNatives().fileProvider(this.extractNatives.map(Copy::getDestinationDir));
+            task.classpath(this.downloadServerJar.map(Download::getDest), this.vanillaConfig);
         });
     }
 
-    public static void afterEvaluate(Project project, CleanroomExtension ext) {
+    public void afterEvaluate(Project project, CleanroomExtension ext) {
         for (var library : ext.getVersionMeta().get().libraries()) {
             if (library.isValidForOS(Platform.CURRENT)) {
-                Objects.dependency(project, VANILLA_CONFIG, library.name());
+                Objects.dependency(project, this.vanillaConfig, library.name());
                 if (library.hasNativesForOS(Platform.CURRENT)) {
                     var osClassifier = library.classifierForOS(Platform.CURRENT);
                     if (osClassifier != null) {
@@ -108,13 +108,11 @@ public final class VanillaTasks {
                         var version = matcher.group("version");
                         var classifier = matcher.group("classifier");
                         var dependencyNotation = "%s:%s:%s:%s".formatted(group, name, version, classifier);
-                        Objects.dependency(project, VANILLA_NATIVES_CONFIG, dependencyNotation).setTransitive(false);
+                        Objects.dependency(project, this.vanillaNativesConfig, dependencyNotation).setTransitive(false);
                     }
                 }
             }
         }
     }
-
-    private VanillaTasks() { }
 
 }

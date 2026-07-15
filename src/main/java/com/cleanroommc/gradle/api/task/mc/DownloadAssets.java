@@ -3,17 +3,22 @@ package com.cleanroommc.gradle.api.task.mc;
 import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.schema.AssetIndex;
 import com.cleanroommc.gradle.api.util.IO;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
-import org.gradle.api.tasks.Internal;
+import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.OutputDirectory;
+import org.gradle.api.tasks.PathSensitive;
+import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.workers.WorkAction;
 import org.gradle.workers.WorkParameters;
 import org.gradle.workers.WorkerExecutor;
+import org.gradle.work.DisableCachingByDefault;
 
 import javax.inject.Inject;
 import java.io.File;
@@ -24,10 +29,12 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@DisableCachingByDefault(because = "Maintains a large shared asset store")
 public abstract class DownloadAssets extends DefaultTask {
 
-    @Internal
-    public abstract Property<AssetIndex> getAssetIndex();
+    @InputFile
+    @PathSensitive(PathSensitivity.NONE)
+    public abstract RegularFileProperty getAssetIndexFile();
 
     @OutputDirectory
     public abstract DirectoryProperty getObjects();
@@ -35,17 +42,16 @@ public abstract class DownloadAssets extends DefaultTask {
     @Inject
     public abstract WorkerExecutor getWorkerExecutor();
 
+    private final boolean offline = this.getProject().getGradle().getStartParameter().isOffline();
+
     @TaskAction
     public void downloadAssets() {
-        if (!this.getAssetIndex().isPresent()) {
-            throw new RuntimeException("AssetIndex is not present");
-        }
-
-        if (this.getProject().getGradle().getStartParameter().isOffline()) {
+        if (this.offline) {
             this.getState().setDidWork(false);
             return;
         }
 
+        var assetIndex = IO.readJson(this.getAssetIndexFile().get().getAsFile(), AssetIndex.class);
         var objectsDirectory = this.getObjects().get().getAsFile();
 
         for (int i = 0x00; i <= 0xFF; i++) {
@@ -57,7 +63,7 @@ public abstract class DownloadAssets extends DefaultTask {
 
         var executor = this.getWorkerExecutor();
         var queue = executor.noIsolation();
-        var assets = this.getAssetIndex().get().objectCollection();
+        var assets = assetIndex.objectCollection();
 
         var downloads = new AtomicInteger(0);
         var amounts = assets.size();
