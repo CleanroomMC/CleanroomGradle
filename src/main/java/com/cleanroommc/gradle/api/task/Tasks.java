@@ -35,7 +35,10 @@ public final class Tasks {
         provider.configure(task -> {
             task.setGroup(group);
 
-            task.from(from.map(file -> file.isDirectory() ? file : project.zipTree(file)));
+            task.from((Callable<Object>) () -> {
+                var file = from.get();
+                return file.isFile() ? project.zipTree(file) : file;
+            });
             task.into(to);
         });
         return provider;

@@ -8,13 +8,13 @@ plugins {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-group 'com.cleanroommc'
-version '0.0.1'
+group = 'com.cleanroommc'
+version = '0.0.1'
 
 repositories {
     maven {
-        name 'MinecraftForge'
-        url "https://maven.minecraftforge.net/"
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
     }
     mavenCentral()
     gradlePluginPortal()
@@ -36,6 +36,15 @@ dependencies {
     // Forge
     implementation 'net.minecraftforge:srgutils:0.5.3'
     implementation 'net.minecraftforge:renamer-gradle:1.1.5'
+
+    testImplementation gradleTestKit()
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+    systemProperty 'plugin.project.dir', rootDir.absolutePath
 }
 
 gradlePlugin {
