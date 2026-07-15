@@ -10,6 +10,7 @@ import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.JavaExec;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.process.JavaExecSpec;
+import org.gradle.work.DisableCachingByDefault;
 
 import java.io.IOException;
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
+@DisableCachingByDefault(because = "Executes an external JVM process")
 public abstract class LazilyConstructedJavaExec extends JavaExec {
 
     private static Object mapToLazyString(Object object) {
