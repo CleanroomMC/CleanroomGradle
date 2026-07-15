@@ -57,6 +57,8 @@ public final class Tasks {
         var provider = project.getTasks().register(name, Zip.class);
         provider.configure(task -> {
             task.setGroup(group);
+            task.setPreserveFileTimestamps(false);
+            task.setReproducibleFileOrder(true);
 
             task.from(from);
             var file = project.file(to);
@@ -71,6 +73,8 @@ public final class Tasks {
         provider.configure(task -> {
             task.setDescription("Assembles a jar archive containing the classes of the '" + name + "' feature.");
             task.setGroup(group);
+            task.setPreserveFileTimestamps(false);
+            task.setReproducibleFileOrder(true);
 
             task.from(from);
             var file = project.file(to);
