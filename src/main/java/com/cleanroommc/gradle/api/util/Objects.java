@@ -37,6 +37,13 @@ public final class Objects {
         return project.getConfigurations().register(name);
     }
 
+    public static NamedDomainObjectProvider<Configuration> config(Project project, String name, String defaultNotation) {
+        var provider = project.getConfigurations().register(name);
+        provider.configure(config -> config.defaultDependencies(deps ->
+                deps.add(project.getDependencies().create(defaultNotation))));
+        return provider;
+    }
+
     public static ModuleDependency dependency(Project project, NamedDomainObjectProvider<Configuration> configuration, String notation) {
         return (ModuleDependency) project.getDependencies().add(configuration.getName(), notation);
     }
