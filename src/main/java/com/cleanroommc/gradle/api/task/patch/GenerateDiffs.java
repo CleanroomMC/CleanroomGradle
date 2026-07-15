@@ -5,27 +5,33 @@ import com.github.difflib.UnifiedDiffUtils;
 import org.apache.commons.io.FileUtils;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.DirectoryProperty;
-import org.gradle.api.internal.file.FileOperations;
+import org.gradle.api.file.FileSystemOperations;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputDirectory;
 import org.gradle.api.tasks.OutputDirectory;
+import org.gradle.api.tasks.PathSensitive;
+import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.work.DisableCachingByDefault;
 
 import javax.inject.Inject;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@DisableCachingByDefault(because = "Generates committed patches from a mutable development tree")
 public abstract class GenerateDiffs extends DefaultTask {
 
     @Inject
-    public abstract FileOperations getFileOperations();
+    public abstract FileSystemOperations getFileSystemOperations();
 
     @InputDirectory
+    @PathSensitive(PathSensitivity.RELATIVE)
     public abstract DirectoryProperty getOriginalDirectory();
 
     @InputDirectory
+    @PathSensitive(PathSensitivity.RELATIVE)
     public abstract DirectoryProperty getModifiedDirectory();
 
     @Input
@@ -50,10 +56,10 @@ public abstract class GenerateDiffs extends DefaultTask {
         var contextLines = this.getContextLines().get();
 
         if (this.getCleanOutput().get()) {
-            this.getProject().delete(patchesDir);
+            this.getFileSystemOperations().delete(spec -> spec.delete(patchesDir));
         }
 
-        this.getFileOperations().fileTree(this.getModifiedDirectory()).visit(fvd -> {
+        this.getModifiedDirectory().getAsFileTree().visit(fvd -> {
             if (!fvd.isDirectory()) {
                 var modifiedFile = fvd.getFile();
                 var relativePath = fvd.getRelativePath().getPathString();

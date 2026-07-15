@@ -1,6 +1,5 @@
 package com.cleanroommc.gradle.api.util.lazy;
 
-import com.cleanroommc.gradle.api.util.Objects;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -30,10 +29,11 @@ public final class SourceSets {
     }
 
     public static void extendFromConfiguration(Project project, NamedDomainObjectProvider<SourceSet> $, NamedDomainObjectProvider<Configuration> configuration) {
-        $.configure(sourceSet -> {
-            var config = Objects.resolvedConfig(project, sourceSet.getImplementationConfigurationName());
-            config.extendsFrom(configuration.get());
-        });
+        $.configure(sourceSet ->
+            project.getConfigurations().named(sourceSet.getImplementationConfigurationName()).configure(config ->
+                config.extendsFrom(configuration.get())
+            )
+        );
     }
 
     public static Provider<String> compile(NamedDomainObjectProvider<SourceSet> sourceSet) {

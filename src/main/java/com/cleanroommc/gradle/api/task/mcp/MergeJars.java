@@ -27,8 +27,14 @@ public abstract class MergeJars extends MavenJarExec {
     public abstract RegularFileProperty getMergedJar();
 
     public MergeJars() {
-        super("mergetool", "net.minecraftforge:mergetool:1.2.2");
-        this.getMainClass().set("net.minecraftforge.mergetool.ConsoleMerger");
+        this.getMainClass().convention("net.minecraftforge.mergetool.ConsoleMerger");
+    }
+
+    @Override
+    protected void beforeExec() {
+        if (!this.getUseDefaultToolArguments().get()) {
+            return;
+        }
         this.args("--client", this.getClientJar(),
                 "--server", this.getServerJar(),
                 "--output", this.getMergedJar(),

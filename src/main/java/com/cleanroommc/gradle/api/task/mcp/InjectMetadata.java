@@ -4,8 +4,6 @@ import com.cleanroommc.gradle.api.task.MavenJarExec;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.tasks.*;
 
-import java.io.File;
-
 @CacheableTask
 public abstract class InjectMetadata extends MavenJarExec {
 
@@ -29,9 +27,14 @@ public abstract class InjectMetadata extends MavenJarExec {
     public abstract RegularFileProperty getInjectedJar();
 
     public InjectMetadata() {
-        super("mcinjector", "de.oceanlabs.mcp:mcinjector:3.7.3");
-        this.getLogFile().fileProvider(this.getProject().provider(this::getWorkingDir).map(dir -> new File(dir, "mcinjector.log")));
-        this.getMainClass().set("de.oceanlabs.mcp.mcinjector.MCInjector");
+        this.getMainClass().convention("de.oceanlabs.mcp.mcinjector.MCInjector");
+    }
+
+    @Override
+    protected void beforeExec() {
+        if (!this.getUseDefaultToolArguments().get()) {
+            return;
+        }
         this.args("--in", this.getSrgJar(),
                 "--out", this.getInjectedJar(),
                 "--lvt=LVT",

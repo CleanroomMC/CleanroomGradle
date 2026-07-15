@@ -1,7 +1,6 @@
 package com.cleanroommc.gradle.api.util;
 
 import com.cleanroommc.gradle.api.Meta;
-import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.google.gson.JsonObject;
 import kotlin.jvm.functions.Function0;
 import org.apache.commons.io.FileUtils;
@@ -9,9 +8,7 @@ import org.apache.commons.io.IOUtils;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
-import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ModuleDependency;
-import org.gradle.api.artifacts.ResolvedArtifact;
 import org.gradle.api.file.FileSystemLocation;
 import org.gradle.api.provider.Provider;
 
@@ -25,7 +22,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Properties;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
@@ -41,44 +37,9 @@ public final class Objects {
         return project.getConfigurations().register(name);
     }
 
-    public static Configuration detachedConfig(Project project, Dependency... dependencies) {
-        return project.getConfigurations().detachedConfiguration(dependencies);
-    }
-
-    public static Configuration resolvedConfig(Project project, String name) {
-        return project.getConfigurations().getByName(name);
-    }
-
-    public static Dependency dependency(Project project, String notation) {
-        return project.getDependencies().create(notation);
-    }
-
     public static ModuleDependency dependency(Project project, NamedDomainObjectProvider<Configuration> configuration, String notation) {
         return (ModuleDependency) project.getDependencies().add(configuration.getName(), notation);
     }
-
-    public static Set<File> artifacts(NamedDomainObjectProvider<Configuration> configuration) {
-        return configuration.get().resolve();
-    }
-
-    public static File artifact(NamedDomainObjectProvider<Configuration> configuration) {
-        Set<File> artifacts = artifacts(configuration);
-        if (artifacts.size() > 1) {
-            throw new RuntimeException("There are more than 1 artifact in this configuration.");
-        }
-        return artifacts.stream().findFirst().get();
-    }
-
-    public static File artifact(NamedDomainObjectProvider<Configuration> configuration, String dependencyName) {
-        return configuration.get().getResolvedConfiguration().getResolvedArtifacts()
-                .stream()
-                .filter(artifact -> artifact.getName().equals(dependencyName))
-                .findFirst()
-                .map(ResolvedArtifact::getFile)
-                .orElseThrow();
-    }
-
-
 
     public static Object unravel(Object object) {
         if (object instanceof Provider<?> provider) {
@@ -125,9 +86,7 @@ public final class Objects {
         return unravelled.toString();
     }
 
-    public static UUID resolveUuid(Project project, CleanroomExtension cleanroomExt, String username) {
-        boolean isOffline = project.getGradle().getStartParameter().isOffline();
-        var cache = cleanroomExt.getCacheDirectory().file("uuid_cache.properties").get().getAsFile();
+    public static UUID resolveUuid(boolean isOffline, File cache, String username) {
         var cacheProperties = new Properties();
         if (cache.exists()) {
             try (var is = FileUtils.openInputStream(cache)) {

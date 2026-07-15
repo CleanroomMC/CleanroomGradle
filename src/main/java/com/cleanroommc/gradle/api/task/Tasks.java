@@ -3,10 +3,14 @@ package com.cleanroommc.gradle.api.task;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
+import org.gradle.api.file.FileTree;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.api.tasks.bundling.Zip;
+
+import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 
 public final class Tasks {
 
@@ -39,8 +43,11 @@ public final class Tasks {
         var provider = project.getTasks().register(name, Copy.class);
         provider.configure(task -> {
             task.setGroup(group);
-
-            project.files(from).forEach(f -> task.from(project.zipTree(f)));
+            task.from((Callable<Iterable<FileTree>>) () ->
+                project.files(from).getFiles().stream()
+                    .map(project::zipTree)
+                    .collect(Collectors.toList())
+            );
             task.into(to);
         });
         return provider;

@@ -1,7 +1,6 @@
 package com.cleanroommc.gradle.api.task.common;
 
 import com.cleanroommc.gradle.api.task.MavenJarExec;
-import com.cleanroommc.gradle.api.util.lazy.Providers;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
@@ -9,8 +8,8 @@ import org.gradle.api.provider.MapProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.*;
 
-import java.io.File;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -44,7 +43,7 @@ public abstract class Decompile extends MavenJarExec {
      * tool's own defaults. Values that only exist as bare flags (no {@code =value} form) belong in
      * {@link #getExtraArgs()} instead.
      *
-     * <p><b>Valid option keys for cleanflower v1.0.0.</b> Overriding the tool through the {@code vineflower}
+     * <p><b>Valid option keys for cleanflower v1.0.0.</b> Overriding the tool through the {@code decompiler}
      * configuration may void this list, consult the replacement tool's documentation instead.</p>
      *
      * <p>Core options:</p>
@@ -151,7 +150,7 @@ public abstract class Decompile extends MavenJarExec {
     public abstract RegularFileProperty getDecompiledJar();
 
     public Decompile() {
-        super("decompiler", "com.cleanroommc:cleanflower:1.0.0");
+        this.getMainClass().convention("org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler");
         Map<String, Object> defaults = new LinkedHashMap<>();
         defaults.put("new-line-separator", true);
         defaults.put("ascii-strings", true);
@@ -160,13 +159,17 @@ public abstract class Decompile extends MavenJarExec {
         defaults.put("thread-count", -1);
         defaults.put("indent-string", "    ");
         this.getOptions().convention(defaults);
-        this.getJavaLauncher().convention(Providers.javaLauncher(this.getProject(), 25));
-        this.getLogFile().fileProvider(this.getProject().provider(this::getWorkingDir).map(dir -> new File(dir, "decompile.log")));
+        this.getOnlyClasses().convention(List.of());
+        this.getSilent().convention(false);
+        this.getExtraArgs().convention(List.of());
     }
 
     @Override
     protected void beforeExec() {
         this.getLogger().lifecycle("Using Java {} to decompile", this.getJavaLauncher().get().getMetadata().getLanguageVersion());
+        if (!this.getUseDefaultToolArguments().get()) {
+            return;
+        }
         for (var entry : this.getOptions().get().entrySet()) {
             this.args("--" + entry.getKey() + "=" + argValue(entry.getValue()));
         }
