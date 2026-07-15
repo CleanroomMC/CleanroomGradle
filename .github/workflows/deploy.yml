@@ -1,0 +1,32 @@
+name: Deploy
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9].[0-9]+'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Grant Execute Permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'zulu'
+          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build with Gradle
+        run: ./gradlew build
+
+      - name: Publish to Maven with Gradle
+        run: ./gradlew publish -PCleanroomMaven=${{ vars.CLEANROOM_MAVEN }} -PCleanroomMavenUsername=${{ secrets.MAVEN_NAME }} -PCleanroomMavenPassword=${{ secrets.MAVEN_PASSWORD }}

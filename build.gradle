@@ -67,6 +67,16 @@ publishing {
     publications {
         pluginMaven(MavenPublication)
     }
+    repositories {
+        maven {
+            name = 'CleanroomMaven'
+            url = 'https://repo.cleanroommc.com/releases'
+            credentials(PasswordCredentials)
+            authentication {
+                basic(BasicAuthentication)
+            }
+        }
+    }
 }
 
 //spotless {
