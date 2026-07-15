@@ -6,10 +6,8 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
-import org.gradle.api.internal.file.FileOperations;
 import org.gradle.api.tasks.*;
 
-import javax.inject.Inject;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -147,9 +145,6 @@ public abstract class RemapSrg2Mcp extends DefaultTask {
         return buf.toString();
     }
 
-    @Inject
-    public abstract FileOperations getFileOperations();
-
     @InputDirectory
     @PathSensitive(PathSensitivity.RELATIVE)
     public abstract DirectoryProperty getSrgSource();
@@ -211,7 +206,7 @@ public abstract class RemapSrg2Mcp extends DefaultTask {
 
         var mcpSourceDir = this.getMcpSource().get().getAsFile();
 
-        this.getFileOperations().fileTree(this.getSrgSource()).visit(fvd -> {
+        this.getSrgSource().getAsFileTree().visit(fvd -> {
             if (!fvd.isDirectory()) {
                 var file = fvd.getFile();
                 if (!file.getName().endsWith(".java")) {
