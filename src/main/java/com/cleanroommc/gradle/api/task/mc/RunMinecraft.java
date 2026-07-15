@@ -8,9 +8,9 @@ import com.cleanroommc.gradle.api.util.lazy.Providers;
 import com.cleanroommc.gradle.api.task.LazilyConstructedJavaExec;
 import net.minecraftforge.fml.relauncher.Side;
 import org.apache.commons.io.FileUtils;
+import org.gradle.api.file.Directory;
+import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.ProjectLayout;
-import org.gradle.api.file.RegularFile;
-import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.*;
 import org.gradle.work.DisableCachingByDefault;
@@ -22,7 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 import java.util.UUID;
 
-@DisableCachingByDefault
+@DisableCachingByDefault(because = "Launches the game")
 public abstract class RunMinecraft extends LazilyConstructedJavaExec {
 
     private static boolean consoleInput() throws IOException {
@@ -43,11 +43,13 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     @Input
     public abstract Property<Environment> getEnv();
 
-    @InputFiles
-    public abstract RegularFileProperty getNatives();
+    // A real input so the producing task (extractNatives) is inferred as a dependency
+    @InputDirectory
+    @PathSensitive(PathSensitivity.RELATIVE)
+    public abstract DirectoryProperty getNatives();
 
-    @InputFiles
-    public abstract RegularFileProperty getVanillaAssetsLocation();
+    @Internal
+    public abstract DirectoryProperty getVanillaAssetsLocation();
 
     @Input
     public abstract Property<String> getAssetIndexVersion();
@@ -67,14 +69,18 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     private boolean setCustomWorkingDir = false;
 
     public RunMinecraft() {
+        var ext = CleanroomExtension.get(this.getProject());
+        var offline = this.getProject().getGradle().getStartParameter().isOffline();
+
         this.getMinecraftVersion().convention("1.12.2");
         this.getAssetIndexVersion().convention("1.12");
-        this.getVanillaAssetsLocation().convention(CleanroomExtension.get(this.getProject()).getCacheDirectory().file("assets"));
+        this.getVanillaAssetsLocation().convention(ext.getCacheDirectory().dir("assets"));
         this.getAccessToken().convention("0");
 
         this.getUsername().convention("Developer");
+        var uuidCache = ext.getCacheDirectory().file("uuid_cache.properties");
         this.getUUID().convention(getUsername()
-                .map(u -> Objects.resolveUuid(this.getProject(), CleanroomExtension.get(this.getProject()), u))
+                .map(u -> Objects.resolveUuid(offline, uuidCache.get().getAsFile(), u))
                 .map(UUID::toString));
 
         this.getMainClass().convention(this.getSide().map(side -> side.isClient() ? "net.minecraft.client.main.Main" : "net.minecraft.server.MinecraftServer"));
@@ -85,7 +91,7 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
 
         this.jvmArgs("-Dfile.encoding=UTF-8");
 
-        this.systemProperty("java.library.path", Providers.libraryPath(this.getProject(), this.getNatives().map(RegularFile::getAsFile)));
+        this.systemProperty("java.library.path", Providers.libraryPath(this.getProject(), this.getNatives().map(Directory::getAsFile)));
 
         this.args("--gameDir", this.getProject().provider(this::getWorkingDir),
                 "--version", getMinecraftVersion(),
