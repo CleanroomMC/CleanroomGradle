@@ -5,9 +5,11 @@ import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.tasks.*;
+import org.gradle.work.DisableCachingByDefault;
 
 import java.io.File;
 
+@DisableCachingByDefault
 public abstract class AccessTransform extends MavenJarExec {
 
     @Optional
