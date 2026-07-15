@@ -1,19 +1,27 @@
 package com.cleanroommc.gradle.api.task;
 
-import com.cleanroommc.gradle.api.ext.CleanroomExtension;
-import com.cleanroommc.gradle.api.util.Objects;
+import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.provider.Property;
+import org.gradle.api.tasks.Classpath;
 import org.gradle.api.tasks.Input;
+import org.gradle.work.DisableCachingByDefault;
 
+@DisableCachingByDefault(because = "Executes a Maven-provided tool in an external JVM")
 public abstract class MavenJarExec extends LazilyConstructedJavaExec {
 
-    @Input
-    public abstract Property<String> getExecJar();
+    @Classpath
+    public abstract ConfigurableFileCollection getToolClasspath();
 
-    public MavenJarExec(String configurationName, String artifactNotation) {
-        this.getExecJar().convention(artifactNotation);
-        this.classpath(this.getExecJar().map(notation -> Objects.detachedConfig(this.getProject(), Objects.dependency(this.getProject(), notation))));
-        this.setWorkingDir(CleanroomExtension.get(this.getProject()).getLocalCacheDirectory().dir(this.getName()));
+    /**
+     * Whether the task should construct the command line expected by its default tool. Disable this and use
+     * {@link #setArgs(Iterable)} when replacing the tool with one that has a different CLI.
+     */
+    @Input
+    public abstract Property<Boolean> getUseDefaultToolArguments();
+
+    public MavenJarExec() {
+        this.getUseDefaultToolArguments().convention(true);
+        this.classpath(this.getToolClasspath());
     }
 
 }
