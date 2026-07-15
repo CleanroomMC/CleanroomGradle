@@ -1,4 +1,11 @@
-.gradle/
-.idea/
-build/
-/test/
+/.gradle/
+/.idea/
+/build/
+/test_area/.gradle/
+/test_area/build/
+/test_area/run/
+/test_area/src/
+/workspace/.gradle/
+/workspace/build/
+
+.settings/

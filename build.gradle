@@ -1,69 +1,110 @@
-buildscript {
-    repositories {
-        mavenLocal()
-    }
-}
-
 plugins {
     id 'java'
+    id 'idea'
     id 'java-gradle-plugin'
+    // id 'com.diffplug.spotless' version '6.23.3'
     id 'maven-publish'
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-group 'com.cleanroommc'
-version '1.0'
+group = 'com.cleanroommc'
+version = '0.0.1'
 
 repositories {
-    mavenLocal()
-    mavenCentral()
-    google()
     maven {
         name = 'MinecraftForge'
         url = 'https://maven.minecraftforge.net/'
     }
+    mavenCentral()
+    gradlePluginPortal()
 }
 
 dependencies {
-    // Gradle API
-    implementation gradleApi()
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'commons-io:commons-io:2.15.1'
+    implementation 'commons-codec:commons-codec:1.16.0'
+    implementation 'org.apache.commons:commons-lang3:3.18.0'
+    implementation 'io.github.java-diff-utils:java-diff-utils:4.15'
+    implementation 'org.ow2.asm:asm:9.6'
+    implementation 'org.ow2.asm:asm-commons:9.6'
+    implementation 'org.ow2.asm:asm-tree:9.6'
+    implementation 'org.ow2.asm:asm-util:9.6'
+    implementation 'de.undercouch.download:de.undercouch.download.gradle.plugin:5.6.0'
+    implementation 'de.siegmar:fastcsv:3.0.0'
 
-    // ASM
-    implementation 'org.ow2.asm:asm:9.2'
-    implementation 'org.ow2.asm:asm-commons:9.2'
-    implementation 'org.ow2.asm:asm-tree:9.2'
+    // Forge
+    implementation 'net.minecraftforge:srgutils:0.5.3'
+    implementation 'net.minecraftforge:renamer-gradle:1.1.5'
 
-    // Google's Guava+Gson
-    implementation 'com.google.guava:guava:31.1-jre'
-    implementation 'com.google.code.gson:gson:2.9.0'
-
-    // Apache Commons
-    implementation 'commons-io:commons-io:2.11.0'
-
-    // Apache Maven
-    implementation 'org.apache.maven:maven-artifact:3.8.4'
-
-    // Forge-Related Libraries
-    implementation 'net.minecraftforge:artifactural:3.0.8'
-    implementation 'net.minecraftforge:accesstransformers:8.0.+:fatjar'
-    implementation 'net.minecraftforge:binarypatcher:1.+:fatjar'
-    implementation 'net.minecraftforge:DiffPatch:2.0.7:all'
-
-    // JUnit 5
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'
-}
-
-gradlePlugin {
-    plugins {
-        cleanroom_gradle {
-            id = 'com.cleanroommc.gradle'
-            implementationClass = 'com.cleanroommc.gradle.CleanroomGradlePlugin'
-        }
-    }
-    automatedPublishing = false
+    testImplementation gradleTestKit()
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 test {
     useJUnitPlatform()
+    systemProperty 'plugin.project.dir', rootDir.absolutePath
 }
+
+gradlePlugin {
+    plugins {
+        cleanroomGradle {
+            id = "${group}.gradle"
+            implementationClass = "${group}.gradle.CleanroomGradle"
+        }
+    }
+    automatedPublishing = true
+}
+
+jar {
+    manifest {
+        attributes "Implementation-Version": version
+    }
+}
+
+publishing {
+    publications {
+        pluginMaven(MavenPublication)
+    }
+    repositories {
+        maven {
+            name = 'CleanroomMaven'
+            url = 'https://repo.cleanroommc.com/releases'
+            credentials(PasswordCredentials)
+            authentication {
+                basic(BasicAuthentication)
+            }
+        }
+    }
+}
+
+//spotless {
+//    encoding 'UTF-8'
+//    format ('misc') {
+//        target '*.gradle', '.gitattributes', '.gitignore', '*.properties'
+//        indentWithSpaces()
+//        trimTrailingWhitespace()
+//        endWithNewline()
+//    }
+//    java {
+//        importOrder 'java', 'javax', 'org', 'com', '', '\\#'
+//        removeUnusedImports()
+//        indentWithSpaces()
+//        trimTrailingWhitespace()
+//        endWithNewline()
+//        formatAnnotations()
+//        eclipse('4.26').configFile('../cleanroom_format.xml')
+//        custom 'noWildcardImports', com.diffplug.spotless.FormatterFunc.needsFile((text, file) -> {
+//            text.eachLine {
+//                if (it.trim() ==~ /^import\s(static\s)?\S+\*;/) {
+//                    throw new Error("${file.getName()}\n\t $it\n\t\tNo wildcard imports allowed, import individually.")
+//                }
+//            }
+//        })
+//    }
+//    json {
+//        target 'src/**/*.json'
+//        simple().indentWithSpaces(4)
+//    }
+//}
