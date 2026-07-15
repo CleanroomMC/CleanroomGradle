@@ -39,6 +39,7 @@ public abstract class SplitJar extends DefaultTask {
                     for (var entry = sourceZis.getNextEntry(); entry != null; entry = sourceZis.getNextEntry()) {
                         var zos = classes.contains(entry.getName()) ? slimZos : extraZos;
                         var newEntry = new ZipEntry(entry.getName());
+                        newEntry.setTime(0L); // Fixed timestamp to keep stability
                         zos.putNextEntry(newEntry);
                         sourceZis.transferTo(zos);
                     }
