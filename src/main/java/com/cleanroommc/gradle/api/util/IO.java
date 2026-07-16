@@ -87,6 +87,10 @@ public final class IO {
         return new FileInputStream(file);
     }
 
+    public static BufferedInputStream bufferedIn(File file) throws FileNotFoundException {
+        return new BufferedInputStream(in(file));
+    }
+
     public static ZipOutputStream zipOut(File file) throws FileNotFoundException {
         return new ZipOutputStream(out(file));
     }
