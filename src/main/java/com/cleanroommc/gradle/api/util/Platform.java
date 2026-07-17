@@ -16,7 +16,6 @@ public final class Platform {
         this.architecture = Architecture.determine();
     }
 
-    // Visible for testing: build a platform for an explicit operating system and architecture.
     Platform(OperatingSystem operatingSystem, Architecture architecture) {
         this.operatingSystem = operatingSystem;
         this.architecture = architecture;
@@ -70,7 +69,6 @@ public final class Platform {
             return new Architecture(is64Bit, isArm);
         }
 
-        // Visible for testing.
         static Architecture of(boolean is64Bit, boolean isArm) {
             return new Architecture(is64Bit, isArm);
         }

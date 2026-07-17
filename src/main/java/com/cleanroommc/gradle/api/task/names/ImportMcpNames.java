@@ -99,5 +99,5 @@ public abstract class ImportMcpNames extends DefaultTask {
         }
         return byClass;
     }
-    
+
 }
