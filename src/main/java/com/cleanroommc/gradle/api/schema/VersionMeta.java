@@ -1,19 +1,28 @@
 package com.cleanroommc.gradle.api.schema;
 
 import com.cleanroommc.gradle.api.util.Platform;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
 
+import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public record VersionMeta(Object arguments,
+public record VersionMeta(Arguments arguments,
                           AssetIndex assetIndex,
                           String assets,
                           int complianceLevel,
                           Map<String, Download> downloads,
                           String id,
+                          JavaVersion javaVersion,
                           List<Library> libraries,
                           Object logging,
                           String mainClass,
+                          String minecraftArguments,
                           int minimumLauncherVersion,
                           String releaseTime,
                           String time,
@@ -60,6 +69,13 @@ public record VersionMeta(Object arguments,
     public boolean hasNativesToExtract() {
         return libraries().stream().anyMatch(Library::hasNatives);
     }
+
+    // TODO: older Minecraft versions can target Java 6
+    public int javaMajor() {
+        return javaVersion() == null ? 8 : javaVersion().majorVersion();
+    }
+
+    public record JavaVersion(String component, int majorVersion) { }
 
     public record AssetIndex(String id, long totalSize, String path, String sha1, long size, String url) { }
 
@@ -151,5 +167,54 @@ public record VersionMeta(Object arguments,
     }
 
     public record Download(String path, String sha1, long size, String url) { }
+
+    // 1.13+ arguments block
+    public record Arguments(List<Argument> game, List<Argument> jvm) { }
+
+    public record Argument(List<ArgRule> rules, List<String> values) { }
+
+    public record ArgRule(String action, OS os, Map<String, Boolean> features) {
+
+        public boolean isAllowed() {
+            return "allow".equals(action());
+        }
+
+        public boolean matches(Platform platform) {
+            if (features() != null) {
+                for (Boolean required : features().values()) {
+                    if (!Boolean.FALSE.equals(required)) {
+                        return false;
+                    }
+                }
+            }
+            return os() == null || os().isValidForOS(platform);
+        }
+
+    }
+
+    public static final class ArgumentDeserializer implements JsonDeserializer<Argument> {
+
+        private static final Type RULES_TYPE = TypeToken.getParameterized(List.class, ArgRule.class).getType();
+
+        @Override
+        public Argument deserialize(JsonElement json, Type type, JsonDeserializationContext context) {
+            if (json.isJsonPrimitive()) {
+                return new Argument(null, List.of(json.getAsString()));
+            }
+            var object = json.getAsJsonObject();
+            List<ArgRule> rules = context.deserialize(object.get("rules"), RULES_TYPE);
+            var value = object.get("value");
+            var values = new ArrayList<String>();
+            if (value.isJsonArray()) {
+                for (var element : value.getAsJsonArray()) {
+                    values.add(element.getAsString());
+                }
+            } else {
+                values.add(value.getAsString());
+            }
+            return new Argument(rules, values);
+        }
+
+    }
 
 }
