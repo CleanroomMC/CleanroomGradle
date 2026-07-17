@@ -10,6 +10,7 @@ import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.lazy.SourceSets;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.*;
+import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.provider.Property;
@@ -44,6 +45,20 @@ public abstract class CleanroomExtension {
 
     public abstract NamedDomainObjectContainer<PatchDevEnvironment> getPatchDev();
 
+    public abstract Property<Boolean> getLoaderProject();
+
+    public abstract ConfigurableFileCollection getAccessTransformers();
+
+    public abstract ConfigurableFileCollection getSideAnnotationStrippers();
+
+    public abstract Property<String> getForgeVersion();
+
+    /**
+     * Directory holding a hand-edited Tiny2 names source ({@code mappings.tiny}).
+     * Unset by default as the pipeline uses the MCP CSVs from the {@code mcpMappings} dependency.
+     */
+    public abstract DirectoryProperty getNamesDirectory();
+
     public CleanroomExtension(Project project) {
         final var providers = project.getProviders();
 
@@ -64,6 +79,8 @@ public abstract class CleanroomExtension {
                 .orElse(providers.of(BundledVersionMetaValueSource.class, spec -> {}))
         );
         this.getDevelopInitialPatches().convention(false);
+        this.getLoaderProject().convention(false);
+        this.getForgeVersion().convention("14.23.5.2864");
 
         project.afterEvaluate($ -> this.getPatchDev().all(env -> env.afterEvaluate(project, this.getLocalCacheDirectory())));
     }
