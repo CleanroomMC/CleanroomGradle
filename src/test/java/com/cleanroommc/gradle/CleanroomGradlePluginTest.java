@@ -37,7 +37,7 @@ class CleanroomGradlePluginTest {
                     }
                 }
                 plugins {
-                    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+                    id 'com.cleanroommc.gradle.settings'
                 }
                 rootProject.name = 'test-project'
                 """
