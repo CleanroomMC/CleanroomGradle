@@ -1,5 +1,7 @@
 package com.cleanroommc.gradle.api.task.dist;
 
+import com.cleanroommc.gradle.api.util.IO;
+import org.apache.commons.io.FileUtils;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.tasks.InputFile;
@@ -10,15 +12,12 @@ import org.gradle.api.tasks.TaskAction;
 import org.tukaani.xz.LZMA2Options;
 import org.tukaani.xz.LZMAOutputStream;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
 
 /**
- * LZMA-compresses a single file into the raw {@code .lzma} container using the pure-Java
- * {@code org.tukaani:xz} implementation. Mirrors the old buildscript's {@code deobfDataLzma}.
+ * LZMA compresses a single file into the raw {@code .lzma} container
+ * using the pure-Java {@code org.tukaani:xz} implementation.
  */
 public abstract class LzmaCompress extends DefaultTask {
 
@@ -31,20 +30,17 @@ public abstract class LzmaCompress extends DefaultTask {
 
     @TaskAction
     public void compress() {
-        var input = this.getInput().get().getAsFile().toPath();
-        var output = this.getOutput().get().getAsFile().toPath();
+        var input = this.getInput().get().getAsFile();
+        var output = this.getOutput().get().getAsFile();
         try {
-            var parent = output.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            try (var in = new BufferedInputStream(Files.newInputStream(input));
-                 OutputStream out = Files.newOutputStream(output);
+            FileUtils.createParentDirectories(output);
+            try (var in = IO.bufferedIn(input);
+                 var out = IO.out(output);
                  var lzma = new LZMAOutputStream(out, new LZMA2Options(), true)) {
                 in.transferTo(lzma);
             }
         } catch (IOException e) {
-            throw new UncheckedIOException("Failed to LZMA-compress " + input, e);
+            throw new UncheckedIOException("Failed to LZMA compress " + input, e);
         }
     }
 
