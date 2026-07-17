@@ -1,17 +1,19 @@
 package com.cleanroommc.gradle.env;
 
-import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.ext.CleanroomExtension;
+import com.cleanroommc.gradle.api.names.NamesSource;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.task.MavenJarExec;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.common.Decompile;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.task.mcp.*;
+import com.cleanroommc.gradle.api.task.names.ImportMcpNames;
 import com.cleanroommc.gradle.api.task.patch.ApplyDiffs;
 import com.cleanroommc.gradle.api.task.patch.GenerateBinPatches;
 import net.minecraftforge.renamer.gradle.RenameJar;
 import net.minecraftforge.renamer.gradle.RenamerExtension;
+import net.minecraftforge.srgutils.IMappingFile;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.lazy.Providers;
@@ -21,7 +23,9 @@ import net.minecraftforge.fml.relauncher.Side;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.file.RegularFile;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
@@ -83,26 +87,30 @@ public final class MCPTasks {
     public final TaskProvider<ApplyDiffs> applyInitialDiffs;
     public final TaskProvider<ApplyDiffs> applyCleanInitialDiffs;
     public final TaskProvider<RemapSrg2Mcp> remapSrg2Mcp;
+    public final TaskProvider<ImportMcpNames> importMcpNames;
+    public final TaskProvider<WriteMappings> writeObf2Srg;
+    public final TaskProvider<WriteMappings> writeSrg2Mcp;
+    public final TaskProvider<WriteMappings> writeMcp2Notch;
     public final TaskProvider<Jar> srgJar;
     public final TaskProvider<Jar> cleanSrgJar;
     public final TaskProvider<GenerateBinPatches> genBinPatches;
 
-    public MCPTasks(Project project, CleanroomExtension ext, VanillaTasks vanilla) {
-        var repos = project.getRepositories();
-        repos.maven(mar -> {
-            mar.setName("CleanroomMC");
-            mar.setUrl(Meta.CLEANROOM_REPO);
-            mar.getMetadataSources().artifact(); // For patches
-        });
-        repos.maven(mar -> {
-            mar.setName("MinecraftForge");
-            mar.setUrl(Meta.FORGE_REPO);
-            mar.getMetadataSources().artifact(); // For MCP Mappings
-        });
+    private final Provider<String> activeNamesId;
+    private final Provider<String> mcpConfigVersion;
 
+    public MCPTasks(Project project, CleanroomExtension ext, VanillaTasks vanilla) {
         this.mcpConfig = Objects.config(project, "mcpConfig", "de.oceanlabs.mcp:mcp_config:1.12.2-20201025.185735");
         this.initialPatches = Objects.config(project, "initialPatches", "com.cleanroommc:initial-patches:1.1.0");
         this.mcpMappings = Objects.config(project, "mcpMappings", "de.oceanlabs.mcp:mcp_stable:39-1.12@zip");
+
+        var tinyFile = ext.getNamesDirectory().file("mappings.tiny");
+        var tinyFileWhenPresent = tinyFile.map(RegularFile::getAsFile).filter(File::isFile);
+        var mcpNamesId = this.mcpMappings.map(cfg -> {
+            var dep = firstDependency(cfg);
+            return NamesSource.mcpId(dep.getName(), dep.getVersion());
+        });
+        this.activeNamesId = tinyFileWhenPresent.map(NamesSource::tiny2Id).orElse(mcpNamesId);
+        this.mcpConfigVersion = this.mcpConfig.map(cfg -> firstDependency(cfg).getVersion());
 
         var mergeTool = toolConfiguration(project, "mergetool", "net.minecraftforge:mergetool:1.2.2");
         var metadataInjector = toolConfiguration(project, "mcinjector", "de.oceanlabs.mcp:mcinjector:3.7.3");
@@ -135,6 +143,10 @@ public final class MCPTasks {
         this.runReobfSrgServer = Tasks.of(project, GROUP_NAME, "runReobfSrgServer", RunMinecraft.class);
         this.extractMcpMappings = Tasks.unzip(project, GROUP_NAME, "extractMcpMappings", this.mcpMappings, ext.getVersionCacheDirectory().dir("mcp_mappings"));
         this.remapSrg2Mcp = Tasks.of(project, GROUP_NAME, "remapSrg2Mcp", RemapSrg2Mcp.class);
+        this.importMcpNames = Tasks.of(project, GROUP_NAME, "importMcpNames", ImportMcpNames.class);
+        this.writeObf2Srg = Tasks.of(project, GROUP_NAME, "writeObf2Srg", WriteMappings.class);
+        this.writeSrg2Mcp = Tasks.of(project, GROUP_NAME, "writeSrg2Mcp", WriteMappings.class);
+        this.writeMcp2Notch = Tasks.of(project, GROUP_NAME, "writeMcp2Notch", WriteMappings.class);
         this.srgJar = Tasks.jar(project, GROUP_NAME, "srgSourceJar", this.srgSource.map(SourceSet::getOutput), ext.getLocalCacheDirectory().file("sourceSets/srg/srg.jar"));
         this.cleanSrgJar = Tasks.jar(project, GROUP_NAME, "cleanSrgSourceJar", this.cleanSrgSource.map(SourceSet::getOutput), ext.getLocalCacheDirectory().file("sourceSets/cleanSrg/clean.jar"));
         this.genBinPatches = Tasks.of(project, GROUP_NAME, "genBinPatches", GenerateBinPatches.class);
@@ -279,7 +291,51 @@ public final class MCPTasks {
             task.getMethodMappings().from(this.extractMcpMappings.map(Copy::getDestinationDir).map(dir -> new File(dir, "methods.csv")));
             task.getFieldMappings().from(this.extractMcpMappings.map(Copy::getDestinationDir).map(dir -> new File(dir, "fields.csv")));
             task.getParameterMappings().from(this.extractMcpMappings.map(Copy::getDestinationDir).map(dir -> new File(dir, "params.csv")));
+            task.getTinyMappings().fileProvider(tinyFileWhenPresent);
+            task.getNamesId().set(this.activeNamesId);
             task.getMcpSource().fileProvider(SourceSets.source(this.mcpSource));
+        });
+        this.importMcpNames.configure(task -> {
+            task.dependsOn(this.injectMetadata, this.extractMcpConfig);
+
+            task.getSrgJar().set(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar));
+            task.getMcpNames().from(this.mcpMappings);
+            task.getConstructorsFile().set(mcpConfigDir.map(dir -> dir.file("constructors.txt")));
+            task.getNamesDirectoryConfigured().set(ext.getNamesDirectory().map(dir -> true).orElse(false));
+            // Fallback keeps the @OutputFile satisfied so the action can raise a clear error when unset.
+            task.getTinyFile().set(tinyFile.orElse(ext.getLocalCacheDirectory().file("names/mappings.tiny")));
+        });
+        this.writeObf2Srg.configure(task -> {
+            task.dependsOn(this.extractMcpConfig);
+
+            task.getJoinedSrgFile().set(srgMapping);
+            task.getDirection().set(WriteMappings.Direction.OBF_TO_SRG);
+            task.getFormat().set(IMappingFile.Format.SRG);
+            task.getOutput().set(ext.getLocalCacheDirectory().file("mappings/obf2srg.srg"));
+        });
+        this.writeSrg2Mcp.configure(task -> {
+            task.dependsOn(this.extractMcpConfig, this.extractMcpMappings);
+
+            task.getJoinedSrgFile().set(srgMapping);
+            task.getMethodMappings().fileProvider(this.extractMcpMappings.map(Copy::getDestinationDir).map(dir -> new File(dir, "methods.csv")));
+            task.getFieldMappings().fileProvider(this.extractMcpMappings.map(Copy::getDestinationDir).map(dir -> new File(dir, "fields.csv")));
+            task.getTinyMappings().fileProvider(tinyFileWhenPresent);
+            task.getNamesId().set(this.activeNamesId);
+            task.getDirection().set(WriteMappings.Direction.SRG_TO_MCP);
+            task.getFormat().set(IMappingFile.Format.SRG);
+            task.getOutput().set(ext.getLocalCacheDirectory().file("mappings/srg2mcp.srg"));
+        });
+        this.writeMcp2Notch.configure(task -> {
+            task.dependsOn(this.extractMcpConfig, this.extractMcpMappings);
+
+            task.getJoinedSrgFile().set(srgMapping);
+            task.getMethodMappings().fileProvider(this.extractMcpMappings.map(Copy::getDestinationDir).map(dir -> new File(dir, "methods.csv")));
+            task.getFieldMappings().fileProvider(this.extractMcpMappings.map(Copy::getDestinationDir).map(dir -> new File(dir, "fields.csv")));
+            task.getTinyMappings().fileProvider(tinyFileWhenPresent);
+            task.getNamesId().set(this.activeNamesId);
+            task.getDirection().set(WriteMappings.Direction.MCP_TO_NOTCH);
+            task.getFormat().set(IMappingFile.Format.TSRG);
+            task.getOutput().set(ext.getLocalCacheDirectory().file("mappings/mcp2notch.tsrg"));
         });
         this.genBinPatches.configure(task -> {
             task.dependsOn(this.cleanSrgJar, this.srgJar);
@@ -308,7 +364,29 @@ public final class MCPTasks {
         });
     }
 
+    private static Dependency firstDependency(Configuration config) {
+        var dependencies = config.getAllDependencies();
+        if (dependencies.isEmpty()) {
+            config.getIncoming().getDependencies();
+            dependencies = config.getAllDependencies();
+        }
+        if (dependencies.isEmpty()) {
+            throw new IllegalStateException("Configuration '" + config.getName() + "' has no dependencies to derive mapping identity from.");
+        }
+        return dependencies.iterator().next();
+    }
+
     public void afterEvaluate(Project project, CleanroomExtension ext, VanillaTasks vanilla) {
+        ext.getPatchDev().all(env -> {
+            if (env.getName().equals("initial")) {
+                return;
+            }
+            env.getGenerateDiffs().configure(task -> {
+                task.getMappingsId().set(this.activeNamesId);
+                task.getMcpConfigVersion().set(this.mcpConfigVersion);
+            });
+        });
+
         if (ext.getDevelopInitialPatches().get()) {
             var initial = ext.getPatchDev().register("initial", env -> {
                 env.getSource().set(this.decompileSrg.flatMap(Decompile::getDecompiledJar).map(RegularFile::getAsFile));
