@@ -16,6 +16,12 @@ public final class Platform {
         this.architecture = Architecture.determine();
     }
 
+    // Visible for testing: build a platform for an explicit operating system and architecture.
+    Platform(OperatingSystem operatingSystem, Architecture architecture) {
+        this.operatingSystem = operatingSystem;
+        this.architecture = architecture;
+    }
+
     public OperatingSystem getOperatingSystem() {
         return operatingSystem;
     }
@@ -61,6 +67,11 @@ public final class Platform {
             final String arch = System.getProperty("os.arch");
             var is64Bit = arch.contains("64") || arch.startsWith("armv8");
             var isArm = arch.startsWith("arm") || arch.startsWith("aarch64");
+            return new Architecture(is64Bit, isArm);
+        }
+
+        // Visible for testing.
+        static Architecture of(boolean is64Bit, boolean isArm) {
             return new Architecture(is64Bit, isArm);
         }
 

@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.api.util;
 
+import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.minecraftforge.fml.relauncher.Side;
@@ -27,7 +28,11 @@ public final class IO {
     private static HttpClient httpClient;
 
     static {
-        GSON = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
+        GSON = new GsonBuilder()
+                .disableHtmlEscaping()
+                .setPrettyPrinting()
+                .registerTypeAdapter(VersionMeta.Argument.class, new VersionMeta.ArgumentDeserializer())
+                .create();
     }
 
     public static <T> T readJson(InputStream stream, Class<T> type) {
