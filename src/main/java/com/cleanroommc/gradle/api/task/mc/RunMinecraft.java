@@ -1,9 +1,12 @@
 package com.cleanroommc.gradle.api.task.mc;
 
 import com.cleanroommc.gradle.api.ext.CleanroomExtension;
+import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.IO;
+import com.cleanroommc.gradle.api.util.LaunchArguments;
 import com.cleanroommc.gradle.api.util.Objects;
+import com.cleanroommc.gradle.api.util.Platform;
 import com.cleanroommc.gradle.api.util.lazy.Providers;
 import com.cleanroommc.gradle.api.task.LazilyConstructedJavaExec;
 import net.minecraftforge.fml.relauncher.Side;
@@ -19,8 +22,13 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 @DisableCachingByDefault(because = "Launches the game")
 public abstract class RunMinecraft extends LazilyConstructedJavaExec {
@@ -66,6 +74,12 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     @Optional
     public abstract Property<String> getAccessToken();
 
+    @Internal
+    public abstract Property<VersionMeta> getVersionMeta();
+
+    @Input
+    public abstract Property<String> getLauncherVersion();
+
     private boolean setCustomWorkingDir = false;
 
     public RunMinecraft() {
@@ -83,6 +97,10 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
                 .map(u -> Objects.resolveUuid(offline, uuidCache.get().getAsFile(), u))
                 .map(UUID::toString));
 
+        this.getVersionMeta().convention(ext.getVersionMeta());
+        var pluginVersion = String.valueOf(this.getProject().getVersion());
+        this.getLauncherVersion().convention("unspecified".equals(pluginVersion) ? "dev" : pluginVersion);
+
         this.getMainClass().convention(this.getSide().map(side -> side.isClient() ? "net.minecraft.client.main.Main" : "net.minecraft.server.MinecraftServer"));
 
         this.setStandardInput(System.in);
@@ -93,15 +111,6 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
 
         this.systemProperty("java.library.path", Providers.libraryPath(this.getProject(), this.getNatives().map(Directory::getAsFile)));
 
-        this.args("--gameDir", this.getProject().provider(this::getWorkingDir),
-                "--version", getMinecraftVersion(),
-                "--assetIndex", getAssetIndexVersion(),
-                "--assetsDir", getVanillaAssetsLocation(),
-                "--username", getUsername(),
-                "--uuid", getUUID(),
-                "--accessToken", getAccessToken()
-        );
-
         this.setMinHeapSize("1G");
         this.setMaxHeapSize("1G");
     }
@@ -109,13 +118,21 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     @Override
     protected void beforeExec() {
         var logger = this.getLogger();
+        var side = this.getSide().get();
 
         if (!this.setCustomWorkingDir) {
-            super.setWorkingDir(IO.runDir(this.getProjectLayout().getProjectDirectory().getAsFile(), this.getMinecraftVersion().get(), this.getEnv().get(), this.getSide().get()));
+            super.setWorkingDir(IO.runDir(this.getProjectLayout().getProjectDirectory().getAsFile(), this.getMinecraftVersion().get(), this.getEnv().get(), side));
+        }
+
+        var consumerArgs = new ArrayList<>(this.getArgs());
+        this.setArgs(new ArrayList<>());
+        this.generateArguments(side);
+        if (!consumerArgs.isEmpty()) {
+            this.args(consumerArgs);
         }
 
         // Thanks to RetroFuturaGradle for this QoL
-        if (this.getSide().get().isServer()) {
+        if (side.isServer()) {
             this.args("nogui");
 
             var serverProperties = new File(this.getWorkingDir(), "server.properties");
@@ -155,6 +172,55 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     public JavaExec workingDir(Object dir) {
         this.setCustomWorkingDir = true;
         return super.workingDir(dir);
+    }
+
+    private void generateArguments(Side side) {
+        if (side.isClient() && this.getEnv().get() == Environment.VANILLA) {
+            var meta = this.getVersionMeta().get();
+            var launch = new LaunchArguments(meta, buildSubstitutions(meta), Platform.CURRENT, this.getLogger()::warn);
+            if (launch.hasGameArguments()) {
+                this.args(launch.gameArguments().toArray());
+                var jvm = launch.jvmArguments();
+                if (!jvm.isEmpty()) {
+                    this.jvmArgs(jvm);
+                }
+                return;
+            }
+            this.getLogger().warn("Version meta for {} declares neither 'arguments' nor 'minecraftArguments'; using legacy launch arguments.", this.getMinecraftVersion().get());
+        }
+        appendLegacyArguments();
+    }
+
+    /** The pre-1.13 hardcoded argument list, resolved from the same properties as before (lazily, at exec time). */
+    private void appendLegacyArguments() {
+        this.args("--gameDir", (Supplier<File>) this::getWorkingDir,
+                "--version", this.getMinecraftVersion(),
+                "--assetIndex", this.getAssetIndexVersion(),
+                "--assetsDir", this.getVanillaAssetsLocation(),
+                "--username", this.getUsername(),
+                "--uuid", this.getUUID(),
+                "--accessToken", this.getAccessToken()
+        );
+    }
+
+    private Map<String, String> buildSubstitutions(VersionMeta meta) {
+        var substitutions = new LinkedHashMap<String, String>();
+        substitutions.put("auth_player_name", getUsername().get());
+        substitutions.put("version_name", getMinecraftVersion().get());
+        substitutions.put("game_directory", getWorkingDir().getAbsolutePath());
+        substitutions.put("assets_root", getVanillaAssetsLocation().get().getAsFile().getAbsolutePath());
+        substitutions.put("assets_index_name", getAssetIndexVersion().get());
+        substitutions.put("auth_uuid", getUUID().get());
+        substitutions.put("auth_access_token", getAccessToken().get());
+        substitutions.put("user_type", "legacy");
+        substitutions.put("version_type", meta.type() != null ? meta.type() : "release");
+        substitutions.put("natives_directory", getNatives().get().getAsFile().getAbsolutePath());
+        substitutions.put("clientid", "0");
+        substitutions.put("auth_xuid", "0");
+        substitutions.put("user_properties", "{}");
+        substitutions.put("launcher_name", "cleanroomgradle");
+        substitutions.put("launcher_version", getLauncherVersion().get());
+        return substitutions;
     }
 
 }
