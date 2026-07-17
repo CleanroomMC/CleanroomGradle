@@ -9,7 +9,7 @@ plugins {
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 group = 'com.cleanroommc'
-version = '0.0.1'
+version = '0.1.0'
 
 repositories {
     maven {
