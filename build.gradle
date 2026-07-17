@@ -34,6 +34,9 @@ dependencies {
     implementation 'de.siegmar:fastcsv:3.0.0'
     implementation 'org.tukaani:xz:1.12'
 
+    // CleanroomGradleSettings
+    implementation 'org.gradle.toolchains:foojay-resolver:1.0.0'
+
     // Forge
     implementation 'net.minecraftforge:srgutils:0.5.3'
     implementation 'net.minecraftforge:renamer-gradle:1.1.5'
@@ -53,6 +56,10 @@ gradlePlugin {
         cleanroomGradle {
             id = "${group}.gradle"
             implementationClass = "${group}.gradle.CleanroomGradle"
+        }
+        cleanroomGradleSettings {
+            id = "${group}.gradle.settings"
+            implementationClass = "${group}.gradle.CleanroomGradleSettings"
         }
     }
     automatedPublishing = true
