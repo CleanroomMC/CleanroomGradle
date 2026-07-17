@@ -3,6 +3,7 @@ package com.cleanroommc.gradle;
 import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.cleanroommc.gradle.api.util.CloseHttpClientFlowAction;
 import com.cleanroommc.gradle.api.util.Objects;
+import com.cleanroommc.gradle.env.CleanroomTasks;
 import com.cleanroommc.gradle.env.MCPTasks;
 import com.cleanroommc.gradle.env.VanillaTasks;
 import org.gradle.api.Plugin;
@@ -31,6 +32,10 @@ public abstract class CleanroomGradle implements Plugin<Project> {
         project.afterEvaluate($ -> {
             vanillaTasks.afterEvaluate($, cleanroomExtension);
             mcpTasks.afterEvaluate($, cleanroomExtension, vanillaTasks);
+
+            if (cleanroomExtension.getLoaderProject().get()) {
+                new CleanroomTasks(project, cleanroomExtension, vanillaTasks, mcpTasks);
+            }
         });
     }
 

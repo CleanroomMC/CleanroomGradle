@@ -56,18 +56,13 @@ public final class VanillaTasks {
     public final Provider<String> minecraftVersion;
     /** Metadata of {@link #minecraftVersion}: the extension's meta by default, launcher-manifest-resolved under {@code -Pmc}. */
     public final Provider<VersionMeta> versionMeta;
-    public final NamedDomainObjectProvider<Configuration> vanillaConfig;
-    public final NamedDomainObjectProvider<Configuration> vanillaNativesConfig;
-    public final TaskProvider<Download> downloadAssetIndex;
-    public final TaskProvider<Download> downloadClientJar;
-    public final TaskProvider<Download> downloadServerJar;
-    public final TaskProvider<Download> downloadClientMappings;
+    public final NamedDomainObjectProvider<Configuration> vanillaConfig, vanillaNativesConfig;
+    public final TaskProvider<Download> downloadAssetIndex, downloadClientJar, downloadServerJar, downloadClientMappings;
     public final TaskProvider<DownloadAssets> downloadAssets;
     public final TaskProvider<Copy> extractNatives;
     public final TaskProvider<RenameJar> remapClientToOfficial;
     public final TaskProvider<Decompile> decompileVersion;
-    public final TaskProvider<RunMinecraft> runVanillaClient;
-    public final TaskProvider<RunMinecraft> runVanillaServer;
+    public final TaskProvider<RunMinecraft> runVanillaClient, runVanillaServer;
 
     public VanillaTasks(Project project, CleanroomExtension ext) {
         var providers = project.getProviders();

@@ -61,42 +61,23 @@ public final class MCPTasks {
         return task;
     }
 
-    public final NamedDomainObjectProvider<Configuration> mcpConfig;
-    public final NamedDomainObjectProvider<Configuration> initialPatches;
-    public final NamedDomainObjectProvider<Configuration> mcpMappings;
-    public final NamedDomainObjectProvider<SourceSet> cleanSrgSource;
-    public final NamedDomainObjectProvider<SourceSet> srgSource;
-    public final NamedDomainObjectProvider<SourceSet> mcpSource;
-    public final TaskProvider<Copy> extractMcpConfig;
-    public final TaskProvider<Copy> extractInitialPatches;
-    public final TaskProvider<Copy> prepareApplyInitialDiffs;
-    public final TaskProvider<Copy> prepareCleanRecompile;
-    public final TaskProvider<Copy> extractMcpMappings;
-    public final TaskProvider<SplitJar> splitClientJar;
-    public final TaskProvider<SplitJar> splitServerJar;
+    public final NamedDomainObjectProvider<Configuration> mcpConfig, initialPatches, mcpMappings;
+    public final NamedDomainObjectProvider<SourceSet> cleanSrgSource, srgSource, mcpSource;
+    public final TaskProvider<Copy> extractMcpConfig, extractInitialPatches, prepareApplyInitialDiffs, prepareCleanRecompile, extractMcpMappings;
+    public final TaskProvider<SplitJar> splitClientJar, splitServerJar;
     public final TaskProvider<MergeJars> mergeJars;
     public final TaskProvider<RenameJar> remapNotch2Srg;
     public final TaskProvider<InjectMetadata> injectMetadata;
-    public final TaskProvider<RunMinecraft> runSrgClient;
-    public final TaskProvider<RunMinecraft> runSrgServer;
-    public final TaskProvider<RunMinecraft> runReobfSrgClient;
-    public final TaskProvider<RunMinecraft> runReobfSrgServer;
-    public final TaskProvider<RunMinecraft> runMcpClient;
-    public final TaskProvider<RunMinecraft> runMcpServer;
+    public final TaskProvider<RunMinecraft> runSrgClient, runSrgServer, runReobfSrgClient, runReobfSrgServer, runMcpClient, runMcpServer;
     public final TaskProvider<Decompile> decompileSrg;
-    public final TaskProvider<ApplyDiffs> applyInitialDiffs;
-    public final TaskProvider<ApplyDiffs> applyCleanInitialDiffs;
+    public final TaskProvider<ApplyDiffs> applyInitialDiffs, applyCleanInitialDiffs;
     public final TaskProvider<RemapSrg2Mcp> remapSrg2Mcp;
     public final TaskProvider<ImportMcpNames> importMcpNames;
-    public final TaskProvider<WriteMappings> writeObf2Srg;
-    public final TaskProvider<WriteMappings> writeSrg2Mcp;
-    public final TaskProvider<WriteMappings> writeMcp2Notch;
-    public final TaskProvider<Jar> srgJar;
-    public final TaskProvider<Jar> cleanSrgJar;
+    public final TaskProvider<WriteMappings> writeObf2Srg, writeSrg2Mcp, writeMcp2Notch;
+    public final TaskProvider<Jar> srgJar, cleanSrgJar;
     public final TaskProvider<GenerateBinPatches> genBinPatches;
 
-    private final Provider<String> activeNamesId;
-    private final Provider<String> mcpConfigVersion;
+    private final Provider<String> activeNamesId, mcpConfigVersion;
 
     public MCPTasks(Project project, CleanroomExtension ext, VanillaTasks vanilla) {
         this.mcpConfig = Objects.config(project, "mcpConfig", "de.oceanlabs.mcp:mcp_config:1.12.2-20201025.185735");
