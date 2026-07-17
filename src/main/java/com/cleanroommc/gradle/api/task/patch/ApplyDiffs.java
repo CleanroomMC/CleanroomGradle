@@ -1,7 +1,9 @@
 package com.cleanroommc.gradle.api.task.patch;
 
+import com.cleanroommc.gradle.api.util.IO;
 import com.github.difflib.DiffUtils;
 import com.github.difflib.UnifiedDiffUtils;
+import com.google.gson.JsonObject;
 import org.apache.commons.io.FileUtils;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.InvalidUserDataException;
@@ -33,6 +35,16 @@ public abstract class ApplyDiffs extends DefaultTask {
     @Input
     public abstract Property<Boolean> getInPlace();
 
+    /**
+     * The active names identity string (see {@link com.cleanroommc.gradle.api.names.NamesSource}). When
+     * present, the patches directory's {@code .mappings.json} stamp is validated against it: a mismatch
+     * fails the build, an absent stamp warns once (legacy patch set). Left unset for decompiler-level
+     * (srg) patch sets, which skips validation entirely.
+     */
+    @Optional
+    @Input
+    public abstract Property<String> getMappingsId();
+
     @Optional
     @OutputDirectory
     public abstract DirectoryProperty getModifiedDirectory();
@@ -48,9 +60,10 @@ public abstract class ApplyDiffs extends DefaultTask {
             throw new InvalidUserDataException("When inPlace is false, modifiedDirectory must be specified.");
         }
 
+        validateMappingsIdentity();
+
         var fsOps = this.getFileSystemOperations();
         var originalDir = this.getOriginalDirectory().get().getAsFile();
-        var patchesDir = this.getPatchesDirectory().get().getAsFile();
         var modifiedDir = inPlace ? null : this.getModifiedDirectory().get().getAsFile();
         var patchesTree = this.getPatchesDirectory().getAsFileTree().matching(pf -> pf.include("**/*.patch"));
         int totalPatches = patchesTree.getFiles().size();
@@ -88,6 +101,35 @@ public abstract class ApplyDiffs extends DefaultTask {
         });
 
         this.getLogger().lifecycle("{}/{} patches were applied.", counter.get(), totalPatches);
+    }
+
+    /**
+     * Verifies the patch set was generated in the same names as the active pipeline. Only runs when a
+     * {@code mappingsId} is configured (named patch sets); srg-level patch sets leave it unset.
+     */
+    private void validateMappingsIdentity() {
+        if (!this.getMappingsId().isPresent()) {
+            return;
+        }
+        var activeId = this.getMappingsId().get();
+        var stamp = new File(this.getPatchesDirectory().get().getAsFile(), ".mappings.json");
+        if (!stamp.isFile()) {
+            this.getLogger().warn(
+                    "Patch set {} has no .mappings.json (legacy patch set); applying against names '{}' without verification.",
+                    this.getPatchesDirectory().get().getAsFile(), activeId);
+            return;
+        }
+        var json = IO.readJson(stamp, JsonObject.class);
+        var patchId = json.has("names") ? json.get("names").getAsString() : null;
+        if (patchId == null || !patchId.equals(activeId)) {
+            throw new InvalidUserDataException(
+                    ("Mapping identity mismatch for patch set %s:%n"
+                            + "  patches were generated in names: %s%n"
+                            + "  the active names source is:       %s%n"
+                            + "Regenerate the patches (generate*Diffs) against the active names, "
+                            + "or switch the names source back (cleanroom.namesDirectory) to match.")
+                            .formatted(this.getPatchesDirectory().get().getAsFile(), patchId, activeId));
+        }
     }
 
 }

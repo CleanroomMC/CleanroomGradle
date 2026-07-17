@@ -2,6 +2,8 @@ package com.cleanroommc.gradle.api.task.patch;
 
 import com.github.difflib.DiffUtils;
 import com.github.difflib.UnifiedDiffUtils;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import org.apache.commons.io.FileUtils;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.DirectoryProperty;
@@ -9,6 +11,7 @@ import org.gradle.api.file.FileSystemOperations;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputDirectory;
+import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
@@ -17,7 +20,10 @@ import org.gradle.work.DisableCachingByDefault;
 
 import javax.inject.Inject;
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @DisableCachingByDefault(because = "Generates committed patches from a mutable development tree")
@@ -39,6 +45,21 @@ public abstract class GenerateDiffs extends DefaultTask {
 
     @Input
     public abstract Property<Boolean> getCleanOutput();
+
+    /**
+     * The names identity these patches are generated in (see {@link com.cleanroommc.gradle.api.names.NamesSource}).
+     * When present, a {@code .mappings.json} stamp is written into the patches directory
+     * so {@link ApplyDiffs} can refuse to apply them against a differently-named base.
+     * Absent for decompiler-level (srg) patch sets.
+     */
+    @Optional
+    @Input
+    public abstract Property<String> getMappingsId();
+
+    /** The mcp_config version recorded alongside the names id in {@code .mappings.json}. */
+    @Optional
+    @Input
+    public abstract Property<String> getMcpConfigVersion();
 
     @OutputDirectory
     public abstract DirectoryProperty getPatchesDirectory();
@@ -90,6 +111,28 @@ public abstract class GenerateDiffs extends DefaultTask {
             }
         });
         this.getLogger().lifecycle("{} files were patched.", counter.get());
+
+        writeMappingsStamp(patchesDir);
+    }
+
+    /** Records which names the patches were generated in, for {@link ApplyDiffs} to validate against. */
+    private void writeMappingsStamp(File patchesDir) {
+        if (!this.getMappingsId().isPresent()) {
+            return;
+        }
+        var json = new JsonObject();
+        json.addProperty("names", this.getMappingsId().get());
+        if (this.getMcpConfigVersion().isPresent()) {
+            json.addProperty("mcpConfig", this.getMcpConfigVersion().get());
+        }
+        var stamp = new File(patchesDir, ".mappings.json");
+        try {
+            patchesDir.mkdirs();
+            FileUtils.writeStringToFile(stamp, new GsonBuilder().setPrettyPrinting().create().toJson(json), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to write mapping-identity stamp " + stamp, e);
+        }
+        this.getLogger().lifecycle("Recorded names identity '{}' in {}", this.getMappingsId().get(), stamp);
     }
 
 }
