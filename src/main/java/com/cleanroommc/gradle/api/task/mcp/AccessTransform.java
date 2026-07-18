@@ -1,6 +1,7 @@
 package com.cleanroommc.gradle.api.task.mcp;
 
 import com.cleanroommc.gradle.api.task.MavenJarExec;
+import com.cleanroommc.gradle.api.util.IO;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
@@ -40,5 +41,11 @@ public abstract class AccessTransform extends MavenJarExec {
             this.args("--atFile", accessTransformer.getAbsolutePath());
         }
         super.beforeExec();
+    }
+
+    @Override
+    protected void afterExec() {
+        IO.normalizeZip(this.getOutputJar().get().getAsFile().toPath());
+        super.afterExec();
     }
 }

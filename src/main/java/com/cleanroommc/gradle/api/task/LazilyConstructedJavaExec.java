@@ -53,9 +53,12 @@ public abstract class LazilyConstructedJavaExec extends JavaExec {
         }
         beforeExec();
         super.exec();
+        afterExec();
     }
 
     protected void beforeExec() { }
+
+    protected void afterExec() { }
 
     @Override
     public void setAllJvmArgs(Iterable<?> arguments) {
