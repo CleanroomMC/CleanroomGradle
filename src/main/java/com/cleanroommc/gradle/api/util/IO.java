@@ -14,10 +14,15 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
@@ -103,6 +108,41 @@ public final class IO {
 
     public static ZipInputStream zipIn(File file) throws FileNotFoundException {
         return new ZipInputStream(in(file));
+    }
+
+    /** Rewrites a ZIP with stable entry order and timestamps. */
+    public static void normalizeZip(Path path) {
+        var temporary = path.resolveSibling(path.getFileName() + ".deterministic.tmp");
+        try {
+            var entries = new TreeMap<String, byte[]>();
+            try (var input = zipIn(path.toFile())) {
+                ZipEntry entry;
+                while ((entry = input.getNextEntry()) != null) {
+                    entries.put(entry.getName(), input.readAllBytes());
+                }
+            }
+            try (var output = zipOut(temporary.toFile())) {
+                for (var entry : entries.entrySet()) {
+                    var zipEntry = new ZipEntry(entry.getKey());
+                    zipEntry.setTime(0L);
+                    output.putNextEntry(zipEntry);
+                    output.write(entry.getValue());
+                    output.closeEntry();
+                }
+            }
+            try {
+                Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            try {
+                Files.deleteIfExists(temporary);
+            } catch (IOException suppressed) {
+                e.addSuppressed(suppressed);
+            }
+            throw new UncheckedIOException("Failed to normalize ZIP " + path, e);
+        }
     }
 
     public static BufferedReader reader(InputStream is, Charset charset) {
