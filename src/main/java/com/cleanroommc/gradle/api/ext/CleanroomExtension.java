@@ -97,9 +97,8 @@ public abstract class CleanroomExtension {
 
         private String dependsOn;
         private NamedDomainObjectProvider<SourceSet> sourceSet;
-        private TaskProvider<Copy> prepareSources;
+        private TaskProvider<Copy> prepareSources, copyToSourceSet;
         private TaskProvider<DefaultTask> prepareEnvironment;
-        private TaskProvider<Copy> copyToSourceSet;
         private TaskProvider<GenerateDiffs> generateDiffs;
         private TaskProvider<Zip> zipPatches;
 

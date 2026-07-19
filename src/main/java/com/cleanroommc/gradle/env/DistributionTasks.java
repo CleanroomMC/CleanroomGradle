@@ -40,9 +40,8 @@ public final class DistributionTasks {
     private static final String ARTIFACT_ID = "cleanroom";
 
     public final TaskProvider<WriteMappings> writeMcp2SrgDist, writeObf2SrgTsrg;
-    public final TaskProvider<RenameJar> reobfJar;
+    public final TaskProvider<RenameJar> reobfJar, reobfMinecraftJar;
     public final TaskProvider<Jar> minecraftClassesJar, universalJar, userdevJar, javadocJar;
-    public final TaskProvider<RenameJar> reobfMinecraftJar;
     public final TaskProvider<StripSideOnlyJar> stripClientMinecraftJar, stripServerMinecraftJar;
     public final TaskProvider<GenerateBinPatches> genClientBinPatches, genServerBinPatches;
     public final TaskProvider<Zip> genRuntimeBinPatches;
