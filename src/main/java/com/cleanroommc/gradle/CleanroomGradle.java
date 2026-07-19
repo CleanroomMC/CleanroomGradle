@@ -4,7 +4,9 @@ import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.cleanroommc.gradle.api.util.CloseHttpClientFlowAction;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.env.CleanroomTasks;
+import com.cleanroommc.gradle.env.DistributionTasks;
 import com.cleanroommc.gradle.env.MCPTasks;
+import com.cleanroommc.gradle.env.UserDevTasks;
 import com.cleanroommc.gradle.env.VanillaTasks;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -34,7 +36,9 @@ public abstract class CleanroomGradle implements Plugin<Project> {
             mcpTasks.afterEvaluate($, cleanroomExtension, vanillaTasks);
 
             if (cleanroomExtension.getLoaderProject().get()) {
-                new CleanroomTasks(project, cleanroomExtension, vanillaTasks, mcpTasks);
+                new CleanroomTasks($, cleanroomExtension, vanillaTasks, mcpTasks);
+                var distTasks = new DistributionTasks($, cleanroomExtension, vanillaTasks, mcpTasks);
+                new UserDevTasks($, cleanroomExtension, vanillaTasks, mcpTasks, distTasks);
             }
         });
     }
