@@ -37,7 +37,7 @@ class CleanroomGradlePluginTest {
                     }
                 }
                 plugins {
-                    id 'com.cleanroommc.gradle.settings'
+                    id 'com.cleanroommc.cleanroomgradle.settings'
                 }
                 rootProject.name = 'test-project'
                 """
@@ -47,7 +47,7 @@ class CleanroomGradlePluginTest {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
                 plugins {
                     id 'java'
-                    id 'com.cleanroommc.gradle'
+                    id 'com.cleanroommc.cleanroomgradle'
                 }
                 group = 'com.example'
                 cleanroom {
@@ -75,7 +75,7 @@ class CleanroomGradlePluginTest {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
                 plugins {
                     id 'java'
-                    id 'com.cleanroommc.gradle'
+                    id 'com.cleanroommc.cleanroomgradle'
                 }
 
                 dependencies {
@@ -119,7 +119,7 @@ class CleanroomGradlePluginTest {
 
                 plugins {
                     id 'java'
-                    id 'com.cleanroommc.gradle'
+                    id 'com.cleanroommc.cleanroomgradle'
                 }
 
                 def customOutput = layout.buildDirectory.file('custom-merge.txt')
@@ -179,7 +179,7 @@ class CleanroomGradlePluginTest {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
                 plugins {
                     id 'java'
-                    id 'com.cleanroommc.gradle'
+                    id 'com.cleanroommc.cleanroomgradle'
                 }
                 group = 'com.example'
                 cleanroom {
@@ -208,7 +208,7 @@ class CleanroomGradlePluginTest {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
                 plugins {
                     id 'java'
-                    id 'com.cleanroommc.gradle'
+                    id 'com.cleanroommc.cleanroomgradle'
                 }
                 group = 'com.cleanroommc'
                 version = '0.1.0'
@@ -243,7 +243,7 @@ class CleanroomGradlePluginTest {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
                 plugins {
                     id 'java'
-                    id 'com.cleanroommc.gradle'
+                    id 'com.cleanroommc.cleanroomgradle'
                 }
                 group = 'com.cleanroommc'
                 version = '0.1.0'
@@ -271,7 +271,7 @@ class CleanroomGradlePluginTest {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
                 plugins {
                     id 'java'
-                    id 'com.cleanroommc.gradle'
+                    id 'com.cleanroommc.cleanroomgradle'
                 }
                 group = 'com.cleanroommc'
                 version = '0.1.0'

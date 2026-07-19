@@ -11,7 +11,7 @@ import org.gradle.toolchains.foojay.FoojayToolchainsConventionPlugin;
  * To inject the dependency repositories a Cleanroom workspace needs, for the consuming
  * builds do not have to declare them by hand.
  *
- * <p>Applied in {@code settings.gradle(.kts)} via {@code id("com.cleanroommc.gradle.settings")},
+ * <p>Applied in {@code settings.gradle(.kts)} via {@code id("com.cleanroommc.cleanroomgradle.settings")},
  * after the plugin itself has been resolved through the consumer's own
  * {@code pluginManagement.repositories} (that bootstrap step cannot be short-circuited by this
  * plugin, since it has to run first to make this class available at all).</p>

@@ -54,11 +54,11 @@ test {
 gradlePlugin {
     plugins {
         cleanroomGradle {
-            id = "${group}.gradle"
+            id = "${group}.cleanroomgradle"
             implementationClass = "${group}.gradle.CleanroomGradle"
         }
         cleanroomGradleSettings {
-            id = "${group}.gradle.settings"
+            id = "${group}.cleanroomgradle.settings"
             implementationClass = "${group}.gradle.CleanroomGradleSettings"
         }
     }
@@ -73,7 +73,9 @@ jar {
 
 publishing {
     publications {
-        pluginMaven(MavenPublication)
+        pluginMaven(MavenPublication) {
+            artifactId = 'cleanroomgradle'
+        }
     }
     repositories {
         maven {
