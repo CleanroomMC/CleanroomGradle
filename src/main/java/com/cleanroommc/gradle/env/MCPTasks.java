@@ -10,7 +10,10 @@ import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.task.mcp.*;
 import com.cleanroommc.gradle.api.task.names.ImportMcpNames;
 import com.cleanroommc.gradle.api.task.patch.ApplyDiffs;
-import com.cleanroommc.gradle.api.task.patch.GenerateBinPatches;
+import com.cleanroommc.gradle.api.task.sas.ApplySAS;
+import com.cleanroommc.gradle.api.task.sas.CheckSAS;
+import com.cleanroommc.gradle.api.task.sas.ExtractInheritance;
+import com.cleanroommc.gradle.api.task.sas.StripSideOnlyJar;
 import net.minecraftforge.renamer.gradle.RenameJar;
 import net.minecraftforge.renamer.gradle.RenamerExtension;
 import net.minecraftforge.srgutils.IMappingFile;
@@ -62,20 +65,19 @@ public final class MCPTasks {
     }
 
     public final NamedDomainObjectProvider<Configuration> mcpConfig, initialPatches, mcpMappings;
-    public final NamedDomainObjectProvider<SourceSet> cleanSrgSource, srgSource, mcpSource;
-    public final TaskProvider<Copy> extractMcpConfig, extractInitialPatches, prepareApplyInitialDiffs, prepareCleanRecompile, extractMcpMappings;
+    public final NamedDomainObjectProvider<SourceSet> srgSource, mcpSource;
+    public final TaskProvider<Copy> extractMcpConfig, extractInitialPatches, prepareApplyInitialDiffs, extractMcpMappings;
     public final TaskProvider<SplitJar> splitClientJar, splitServerJar;
     public final TaskProvider<MergeJars> mergeJars;
     public final TaskProvider<RenameJar> remapNotch2Srg;
     public final TaskProvider<InjectMetadata> injectMetadata;
     public final TaskProvider<RunMinecraft> runSrgClient, runSrgServer, runReobfSrgClient, runReobfSrgServer, runMcpClient, runMcpServer;
     public final TaskProvider<Decompile> decompileSrg;
-    public final TaskProvider<ApplyDiffs> applyInitialDiffs, applyCleanInitialDiffs;
+    public final TaskProvider<ApplyDiffs> applyInitialDiffs;
     public final TaskProvider<RemapSrg2Mcp> remapSrg2Mcp;
     public final TaskProvider<ImportMcpNames> importMcpNames;
     public final TaskProvider<WriteMappings> writeObf2Srg, writeSrg2Mcp, writeMcp2Notch;
-    public final TaskProvider<Jar> srgJar, cleanSrgJar;
-    public final TaskProvider<GenerateBinPatches> genBinPatches;
+    public final TaskProvider<Jar> srgJar;
 
     private final Provider<String> activeNamesId, mcpConfigVersion;
 
@@ -97,7 +99,6 @@ public final class MCPTasks {
         var metadataInjector = toolConfiguration(project, "mcinjector", "de.oceanlabs.mcp:mcinjector:3.7.3");
         var decompiler = toolConfiguration(project, "decompiler", "com.cleanroommc:cleanflower:1.0.0");
 
-        this.cleanSrgSource = SourceSets.of(project, "cleanSrgSource");
         this.srgSource = SourceSets.of(project, "srgSource");
         this.mcpSource = SourceSets.of(project, "mcpSource");
 
@@ -117,9 +118,7 @@ public final class MCPTasks {
         this.decompileSrg = toolTask(project, ext, "decompileSrg", Decompile.class, decompiler);
         this.extractInitialPatches = Tasks.unzip(project, GROUP_NAME, "extractInitialPatches", this.initialPatches, ext.getVersionCacheDirectory().dir("initial_patches"));
         this.prepareApplyInitialDiffs = Tasks.unzip(project, GROUP_NAME, "prepareApplyInitialDiffs", this.decompileSrg.flatMap(Decompile::getDecompiledJar), ext.getLocalCacheDirectory().dir("decompileSrg/files"));
-        this.prepareCleanRecompile = Tasks.unzip(project, GROUP_NAME, "prepareCleanRecompile", this.decompileSrg.flatMap(Decompile::getDecompiledJar), ext.getLocalCacheDirectory().dir("cleanSrg/raw"));
         this.applyInitialDiffs = Tasks.of(project, GROUP_NAME, "applyInitialDiffs", ApplyDiffs.class);
-        this.applyCleanInitialDiffs = Tasks.of(project, GROUP_NAME, "applyCleanInitialDiffs", ApplyDiffs.class);
         this.runReobfSrgClient = Tasks.of(project, GROUP_NAME, "runReobfSrgClient", RunMinecraft.class);
         this.runReobfSrgServer = Tasks.of(project, GROUP_NAME, "runReobfSrgServer", RunMinecraft.class);
         this.extractMcpMappings = Tasks.unzip(project, GROUP_NAME, "extractMcpMappings", this.mcpMappings, ext.getVersionCacheDirectory().dir("mcp_mappings"));
@@ -129,23 +128,13 @@ public final class MCPTasks {
         this.writeSrg2Mcp = Tasks.of(project, GROUP_NAME, "writeSrg2Mcp", WriteMappings.class);
         this.writeMcp2Notch = Tasks.of(project, GROUP_NAME, "writeMcp2Notch", WriteMappings.class);
         this.srgJar = Tasks.jar(project, GROUP_NAME, "srgSourceJar", this.srgSource.map(SourceSet::getOutput), ext.getLocalCacheDirectory().file("sourceSets/srg/srg.jar"));
-        this.cleanSrgJar = Tasks.jar(project, GROUP_NAME, "cleanSrgSourceJar", this.cleanSrgSource.map(SourceSet::getOutput), ext.getLocalCacheDirectory().file("sourceSets/cleanSrg/clean.jar"));
-        this.genBinPatches = Tasks.of(project, GROUP_NAME, "genBinPatches", GenerateBinPatches.class);
         this.runMcpClient = Tasks.of(project, GROUP_NAME, "runMcpClient", RunMinecraft.class);
         this.runMcpServer = Tasks.of(project, GROUP_NAME, "runMcpServer", RunMinecraft.class);
 
-        SourceSets.linkSource(this.cleanSrgSource, ext.getLocalCacheDirectory().dir("sourceSets/cleanSrg/sources"));
-        SourceSets.extendFromConfiguration(project, this.cleanSrgSource, vanilla.vanillaConfig);
         SourceSets.linkSource(this.srgSource, ext.getLocalCacheDirectory().dir("sourceSets/srg/sources"));
         SourceSets.extendFromConfiguration(project, this.srgSource, vanilla.vanillaConfig);
         SourceSets.linkSource(this.mcpSource, ext.getLocalCacheDirectory().dir("sourceSets/mcp/sources"));
         SourceSets.extendFromConfiguration(project, this.mcpSource, vanilla.vanillaConfig);
-        this.cleanSrgSource.configure(sourceSet -> {
-            Tasks.<JavaCompile>named(project, sourceSet.getCompileJavaTaskName()).configure(task -> {
-                task.dependsOn(this.applyCleanInitialDiffs);
-                task.setGroup(GROUP_NAME);
-            });
-        });
         this.srgSource.configure(sourceSet -> {
             Tasks.<JavaCompile>named(project, sourceSet.getCompileJavaTaskName()).configure(task -> {
                 task.dependsOn(this.applyInitialDiffs);
@@ -231,7 +220,6 @@ public final class MCPTasks {
             task.getDecompiledJar().set(new File(task.getWorkingDir(), "decompiled.jar"));
         });
         this.prepareApplyInitialDiffs.configure(task -> task.dependsOn(this.decompileSrg));
-        this.prepareCleanRecompile.configure(task -> task.dependsOn(this.decompileSrg));
         this.applyInitialDiffs.configure(task -> {
             task.dependsOn(this.decompileSrg);
 
@@ -239,13 +227,6 @@ public final class MCPTasks {
             task.getPatchesDirectory().fileProvider(this.extractInitialPatches.map(Copy::getDestinationDir));
             // task.getInPlace().set(true);
             task.getModifiedDirectory().fileProvider(SourceSets.source(this.srgSource));
-        });
-        this.applyCleanInitialDiffs.configure(task -> {
-            task.dependsOn(this.prepareCleanRecompile, this.extractInitialPatches);
-
-            task.getOriginalDirectory().fileProvider(this.prepareCleanRecompile.map(Copy::getDestinationDir));
-            task.getPatchesDirectory().fileProvider(this.extractInitialPatches.map(Copy::getDestinationDir));
-            task.getModifiedDirectory().fileProvider(SourceSets.source(this.cleanSrgSource));
         });
         this.runReobfSrgClient.configure(task -> {
             task.dependsOn(SourceSets.compile(this.srgSource));
@@ -318,13 +299,6 @@ public final class MCPTasks {
             task.getFormat().set(IMappingFile.Format.TSRG);
             task.getOutput().set(ext.getLocalCacheDirectory().file("mappings/mcp2notch.tsrg"));
         });
-        this.genBinPatches.configure(task -> {
-            task.dependsOn(this.cleanSrgJar, this.srgJar);
-
-            task.getOriginalJar().set(this.cleanSrgJar.flatMap(Jar::getArchiveFile));
-            task.getModifiedJar().set(this.srgJar.flatMap(Jar::getArchiveFile));
-            task.getBinpatches().set(ext.getLocalCacheDirectory().file("binpatches.bin"));
-        });
         this.runMcpClient.configure(task -> {
             task.dependsOn(SourceSets.compile(this.mcpSource));
 
@@ -358,6 +332,10 @@ public final class MCPTasks {
     }
 
     public void afterEvaluate(Project project, CleanroomExtension ext, VanillaTasks vanilla) {
+        if (ext.getLoaderProject().get()) {
+            registerLoaderTasks(project, ext, vanilla);
+        }
+
         ext.getPatchDev().all(env -> {
             if (env.getName().equals("initial")) {
                 return;
@@ -374,7 +352,81 @@ public final class MCPTasks {
                 env.dependsOn("decompileSrg");
             });
             SourceSets.extendFromConfiguration(project, initial.get().getSourceSet(), vanilla.vanillaConfig);
+            var patchesDir = initial.get().getPatchesDirectory();
+            this.applyInitialDiffs.configure(task -> task.getPatchesDirectory().set(patchesDir));
         }
+    }
+
+    private void registerLoaderTasks(Project project, CleanroomExtension ext, VanillaTasks vanilla) {
+        var installerTools = toolConfiguration(project, "installertools", "net.minecraftforge:installertools:1.4.1:fatjar");
+        var accessTransformerTool = toolConfiguration(project, "accesstransformer", "net.minecraftforge:accesstransformers:8.2.17");
+
+        var extractInheritance = toolTask(project, ext, "extractInheritance", ExtractInheritance.class, installerTools);
+        var checkSAS = Tasks.of(project, GROUP_NAME, "checkSAS", CheckSAS.class);
+        var applySAS = Tasks.of(project, GROUP_NAME, "applySAS", ApplySAS.class);
+        var stripSrgClientJar = Tasks.of(project, GROUP_NAME, "stripSrgClientJar", StripSideOnlyJar.class);
+        var stripSrgServerJar = Tasks.of(project, GROUP_NAME, "stripSrgServerJar", StripSideOnlyJar.class);
+        var accessTransformSrgJar = toolTask(project, ext, "accessTransformSrgJar", AccessTransform.class, accessTransformerTool);
+
+        extractInheritance.configure(task -> {
+            task.dependsOn(this.injectMetadata);
+            task.getInputJar().set(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar));
+            task.getLibraries().from(vanilla.vanillaConfig);
+            task.getOutput().set(ext.getLocalCacheDirectory().file("sas/inheritance.json"));
+        });
+        checkSAS.configure(task -> {
+            task.dependsOn(extractInheritance);
+            task.getInheritance().set(extractInheritance.flatMap(ExtractInheritance::getOutput));
+            task.getSideAnnotationStrippers().from(ext.getSideAnnotationStrippers());
+            task.getOutput().set(ext.getLocalCacheDirectory().file("sas/normalized.sas"));
+        });
+        applySAS.configure(task -> {
+            task.dependsOn(checkSAS);
+            task.getInputJar().set(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar));
+            task.getSideAnnotationStrippers().from(checkSAS.flatMap(CheckSAS::getOutput));
+            task.getOutputJar().set(ext.getLocalCacheDirectory().file("sas/universal-srg.jar"));
+        });
+        stripSrgClientJar.configure(task -> {
+            task.dependsOn(applySAS);
+            task.getInputJar().set(applySAS.flatMap(ApplySAS::getOutputJar));
+            task.getTargetSide().set(Side.CLIENT);
+            task.getOutputJar().set(ext.getLocalCacheDirectory().file("sas/client-srg.jar"));
+        });
+        stripSrgServerJar.configure(task -> {
+            task.dependsOn(applySAS);
+            task.getInputJar().set(applySAS.flatMap(ApplySAS::getOutputJar));
+            task.getTargetSide().set(Side.SERVER);
+            task.getOutputJar().set(ext.getLocalCacheDirectory().file("sas/server-srg.jar"));
+        });
+        accessTransformSrgJar.configure(task -> {
+            task.dependsOn(this.injectMetadata);
+            task.getInputJar().set(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar));
+            task.getAccessTransformers().from(ext.getAccessTransformers());
+            task.getOutputJar().set(ext.getLocalCacheDirectory().file("sas/srg-at.jar"));
+        });
+
+        this.decompileSrg.configure(task -> {
+            task.dependsOn(applySAS);
+            task.getCompiledJar().set(applySAS.flatMap(ApplySAS::getOutputJar));
+        });
+        this.importMcpNames.configure(task -> {
+            task.dependsOn(applySAS);
+            task.getSrgJar().set(applySAS.flatMap(ApplySAS::getOutputJar));
+        });
+        this.runSrgClient.configure(task -> {
+            task.dependsOn(stripSrgClientJar);
+            task.setClasspath(project.files(
+                    stripSrgClientJar.flatMap(StripSideOnlyJar::getOutputJar),
+                    vanilla.vanillaConfig,
+                    this.splitClientJar.flatMap(SplitJar::getExtraJar)));
+        });
+        this.runSrgServer.configure(task -> {
+            task.dependsOn(stripSrgServerJar);
+            task.setClasspath(project.files(
+                    stripSrgServerJar.flatMap(StripSideOnlyJar::getOutputJar),
+                    vanilla.vanillaConfig,
+                    this.splitServerJar.flatMap(SplitJar::getExtraJar)));
+        });
     }
 
 }

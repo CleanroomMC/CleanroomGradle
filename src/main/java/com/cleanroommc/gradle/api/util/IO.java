@@ -20,7 +20,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.Locale;
-import java.util.Map;
 import java.util.TreeMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -143,6 +142,10 @@ public final class IO {
             }
             throw new UncheckedIOException("Failed to normalize ZIP " + path, e);
         }
+    }
+
+    public static BufferedReader reader(Path path, Charset charset) throws IOException {
+        return Files.newBufferedReader(path, charset);
     }
 
     public static BufferedReader reader(InputStream is, Charset charset) {
