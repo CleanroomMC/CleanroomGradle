@@ -154,8 +154,8 @@ class CleanroomGradlePluginTest {
     @Test
     void mcpTasksRegister() {
         // --dry-run resolves only the requested task graph
-        var result = runner("genBinPatches", "--dry-run").build();
-        assertTrue(result.getOutput().contains(":genBinPatches"), "genBinPatches not present");
+        var result = runner("remapSrg2Mcp", "--dry-run").build();
+        assertTrue(result.getOutput().contains(":remapSrg2Mcp"), "remapSrg2Mcp not present");
         assertTrue(result.getOutput().contains(":remapNotch2Srg"), "remapNotch2Srg not present");
         assertTrue(result.getOutput().contains(":mergeJars"), "mergeJars not present");
         assertTrue(result.getOutput().contains(":splitClientJar"), "splitClientJar not present");
@@ -163,9 +163,6 @@ class CleanroomGradlePluginTest {
         assertTrue(result.getOutput().contains(":extractMcpConfig"), "extractMcpConfig not present");
         assertTrue(result.getOutput().contains(":decompileSrg"), "decompileSrg not present");
         assertTrue(result.getOutput().contains(":applyInitialDiffs"), "applyInitialDiffs not present");
-        assertTrue(result.getOutput().contains(":prepareCleanRecompile"), "prepareCleanRecompile not present");
-        assertTrue(result.getOutput().contains(":applyCleanInitialDiffs"), "applyCleanInitialDiffs not present");
-        assertTrue(result.getOutput().contains(":cleanSrgSourceJar"), "cleanSrgSourceJar not present");
     }
 
     @Test
@@ -207,15 +204,101 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
+    void loaderProjectRegistersDistributionTasks() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.gradle'
+                }
+                group = 'com.cleanroommc'
+                version = '0.1.0'
+                cleanroom {
+                    loaderProject = true
+                }
+                """);
+
+        var result = runner("tasks", "--all").build();
+        var output = result.getOutput();
+        assertTrue(output.contains("universalJar"), "universalJar not present");
+        assertTrue(output.contains("userdevJar"), "userdevJar not present");
+        assertTrue(output.contains("javadocJar"), "javadocJar not present");
+        assertTrue(output.contains("reobfJar"), "reobfJar not present");
+        assertTrue(output.contains("genClientBinPatches"), "genClientBinPatches not present");
+        assertTrue(output.contains("genServerBinPatches"), "genServerBinPatches not present");
+        assertTrue(output.contains("genRuntimeBinPatches"), "genRuntimeBinPatches not present");
+        assertTrue(output.contains("runCleanroomClient"), "runCleanroomClient not present");
+        assertTrue(output.contains("runCleanroomServer"), "runCleanroomServer not present");
+        assertTrue(output.contains("accessTransformSrgJar"), "accessTransformSrgJar not present");
+        assertTrue(output.contains("extractInheritance"), "extractInheritance not present");
+        assertTrue(output.contains("checkSAS"), "checkSAS not present");
+        assertTrue(output.contains("applySAS"), "applySAS not present");
+        assertTrue(output.contains("stripSrgClientJar"), "stripSrgClientJar not present");
+        assertTrue(output.contains("stripSrgServerJar"), "stripSrgServerJar not present");
+        assertTrue(output.contains("stripClientMinecraftJar"), "stripClientMinecraftJar not present");
+        assertTrue(output.contains("stripServerMinecraftJar"), "stripServerMinecraftJar not present");
+    }
+
+    @Test
+    void sideOnlyPipelineDryRunResolvesTaskGraph() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.gradle'
+                }
+                group = 'com.cleanroommc'
+                version = '0.1.0'
+                cleanroom {
+                    loaderProject = true
+                }
+                """);
+
+        var result = runner("decompileSrg", "runSrgClient", "runSrgServer",
+                "genClientBinPatches", "genServerBinPatches", "--dry-run").build();
+        var output = result.getOutput();
+        assertTrue(output.contains(":extractInheritance"), "inheritance extraction not present");
+        assertTrue(output.contains(":checkSAS"), "SAS validation not present");
+        assertTrue(output.contains(":applySAS"), "SAS application not present");
+        assertTrue(output.contains(":stripSrgClientJar"), "SRG client stripping not present");
+        assertTrue(output.contains(":stripSrgServerJar"), "SRG server stripping not present");
+        assertTrue(output.contains(":stripClientMinecraftJar"), "release client stripping not present");
+        assertTrue(output.contains(":stripServerMinecraftJar"), "release server stripping not present");
+        assertTrue(output.contains(":genClientBinPatches"), "client binpatch generation not present");
+        assertTrue(output.contains(":genServerBinPatches"), "server binpatch generation not present");
+    }
+
+    @Test
+    void userdevJarDryRunResolvesTaskGraph() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.gradle'
+                }
+                group = 'com.cleanroommc'
+                version = '0.1.0'
+                cleanroom {
+                    loaderProject = true
+                }
+                """);
+
+        var result = runner("userdevJar", "--dry-run").build();
+        var output = result.getOutput();
+        assertTrue(output.contains(":userdevJar"), "userdevJar not present");
+        assertTrue(output.contains(":jar"), "jar not present");
+        assertTrue(output.contains(":genRuntimeBinPatches"), "genRuntimeBinPatches not present");
+        assertTrue(output.contains(":writeSrg2Mcp"), "writeSrg2Mcp not present");
+        assertTrue(output.contains(":writeMcp2SrgDist"), "writeMcp2SrgDist not present");
+    }
+
+    @Test
     void eligibleForConfigurationCache() throws IOException {
         Files.writeString(this.projectDir.resolve("gradle.properties"), "org.gradle.configuration-cache=true\norg.gradle.configuration-cache.problems=warn\n");
 
-        // genBinPatches --dry-run serializes the whole MCP task chain into the CC snapshot
-        var first = runner("genBinPatches", "--dry-run").build();
+        // remapSrg2Mcp --dry-run serializes the whole MCP task chain into the CC snapshot
+        var first = runner("remapSrg2Mcp", "--dry-run").build();
         assertTrue(first.getOutput().contains("Configuration cache entry stored"), "CC entry not stored on first run. Output:\n" + first.getOutput());
 
         // Second run: must reuse snapshot
-        var second = runner("genBinPatches", "--dry-run").build();
+        var second = runner("remapSrg2Mcp", "--dry-run").build();
         assertTrue(second.getOutput().contains("Reusing configuration cache"), "CC not reused on second run. Output:\n" + second.getOutput());
     }
 
