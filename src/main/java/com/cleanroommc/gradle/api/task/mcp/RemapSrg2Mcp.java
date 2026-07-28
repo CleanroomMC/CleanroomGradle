@@ -116,7 +116,8 @@ public abstract class RemapSrg2Mcp extends DefaultTask {
                         if (data.isEmpty()) {
                             this.getLogger().lifecycle("Skipping over {} when remapping. As file is empty.", file);
                         } else {
-                            FileUtils.writeLines(newFile, StandardCharsets.UTF_8.name(), SourceRenamer.rename(data, names, docs), null, false);
+                            // Always LF: the platform separator would make the source tree (and every patch
+                            FileUtils.writeLines(newFile, StandardCharsets.UTF_8.name(), SourceRenamer.rename(data, names, docs), "\n", false);
                         }
                     } catch (Throwable t) {
                         throw new RuntimeException("Unexpected error", t);

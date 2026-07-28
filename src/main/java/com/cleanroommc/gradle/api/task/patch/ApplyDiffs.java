@@ -92,7 +92,7 @@ public abstract class ApplyDiffs extends DefaultTask {
                         var originalLines = FileUtils.readLines(originalFile, StandardCharsets.UTF_8);
                         var patchedLines = DiffUtils.patch(originalLines, patch);
                         this.getLogger().lifecycle("Patching {}. {}/{} patches applied.", relativePath, counter.incrementAndGet(), totalPatches);
-                        FileUtils.writeLines(targetFile, StandardCharsets.UTF_8.name(), patchedLines, false);
+                        FileUtils.writeLines(targetFile, StandardCharsets.UTF_8.name(), patchedLines, "\n", false);
                     } catch (Throwable t) {
                         throw new RuntimeException("Unexpected error when patching %s".formatted(relativePath), t); // TODO: skip and log error?
                     }
