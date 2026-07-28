@@ -100,7 +100,7 @@ public abstract class GenerateDiffs extends DefaultTask {
                             var unifiedDiff = UnifiedDiffUtils.generateUnifiedDiff("original/" + header, "modified/" + header, originalLines, diff, contextLines);
                             var patchFile = new File(patchesDir, header + ".patch");
                             patchFile.delete();
-                            FileUtils.writeLines(new File(patchesDir, header + ".patch"), StandardCharsets.UTF_8.name(), unifiedDiff);
+                            FileUtils.writeLines(new File(patchesDir, header + ".patch"), StandardCharsets.UTF_8.name(), unifiedDiff, "\n");
                         }
                     } catch (Throwable t) {
                         throw new RuntimeException("Unexpected error", t); // TODO: skip and log error?
