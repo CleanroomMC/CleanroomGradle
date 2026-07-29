@@ -53,6 +53,9 @@ public abstract class CleanroomExtension {
 
     public abstract Property<String> getForgeVersion();
 
+    // TODO: just getVersion, but we have getForgeVersion atm that will be removed.
+    public abstract Property<String> getCleanroomVersion();
+
     /**
      * Directory holding a hand-edited Tiny2 names source ({@code mappings.tiny}).
      * Unset by default as the pipeline uses the MCP CSVs from the {@code mcpMappings} dependency.
@@ -165,7 +168,15 @@ public abstract class CleanroomExtension {
                     task.dependsOn(this.dependsOn);
                 }
             });
-            this.copyToSourceSet.configure(task -> task.dependsOn(this.prepareSources));
+            this.copyToSourceSet.configure(task -> {
+                task.dependsOn(this.prepareSources);
+                var target = SourceSets.source(this.sourceSet);
+                task.onlyIf("patch dev source tree is not yet populated", $ -> {
+                    var dir = target.get();
+                    var contents = dir.listFiles();
+                    return contents == null || contents.length == 0;
+                });
+            });
             this.prepareEnvironment.configure(task -> {
                 task.dependsOn(this.copyToSourceSet);
                 task.doLast($ -> {

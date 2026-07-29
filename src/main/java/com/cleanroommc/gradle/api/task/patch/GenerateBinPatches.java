@@ -4,7 +4,9 @@ import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.binpatch.BinDelta;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.provider.SetProperty;
 import org.gradle.api.tasks.CacheableTask;
+import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.PathSensitive;
@@ -23,6 +25,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.zip.ZipEntry;
@@ -44,6 +47,9 @@ public abstract class GenerateBinPatches extends DefaultTask {
     @PathSensitive(PathSensitivity.NONE)
     public abstract RegularFileProperty getModifiedJar();
 
+    @Input
+    public abstract SetProperty<String> getIncludedPrefixes();
+
     @OutputFile
     public abstract RegularFileProperty getBinpatches();
 
@@ -51,9 +57,10 @@ public abstract class GenerateBinPatches extends DefaultTask {
     public void generate() {
         Path output = getBinpatches().getAsFile().get().toPath();
         Path temporary = output.resolveSibling(output.getFileName() + ".tmp");
+        Set<String> prefixes = getIncludedPrefixes().get();
         try {
-            Map<String, byte[]> original = readClasses(getOriginalJar().getAsFile().get().toPath());
-            Map<String, byte[]> modified = readClasses(getModifiedJar().getAsFile().get().toPath());
+            Map<String, byte[]> original = readClasses(getOriginalJar().getAsFile().get().toPath(), prefixes);
+            Map<String, byte[]> modified = readClasses(getModifiedJar().getAsFile().get().toPath(), prefixes);
             Path parent = output.getParent();
             if (parent != null) {
                 Files.createDirectories(parent);
@@ -89,13 +96,13 @@ public abstract class GenerateBinPatches extends DefaultTask {
         }
     }
 
-    private static Map<String, byte[]> readClasses(Path jar) throws IOException {
+    private static Map<String, byte[]> readClasses(Path jar, Set<String> prefixes) throws IOException {
         Map<String, byte[]> classes = new TreeMap<>();
         try (var zip = new ZipFile(jar.toFile())) {
             var entries = zip.entries();
             while (entries.hasMoreElements()) {
                 ZipEntry entry = entries.nextElement();
-                if (entry.isDirectory() || !entry.getName().endsWith(".class")) {
+                if (entry.isDirectory() || !entry.getName().endsWith(".class") || !included(entry.getName(), prefixes)) {
                     continue;
                 }
                 try (InputStream input = zip.getInputStream(entry)) {
@@ -104,6 +111,18 @@ public abstract class GenerateBinPatches extends DefaultTask {
             }
         }
         return classes;
+    }
+
+    private static boolean included(String name, Set<String> prefixes) {
+        if (prefixes.isEmpty()) {
+            return true;
+        }
+        for (String prefix : prefixes) {
+            if (name.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void writeEntry(ZipOutputStream output, String name, byte[] data) throws IOException {

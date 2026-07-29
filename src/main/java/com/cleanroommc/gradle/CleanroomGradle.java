@@ -30,6 +30,7 @@ public abstract class CleanroomGradle implements Plugin<Project> {
 
         final var vanillaTasks = new VanillaTasks(project, cleanroomExtension);
         final var mcpTasks = new MCPTasks(project, cleanroomExtension, vanillaTasks);
+        UserDevTasks.configuration(project);
 
         project.afterEvaluate($ -> {
             vanillaTasks.afterEvaluate($, cleanroomExtension);
@@ -37,8 +38,9 @@ public abstract class CleanroomGradle implements Plugin<Project> {
 
             if (cleanroomExtension.getLoaderProject().get()) {
                 new CleanroomTasks($, cleanroomExtension, vanillaTasks, mcpTasks);
-                var distTasks = new DistributionTasks($, cleanroomExtension, vanillaTasks, mcpTasks);
-                new UserDevTasks($, cleanroomExtension, vanillaTasks, mcpTasks, distTasks);
+                new DistributionTasks($, cleanroomExtension, vanillaTasks, mcpTasks);
+            } else if (UserDevTasks.requested($, cleanroomExtension)) {
+                new UserDevTasks($, cleanroomExtension, vanillaTasks, mcpTasks);
             }
         });
     }

@@ -117,20 +117,23 @@ public abstract class DownloadAssets extends DefaultTask {
             for (int retry = 0; retry < 5; retry++) {
                 try (var is = params.getSourceUrl().get().openStream()) {
                     var target = params.getTargetFile().get();
+                    int size;
                     try (var os = FileUtils.openOutputStream(target)) {
-                        int size = IOUtils.copy(is, os);
-                        if (size != params.getSize().get()) {
-                            FileUtils.deleteQuietly(target);
-                            throw new RuntimeException("Asset %s had mismatching sizes. Downloaded %s | Expected %s ".formatted(
-                                    target.getAbsolutePath(), size, params.getSize().get()));
-                        } else if (!IO.sha1Match(target, params.getSha1().get())) {
-                            FileUtils.deleteQuietly(target);
-                            throw new RuntimeException("Asset %s had mismatching checksums. Downloaded %s | Expected %s ".formatted(
-                                    target.getAbsolutePath(), IO.sha1(target), params.getSha1().get()));
-                        }
-                        params.getDownloads().get().incrementAndGet();
-                        return;
+                        size = IOUtils.copy(is, os);
                     }
+                    if (size != params.getSize().get()) {
+                        FileUtils.deleteQuietly(target);
+                        throw new RuntimeException("Asset %s had mismatching sizes. Downloaded %s | Expected %s "
+                                .formatted(target.getAbsolutePath(), size, params.getSize().get()));
+                    }
+                    if (!IO.sha1Match(target, params.getSha1().get())) {
+                        var actual = IO.sha1(target);
+                        FileUtils.deleteQuietly(target);
+                        throw new RuntimeException("Asset %s had mismatching checksums. Downloaded %s | Expected %s "
+                                .formatted(target.getAbsolutePath(), actual, params.getSha1().get()));
+                    }
+                    params.getDownloads().get().incrementAndGet();
+                    return;
                 } catch (IOException e) {
                     if (retry == 4) {
                         throw new RuntimeException("5 retries failed, unable to download.", e);

@@ -8,6 +8,7 @@ import org.apache.commons.io.IOUtils;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ModuleDependency;
 import org.gradle.api.file.FileSystemLocation;
 import org.gradle.api.provider.Provider;
@@ -46,6 +47,27 @@ public final class Objects {
 
     public static ModuleDependency dependency(Project project, NamedDomainObjectProvider<Configuration> configuration, String notation) {
         return (ModuleDependency) project.getDependencies().add(configuration.getName(), notation);
+    }
+
+    public static Dependency firstDependency(Configuration configuration) {
+        var dependencies = configuration.getAllDependencies();
+        if (dependencies.isEmpty()) {
+            configuration.getIncoming().getDependencies();
+            dependencies = configuration.getAllDependencies();
+        }
+        if (dependencies.isEmpty()) {
+            throw new IllegalStateException("Configuration '" + configuration.getName() + "' has no dependencies.");
+        }
+        return dependencies.iterator().next();
+    }
+
+    public static String notation(Configuration configuration) {
+        var dependency = firstDependency(configuration);
+        var version = dependency.getVersion();
+        if (version == null) {
+            throw new IllegalStateException("Dependency '" + dependency + "' of configuration '" + configuration.getName() + "' has no version.");
+        }
+        return dependency.getGroup() + ":" + dependency.getName() + ":" + version;
     }
 
     public static Object unravel(Object object) {

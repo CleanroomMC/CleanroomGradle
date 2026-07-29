@@ -26,7 +26,6 @@ import net.minecraftforge.fml.relauncher.Side;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
-import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
@@ -79,6 +78,9 @@ public final class MCPTasks {
     public final TaskProvider<WriteMappings> writeObf2Srg, writeSrg2Mcp, writeMcp2Notch;
     public final TaskProvider<Jar> srgJar;
 
+    /** {@code MCP_VERSION} and {@code MCP_MAPPINGS} as the dev runtime expects them, e.g. {@code 20201025.185735} and {@code stable_39}. */
+    public final Provider<String> mcpVersionId, mcpMappingsId;
+
     private final Provider<String> activeNamesId, mcpConfigVersion;
 
     public MCPTasks(Project project, CleanroomExtension ext, VanillaTasks vanilla) {
@@ -89,11 +91,13 @@ public final class MCPTasks {
         var tinyFile = ext.getNamesDirectory().file("mappings.tiny");
         var tinyFileWhenPresent = tinyFile.map(RegularFile::getAsFile).filter(File::isFile);
         var mcpNamesId = this.mcpMappings.map(cfg -> {
-            var dep = firstDependency(cfg);
+            var dep = Objects.firstDependency(cfg);
             return NamesSource.mcpId(dep.getName(), dep.getVersion());
         });
         this.activeNamesId = tinyFileWhenPresent.map(NamesSource::tiny2Id).orElse(mcpNamesId);
-        this.mcpConfigVersion = this.mcpConfig.map(cfg -> firstDependency(cfg).getVersion());
+        this.mcpConfigVersion = this.mcpConfig.map(cfg -> Objects.firstDependency(cfg).getVersion());
+        this.mcpVersionId = this.mcpConfig.map(MCPTasks::deriveMcpVersion);
+        this.mcpMappingsId = this.mcpMappings.map(MCPTasks::deriveMcpMappings);
 
         var mergeTool = toolConfiguration(project, "mergetool", "net.minecraftforge:mergetool:1.2.2");
         var metadataInjector = toolConfiguration(project, "mcinjector", "de.oceanlabs.mcp:mcinjector:3.7.3");
@@ -264,7 +268,6 @@ public final class MCPTasks {
             task.getMcpNames().from(this.mcpMappings);
             task.getConstructorsFile().set(mcpConfigDir.map(dir -> dir.file("constructors.txt")));
             task.getNamesDirectoryConfigured().set(ext.getNamesDirectory().map(dir -> true).orElse(false));
-            // Fallback keeps the @OutputFile satisfied so the action can raise a clear error when unset.
             task.getTinyFile().set(tinyFile.orElse(ext.getLocalCacheDirectory().file("names/mappings.tiny")));
         });
         this.writeObf2Srg.configure(task -> {
@@ -284,8 +287,9 @@ public final class MCPTasks {
             task.getTinyMappings().fileProvider(tinyFileWhenPresent);
             task.getNamesId().set(this.activeNamesId);
             task.getDirection().set(WriteMappings.Direction.SRG_TO_MCP);
-            task.getFormat().set(IMappingFile.Format.SRG);
-            task.getOutput().set(ext.getLocalCacheDirectory().file("mappings/srg2mcp.srg"));
+            // TSRG, not SRG
+            task.getFormat().set(IMappingFile.Format.TSRG);
+            task.getOutput().set(ext.getLocalCacheDirectory().file("mappings/srg2mcp.tsrg"));
         });
         this.writeMcp2Notch.configure(task -> {
             task.dependsOn(this.extractMcpConfig, this.extractMcpMappings);
@@ -319,16 +323,29 @@ public final class MCPTasks {
         });
     }
 
-    private static Dependency firstDependency(Configuration config) {
-        var dependencies = config.getAllDependencies();
-        if (dependencies.isEmpty()) {
-            config.getIncoming().getDependencies();
-            dependencies = config.getAllDependencies();
+    private static String deriveMcpVersion(Configuration config) {
+        var version = Objects.firstDependency(config).getVersion();
+        if (version == null) {
+            throw new IllegalStateException("mcpConfig dependency has no version to derive MCP_VERSION from.");
         }
-        if (dependencies.isEmpty()) {
-            throw new IllegalStateException("Configuration '" + config.getName() + "' has no dependencies to derive mapping identity from.");
+        // e.g. "1.12.2-20260220.202731" -> "20260220.202731"
+        var dash = version.indexOf('-');
+        return dash < 0 ? version : version.substring(dash + 1);
+    }
+
+    private static String deriveMcpMappings(Configuration config) {
+        var dependency = Objects.firstDependency(config);
+        var name = dependency.getName();
+        // e.g. "mcp_stable" -> "stable"
+        var channel = name.startsWith("mcp_") ? name.substring("mcp_".length()) : name;
+        var version = dependency.getVersion();
+        if (version == null) {
+            throw new IllegalStateException("mcpMappings dependency has no version to derive MCP_MAPPINGS from.");
         }
-        return dependencies.iterator().next();
+        // e.g. "39-1.12" -> "39"
+        var dash = version.indexOf('-');
+        var mappingVersion = dash < 0 ? version : version.substring(0, dash);
+        return channel + "_" + mappingVersion;
     }
 
     public void afterEvaluate(Project project, CleanroomExtension ext, VanillaTasks vanilla) {
@@ -348,8 +365,8 @@ public final class MCPTasks {
 
         if (ext.getDevelopInitialPatches().get()) {
             var initial = ext.getPatchDev().register("initial", env -> {
-                env.getSource().set(this.decompileSrg.flatMap(Decompile::getDecompiledJar).map(RegularFile::getAsFile));
-                env.dependsOn("decompileSrg");
+                env.getSource().set(ext.getLocalCacheDirectory().dir("decompileSrg/files").get().getAsFile());
+                env.dependsOn("prepareApplyInitialDiffs");
             });
             SourceSets.extendFromConfiguration(project, initial.get().getSourceSet(), vanilla.vanillaConfig);
             var patchesDir = initial.get().getPatchesDirectory();
@@ -398,20 +415,22 @@ public final class MCPTasks {
             task.getTargetSide().set(Side.SERVER);
             task.getOutputJar().set(ext.getLocalCacheDirectory().file("sas/server-srg.jar"));
         });
+        // The AT runs after SAS and feeds the decompiler: the loader's own code accesses Minecraft
+        // members the access transformers widen, so the workspace source has to be the widened one.
         accessTransformSrgJar.configure(task -> {
-            task.dependsOn(this.injectMetadata);
-            task.getInputJar().set(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar));
+            task.dependsOn(applySAS);
+            task.getInputJar().set(applySAS.flatMap(ApplySAS::getOutputJar));
             task.getAccessTransformers().from(ext.getAccessTransformers());
             task.getOutputJar().set(ext.getLocalCacheDirectory().file("sas/srg-at.jar"));
         });
 
         this.decompileSrg.configure(task -> {
-            task.dependsOn(applySAS);
-            task.getCompiledJar().set(applySAS.flatMap(ApplySAS::getOutputJar));
+            task.dependsOn(accessTransformSrgJar);
+            task.getCompiledJar().set(accessTransformSrgJar.flatMap(AccessTransform::getOutputJar));
         });
         this.importMcpNames.configure(task -> {
-            task.dependsOn(applySAS);
-            task.getSrgJar().set(applySAS.flatMap(ApplySAS::getOutputJar));
+            task.dependsOn(accessTransformSrgJar);
+            task.getSrgJar().set(accessTransformSrgJar.flatMap(AccessTransform::getOutputJar));
         });
         this.runSrgClient.configure(task -> {
             task.dependsOn(stripSrgClientJar);
