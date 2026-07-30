@@ -174,8 +174,8 @@ class CleanroomGradlePluginTest {
 
     @Test
     void patchDevEnvironmentWorks() throws IOException {
-        Files.createDirectories(this.projectDir.resolve("modified-src"));
-        Files.writeString(this.projectDir.resolve("modified-src").resolve("A.java"), "class A {}\n");
+        Files.createDirectories(this.projectDir.resolve("build/input-src"));
+        Files.writeString(this.projectDir.resolve("build/input-src/A.java"), "class A {}\n");
         Files.writeString(this.projectDir.resolve("build.gradle"), """
                 plugins {
                     id 'java'
@@ -185,22 +185,30 @@ class CleanroomGradlePluginTest {
                 cleanroom {
                     patchDev {
                         example {
-                            source = file('modified-src')
+                            input = layout.buildDirectory.dir('input-src')
+                            patches = layout.projectDirectory.dir('custom-patches')
+                            output = layout.projectDirectory.dir('custom-output')
                         }
                     }
                 }
                 """);
-        Files.writeString(projectDir.resolve("gradle.properties"), "org.gradle.configuration-cache=true\norg.gradle.configuration-cache.problems=warn\n");
+        Files.writeString(projectDir.resolve("gradle.properties"), "org.gradle.configuration-cache=true\norg.gradle.configuration-cache.problems=fail\n");
 
         var first = runner("prepareExamplePatchDevEnvironment").build();
         assertEquals(TaskOutcome.SUCCESS, first.task(":prepareExamplePatchDevEnvironment").getOutcome());
+        assertTrue(first.getOutput().contains("Configuration cache entry stored"), "CC entry not stored on first run. Output:\n" + first.getOutput());
+        var output = this.projectDir.resolve("custom-output/A.java");
+        assertTrue(Files.exists(output), "configured patchDev output was not populated");
 
-        var dryRun = runner("generateExampleDiffs", "--dry-run").build();
-        assertTrue(dryRun.getOutput().contains(":generateExampleDiffs"), "generateExampleDiffs not present");
+        Files.writeString(output, "class A { int value; }\n");
+        var generated = runner("generateExampleDiffs").build();
+        assertEquals(TaskOutcome.SUCCESS, generated.task(":generateExampleDiffs").getOutcome());
+        assertTrue(Files.exists(this.projectDir.resolve("custom-patches/A.java.patch")), "configured patches output was not used");
 
         // The prepare task's validation must survive CC serialization
         var second = runner("prepareExamplePatchDevEnvironment").build();
         assertEquals(TaskOutcome.SUCCESS, second.task(":prepareExamplePatchDevEnvironment").getOutcome());
+        assertTrue(second.getOutput().contains("Reusing configuration cache"), "CC not reused on second run. Output:\n" + second.getOutput());
     }
 
     @Test

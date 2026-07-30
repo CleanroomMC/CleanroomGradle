@@ -44,6 +44,16 @@ public final class Tasks {
         return provider;
     }
 
+    public static TaskProvider<Copy> copyDirectory(Project project, String group, String name, Object from, Object to) {
+        var provider = project.getTasks().register(name, Copy.class);
+        provider.configure(task -> {
+            task.setGroup(group);
+            task.from(from);
+            task.into(to);
+        });
+        return provider;
+    }
+
     public static TaskProvider<Copy> unzip(Project project, String group, String name, Object from, Object to) {
         var provider = project.getTasks().register(name, Copy.class);
         provider.configure(task -> {

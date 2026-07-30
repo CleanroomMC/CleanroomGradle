@@ -365,11 +365,11 @@ public final class MCPTasks {
 
         if (ext.getDevelopInitialPatches().get()) {
             var initial = ext.getPatchDev().register("initial", env -> {
-                env.getSource().set(ext.getLocalCacheDirectory().dir("decompileSrg/files").get().getAsFile());
+                env.getInput().set(ext.getLocalCacheDirectory().dir("decompileSrg/files"));
                 env.dependsOn("prepareApplyInitialDiffs");
             });
             SourceSets.extendFromConfiguration(project, initial.get().getSourceSet(), vanilla.vanillaConfig);
-            var patchesDir = initial.get().getPatchesDirectory();
+            var patchesDir = initial.get().getPatches();
             this.applyInitialDiffs.configure(task -> task.getPatchesDirectory().set(patchesDir));
         }
     }

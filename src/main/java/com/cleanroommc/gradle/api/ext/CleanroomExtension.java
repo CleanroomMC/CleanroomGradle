@@ -6,11 +6,11 @@ import com.cleanroommc.gradle.api.source.BundledVersionMetaValueSource;
 import com.cleanroommc.gradle.api.source.VersionMetaValueSource;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.patch.GenerateDiffs;
-import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.lazy.SourceSets;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.*;
 import org.gradle.api.file.ConfigurableFileCollection;
+import org.gradle.api.file.Directory;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.provider.Property;
@@ -21,7 +21,6 @@ import org.gradle.api.tasks.bundling.Zip;
 
 import javax.inject.Inject;
 import java.io.File;
-import java.io.IOException;
 
 public abstract class CleanroomExtension {
 
@@ -90,11 +89,11 @@ public abstract class CleanroomExtension {
 
     public static abstract class PatchDevEnvironment implements Named {
 
-        public abstract DirectoryProperty getPatchesDirectory();
+        public abstract DirectoryProperty getInput();
 
-        // Not to use DirectoryProperty or RegularFileProperty here
-        // As this can be a directory or file
-        public abstract Property<File> getSource();
+        public abstract DirectoryProperty getPatches();
+
+        public abstract DirectoryProperty getOutput();
 
         private final String name;
 
@@ -108,7 +107,8 @@ public abstract class CleanroomExtension {
         @Inject
         public PatchDevEnvironment(String name, ProjectLayout layout) {
             this.name = name;
-            this.getPatchesDirectory().convention(layout.getProjectDirectory().dir("patches").dir(name));
+            this.getPatches().convention(layout.getProjectDirectory().dir("patches").dir(name));
+            this.getOutput().convention(layout.getProjectDirectory().dir("src/" + name + "PatchDev/java"));
         }
 
         @Override
@@ -155,11 +155,14 @@ public abstract class CleanroomExtension {
             var patchDevDir = localCache.dir("patchDev/" + name);
             var sourcesDir = patchDevDir.map(dir -> dir.dir("sources").getAsFile());
             var patchesZip = patchDevDir.map(dir -> dir.file("patches.zip").getAsFile());
-            var source = this.getSource();
+            var input = this.getInput().map(Directory::getAsFile);
+            var output = this.getOutput();
 
-            this.prepareSources = Tasks.copy(project, groupName, "prepare" + capitalizedName + "Sources", source, sourcesDir);
+            SourceSets.linkSource(this.sourceSet, output);
+
+            this.prepareSources = Tasks.copyDirectory(project, groupName, "prepare" + capitalizedName + "Sources", input, sourcesDir);
             this.prepareEnvironment = Tasks.of(project, groupName, "prepare" + capitalizedName + "PatchDevEnvironment");
-            this.copyToSourceSet = Tasks.copy(project, groupName, "copy" + capitalizedName + "ToSourceSet", sourcesDir, SourceSets.source(this.sourceSet));
+            this.copyToSourceSet = Tasks.copyDirectory(project, groupName, "copy" + capitalizedName + "ToSourceSet", sourcesDir, output);
             this.generateDiffs = Tasks.of(project, groupName, "generate" + capitalizedName + "Diffs", GenerateDiffs.class);
             this.zipPatches = Tasks.zip(project, groupName, "zip" + capitalizedName + "Patches", this.generateDiffs.map(GenerateDiffs::getPatchesDirectory), patchesZip);
 
@@ -170,9 +173,8 @@ public abstract class CleanroomExtension {
             });
             this.copyToSourceSet.configure(task -> {
                 task.dependsOn(this.prepareSources);
-                var target = SourceSets.source(this.sourceSet);
                 task.onlyIf("patch dev source tree is not yet populated", $ -> {
-                    var dir = target.get();
+                    var dir = output.get().getAsFile();
                     var contents = dir.listFiles();
                     return contents == null || contents.length == 0;
                 });
@@ -180,30 +182,20 @@ public abstract class CleanroomExtension {
             this.prepareEnvironment.configure(task -> {
                 task.dependsOn(this.copyToSourceSet);
                 task.doLast($ -> {
-                    if (!source.isPresent()) {
-                        throw new InvalidUserDataException("source for %s must be set!".formatted(name));
+                    if (!input.isPresent()) {
+                        throw new InvalidUserDataException("input for %s must be set!".formatted(name));
                     }
-                    var file = source.get();
+                    var file = input.get();
                     if (!file.isDirectory()) {
-                        if (file.isFile()) {
-                            try (var zipIn = IO.zipIn(file)) {
-                                if (zipIn.getNextEntry() == null) {
-                                    throw new IOException("Zip is empty.");
-                                }
-                            } catch (IOException e) {
-                                throw new InvalidUserDataException("source for %s is an invalid zip!".formatted(name));
-                            }
-                        } else {
-                            throw new InvalidUserDataException("source for %s is invalid!".formatted(name));
-                        }
+                        throw new InvalidUserDataException("input for %s is invalid!".formatted(name));
                     }
                 });
             });
             this.generateDiffs.configure(task -> {
                 task.dependsOn(this.copyToSourceSet);
                 task.getOriginalDirectory().fileProvider(sourcesDir);
-                task.getModifiedDirectory().fileProvider(SourceSets.source(this.sourceSet));
-                task.getPatchesDirectory().value(this.getPatchesDirectory());
+                task.getModifiedDirectory().set(output);
+                task.getPatchesDirectory().set(this.getPatches());
             });
             this.zipPatches.configure(task -> task.dependsOn(this.generateDiffs));
         }
