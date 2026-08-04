@@ -85,7 +85,7 @@ public final class MCPTasks {
 
     public MCPTasks(Project project, CleanroomExtension ext, VanillaTasks vanilla) {
         this.mcpConfig = Objects.config(project, "mcpConfig", "de.oceanlabs.mcp:mcp_config:1.12.2-20201025.185735");
-        this.initialPatches = Objects.config(project, "initialPatches", "com.cleanroommc:initial-patches:1.1.0");
+        this.initialPatches = Objects.config(project, "initialPatches", "com.cleanroommc:initial-patches:1.2.0");
         this.mcpMappings = Objects.config(project, "mcpMappings", "de.oceanlabs.mcp:mcp_stable:39-1.12@zip");
 
         var tinyFile = ext.getNamesDirectory().file("mappings.tiny");
