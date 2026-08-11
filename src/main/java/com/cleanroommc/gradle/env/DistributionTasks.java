@@ -5,6 +5,7 @@ import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.dist.LzmaCompress;
 import com.cleanroommc.gradle.api.task.dist.WriteUserdevConfig;
+import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.task.patch.GenerateBinPatches;
@@ -15,7 +16,14 @@ import net.minecraftforge.renamer.gradle.RenamerExtension;
 import net.minecraftforge.srgutils.IMappingFile;
 import net.minecraftforge.fml.relauncher.Side;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.component.ComponentIdentifier;
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
+import org.gradle.api.artifacts.result.ResolvedComponentResult;
+import org.gradle.api.artifacts.result.ResolvedDependencyResult;
+import org.gradle.api.attributes.Category;
+import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
@@ -29,8 +37,12 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Registers the Cleanroom release/distribution pipeline.
@@ -87,7 +99,8 @@ public final class DistributionTasks {
                 "LICENSE.txt",
                 "LICENSE-Paulscode IBXM Library.txt",
                 "LICENSE-Paulscode SoundSystem CodecIBXM.txt",
-                layout.getBuildDirectory().file("changelog.txt"));
+                layout.getBuildDirectory().file("changelog.txt")
+        );
 
         this.writeMcp2SrgDist = Tasks.of(project, GROUP_NAME, "writeMcp2SrgDist", WriteMappings.class);
         this.writeObf2SrgTsrg = Tasks.of(project, GROUP_NAME, "writeObf2SrgTsrg", WriteMappings.class);
@@ -260,11 +273,7 @@ public final class DistributionTasks {
             task.getMcp2Srg().set(USERDEV_MCP2SRG);
             task.getAccessTransformers().set(ext.getAccessTransformers().getElements().map(files ->
                     files.stream().map(file -> USERDEV_ATS + "/" + file.getAsFile().getName()).toList()));
-            task.getLibraries().set(project.getConfigurations().named("runtimeClasspath").map(config ->
-                    config.getAllDependencies().stream()
-                            .filter(dependency -> dependency.getGroup() != null && dependency.getVersion() != null)
-                            .map(dependency -> dependency.getGroup() + ":" + dependency.getName() + ":" + dependency.getVersion())
-                            .toList()));
+            task.getLibraries().set(resolvedLibraries(project).zip(LwjglNatives.publishedCoordinates(project, ext), DistributionTasks::mergeLibraries));
             task.getLoaderGroup().set(group);
             task.getOutput().set(ext.getLocalCacheDirectory().file("dist/" + UserdevConfig.FILE_NAME));
         });
@@ -307,6 +316,66 @@ public final class DistributionTasks {
     private static String specVersion(String version) {
         var idx = version.indexOf('+');
         return idx == -1 ? version : version.substring(0, idx);
+    }
+
+    private static Provider<List<String>> resolvedLibraries(Project project) {
+        return project.getConfigurations().named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME)
+                .flatMap(config -> config.getIncoming().getResolutionResult().getRootComponent())
+                .map(root -> {
+                    var coordinates = new LinkedHashSet<String>();
+                    collectModules(root, coordinates, new HashSet<>());
+                    return List.copyOf(coordinates);
+                });
+    }
+
+    private static void collectModules(ResolvedComponentResult component, Set<String> coordinates, Set<ComponentIdentifier> seen) {
+        if (!seen.add(component.getId())) {
+            return;
+        }
+        // A platform contributes versions rather than a jar, so it is not a library to put on a classpath
+        if (component.getId() instanceof ModuleComponentIdentifier module && !isPlatform(component)) {
+            coordinates.add(module.getGroup() + ":" + module.getModule() + ":" + module.getVersion());
+        }
+        for (var dependency : component.getDependencies()) {
+            if (dependency instanceof ResolvedDependencyResult resolved) {
+                collectModules(resolved.getSelected(), coordinates, seen);
+            }
+        }
+    }
+
+    private static boolean isPlatform(ResolvedComponentResult component) {
+        for (var variant : component.getVariants()) {
+            var attributes = variant.getAttributes();
+            for (var attribute : attributes.keySet()) {
+                if (!Category.CATEGORY_ATTRIBUTE.getName().equals(attribute.getName())) {
+                    continue;
+                }
+                var category = String.valueOf(attributes.getAttribute(attribute));
+                if (Category.REGULAR_PLATFORM.equals(category) || Category.ENFORCED_PLATFORM.equals(category)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static List<String> mergeLibraries(List<String> modules, List<String> natives) {
+        var versions = new LinkedHashMap<String, String>();
+        for (var module : modules) {
+            var parts = module.split(":");
+            versions.put(parts[0] + ":" + parts[1], parts[2]);
+        }
+        var libraries = new LinkedHashSet<>(modules);
+        for (var nativeLibrary : natives) {
+            var parts = nativeLibrary.split(":");
+            var module = parts[0] + ":" + parts[1];
+            var version = versions.get(module);
+            if (version == null) {
+                continue;
+            }
+            libraries.add(module + ":" + version + ":" + parts[2]);
+        }
+        return List.copyOf(libraries);
     }
 
 }

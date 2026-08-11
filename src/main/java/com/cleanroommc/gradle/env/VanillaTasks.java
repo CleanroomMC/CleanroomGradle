@@ -30,6 +30,8 @@ import org.gradle.jvm.toolchain.JvmImplementation;
 import org.gradle.jvm.toolchain.JvmVendorSpec;
 
 import java.io.File;
+import java.util.List;
+import java.util.Map;
 
 public final class VanillaTasks {
 
@@ -201,9 +203,16 @@ public final class VanillaTasks {
     }
 
     public void afterEvaluate(Project project, CleanroomExtension ext) {
-        for (var library : this.versionMeta.get().libraries()) {
+        var meta = this.versionMeta.get();
+        var nativeModules = nativeModules(meta);
+        for (var library : meta.libraries()) {
             if (library.isValidForOS(Platform.CURRENT)) {
-                Objects.dependency(project, this.vanillaConfig, library.name());
+                if (library.artifact() != null) {
+                    var dependency = Objects.dependency(project, this.vanillaConfig, library.name());
+                    for (var module : nativeModules) {
+                        dependency.exclude(module);
+                    }
+                }
                 if (library.hasNativesForOS(Platform.CURRENT)) {
                     var osClassifier = library.classifierForOS(Platform.CURRENT);
                     if (osClassifier != null) {
@@ -222,6 +231,15 @@ public final class VanillaTasks {
                 }
             }
         }
+    }
+
+    private static List<Map<String, String>> nativeModules(VersionMeta meta) {
+        return meta.libraries().stream()
+                .filter(VersionMeta.Library::hasNatives)
+                .map(library -> library.name().split(":"))
+                .map(coordinates -> Map.of("group", coordinates[0], "module", coordinates[1]))
+                .distinct()
+                .toList();
     }
 
 }

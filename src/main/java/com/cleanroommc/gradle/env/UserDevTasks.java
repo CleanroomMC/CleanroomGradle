@@ -16,6 +16,7 @@ import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.task.patch.ApplyBinPatches;
 import com.cleanroommc.gradle.api.task.userdev.VerifyUserdevConfig;
 import com.cleanroommc.gradle.api.util.Environment;
+import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.lazy.Providers;
 import com.cleanroommc.gradle.api.util.lazy.SourceSets;
@@ -89,15 +90,16 @@ public final class UserDevTasks {
             });
         });
 
-        // The loader's own dependencies are listed in the artifact's config.json. Can only be read once the
-        // defaultDependencies defers exactly that far (runs when this configuration is resolved)
         this.libraries = Objects.config(project, LIBRARIES_CONFIGURATION_NAME);
         var userdevConfig = project.getProviders().of(UserdevConfigValueSource.class, spec ->
                 spec.getParameters().getUserdevJar().fileProvider(this.userdev.map(Configuration::getSingleFile)));
         this.libraries.configure(configuration -> {
-            configuration.setDescription("Libraries the Cleanroom loader itself needs, taken from the userdev artifact.");
+            configuration.setDescription("Libraries the Cleanroom itself needs, taken from the userdev artifact.");
             configuration.defaultDependencies(dependencies -> {
                 for (var notation : userdevConfig.get().libraries()) {
+                    if (!LwjglNatives.isForCurrentPlatform(notation)) {
+                        continue;
+                    }
                     dependencies.add(project.getDependencies().create(notation));
                 }
             });

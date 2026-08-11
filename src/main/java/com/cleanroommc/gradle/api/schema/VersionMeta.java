@@ -31,7 +31,8 @@ public record VersionMeta(Arguments arguments,
     private static final Map<Platform.OperatingSystem, String> OS_NAMES = Map.of(
             Platform.OperatingSystem.WINDOWS, "windows",
             Platform.OperatingSystem.MAC_OS, "osx",
-            Platform.OperatingSystem.LINUX, "linux"
+            Platform.OperatingSystem.LINUX, "linux",
+            Platform.OperatingSystem.FREE_BSD, "linux"
     );
 
     public String clientUrl() {

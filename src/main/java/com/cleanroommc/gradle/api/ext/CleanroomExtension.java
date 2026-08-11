@@ -6,6 +6,7 @@ import com.cleanroommc.gradle.api.source.BundledVersionMetaValueSource;
 import com.cleanroommc.gradle.api.source.VersionMetaValueSource;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.patch.GenerateDiffs;
+import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.lazy.SourceSets;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.*;
@@ -13,6 +14,7 @@ import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.Directory;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.ProjectLayout;
+import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
@@ -55,6 +57,8 @@ public abstract class CleanroomExtension {
     // TODO: just getVersion, but we have getForgeVersion atm that will be removed.
     public abstract Property<String> getCleanroomVersion();
 
+    public abstract ListProperty<String> getLwjglNativesClassifiers();
+
     /**
      * Directory holding a hand-edited Tiny2 names source ({@code mappings.tiny}).
      * Unset by default as the pipeline uses the MCP CSVs from the {@code mcpMappings} dependency.
@@ -83,7 +87,7 @@ public abstract class CleanroomExtension {
         this.getDevelopInitialPatches().convention(false);
         this.getLoaderProject().convention(false);
         this.getForgeVersion().convention("14.23.5.2864");
-
+        this.getLwjglNativesClassifiers().convention(LwjglNatives.CLASSIFIERS);
         project.afterEvaluate($ -> this.getPatchDev().all(env -> env.afterEvaluate(project, this.getLocalCacheDirectory())));
     }
 
