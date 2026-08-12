@@ -4,6 +4,10 @@ import com.cleanroommc.gradle.api.task.MavenJarExec;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.tasks.*;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+
 @CacheableTask
 public abstract class InjectMetadata extends MavenJarExec {
 
@@ -34,6 +38,11 @@ public abstract class InjectMetadata extends MavenJarExec {
     protected void beforeExec() {
         if (!this.getUseDefaultToolArguments().get()) {
             return;
+        }
+        try {
+            Files.deleteIfExists(this.getInjectedJar().get().getAsFile().toPath());
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to remove the previous metadata injected jar", e);
         }
         this.args("--in", this.getSrgJar(),
                 "--out", this.getInjectedJar(),
