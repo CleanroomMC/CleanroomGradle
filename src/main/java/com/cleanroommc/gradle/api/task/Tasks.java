@@ -4,10 +4,13 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
 import org.gradle.api.Task;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.file.ArchiveOperations;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.bundling.Zip;
+
+import javax.inject.Inject;
 
 public final class Tasks {
 
@@ -49,8 +52,9 @@ public final class Tasks {
         var provider = project.getTasks().register(name, Copy.class);
         provider.configure(task -> {
             var archives = project.files(from);
+            var archiveOperations = project.getObjects().newInstance(InjectedArchiveOperations.class).getArchiveOperations();
             task.from(archives.getElements().map(files -> files.stream()
-                    .map(file -> project.zipTree(file.getAsFile()))
+                    .map(file -> archiveOperations.zipTree(file.getAsFile()))
                     .toList()));
             task.into(to);
         });
@@ -72,4 +76,12 @@ public final class Tasks {
     }
 
     private Tasks() { }
+
+    public abstract static class InjectedArchiveOperations {
+
+        @Inject
+        public abstract ArchiveOperations getArchiveOperations();
+
+    }
+
 }

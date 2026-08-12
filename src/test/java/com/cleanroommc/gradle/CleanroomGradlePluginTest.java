@@ -14,6 +14,8 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -171,6 +173,38 @@ class CleanroomGradlePluginTest {
         assertTrue(result.getOutput().contains(":extractMcpConfig"), "extractMcpConfig not present");
         assertTrue(result.getOutput().contains(":decompileSrg"), "decompileSrg not present");
         assertTrue(result.getOutput().contains(":applyInitialDiffs"), "applyInitialDiffs not present");
+    }
+
+    @Test
+    void unzipTasksSupportConfigurationCache() throws IOException {
+        try (var output = new ZipOutputStream(Files.newOutputStream(this.projectDir.resolve("input.zip")))) {
+            output.putNextEntry(new ZipEntry("config/value.txt"));
+            output.write("extracted".getBytes());
+            output.closeEntry();
+        }
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                import com.cleanroommc.gradle.api.task.Tasks
+
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+
+                Tasks.unzip(project, 'extractTestArchive',
+                    layout.projectDirectory.file('input.zip'),
+                    layout.buildDirectory.dir('extracted'))
+                """);
+        Files.writeString(this.projectDir.resolve("gradle.properties"), "org.gradle.configuration-cache=true\norg.gradle.configuration-cache.problems=fail\n");
+
+        var first = runner("extractTestArchive").build();
+        assertEquals(TaskOutcome.SUCCESS, first.task(":extractTestArchive").getOutcome());
+        assertEquals("extracted", Files.readString(this.projectDir.resolve("build/extracted/config/value.txt")));
+
+        Files.delete(this.projectDir.resolve("build/extracted/config/value.txt"));
+        var second = runner("extractTestArchive").build();
+        assertTrue(second.getOutput().contains("Reusing configuration cache"), "CC not reused on second run. Output:\n" + second.getOutput());
+        assertEquals(TaskOutcome.SUCCESS, second.task(":extractTestArchive").getOutcome());
+        assertEquals("extracted", Files.readString(this.projectDir.resolve("build/extracted/config/value.txt")));
     }
 
     @Test
