@@ -223,6 +223,12 @@ class CleanroomGradlePluginTest {
                 cleanroom {
                     loaderProject = true
                 }
+                gradle.projectsEvaluated {
+                    def minecraft = cleanroom.patchDev.minecraft
+                    assert minecraft.input.get().asFile == layout.buildDirectory.dir('cleanroom_gradle/sourceSets/mcp/sources').get().asFile
+                    assert minecraft.patches.get().asFile == layout.projectDirectory.dir('module/minecraft/patches').asFile
+                    assert minecraft.output.get().asFile == layout.projectDirectory.dir('module/minecraft/src/main/java').asFile
+                }
                 """);
 
         var result = runner("tasks", "--all").build();
@@ -257,6 +263,14 @@ class CleanroomGradlePluginTest {
                 version = '0.1.0'
                 cleanroom {
                     loaderProject = true
+                    patchDev {
+                        minecraft {
+                            input = layout.buildDirectory.dir('cleanroom_gradle/sourceSets/mcp/sources')
+                            patches = layout.projectDirectory.dir('module/minecraft/patches')
+                            output = layout.projectDirectory.dir('module/minecraft/src/main/java')
+                            dependsOn 'remapSrg2Mcp'
+                        }
+                    }
                 }
                 """);
 
@@ -272,6 +286,29 @@ class CleanroomGradlePluginTest {
         assertTrue(output.contains(":stripServerMinecraftJar"), "release server stripping not present");
         assertTrue(output.contains(":genClientBinPatches"), "client binpatch generation not present");
         assertTrue(output.contains(":genServerBinPatches"), "server binpatch generation not present");
+    }
+
+    @Test
+    void cleanroomRunPreparesMinecraftPatchDevWorkspace() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+                cleanroom {
+                    loaderProject = true
+                }
+                """);
+
+        var result = runner("runCleanroomClient", "--dry-run").build();
+        var output = result.getOutput();
+        assertTrue(output.contains(":decompileSrg"), "Minecraft sources are not decompiled");
+        assertTrue(output.contains(":remapSrg2Mcp"), "decompiled sources are not remapped to MCP names");
+        assertTrue(output.contains(":prepareMinecraftSources"), "MCP sources are not staged for patch development");
+        assertTrue(output.contains(":copyMinecraftToSourceSet"), "Minecraft patch-dev source tree is not populated");
+        assertTrue(output.contains(":prepareMinecraftPatchDevEnvironment"), "Minecraft patch-dev environment is not prepared");
+        assertTrue(output.indexOf(":prepareMinecraftPatchDevEnvironment") < output.lastIndexOf(":compileJava"),
+                "Minecraft patch-dev environment must be prepared before the main sources compile. Output:\n" + output);
     }
 
     @Test

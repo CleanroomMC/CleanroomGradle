@@ -15,6 +15,7 @@ import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.TaskProvider;
+import org.gradle.api.tasks.compile.JavaCompile;
 
 public final class CleanroomTasks {
 
@@ -27,6 +28,15 @@ public final class CleanroomTasks {
     public CleanroomTasks(Project project, CleanroomExtension ext, VanillaTasks vanilla, MCPTasks mcp) {
         var mainSourceSet = project.getExtensions().getByType(SourceSetContainer.class).named(SourceSet.MAIN_SOURCE_SET_NAME);
         SourceSets.extendFromConfiguration(project, mainSourceSet, vanilla.vanillaConfig);
+        var minecraftPatchDev = ext.getPatchDev().register("minecraft", env -> {
+            var module = project.getLayout().getProjectDirectory().dir("module/minecraft");
+            env.getInput().set(ext.getLocalCacheDirectory().dir("sourceSets/mcp/sources"));
+            env.getPatches().set(module.dir("patches"));
+            env.getOutput().set(module.dir("src/main/java"));
+            env.dependsOn(mcp.remapSrg2Mcp.getName());
+        });
+        mainSourceSet.configure(sourceSet -> project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class)
+                .configure(task -> task.dependsOn(minecraftPatchDev.map(CleanroomExtension.PatchDevEnvironment::getPrepareEnvironment))));
         var runDir = project.getLayout().getProjectDirectory().dir("run").getAsFile();
         var forgeGroup = String.valueOf(project.getGroup());
 
