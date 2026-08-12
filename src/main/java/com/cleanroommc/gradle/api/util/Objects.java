@@ -9,7 +9,6 @@ import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.Dependency;
-import org.gradle.api.artifacts.ModuleDependency;
 import org.gradle.api.file.FileSystemLocation;
 import org.gradle.api.provider.Provider;
 
@@ -45,8 +44,13 @@ public final class Objects {
         return provider;
     }
 
-    public static ModuleDependency dependency(Project project, NamedDomainObjectProvider<Configuration> configuration, String notation) {
-        return (ModuleDependency) project.getDependencies().add(configuration.getName(), notation);
+    public static Configuration toolConfig(Project project, String name, String defaultNotation) {
+        var config = project.getConfigurations().maybeCreate(name);
+        config.setCanBeConsumed(false);
+        config.setCanBeResolved(true);
+        config.setDescription("Classpath for the " + name + " tool");
+        config.defaultDependencies(deps -> deps.add(project.getDependencies().create(defaultNotation)));
+        return config;
     }
 
     public static Dependency firstDependency(Configuration configuration) {

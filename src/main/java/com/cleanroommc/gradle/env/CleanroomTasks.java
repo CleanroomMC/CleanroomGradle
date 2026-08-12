@@ -19,7 +19,7 @@ import org.gradle.api.tasks.compile.JavaCompile;
 
 public final class CleanroomTasks {
 
-    private static final String GROUP_NAME = "Cleanroom Tasks";
+    private static final String GROUP_NAME = "cleanroom";
     private static final String MC_VERSION = "1.12.2";
 
     public final TaskProvider<RunMinecraft> runCleanroomClient, runCleanroomServer;
@@ -47,13 +47,13 @@ public final class CleanroomTasks {
         var mcpVersion = mcp.mcpVersionId;
         var mcpMappings = mcp.mcpMappingsId;
 
-        this.runCleanroomClient = Tasks.of(project, GROUP_NAME, "runCleanroomClient", RunMinecraft.class);
-        this.runCleanroomServer = Tasks.of(project, GROUP_NAME, "runCleanroomServer", RunMinecraft.class);
-        this.runCleanroomNsightClient = Tasks.of(project, GROUP_NAME, "runCleanroomNsightClient", NsightExec.class);
+        this.runCleanroomClient = Tasks.register(project, "runCleanroomClient", RunMinecraft.class);
+        this.runCleanroomServer = Tasks.register(project, "runCleanroomServer", RunMinecraft.class);
+        this.runCleanroomNsightClient = Tasks.register(project, "runCleanroomNsightClient", NsightExec.class);
+        Tasks.group(GROUP_NAME, this.runCleanroomClient, this.runCleanroomServer, this.runCleanroomNsightClient);
 
         this.runCleanroomClient.configure(task -> {
-            task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), vanilla.downloadAssets, vanilla.extractNatives,
-                    mcp.writeSrg2Mcp, mcp.splitClientJar);
+            task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), vanilla.downloadAssets, mcp.writeSrg2Mcp);
 
             task.getSide().set(Side.CLIENT);
             task.getEnv().set(Environment.CLEANROOM);
@@ -62,7 +62,7 @@ public final class CleanroomTasks {
             task.getNatives().fileProvider(natives);
             task.getAssetIndexVersion().set(assetIndex);
             task.getVanillaAssetsLocation().set(assetsDir);
-            task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitClientJar.map(SplitJar::getExtraJar));
+            task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitClientJar.flatMap(SplitJar::getExtraJar));
 
             task.environment("target", "fmldevclient");
             task.environment("tweakClass", "net.minecraftforge.fml.common.launcher.FMLTweaker");
@@ -81,15 +81,14 @@ public final class CleanroomTasks {
         });
 
         this.runCleanroomServer.configure(task -> {
-            task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), vanilla.downloadAssets, vanilla.extractNatives,
-                    mcp.writeSrg2Mcp, mcp.splitServerJar);
+            task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), mcp.writeSrg2Mcp);
 
             task.getSide().set(Side.SERVER);
             task.getEnv().set(Environment.CLEANROOM);
             task.getMainClass().set("com.cleanroommc.boot.MainServer");
             task.setWorkingDir(runDir);
             task.getNatives().fileProvider(natives);
-            task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitServerJar.map(SplitJar::getExtraJar));
+            task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitServerJar.flatMap(SplitJar::getExtraJar));
 
             task.environment("target", "fmldevserver");
             task.environment("tweakClass", "net.minecraftforge.fml.common.launcher.FMLServerTweaker");

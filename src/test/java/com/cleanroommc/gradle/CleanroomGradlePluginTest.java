@@ -10,8 +10,10 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -68,6 +70,12 @@ class CleanroomGradlePluginTest {
         var result = runner("help").build();
         assertEquals(TaskOutcome.SUCCESS, result.task(":help").getOutcome());
         assertTrue(result.getOutput().contains("Running CleanroomGradle"), "plugin did not apply");
+    }
+
+    @Test
+    void helpDoesNotResolveMinecraftMetadata() {
+        var result = runner("help", "-Pmc=missing-version-for-lazy-configuration", "--offline").build();
+        assertEquals(TaskOutcome.SUCCESS, result.task(":help").getOutcome());
     }
 
     @Test
@@ -166,6 +174,112 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
+    void runTasksPrepareAssetsForClientsAndNativesForBothSides() {
+        for (var task : List.of("runVanillaClient", "runSrgClient", "runReobfSrgClient", "runMcpClient")) {
+            var output = runner(task, "--dry-run").build().getOutput();
+            assertTrue(output.contains(":downloadAssets"), task + " does not prepare assets");
+            assertTrue(output.contains(":extractNatives"), task + " does not prepare natives");
+        }
+        for (var task : List.of("runVanillaServer", "runSrgServer", "runReobfSrgServer", "runMcpServer")) {
+            var output = runner(task, "--dry-run").build().getOutput();
+            assertFalse(output.contains(":downloadAssets"), task + " unnecessarily prepares assets");
+            assertTrue(output.contains(":extractNatives"), task + " does not prepare natives");
+        }
+    }
+
+    @Test
+    void runMinecraftAllowsNoNatives() throws IOException {
+        var sourceDir = this.projectDir.resolve("src/main/java/example");
+        Files.createDirectories(sourceDir);
+        Files.writeString(sourceDir.resolve("NoNatives.java"), """
+                package example;
+
+                public final class NoNatives {
+                    public static void main(String[] args) {}
+                }
+                """);
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                import com.cleanroommc.gradle.api.task.mc.RunMinecraft
+                import com.cleanroommc.gradle.api.util.Environment
+                import net.minecraftforge.fml.relauncher.Side
+
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+
+                tasks.register('runWithoutNatives', RunMinecraft) {
+                    dependsOn tasks.named('classes')
+                    getSide().set(Side.CLIENT)
+                    getEnv().set(Environment.MCP)
+                    getMainClass().set('example.NoNatives')
+                    classpath(sourceSets.main.output)
+                    getUUID().set('00000000-0000-0000-0000-000000000000')
+                }
+                """);
+
+        var result = runner("runWithoutNatives").build();
+        assertEquals(TaskOutcome.SUCCESS, result.task(":runWithoutNatives").getOutcome());
+    }
+
+    @Test
+    void loaderTaskGroupsExposeOnlyEntryPoints() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                cleanroom.loaderProject = true
+
+                gradle.projectsEvaluated {
+                    assert tasks.findAll { it.group == 'vanilla' }*.name.toSet() == [
+                        'decompileVersion', 'runVanillaClient', 'runVanillaServer'
+                    ].toSet()
+                    assert tasks.findAll { it.group == 'MCP' }*.name.toSet() == [
+                        'importMcpNames', 'runMcpClient', 'runMcpServer',
+                        'runReobfSrgClient', 'runReobfSrgServer', 'runSrgClient', 'runSrgServer'
+                    ].toSet()
+                    assert tasks.findAll { it.group == 'cleanroom' }*.name.toSet() == [
+                        'runCleanroomClient', 'runCleanroomNsightClient', 'runCleanroomServer'
+                    ].toSet()
+                    assert tasks.findAll { it.group == 'distribution' }*.name.toSet() == [
+                        'javadocJar', 'universalJar', 'userdevJar'
+                    ].toSet()
+                    assert tasks.findAll { it.group == 'minecraft patch development' }*.name.toSet() == [
+                        'generateMinecraftDiffs', 'prepareMinecraftPatchDevEnvironment', 'zipMinecraftPatches'
+                    ].toSet()
+                    assert tasks.reobfJar.group == 'build'
+                    assert tasks.downloadAssets.group == null
+                    assert tasks.remapSrg2Mcp.group == null
+                    assert tasks.writeMcp2Notch.group == null
+                    assert tasks.minecraftPatchDevClasses.group == null
+                    assert tasks.findByName('srgSourceJar') == null
+                    assert tasks.findByName('mcpSourceJar') == null
+                    assert tasks.findByName('deobfDataLzma') == null
+                    assert tasks.findByName('writeObf2Srg') == null
+                    assert tasks.findAll { it.group != null }.every { !it.group.toLowerCase().endsWith(' tasks') }
+                }
+                """, StandardOpenOption.APPEND);
+
+        assertEquals(TaskOutcome.SUCCESS, runner("help").build().task(":help").getOutcome());
+    }
+
+    @Test
+    void userdevTaskGroupsExposeOnlyEntryPoints() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                cleanroom.cleanroomVersion = '0.4.5'
+
+                gradle.projectsEvaluated {
+                    assert tasks.findAll { it.group == 'UserDev' }*.name.toSet() == [
+                        'decompileDevJar', 'runClient', 'runServer', 'setupCleanroom'
+                    ].toSet()
+                    assert tasks.reobfJar.group == 'build'
+                    assert tasks.copyUserdev.group == null
+                    assert tasks.remapDevSrg2Mcp.group == null
+                    assert tasks.findByName('writeMcp2Notch') == null
+                }
+                """, StandardOpenOption.APPEND);
+
+        assertEquals(TaskOutcome.SUCCESS, runner("help").build().task(":help").getOutcome());
+    }
+
+    @Test
     void renameTaskNotPresentOnAssemble() {
         // remapNotch2Srg cannot be compiled into the graph when assemble runs
         var result = runner("assemble", "--dry-run").build();
@@ -209,6 +323,24 @@ class CleanroomGradlePluginTest {
         var second = runner("prepareExamplePatchDevEnvironment").build();
         assertEquals(TaskOutcome.SUCCESS, second.task(":prepareExamplePatchDevEnvironment").getOutcome());
         assertTrue(second.getOutput().contains("Reusing configuration cache"), "CC not reused on second run. Output:\n" + second.getOutput());
+    }
+
+    @Test
+    void patchDevTasksCanBeConfiguredImmediately() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                cleanroom.patchDev {
+                    example {
+                        input = layout.projectDirectory
+                    }
+                }
+
+                tasks.named('prepareExamplePatchDevEnvironment') {
+                    description = 'configured before project evaluation completes'
+                }
+                """, StandardOpenOption.APPEND);
+
+        var result = runner("help", "--configuration-cache").build();
+        assertEquals(TaskOutcome.SUCCESS, result.task(":help").getOutcome());
     }
 
     @Test
@@ -347,6 +479,7 @@ class CleanroomGradlePluginTest {
         assertTrue(output.contains(":userdevJar"), "userdevJar not present");
         assertTrue(output.contains(":jar"), "jar not present");
         assertTrue(output.contains(":genRuntimeBinPatches"), "genRuntimeBinPatches not present");
+        assertTrue(output.contains(":writeMcp2Notch"), "writeMcp2Notch not present");
         assertTrue(output.contains(":writeSrg2Mcp"), "writeSrg2Mcp not present");
         assertTrue(output.contains(":writeMcp2SrgDist"), "writeMcp2SrgDist not present");
     }

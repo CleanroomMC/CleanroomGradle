@@ -88,7 +88,7 @@ public abstract class CleanroomExtension {
         this.getLoaderProject().convention(false);
         this.getForgeVersion().convention("14.23.5.2864");
         this.getLwjglNativesClassifiers().convention(LwjglNatives.CLASSIFIERS);
-        project.afterEvaluate($ -> this.getPatchDev().all(env -> env.afterEvaluate(project, this.getLocalCacheDirectory())));
+        this.getPatchDev().all(env -> env.registerTasks(project, this.getLocalCacheDirectory()));
     }
 
     public static abstract class PatchDevEnvironment implements Named {
@@ -148,12 +148,12 @@ public abstract class CleanroomExtension {
             return zipPatches;
         }
 
-        private void afterEvaluate(Project project, DirectoryProperty localCache) {
+        private void registerTasks(Project project, DirectoryProperty localCache) {
             var name = this.name;
 
-            this.sourceSet = SourceSets.of(project, name + "PatchDev");
+            this.sourceSet = SourceSets.internal(project, name + "PatchDev");
 
-            var groupName = name + " patch development tasks";
+            var groupName = name + " patch development";
             var capitalizedName = StringUtils.capitalize(name);
 
             var patchDevDir = localCache.dir("patchDev/" + name);
@@ -165,11 +165,12 @@ public abstract class CleanroomExtension {
 
             SourceSets.linkSource(this.sourceSet, output);
 
-            this.prepareSources = Tasks.copyDirectory(project, groupName, "prepare" + capitalizedName + "Sources", input, sourcesDir);
-            this.prepareEnvironment = Tasks.of(project, groupName, "prepare" + capitalizedName + "PatchDevEnvironment");
-            this.copyToSourceSet = Tasks.copyDirectory(project, groupName, "copy" + capitalizedName + "ToSourceSet", sourcesDir, output);
-            this.generateDiffs = Tasks.of(project, groupName, "generate" + capitalizedName + "Diffs", GenerateDiffs.class);
-            this.zipPatches = Tasks.zip(project, groupName, "zip" + capitalizedName + "Patches", this.generateDiffs.map(GenerateDiffs::getPatchesDirectory), patchesZip);
+            this.prepareSources = Tasks.copy(project, "prepare" + capitalizedName + "Sources", input, sourcesDir);
+            this.prepareEnvironment = Tasks.register(project, "prepare" + capitalizedName + "PatchDevEnvironment");
+            this.copyToSourceSet = Tasks.copy(project, "copy" + capitalizedName + "ToSourceSet", sourcesDir, output);
+            this.generateDiffs = Tasks.register(project, "generate" + capitalizedName + "Diffs", GenerateDiffs.class);
+            this.zipPatches = Tasks.zip(project, "zip" + capitalizedName + "Patches", this.generateDiffs.flatMap(GenerateDiffs::getPatchesDirectory), patchesZip);
+            Tasks.group(groupName, this.prepareEnvironment, this.generateDiffs, this.zipPatches);
 
             this.prepareSources.configure(task -> {
                 if (this.dependsOn != null) {
@@ -201,7 +202,6 @@ public abstract class CleanroomExtension {
                 task.getModifiedDirectory().set(output);
                 task.getPatchesDirectory().set(patches);
             });
-            this.zipPatches.configure(task -> task.dependsOn(this.generateDiffs));
         }
 
         private static void createDirectory(File directory, String property, String environment) {

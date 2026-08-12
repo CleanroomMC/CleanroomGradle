@@ -4,7 +4,6 @@ import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.source.UserdevConfigValueSource;
-import com.cleanroommc.gradle.api.task.MavenJarExec;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.common.Decompile;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
@@ -42,7 +41,7 @@ import java.io.File;
  */
 public final class UserDevTasks {
 
-    private static final String GROUP_NAME = "UserDev Tasks";
+    private static final String GROUP_NAME = "UserDev";
     private static final String USERDEV_JAR_NAME = "cleanroom-userdev.jar";
 
     public static final String CONFIGURATION_NAME = "cleanroomUserdev";
@@ -115,26 +114,28 @@ public final class UserDevTasks {
         var mainSourceSet = SourceSets.container(project).named(SourceSet.MAIN_SOURCE_SET_NAME);
         var jarTask = project.getTasks().named("jar", Jar.class);
 
-        this.copyUserdev = Tasks.of(project, GROUP_NAME, "copyUserdev", Copy.class);
-        this.extractUserdev = Tasks.of(project, GROUP_NAME, "extractUserdev", Copy.class);
-        this.verifyUserdevConfig = Tasks.of(project, GROUP_NAME, "verifyUserdevConfig", VerifyUserdevConfig.class);
-        this.applyClientBinPatches = Tasks.of(project, GROUP_NAME, "applyClientBinPatches", ApplyBinPatches.class);
-        this.applyServerBinPatches = Tasks.of(project, GROUP_NAME, "applyServerBinPatches", ApplyBinPatches.class);
-        this.splitDevClientJar = Tasks.of(project, GROUP_NAME, "splitDevClientJar", SplitJar.class);
-        this.splitDevServerJar = Tasks.of(project, GROUP_NAME, "splitDevServerJar", SplitJar.class);
-        this.mergeDevJars = toolTask(project, ext, "mergeDevJars", MergeJars.class, configurations.getByName("mergetool"));
+        this.copyUserdev = Tasks.register(project, "copyUserdev", Copy.class);
+        this.extractUserdev = Tasks.register(project, "extractUserdev", Copy.class);
+        this.verifyUserdevConfig = Tasks.register(project, "verifyUserdevConfig", VerifyUserdevConfig.class);
+        this.applyClientBinPatches = Tasks.register(project, "applyClientBinPatches", ApplyBinPatches.class);
+        this.applyServerBinPatches = Tasks.register(project, "applyServerBinPatches", ApplyBinPatches.class);
+        this.splitDevClientJar = Tasks.register(project, "splitDevClientJar", SplitJar.class);
+        this.splitDevServerJar = Tasks.register(project, "splitDevServerJar", SplitJar.class);
+        this.mergeDevJars = Tasks.tool(project, ext.getLocalCacheDirectory(), "mergeDevJars", MergeJars.class, configurations.getByName("mergetool"));
         this.remapDevNotch2Srg = project.getTasks().register("remapDevNotch2Srg", RenameJar.class, renamer);
-        this.injectDevMetadata = toolTask(project, ext, "injectDevMetadata", InjectMetadata.class, configurations.getByName("mcinjector"));
-        this.accessTransformDevJar = toolTask(project, ext, "accessTransformDevJar", AccessTransform.class,
-                toolConfiguration(project, "accesstransformer", "net.minecraftforge:accesstransformers:8.2.17"));
+        this.injectDevMetadata = Tasks.tool(project, ext.getLocalCacheDirectory(), "injectDevMetadata", InjectMetadata.class, configurations.getByName("mcinjector"));
+        this.accessTransformDevJar = Tasks.tool(project, ext.getLocalCacheDirectory(), "accessTransformDevJar", AccessTransform.class,
+                Objects.toolConfig(project, "accesstransformer", "net.minecraftforge:accesstransformers:8.2.17"));
         this.remapDevSrg2Mcp = project.getTasks().register("remapDevSrg2Mcp", RenameJar.class, renamer);
         this.remapCleanroomSrg2Mcp = project.getTasks().register("remapCleanroomSrg2Mcp", RenameJar.class, renamer);
-        this.decompileDevJar = toolTask(project, ext, "decompileDevJar", Decompile.class, configurations.getByName("decompiler"));
-        this.writeMcp2Srg = Tasks.of(project, GROUP_NAME, "writeMcp2Srg", WriteMappings.class);
+        this.decompileDevJar = Tasks.tool(project, ext.getLocalCacheDirectory(), "decompileDevJar", Decompile.class, configurations.getByName("decompiler"));
+        this.writeMcp2Srg = Tasks.register(project, "writeMcp2Srg", WriteMappings.class);
         this.reobfJar = project.getTasks().register("reobfJar", RenameJar.class, renamer);
-        this.setupCleanroom = Tasks.of(project, GROUP_NAME, "setupCleanroom");
-        this.runClient = Tasks.of(project, GROUP_NAME, "runClient", RunMinecraft.class);
-        this.runServer = Tasks.of(project, GROUP_NAME, "runServer", RunMinecraft.class);
+        this.setupCleanroom = Tasks.register(project, "setupCleanroom");
+        this.runClient = Tasks.register(project, "runClient", RunMinecraft.class);
+        this.runServer = Tasks.register(project, "runServer", RunMinecraft.class);
+        Tasks.group(GROUP_NAME, this.setupCleanroom, this.decompileDevJar, this.runClient, this.runServer);
+        Tasks.group("build", this.reobfJar);
 
         this.copyUserdev.configure(task -> {
             task.setDescription("Places the userdev artifact at a stable path so the rest of the pipeline can name it.");
@@ -158,7 +159,7 @@ public final class UserDevTasks {
             task.getStamp().set(userdevDir.map(dir -> dir.file("verified.txt")));
         });
         this.applyClientBinPatches.configure(task -> {
-            task.dependsOn(vanilla.downloadClientJar, this.extractUserdev);
+            task.dependsOn(this.extractUserdev);
 
             task.getOriginalJar().fileProvider(vanilla.downloadClientJar.map(Download::getDest));
             task.getBinpatches().set(extractedDir.map(dir -> dir.file(DistributionTasks.USERDEV_BINPATCHES)));
@@ -166,7 +167,7 @@ public final class UserDevTasks {
             task.getPatchedJar().set(userdevDir.map(dir -> dir.file("client-patched.jar")));
         });
         this.applyServerBinPatches.configure(task -> {
-            task.dependsOn(vanilla.downloadServerJar, this.extractUserdev);
+            task.dependsOn(this.extractUserdev);
 
             task.getOriginalJar().fileProvider(vanilla.downloadServerJar.map(Download::getDest));
             task.getBinpatches().set(extractedDir.map(dir -> dir.file(DistributionTasks.USERDEV_BINPATCHES)));
@@ -174,7 +175,7 @@ public final class UserDevTasks {
             task.getPatchedJar().set(userdevDir.map(dir -> dir.file("server-patched.jar")));
         });
         this.splitDevClientJar.configure(task -> {
-            task.dependsOn(this.applyClientBinPatches, mcp.extractMcpConfig);
+            task.dependsOn(mcp.extractMcpConfig);
 
             task.getSourceJar().set(this.applyClientBinPatches.flatMap(ApplyBinPatches::getPatchedJar));
             task.getSrgMappingFile().value(srgMapping);
@@ -182,7 +183,7 @@ public final class UserDevTasks {
             task.getExtraJar().set(userdevDir.map(dir -> dir.file("client-extra.jar")));
         });
         this.splitDevServerJar.configure(task -> {
-            task.dependsOn(this.applyServerBinPatches, mcp.extractMcpConfig);
+            task.dependsOn(mcp.extractMcpConfig);
 
             task.getSourceJar().set(this.applyServerBinPatches.flatMap(ApplyBinPatches::getPatchedJar));
             task.getSrgMappingFile().value(srgMapping);
@@ -190,8 +191,6 @@ public final class UserDevTasks {
             task.getExtraJar().set(userdevDir.map(dir -> dir.file("server-extra.jar")));
         });
         this.mergeDevJars.configure(task -> {
-            task.dependsOn(this.splitDevClientJar, this.splitDevServerJar);
-
             task.getClientJar().value(this.splitDevClientJar.flatMap(SplitJar::getSlimJar));
             task.getServerJar().value(this.splitDevServerJar.flatMap(SplitJar::getSlimJar));
             task.getSrgMappingFile().value(srgMapping);
@@ -199,9 +198,8 @@ public final class UserDevTasks {
             task.getMergedJar().set(userdevDir.map(dir -> dir.file("merged.jar")));
         });
         this.remapDevNotch2Srg.configure(task -> {
-            task.setGroup(GROUP_NAME);
             task.setDescription("Renames the patched Minecraft from obfuscated to SRG names.");
-            task.dependsOn(this.mergeDevJars, this.verifyUserdevConfig);
+            task.dependsOn(this.verifyUserdevConfig);
 
             task.getInput().set(this.mergeDevJars.flatMap(MergeJars::getMergedJar));
             task.getMap().setFrom(srgMapping);
@@ -211,8 +209,6 @@ public final class UserDevTasks {
             task.getOutput().set(userdevDir.map(dir -> dir.file("minecraft-srg.jar")));
         });
         this.injectDevMetadata.configure(task -> {
-            task.dependsOn(this.remapDevNotch2Srg);
-
             task.getLogFile().convention(userdevDir.map(dir -> dir.file("mcinjector.log")));
             task.getSrgJar().set(this.remapDevNotch2Srg.flatMap(RenameJar::getOutput));
             task.getAccessFile().set(mcpConfigDir.map(dir -> dir.file("access.txt")));
@@ -221,7 +217,7 @@ public final class UserDevTasks {
             task.getInjectedJar().set(userdevDir.map(dir -> dir.file("minecraft-injected.jar")));
         });
         this.accessTransformDevJar.configure(task -> {
-            task.dependsOn(this.injectDevMetadata, this.extractUserdev);
+            task.dependsOn(this.extractUserdev);
             task.setDescription("Widens access on the SRG-named Minecraft, from the loader's transformers and this project's own.");
 
             task.getInputJar().set(this.injectDevMetadata.flatMap(InjectMetadata::getInjectedJar));
@@ -232,9 +228,7 @@ public final class UserDevTasks {
             task.getOutputJar().set(userdevDir.map(dir -> dir.file("minecraft-srg-at.jar")));
         });
         this.remapDevSrg2Mcp.configure(task -> {
-            task.setGroup(GROUP_NAME);
             task.setDescription("Renames the patched Minecraft into this project's MCP names.");
-            task.dependsOn(this.accessTransformDevJar, mcp.writeSrg2Mcp);
 
             task.getInput().set(this.accessTransformDevJar.flatMap(AccessTransform::getOutputJar));
             task.getMap().setFrom(srg2mcp);
@@ -242,9 +236,8 @@ public final class UserDevTasks {
             task.getOutput().set(userdevDir.map(dir -> dir.file("minecraft-mcp.jar")));
         });
         this.remapCleanroomSrg2Mcp.configure(task -> {
-            task.setGroup(GROUP_NAME);
             task.setDescription("Renames the loader into this project's MCP names.");
-            task.dependsOn(this.copyUserdev, this.injectDevMetadata, mcp.writeSrg2Mcp);
+            task.dependsOn(this.copyUserdev);
 
             task.getInput().set(userdevJar);
             task.getMap().setFrom(srg2mcp);
@@ -253,7 +246,6 @@ public final class UserDevTasks {
             task.getOutput().set(userdevDir.map(dir -> dir.file("cleanroom-mcp.jar")));
         });
         this.decompileDevJar.configure(task -> {
-            task.dependsOn(this.remapDevSrg2Mcp);
             task.setDescription("Decompiles the environment's Minecraft for source browsing in an IDE.");
 
             task.getJavaLauncher().convention(Providers.javaLauncher(project, 25));
@@ -264,7 +256,7 @@ public final class UserDevTasks {
             task.getDecompiledJar().fileProvider(userdevDir.map(dir -> dir.file("minecraft-mcp-sources.jar").getAsFile()));
         });
         this.writeMcp2Srg.configure(task -> {
-            task.dependsOn(mcp.extractMcpConfig, mcp.extractMcpMappings);
+            task.dependsOn(mcp.extractMcpConfig);
 
             task.getJoinedSrgFile().set(srgMapping);
             task.getMethodMappings().fileProvider(mcpMappingsDir.map(dir -> new File(dir, "methods.csv")));
@@ -274,9 +266,7 @@ public final class UserDevTasks {
             task.getOutput().set(ext.getLocalCacheDirectory().file("mappings/mcp2srg.tsrg"));
         });
         this.reobfJar.configure(task -> {
-            task.setGroup(GROUP_NAME);
             task.setDescription("Renames this project's jar from MCP to SRG names, as a release build expects.");
-            task.dependsOn(jarTask, this.writeMcp2Srg);
 
             task.getInput().set(jarTask.flatMap(Jar::getArchiveFile));
             task.getMap().setFrom(this.writeMcp2Srg.flatMap(WriteMappings::getOutput));
@@ -288,7 +278,7 @@ public final class UserDevTasks {
         project.getTasks().named("assemble").configure(task -> task.dependsOn(this.reobfJar));
         this.setupCleanroom.configure(task -> {
             task.setDescription("Builds the Cleanroom development environment this project compiles against.");
-            task.dependsOn(this.remapDevSrg2Mcp, this.remapCleanroomSrg2Mcp, this.splitDevClientJar);
+            task.dependsOn(this.remapDevSrg2Mcp, this.remapCleanroomSrg2Mcp);
         });
 
         var runDir = project.getLayout().getProjectDirectory().dir("run").getAsFile();
@@ -301,7 +291,7 @@ public final class UserDevTasks {
 
         this.runClient.configure(task -> {
             task.dependsOn(this.setupCleanroom, mainSourceSet.map(SourceSet::getClassesTaskName),
-                    vanilla.downloadAssets, vanilla.extractNatives, mcp.writeSrg2Mcp);
+                    vanilla.downloadAssets);
 
             task.getSide().set(Side.CLIENT);
             task.getEnv().set(Environment.CLEANROOM);
@@ -328,8 +318,7 @@ public final class UserDevTasks {
             task.jvmArgs("-Dmixin.debug.export=true", "-Dmixin.checks.interfaces=true");
         });
         this.runServer.configure(task -> {
-            task.dependsOn(this.setupCleanroom, mainSourceSet.map(SourceSet::getClassesTaskName),
-                    vanilla.downloadAssets, vanilla.extractNatives, mcp.writeSrg2Mcp);
+            task.dependsOn(this.setupCleanroom, mainSourceSet.map(SourceSet::getClassesTaskName));
 
             task.getSide().set(Side.SERVER);
             task.getEnv().set(Environment.CLEANROOM);
@@ -359,29 +348,6 @@ public final class UserDevTasks {
                 this.remapCleanroomSrg2Mcp.flatMap(RenameJar::getOutput)));
         dependencies.add(JavaPlugin.RUNTIME_ONLY_CONFIGURATION_NAME, project.files(
                 this.splitDevClientJar.flatMap(SplitJar::getExtraJar)));
-    }
-
-    private static Configuration toolConfiguration(Project project, String name, String defaultNotation) {
-        var config = project.getConfigurations().maybeCreate(name);
-        config.setCanBeConsumed(false);
-        config.setCanBeResolved(true);
-        config.setDescription("Classpath for the " + name + " tool.");
-        config.defaultDependencies(deps -> deps.add(project.getDependencies().create(defaultNotation)));
-        return config;
-    }
-
-    private static <T extends MavenJarExec> TaskProvider<T> toolTask(
-            Project project,
-            CleanroomExtension ext,
-            String name,
-            Class<T> type,
-            Configuration toolConfiguration) {
-        var task = Tasks.of(project, GROUP_NAME, name, type);
-        task.configure(value -> {
-            value.getToolClasspath().from(toolConfiguration);
-            value.setWorkingDir(ext.getLocalCacheDirectory().dir(name));
-        });
-        return task;
     }
 
 }

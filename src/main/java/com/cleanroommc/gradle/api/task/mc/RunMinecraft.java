@@ -50,8 +50,8 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     @Input
     public abstract Property<Environment> getEnv();
 
-    // A real input so the producing task (extractNatives) is inferred as a dependency
     @InputDirectory
+    @Optional
     @PathSensitive(PathSensitivity.RELATIVE)
     public abstract DirectoryProperty getNatives();
 
@@ -108,8 +108,6 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
 
         this.jvmArgs("-Dfile.encoding=UTF-8");
 
-        this.systemProperty("java.library.path", Providers.libraryPath(this.getProject(), this.getNatives().map(Directory::getAsFile)));
-
         this.setMinHeapSize("1G");
         this.setMaxHeapSize("1G");
     }
@@ -118,6 +116,10 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     protected void beforeExec() {
         var logger = this.getLogger();
         var side = this.getSide().get();
+
+        if (this.getNatives().isPresent()) {
+            this.systemProperty("java.library.path", Providers.libraryPath(this.getProject(), this.getNatives().map(Directory::getAsFile)));
+        }
 
         if (!this.setCustomWorkingDir) {
             super.setWorkingDir(IO.runDir(this.getProjectLayout().getProjectDirectory().getAsFile(), this.getMinecraftVersion().get(), this.getEnv().get(), side));

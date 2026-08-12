@@ -32,8 +32,6 @@ dependencies {
     implementation 'org.ow2.asm:asm-util:9.6'
     implementation 'de.undercouch.download:de.undercouch.download.gradle.plugin:5.6.0'
     implementation 'de.siegmar:fastcsv:3.0.0'
-    implementation 'org.tukaani:xz:1.12'
-
     // CleanroomGradleSettings
     implementation 'org.gradle.toolchains:foojay-resolver:1.0.0'
 

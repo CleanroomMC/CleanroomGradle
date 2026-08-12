@@ -3,7 +3,6 @@ package com.cleanroommc.gradle.env;
 import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.task.Tasks;
-import com.cleanroommc.gradle.api.task.dist.LzmaCompress;
 import com.cleanroommc.gradle.api.task.dist.WriteUserdevConfig;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
@@ -50,7 +49,7 @@ import java.util.Set;
  */
 public final class DistributionTasks {
 
-    private static final String GROUP_NAME = "Distribution Tasks";
+    private static final String GROUP_NAME = "distribution";
     private static final String MINECRAFT_VERSION = "1.12.2";
     private static final String ARTIFACT_ID = "cleanroom";
     private static final String MINECRAFT_PACKAGE = "net/minecraft/";
@@ -62,13 +61,12 @@ public final class DistributionTasks {
     public static final String USERDEV_MCP2SRG = "mcp2srg.tsrg";
     public static final String USERDEV_ATS = "ats";
 
-    public final TaskProvider<WriteMappings> writeMcp2SrgDist, writeObf2SrgTsrg;
+    public final TaskProvider<WriteMappings> writeMcp2SrgDist, writeObf2SrgTsrg, writeMcp2Notch;
     public final TaskProvider<RenameJar> reobfJar, reobfMinecraftJar;
     public final TaskProvider<Jar> minecraftClassesJar, universalJar, userdevJar, javadocJar;
     public final TaskProvider<StripSideOnlyJar> stripClientMinecraftJar, stripServerMinecraftJar;
     public final TaskProvider<GenerateBinPatches> genClientBinPatches, genServerBinPatches;
     public final TaskProvider<Zip> genRuntimeBinPatches;
-    public final TaskProvider<LzmaCompress> deobfDataLzma;
     public final TaskProvider<WriteUserdevConfig> writeUserdevConfig;
 
     public DistributionTasks(Project project, CleanroomExtension ext, VanillaTasks vanilla, MCPTasks mcp) {
@@ -102,21 +100,26 @@ public final class DistributionTasks {
                 layout.getBuildDirectory().file("changelog.txt")
         );
 
-        this.writeMcp2SrgDist = Tasks.of(project, GROUP_NAME, "writeMcp2SrgDist", WriteMappings.class);
-        this.writeObf2SrgTsrg = Tasks.of(project, GROUP_NAME, "writeObf2SrgTsrg", WriteMappings.class);
+        this.writeMcp2SrgDist = Tasks.register(project, "writeMcp2SrgDist", WriteMappings.class);
+        this.writeObf2SrgTsrg = Tasks.register(project, "writeObf2SrgTsrg", WriteMappings.class);
+        this.writeMcp2Notch = mcp.registerMcp2Notch(project, ext);
         this.reobfJar = project.getTasks().register("reobfJar", RenameJar.class, project.getExtensions().getByType(RenamerExtension.class));
-        this.minecraftClassesJar = Tasks.of(project, GROUP_NAME, "minecraftClassesJar", Jar.class);
+        this.minecraftClassesJar = Tasks.register(project, "minecraftClassesJar", Jar.class);
         this.reobfMinecraftJar = project.getTasks().register("reobfMinecraftJar", RenameJar.class, project.getExtensions().getByType(RenamerExtension.class));
-        this.stripClientMinecraftJar = Tasks.of(project, GROUP_NAME, "stripClientMinecraftJar", StripSideOnlyJar.class);
-        this.stripServerMinecraftJar = Tasks.of(project, GROUP_NAME, "stripServerMinecraftJar", StripSideOnlyJar.class);
-        this.genClientBinPatches = Tasks.of(project, GROUP_NAME, "genClientBinPatches", GenerateBinPatches.class);
-        this.genServerBinPatches = Tasks.of(project, GROUP_NAME, "genServerBinPatches", GenerateBinPatches.class);
-        this.genRuntimeBinPatches = Tasks.of(project, GROUP_NAME, "genRuntimeBinPatches", Zip.class);
-        this.deobfDataLzma = Tasks.of(project, GROUP_NAME, "deobfDataLzma", LzmaCompress.class);
-        this.universalJar = Tasks.of(project, GROUP_NAME, "universalJar", Jar.class);
+        this.stripClientMinecraftJar = Tasks.register(project, "stripClientMinecraftJar", StripSideOnlyJar.class);
+        this.stripServerMinecraftJar = Tasks.register(project, "stripServerMinecraftJar", StripSideOnlyJar.class);
+        this.genClientBinPatches = Tasks.register(project, "genClientBinPatches", GenerateBinPatches.class);
+        this.genServerBinPatches = Tasks.register(project, "genServerBinPatches", GenerateBinPatches.class);
+        this.genRuntimeBinPatches = Tasks.register(project, "genRuntimeBinPatches", Zip.class);
+        this.universalJar = Tasks.register(project, "universalJar", Jar.class);
+        this.userdevJar = Tasks.register(project, "userdevJar", Jar.class);
+        this.javadocJar = Tasks.register(project, "javadocJar", Jar.class);
+        this.writeUserdevConfig = Tasks.register(project, "writeUserdevConfig", WriteUserdevConfig.class);
+        Tasks.group("build", this.reobfJar);
+        Tasks.group(GROUP_NAME, this.universalJar, this.userdevJar, this.javadocJar);
 
         this.writeMcp2SrgDist.configure(task -> {
-            task.dependsOn(mcp.extractMcpConfig, mcp.extractMcpMappings);
+            task.dependsOn(mcp.extractMcpConfig);
 
             task.getJoinedSrgFile().set(srgMapping);
             task.getMethodMappings().fileProvider(mcpMappingsDir.map(dir -> new File(dir, "methods.csv")));
@@ -134,16 +137,12 @@ public final class DistributionTasks {
             task.getOutput().set(ext.getLocalCacheDirectory().file("mappings/obf2srg.tsrg"));
         });
         this.reobfJar.configure(task -> {
-            task.setGroup(GROUP_NAME);
-            task.dependsOn(jarTask, this.writeMcp2SrgDist);
-
             task.getInput().set(jarTask.flatMap(Jar::getArchiveFile));
             task.getMap().setFrom(this.writeMcp2SrgDist.flatMap(WriteMappings::getOutput));
             task.getLibraries().setFrom(vanilla.vanillaConfig, mainSourceSet.map(SourceSet::getCompileClasspath));
             task.getOutput().set(ext.getLocalCacheDirectory().file("dist/reobf/" + ARTIFACT_ID + "-srg.jar"));
         });
         this.minecraftClassesJar.configure(task -> {
-            task.dependsOn(jarTask);
             task.setDescription("Repackages only the patched-Minecraft portion of the main jar for binpatch generation.");
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);
@@ -153,44 +152,34 @@ public final class DistributionTasks {
             task.getArchiveFileName().set("minecraft-mcp.jar");
         });
         this.reobfMinecraftJar.configure(task -> {
-            task.setGroup(GROUP_NAME);
-            task.dependsOn(this.minecraftClassesJar, mcp.writeMcp2Notch);
-
             task.getInput().set(this.minecraftClassesJar.flatMap(Jar::getArchiveFile));
-            task.getMap().setFrom(mcp.writeMcp2Notch.flatMap(WriteMappings::getOutput));
+            task.getMap().setFrom(this.writeMcp2Notch.flatMap(WriteMappings::getOutput));
             task.getLibraries().setFrom(vanilla.vanillaConfig, mainSourceSet.map(SourceSet::getCompileClasspath));
             task.getOutput().set(ext.getLocalCacheDirectory().file("dist/reobf/minecraft-notch.jar"));
         });
         this.stripClientMinecraftJar.configure(task -> {
-            task.dependsOn(this.reobfMinecraftJar);
             task.getInputJar().set(this.reobfMinecraftJar.flatMap(RenameJar::getOutput));
             task.getTargetSide().set(Side.CLIENT);
             task.getOutputJar().set(ext.getLocalCacheDirectory().file("dist/reobf/minecraft-client.jar"));
         });
         this.stripServerMinecraftJar.configure(task -> {
-            task.dependsOn(this.reobfMinecraftJar);
             task.getInputJar().set(this.reobfMinecraftJar.flatMap(RenameJar::getOutput));
             task.getTargetSide().set(Side.SERVER);
             task.getOutputJar().set(ext.getLocalCacheDirectory().file("dist/reobf/minecraft-server.jar"));
         });
         this.genClientBinPatches.configure(task -> {
-            task.dependsOn(vanilla.downloadClientJar, this.stripClientMinecraftJar);
-
             task.getOriginalJar().fileProvider(vanilla.downloadClientJar.map(Download::getDest));
             task.getModifiedJar().set(this.stripClientMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar));
             task.getIncludedPrefixes().add(MINECRAFT_PACKAGE);
             task.getBinpatches().set(ext.getLocalCacheDirectory().file("binpatches/client.zip"));
         });
         this.genServerBinPatches.configure(task -> {
-            task.dependsOn(vanilla.downloadServerJar, this.stripServerMinecraftJar);
-
             task.getOriginalJar().fileProvider(vanilla.downloadServerJar.map(Download::getDest));
             task.getModifiedJar().set(this.stripServerMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar));
             task.getIncludedPrefixes().add(MINECRAFT_PACKAGE);
             task.getBinpatches().set(ext.getLocalCacheDirectory().file("binpatches/server.zip"));
         });
         this.genRuntimeBinPatches.configure(task -> {
-            task.dependsOn(this.genClientBinPatches, this.genServerBinPatches);
             task.setDescription("Merges client and server binpatches into a single archive for runtime.");
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);
@@ -202,14 +191,7 @@ public final class DistributionTasks {
             task.getDestinationDirectory().set(ext.getLocalCacheDirectory().dir("binpatches"));
             task.getArchiveFileName().set("runtime.zip");
         });
-        this.deobfDataLzma.configure(task -> {
-            task.dependsOn(mcp.writeObf2Srg);
-
-            task.getInput().set(mcp.writeObf2Srg.flatMap(WriteMappings::getOutput));
-            task.getOutput().set(ext.getLocalCacheDirectory().file("dist/deobf_data-" + MINECRAFT_VERSION + ".lzma"));
-        });
         this.universalJar.configure(task -> {
-            task.dependsOn(this.reobfJar, this.writeObf2SrgTsrg, this.genRuntimeBinPatches);
             task.setDescription("Assembles the Cleanroom universal jar (reobfuscated classes, binpatches and deobf data).");
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);
@@ -249,10 +231,6 @@ public final class DistributionTasks {
             });
         });
 
-        this.userdevJar = Tasks.of(project, GROUP_NAME, "userdevJar", Jar.class);
-        this.javadocJar = Tasks.of(project, GROUP_NAME, "javadocJar", Jar.class);
-        this.writeUserdevConfig = Tasks.of(project, GROUP_NAME, "writeUserdevConfig", WriteUserdevConfig.class);
-
         var javadocTask = project.getTasks().named("javadoc", Javadoc.class);
         javadocTask.configure(task -> {
             task.setFailOnError(false);
@@ -278,7 +256,6 @@ public final class DistributionTasks {
             task.getOutput().set(ext.getLocalCacheDirectory().file("dist/" + UserdevConfig.FILE_NAME));
         });
         this.userdevJar.configure(task -> {
-            task.dependsOn(this.reobfJar, this.genRuntimeBinPatches, mcp.writeSrg2Mcp, this.writeMcp2SrgDist, this.writeUserdevConfig);
             task.setDescription("Assembles the userdev jar for mod developers.");
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);
@@ -299,7 +276,6 @@ public final class DistributionTasks {
             task.from(this.writeUserdevConfig.flatMap(WriteUserdevConfig::getOutput));
         });
         this.javadocJar.configure(task -> {
-            task.dependsOn(javadocTask);
             task.setDescription("Packages Javadoc into a jar.");
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);

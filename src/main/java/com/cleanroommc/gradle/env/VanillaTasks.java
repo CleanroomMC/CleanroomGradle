@@ -20,6 +20,8 @@ import net.minecraftforge.renamer.gradle.RenamerExtension;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.DependencySet;
+import org.gradle.api.artifacts.ModuleDependency;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
@@ -35,18 +37,8 @@ import java.util.Map;
 
 public final class VanillaTasks {
 
-    private static final String GROUP_NAME = "Vanilla Tasks";
+    private static final String GROUP_NAME = "vanilla";
     private static final String DEFAULT_VERSION = "1.12.2";
-
-    // Mirrors MCPTasks#toolConfiguration; maybeCreate keeps the "decompiler" configuration shared with decompileSrg.
-    private static Configuration toolConfiguration(Project project, String name, String defaultNotation) {
-        var config = project.getConfigurations().maybeCreate(name);
-        config.setCanBeConsumed(false);
-        config.setCanBeResolved(true);
-        config.setDescription("Classpath for the " + name + " tool.");
-        config.defaultDependencies(deps -> deps.add(project.getDependencies().create(defaultNotation)));
-        return config;
-    }
 
     private static void verifySha1(File file, String expectedSha1) {
         if (!IO.sha1Match(file, expectedSha1)) {
@@ -99,20 +91,24 @@ public final class VanillaTasks {
 
         this.vanillaConfig = Objects.config(project, "vanilla");
         this.vanillaNativesConfig = Objects.config(project, "vanillaNatives");
+        this.vanillaConfig.configure(config -> config.withDependencies(dependencies ->
+                addLibraries(project, dependencies, this.versionMeta.get())));
+        this.vanillaNativesConfig.configure(config -> config.withDependencies(dependencies ->
+                addNatives(project, dependencies, this.versionMeta.get())));
 
-        var decompiler = toolConfiguration(project, "decompiler", "com.cleanroommc:cleanflower:1.0.0");
+        var decompiler = Objects.toolConfig(project, "decompiler", "com.cleanroommc:cleanflower:1.0.0");
 
-        this.downloadAssetIndex = Tasks.of(project, GROUP_NAME, "downloadAssetIndex", Download.class);
-        this.downloadClientJar = Tasks.of(project, GROUP_NAME, "downloadClientJar", Download.class);
-        this.downloadServerJar = Tasks.of(project, GROUP_NAME, "downloadServerJar", Download.class);
-        this.downloadClientMappings = Tasks.of(project, GROUP_NAME, "downloadClientMappings", Download.class);
-        this.downloadAssets = Tasks.of(project, GROUP_NAME, "downloadAssets", DownloadAssets.class);
-        this.extractNatives = Tasks.unzip(project, GROUP_NAME, "extractNatives", this.vanillaNativesConfig, versionCacheDirectory.map(dir -> dir.dir("natives/vanilla")));
+        this.downloadAssetIndex = Tasks.register(project, "downloadAssetIndex", Download.class);
+        this.downloadClientJar = Tasks.register(project, "downloadClientJar", Download.class);
+        this.downloadServerJar = Tasks.register(project, "downloadServerJar", Download.class);
+        this.downloadClientMappings = Tasks.register(project, "downloadClientMappings", Download.class);
+        this.downloadAssets = Tasks.register(project, "downloadAssets", DownloadAssets.class);
+        this.extractNatives = Tasks.unzip(project, "extractNatives", this.vanillaNativesConfig, versionCacheDirectory.map(dir -> dir.dir("natives/vanilla")));
         this.remapClientToOfficial = project.getTasks().register("remapClientToOfficial", RenameJar.class, project.getExtensions().getByType(RenamerExtension.class));
-        this.remapClientToOfficial.configure(task -> task.setGroup(GROUP_NAME));
-        this.decompileVersion = Tasks.of(project, GROUP_NAME, "decompileVersion", Decompile.class);
-        this.runVanillaClient = Tasks.of(project, GROUP_NAME, "runVanillaClient", RunMinecraft.class);
-        this.runVanillaServer = Tasks.of(project, GROUP_NAME, "runVanillaServer", RunMinecraft.class);
+        this.decompileVersion = Tasks.tool(project, ext.getLocalCacheDirectory(), "decompileVersion", Decompile.class, decompiler);
+        this.runVanillaClient = Tasks.register(project, "runVanillaClient", RunMinecraft.class);
+        this.runVanillaServer = Tasks.register(project, "runVanillaServer", RunMinecraft.class);
+        Tasks.group(GROUP_NAME, this.decompileVersion, this.runVanillaClient, this.runVanillaServer);
 
         this.downloadAssetIndex.configure(task -> {
             task.src(this.versionMeta.map(VersionMeta::assetIndexUrl));
@@ -143,8 +139,6 @@ public final class VanillaTasks {
             task.doLast("verifySha1", t -> verifySha1(((Download) t).getDest(), expectedSha1.get()));
         });
         this.downloadAssets.configure(task -> {
-            task.dependsOn(this.downloadAssetIndex);
-
             task.getAssetIndexFile().fileProvider(this.downloadAssetIndex.map(Download::getDest));
             task.getObjects().set(ext.getCacheDirectory().dir("assets/objects"));
         });
@@ -152,7 +146,6 @@ public final class VanillaTasks {
             task.exclude("META-INF/**"); // TODO: Consider exclude block in version meta?
         });
         this.remapClientToOfficial.configure(task -> {
-            task.dependsOn(this.downloadClientJar, this.downloadClientMappings);
             task.onlyIf("VersionMeta offers client_mappings", t -> clientMappings.isPresent());
             task.setDescription("Remaps the client jar from obfuscated to Mojang's official names.");
 
@@ -164,11 +157,8 @@ public final class VanillaTasks {
             task.getOutput().set(versionCacheDirectory.map(dir -> dir.file("client-official.jar")));
         });
         this.decompileVersion.configure(task -> {
-            task.dependsOn(this.downloadClientJar, this.remapClientToOfficial);
             task.setDescription("Decompiles the (-Pmc=<version>) client jar for source browsing, under official names when Mojang publishes mappings.");
 
-            task.getToolClasspath().from(decompiler);
-            task.setWorkingDir(ext.getLocalCacheDirectory().dir("decompileVersion"));
             task.getJavaLauncher().convention(Providers.javaLauncher(project, 25));
             task.getLogFile().convention(ext.getLocalCacheDirectory().file("decompileVersion/decompile.log"));
             task.getCompiledJar().fileProvider(this.versionMeta.flatMap(meta -> meta.download("client_mappings") != null
@@ -178,7 +168,7 @@ public final class VanillaTasks {
             task.getDecompiledJar().fileProvider(versionCacheDirectory.zip(this.minecraftVersion, (dir, version) -> dir.file(version + "-sources.jar").getAsFile()));
         });
         this.runVanillaClient.configure(task -> {
-            task.dependsOn(this.downloadAssets, this.downloadClientJar);
+            task.dependsOn(this.downloadAssets);
 
             task.getSide().set(Side.CLIENT);
             task.getEnv().set(Environment.VANILLA);
@@ -190,8 +180,6 @@ public final class VanillaTasks {
             task.classpath(this.downloadClientJar.map(Download::getDest), this.vanillaConfig);
         });
         this.runVanillaServer.configure(task -> {
-            task.dependsOn(this.downloadServerJar);
-
             task.getSide().set(Side.SERVER);
             task.getEnv().set(Environment.VANILLA);
             task.getMinecraftVersion().set(this.minecraftVersion);
@@ -202,34 +190,38 @@ public final class VanillaTasks {
         });
     }
 
-    public void afterEvaluate(Project project, CleanroomExtension ext) {
-        var meta = this.versionMeta.get();
+    private static void addLibraries(Project project, DependencySet dependencies, VersionMeta meta) {
         var nativeModules = nativeModules(meta);
         for (var library : meta.libraries()) {
-            if (library.isValidForOS(Platform.CURRENT)) {
-                if (library.artifact() != null) {
-                    var dependency = Objects.dependency(project, this.vanillaConfig, library.name());
-                    for (var module : nativeModules) {
-                        dependency.exclude(module);
-                    }
-                }
-                if (library.hasNativesForOS(Platform.CURRENT)) {
-                    var osClassifier = library.classifierForOS(Platform.CURRENT);
-                    if (osClassifier != null) {
-                        var path = osClassifier.path();
-                        var matcher = Meta.NATIVES_PATTERN.matcher(path);
-                        if (!matcher.find()) {
-                            throw new IllegalStateException("Failed to match regex for natives path: " + path);
-                        }
-                        var group = matcher.group("group").replace('/', '.');
-                        var name = matcher.group("name");
-                        var version = matcher.group("version");
-                        var classifier = matcher.group("classifier");
-                        var dependencyNotation = "%s:%s:%s:%s".formatted(group, name, version, classifier);
-                        Objects.dependency(project, this.vanillaNativesConfig, dependencyNotation).setTransitive(false);
-                    }
-                }
+            if (!library.isValidForOS(Platform.CURRENT) || library.artifact() == null) {
+                continue;
             }
+            var dependency = (ModuleDependency) project.getDependencies().create(library.name());
+            for (var module : nativeModules) {
+                dependency.exclude(module);
+            }
+            dependencies.add(dependency);
+        }
+    }
+
+    private static void addNatives(Project project, DependencySet dependencies, VersionMeta meta) {
+        for (var library : meta.libraries()) {
+            if (!library.isValidForOS(Platform.CURRENT) || !library.hasNativesForOS(Platform.CURRENT)) {
+                continue;
+            }
+            var classifier = library.classifierForOS(Platform.CURRENT);
+            if (classifier == null) {
+                continue;
+            }
+            var matcher = Meta.NATIVES_PATTERN.matcher(classifier.path());
+            if (!matcher.find()) {
+                throw new IllegalStateException("Failed to match regex for natives path: " + classifier.path());
+            }
+            var notation = "%s:%s:%s:%s".formatted(matcher.group("group").replace('/', '.'),
+                    matcher.group("name"), matcher.group("version"), matcher.group("classifier"));
+            var dependency = (ModuleDependency) project.getDependencies().create(notation);
+            dependency.setTransitive(false);
+            dependencies.add(dependency);
         }
     }
 
