@@ -263,14 +263,6 @@ class CleanroomGradlePluginTest {
                 version = '0.1.0'
                 cleanroom {
                     loaderProject = true
-                    patchDev {
-                        minecraft {
-                            input = layout.buildDirectory.dir('cleanroom_gradle/sourceSets/mcp/sources')
-                            patches = layout.projectDirectory.dir('module/minecraft/patches')
-                            output = layout.projectDirectory.dir('module/minecraft/src/main/java')
-                            dependsOn 'remapSrg2Mcp'
-                        }
-                    }
                 }
                 """);
 
