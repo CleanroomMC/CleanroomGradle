@@ -23,11 +23,15 @@ public abstract class MergeJars extends MavenJarExec {
     @Input
     public abstract Property<String> getMinecraftVersion();
 
+    @Input
+    public abstract Property<Boolean> getInjectAnnotationMarkers();
+
     @OutputFile
     public abstract RegularFileProperty getMergedJar();
 
     public MergeJars() {
         this.getMainClass().convention("net.minecraftforge.mergetool.ConsoleMerger");
+        this.getInjectAnnotationMarkers().convention(false);
     }
 
     @Override
@@ -39,7 +43,8 @@ public abstract class MergeJars extends MavenJarExec {
                 "--server", this.getServerJar(),
                 "--output", this.getMergedJar(),
                 "--whitelist-map", this.getSrgMappingFile(),
-                "-ann", this.getMinecraftVersion());
+                "-ann", this.getMinecraftVersion(),
+                "--inject", this.getInjectAnnotationMarkers());
     }
 
 }
