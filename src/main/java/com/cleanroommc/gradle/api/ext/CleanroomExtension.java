@@ -161,6 +161,7 @@ public abstract class CleanroomExtension {
             var patchesZip = patchDevDir.map(dir -> dir.file("patches.zip").getAsFile());
             var input = this.getInput().map(Directory::getAsFile);
             var output = this.getOutput();
+            var patches = this.getPatches();
 
             SourceSets.linkSource(this.sourceSet, output);
 
@@ -189,19 +190,27 @@ public abstract class CleanroomExtension {
                     if (!input.isPresent()) {
                         throw new InvalidUserDataException("input for %s must be set!".formatted(name));
                     }
-                    var file = input.get();
-                    if (!file.isDirectory()) {
-                        throw new InvalidUserDataException("input for %s is invalid!".formatted(name));
-                    }
+                    createDirectory(input.get(), "input", name);
+                    createDirectory(output.get().getAsFile(), "output", name);
+                    createDirectory(patches.get().getAsFile(), "patches", name);
                 });
             });
             this.generateDiffs.configure(task -> {
                 task.dependsOn(this.copyToSourceSet);
                 task.getOriginalDirectory().fileProvider(sourcesDir);
                 task.getModifiedDirectory().set(output);
-                task.getPatchesDirectory().set(this.getPatches());
+                task.getPatchesDirectory().set(patches);
             });
             this.zipPatches.configure(task -> task.dependsOn(this.generateDiffs));
+        }
+
+        private static void createDirectory(File directory, String property, String environment) {
+            if (directory.isDirectory()) {
+                return;
+            }
+            if (directory.exists() || !directory.mkdirs()) {
+                throw new InvalidUserDataException("%s for %s is not a directory and could not be created!".formatted(property, environment));
+            }
         }
 
     }

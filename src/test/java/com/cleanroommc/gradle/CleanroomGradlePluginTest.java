@@ -212,6 +212,31 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
+    void patchDevInitializationCreatesDeclaredDirectories() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+                cleanroom {
+                    patchDev {
+                        example {
+                            input = layout.buildDirectory.dir('missing-input')
+                            patches = layout.projectDirectory.dir('missing-patches')
+                            output = layout.projectDirectory.dir('missing-output')
+                        }
+                    }
+                }
+                """);
+
+        var result = runner("prepareExamplePatchDevEnvironment").build();
+        assertEquals(TaskOutcome.SUCCESS, result.task(":prepareExamplePatchDevEnvironment").getOutcome());
+        assertTrue(Files.isDirectory(this.projectDir.resolve("build/missing-input")), "declared input directory was not created");
+        assertTrue(Files.isDirectory(this.projectDir.resolve("missing-patches")), "declared patches directory was not created");
+        assertTrue(Files.isDirectory(this.projectDir.resolve("missing-output")), "declared output directory was not created");
+    }
+
+    @Test
     void loaderProjectRegistersDistributionTasks() throws IOException {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
                 plugins {
