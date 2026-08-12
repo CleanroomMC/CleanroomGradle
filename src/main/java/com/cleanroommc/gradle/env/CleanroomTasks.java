@@ -35,8 +35,12 @@ public final class CleanroomTasks {
             env.getOutput().set(module.dir("src/main/java"));
             env.dependsOn(mcp.remapSrg2Mcp.getName());
         });
-        mainSourceSet.configure(sourceSet -> project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class)
-                .configure(task -> task.dependsOn(minecraftPatchDev.map(CleanroomExtension.PatchDevEnvironment::getPrepareEnvironment))));
+        mainSourceSet.configure(sourceSet -> {
+            sourceSet.getJava().srcDir(mcp.prepareMcpInjectedSources.map(Copy::getDestinationDir));
+            project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class).configure(task ->
+                    task.dependsOn(minecraftPatchDev.map(CleanroomExtension.PatchDevEnvironment::getPrepareEnvironment),
+                            mcp.prepareMcpInjectedSources));
+        });
         var runDir = project.getLayout().getProjectDirectory().dir("run").getAsFile();
         var forgeGroup = String.valueOf(project.getGroup());
 

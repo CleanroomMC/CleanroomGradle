@@ -40,7 +40,7 @@ public final class MCPTasks {
 
     public final NamedDomainObjectProvider<Configuration> mcpConfig, initialPatches, mcpMappings;
     public final NamedDomainObjectProvider<SourceSet> srgSource, mcpSource;
-    public final TaskProvider<Copy> extractMcpConfig, extractInitialPatches, prepareApplyInitialDiffs, extractMcpMappings;
+    public final TaskProvider<Copy> extractMcpConfig, prepareMcpInjectedSources, extractInitialPatches, prepareApplyInitialDiffs, extractMcpMappings;
     public final TaskProvider<SplitJar> splitClientJar, splitServerJar;
     public final TaskProvider<MergeJars> mergeJars;
     public final TaskProvider<RenameJar> remapNotch2Srg;
@@ -86,6 +86,7 @@ public final class MCPTasks {
         var srgMapping = ext.getVersionCacheDirectory().file("mcp_config/config/joined.tsrg");
 
         this.extractMcpConfig = Tasks.unzip(project, "extractMcpConfig", this.mcpConfig, ext.getVersionCacheDirectory().dir("mcp_config"));
+        this.prepareMcpInjectedSources = Tasks.register(project, "prepareMcpInjectedSources", Copy.class);
         this.splitClientJar = Tasks.register(project, "splitClientJar", SplitJar.class);
         this.splitServerJar = Tasks.register(project, "splitServerJar", SplitJar.class);
         this.mergeJars = Tasks.tool(project, ext.getLocalCacheDirectory(), "mergeJars", MergeJars.class, mergeTool);
@@ -113,11 +114,26 @@ public final class MCPTasks {
         SourceSets.linkSource(this.mcpSource, ext.getLocalCacheDirectory().dir("sourceSets/mcp/sources"));
         SourceSets.extendFromConfiguration(project, this.mcpSource, vanilla.vanillaConfig);
         this.srgSource.configure(sourceSet -> {
-            project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class)
-                    .configure(task -> task.dependsOn(this.applyInitialDiffs));
+            project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class).configure(task -> {
+                task.dependsOn(this.applyInitialDiffs, this.prepareMcpInjectedSources);
+                task.source(this.prepareMcpInjectedSources.map(Copy::getDestinationDir));
+            });
         });
-        this.mcpSource.configure(sourceSet -> project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class)
-                .configure(task -> task.dependsOn(this.remapSrg2Mcp)));
+        this.mcpSource.configure(sourceSet -> {
+            project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class).configure(task -> {
+                task.dependsOn(this.remapSrg2Mcp, this.prepareMcpInjectedSources);
+                task.source(this.prepareMcpInjectedSources.map(Copy::getDestinationDir));
+            });
+        });
+
+        this.prepareMcpInjectedSources.configure(task -> {
+            task.dependsOn(this.extractMcpConfig);
+            task.from(mcpConfigDir.map(dir -> dir.file("inject/mcp/MethodsReturnNonnullByDefault.java")), spec -> {
+                spec.into("mcp");
+                spec.rename($ -> "MethodsReturnNonnullByDefault.java");
+            });
+            task.into(ext.getLocalCacheDirectory().dir("sourceSets/injected/sources"));
+        });
 
         this.splitClientJar.configure(task -> {
             task.dependsOn(this.extractMcpConfig);

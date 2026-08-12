@@ -490,8 +490,11 @@ class CleanroomGradlePluginTest {
         assertTrue(output.contains(":prepareMinecraftSources"), "MCP sources are not staged for patch development");
         assertTrue(output.contains(":copyMinecraftToSourceSet"), "Minecraft patch-dev source tree is not populated");
         assertTrue(output.contains(":prepareMinecraftPatchDevEnvironment"), "Minecraft patch-dev environment is not prepared");
+        assertTrue(output.contains(":prepareMcpInjectedSources"), "MCP annotation source is not prepared");
         assertTrue(output.indexOf(":prepareMinecraftPatchDevEnvironment") < output.lastIndexOf(":compileJava"),
                 "Minecraft patch-dev environment must be prepared before the main sources compile. Output:\n" + output);
+        assertTrue(output.indexOf(":prepareMcpInjectedSources") < output.lastIndexOf(":compileJava"),
+                "MCP annotation source must be prepared before the main sources compile. Output:\n" + output);
     }
 
     @Test
