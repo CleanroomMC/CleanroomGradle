@@ -66,7 +66,7 @@ public final class UserDevTasks {
     public final TaskProvider<SplitJar> splitDevClientJar, splitDevServerJar;
     public final TaskProvider<MergeJars> mergeDevJars;
     public final TaskProvider<InjectMetadata> injectDevMetadata;
-    public final TaskProvider<AccessTransform> accessTransformDevJar;
+    public final TaskProvider<AccessTransform> accessTransformDevJar, accessTransformDevMcpJar;
     public final TaskProvider<RenameJar> remapDevNotch2Srg, remapDevSrg2Mcp, remapCleanroomSrg2Mcp, reobfJar;
     public final TaskProvider<Decompile> decompileDevJar;
     public final TaskProvider<WriteMappings> writeMcp2Srg;
@@ -104,6 +104,8 @@ public final class UserDevTasks {
             });
         });
 
+        var accessTransformerTool = Objects.toolConfig(project, "accesstransformer", "net.minecraftforge:accesstransformers:8.2.17");
+
         var userdevDir = ext.getLocalCacheDirectory().dir("userdev");
         var userdevJar = userdevDir.map(dir -> dir.file(USERDEV_JAR_NAME));
         var extractedDir = userdevDir.map(dir -> dir.dir("extracted"));
@@ -124,9 +126,9 @@ public final class UserDevTasks {
         this.mergeDevJars = Tasks.tool(project, ext.getLocalCacheDirectory(), "mergeDevJars", MergeJars.class, configurations.getByName("mergetool"));
         this.remapDevNotch2Srg = project.getTasks().register("remapDevNotch2Srg", RenameJar.class, renamer);
         this.injectDevMetadata = Tasks.tool(project, ext.getLocalCacheDirectory(), "injectDevMetadata", InjectMetadata.class, configurations.getByName("mcinjector"));
-        this.accessTransformDevJar = Tasks.tool(project, ext.getLocalCacheDirectory(), "accessTransformDevJar", AccessTransform.class,
-                Objects.toolConfig(project, "accesstransformer", "net.minecraftforge:accesstransformers:8.2.17"));
+        this.accessTransformDevJar = Tasks.tool(project, ext.getLocalCacheDirectory(), "accessTransformDevJar", AccessTransform.class, accessTransformerTool);
         this.remapDevSrg2Mcp = project.getTasks().register("remapDevSrg2Mcp", RenameJar.class, renamer);
+        this.accessTransformDevMcpJar = Tasks.tool(project, ext.getLocalCacheDirectory(), "accessTransformDevMcpJar", AccessTransform.class, accessTransformerTool);
         this.remapCleanroomSrg2Mcp = project.getTasks().register("remapCleanroomSrg2Mcp", RenameJar.class, renamer);
         this.decompileDevJar = Tasks.tool(project, ext.getLocalCacheDirectory(), "decompileDevJar", Decompile.class, configurations.getByName("decompiler"));
         this.writeMcp2Srg = Tasks.register(project, "writeMcp2Srg", WriteMappings.class);
@@ -218,10 +220,9 @@ public final class UserDevTasks {
         });
         this.accessTransformDevJar.configure(task -> {
             task.dependsOn(this.extractUserdev);
-            task.setDescription("Widens access on the SRG-named Minecraft, from the loader's transformers and this project's own.");
+            task.setDescription("Applies SRG-named access transformers to Minecraft.");
 
             task.getInputJar().set(this.injectDevMetadata.flatMap(InjectMetadata::getInjectedJar));
-            // TODO: 2 passes of ATs, SRG - MCP
             task.getAccessTransformers().from(
                     project.fileTree(extractedDir.map(dir -> dir.dir(DistributionTasks.USERDEV_ATS))),
                     ext.getAccessTransformers());
@@ -233,7 +234,17 @@ public final class UserDevTasks {
             task.getInput().set(this.accessTransformDevJar.flatMap(AccessTransform::getOutputJar));
             task.getMap().setFrom(srg2mcp);
             task.getLibraries().setFrom(vanilla.vanillaConfig);
-            task.getOutput().set(userdevDir.map(dir -> dir.file("minecraft-mcp.jar")));
+            task.getOutput().set(userdevDir.map(dir -> dir.file("minecraft-mcp-pre-at.jar")));
+        });
+        this.accessTransformDevMcpJar.configure(task -> {
+            task.dependsOn(this.extractUserdev);
+            task.setDescription("Applies MCP-named access transformers to Minecraft.");
+
+            task.getInputJar().set(this.remapDevSrg2Mcp.flatMap(RenameJar::getOutput));
+            task.getAccessTransformers().from(
+                    project.fileTree(extractedDir.map(dir -> dir.dir(DistributionTasks.USERDEV_ATS))), ext.getAccessTransformers()
+            );
+            task.getOutputJar().set(userdevDir.map(dir -> dir.file("minecraft-mcp.jar")));
         });
         this.remapCleanroomSrg2Mcp.configure(task -> {
             task.setDescription("Renames the loader into this project's MCP names.");
@@ -250,7 +261,7 @@ public final class UserDevTasks {
 
             task.getJavaLauncher().convention(Providers.javaLauncher(project, 25));
             task.getLogFile().convention(userdevDir.map(dir -> dir.file("decompile.log")));
-            task.getCompiledJar().set(this.remapDevSrg2Mcp.flatMap(RenameJar::getOutput));
+            task.getCompiledJar().set(this.accessTransformDevMcpJar.flatMap(AccessTransform::getOutputJar));
             task.getLibraries().from(vanilla.vanillaConfig, this.libraries);
             // IDEs look for <jar>-sources.jar next to the jar itself
             task.getDecompiledJar().fileProvider(userdevDir.map(dir -> dir.file("minecraft-mcp-sources.jar").getAsFile()));
@@ -278,7 +289,7 @@ public final class UserDevTasks {
         project.getTasks().named("assemble").configure(task -> task.dependsOn(this.reobfJar));
         this.setupCleanroom.configure(task -> {
             task.setDescription("Builds the Cleanroom development environment this project compiles against.");
-            task.dependsOn(this.remapDevSrg2Mcp, this.remapCleanroomSrg2Mcp);
+            task.dependsOn(this.accessTransformDevMcpJar, this.remapCleanroomSrg2Mcp);
         });
 
         var runDir = project.getLayout().getProjectDirectory().dir("run").getAsFile();
@@ -344,7 +355,7 @@ public final class UserDevTasks {
 
         var dependencies = project.getDependencies();
         dependencies.add(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME, project.files(
-                this.remapDevSrg2Mcp.flatMap(RenameJar::getOutput),
+                this.accessTransformDevMcpJar.flatMap(AccessTransform::getOutputJar),
                 this.remapCleanroomSrg2Mcp.flatMap(RenameJar::getOutput)));
         dependencies.add(JavaPlugin.RUNTIME_ONLY_CONFIGURATION_NAME, project.files(
                 this.splitDevClientJar.flatMap(SplitJar::getExtraJar)));
