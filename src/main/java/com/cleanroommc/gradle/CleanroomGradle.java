@@ -12,6 +12,7 @@ import com.cleanroommc.gradle.env.VanillaTasks;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.flow.FlowScope;
+import org.gradle.api.tasks.Delete;
 
 import javax.inject.Inject;
 
@@ -28,6 +29,9 @@ public abstract class CleanroomGradle implements Plugin<Project> {
         getFlowScope().always(CloseHttpClientFlowAction.class, spec -> {});
 
         final var cleanroomExtension = Objects.extension(project, "cleanroom", CleanroomExtension.class);
+        project.getPluginManager().withPlugin("base", plugin ->
+                project.getTasks().named("clean", Delete.class).configure(task ->
+                        task.delete(cleanroomExtension.getCacheDirectory(), cleanroomExtension.getLocalCacheDirectory())));
         LwjglNatives.register(project, cleanroomExtension);
 
         final var vanillaTasks = new VanillaTasks(project, cleanroomExtension);

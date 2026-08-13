@@ -75,6 +75,28 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
+    void cleanDeletesCleanroomCaches() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                cleanroom {
+                    cacheDirectory.set(layout.projectDirectory.dir('cleanroom-cache'))
+                    localCacheDirectory.set(layout.projectDirectory.dir('local-cache'))
+                }
+                """, StandardOpenOption.APPEND);
+
+        var cacheMarker = this.projectDir.resolve("cleanroom-cache/marker");
+        var localCacheMarker = this.projectDir.resolve("local-cache/marker");
+        Files.createDirectories(cacheMarker.getParent());
+        Files.createDirectories(localCacheMarker.getParent());
+        Files.createFile(cacheMarker);
+        Files.createFile(localCacheMarker);
+
+        var result = runner("clean", "--configuration-cache").build();
+        assertEquals(TaskOutcome.SUCCESS, result.task(":clean").getOutcome());
+        assertFalse(Files.exists(cacheMarker.getParent()), "Shared CleanroomGradle cache was not deleted");
+        assertFalse(Files.exists(localCacheMarker.getParent()), "Local CleanroomGradle cache was not deleted");
+    }
+
+    @Test
     void helpDoesNotResolveMinecraftMetadata() {
         var result = runner("help", "-Pmc=missing-version-for-lazy-configuration", "--offline").build();
         assertEquals(TaskOutcome.SUCCESS, result.task(":help").getOutcome());
