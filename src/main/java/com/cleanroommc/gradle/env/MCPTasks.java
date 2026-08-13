@@ -328,6 +328,8 @@ public final class MCPTasks {
                 task.getMappingsId().set(this.activeNamesId);
                 task.getMcpConfigVersion().set(this.mcpConfigVersion);
             });
+            env.getApplyDiffs().configure(task -> task.getMappingsId().set(this.activeNamesId));
+            env.getInitializeDiffs().configure(task -> task.getMappingsId().set(this.activeNamesId));
         });
 
         if (ext.getDevelopInitialPatches().get()) {

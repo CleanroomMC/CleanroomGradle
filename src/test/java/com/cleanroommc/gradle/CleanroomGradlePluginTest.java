@@ -298,7 +298,8 @@ class CleanroomGradlePluginTest {
                         'javadocJar', 'universalJar', 'userdevJar'
                     ].toSet()
                     assert tasks.findAll { it.group == 'minecraft patch development' }*.name.toSet() == [
-                        'generateMinecraftDiffs', 'prepareMinecraftPatchDevEnvironment', 'zipMinecraftPatches'
+                        'applyMinecraftDiffs', 'generateMinecraftDiffs',
+                        'prepareMinecraftPatchDevEnvironment', 'zipMinecraftPatches'
                     ].toSet()
                     assert tasks.reobfJar.group == 'build'
                     assert tasks.downloadAssets.group == null
@@ -375,10 +376,22 @@ class CleanroomGradlePluginTest {
         assertEquals(TaskOutcome.SUCCESS, generated.task(":generateExampleDiffs").getOutcome());
         assertTrue(Files.exists(this.projectDir.resolve("custom-patches/A.java.patch")), "configured patches output was not used");
 
+        Files.writeString(output, "class A { int stale; }\n");
+        Files.writeString(output.getParent().resolve("Stale.java"), "class Stale {}\n");
+        var applied = runner("applyExampleDiffs").build();
+        assertEquals(TaskOutcome.SUCCESS, applied.task(":applyExampleDiffs").getOutcome());
+        assertEquals("class A { int value; }\n", Files.readString(output),
+                "explicit patch application did not replace the populated development source tree");
+        assertFalse(Files.exists(output.getParent().resolve("Stale.java")),
+                "explicit patch application did not clean stale development sources");
+
+        Files.writeString(output, "class A { int value; int working; }\n");
         // The prepare task's validation must survive CC serialization
         var second = runner("prepareExamplePatchDevEnvironment").build();
         assertEquals(TaskOutcome.SUCCESS, second.task(":prepareExamplePatchDevEnvironment").getOutcome());
         assertTrue(second.getOutput().contains("Reusing configuration cache"), "CC not reused on second run. Output:\n" + second.getOutput());
+        assertEquals("class A { int value; int working; }\n", Files.readString(output),
+                "preparing the environment overwrote edits in the populated development source tree");
     }
 
     @Test
@@ -510,9 +523,11 @@ class CleanroomGradlePluginTest {
         assertTrue(output.contains(":decompileSrg"), "Minecraft sources are not decompiled");
         assertTrue(output.contains(":remapSrg2Mcp"), "decompiled sources are not remapped to MCP names");
         assertTrue(output.contains(":prepareMinecraftSources"), "MCP sources are not staged for patch development");
-        assertTrue(output.contains(":copyMinecraftToSourceSet"), "Minecraft patch-dev source tree is not populated");
+        assertTrue(output.contains(":initializeMinecraftPatchDevSources"), "Minecraft patches are not applied to the patch-dev source tree");
         assertTrue(output.contains(":prepareMinecraftPatchDevEnvironment"), "Minecraft patch-dev environment is not prepared");
         assertTrue(output.contains(":prepareMcpInjectedSources"), "MCP annotation source is not prepared");
+        assertTrue(output.indexOf(":initializeMinecraftPatchDevSources") < output.indexOf(":prepareMinecraftPatchDevEnvironment"),
+                "Minecraft patches must be applied while initializing the loader patch-dev environment. Output:\n" + output);
         assertTrue(output.indexOf(":prepareMinecraftPatchDevEnvironment") < output.lastIndexOf(":compileJava"),
                 "Minecraft patch-dev environment must be prepared before the main sources compile. Output:\n" + output);
         assertTrue(output.indexOf(":prepareMcpInjectedSources") < output.lastIndexOf(":compileJava"),

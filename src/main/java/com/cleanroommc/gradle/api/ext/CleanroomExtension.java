@@ -5,6 +5,7 @@ import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.source.BundledVersionMetaValueSource;
 import com.cleanroommc.gradle.api.source.VersionMetaValueSource;
 import com.cleanroommc.gradle.api.task.Tasks;
+import com.cleanroommc.gradle.api.task.patch.ApplyDiffs;
 import com.cleanroommc.gradle.api.task.patch.GenerateDiffs;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.lazy.SourceSets;
@@ -104,7 +105,8 @@ public abstract class CleanroomExtension {
         private String dependsOn;
         private NamedDomainObjectProvider<SourceSet> sourceSet;
         private TaskProvider<Copy> prepareSources, copyToSourceSet;
-        private TaskProvider<DefaultTask> prepareEnvironment;
+        private TaskProvider<DefaultTask> initializeEnvironment, prepareEnvironment;
+        private TaskProvider<ApplyDiffs> initializeDiffs, applyDiffs;
         private TaskProvider<GenerateDiffs> generateDiffs;
         private TaskProvider<Zip> zipPatches;
 
@@ -140,6 +142,14 @@ public abstract class CleanroomExtension {
             return copyToSourceSet;
         }
 
+        public TaskProvider<ApplyDiffs> getApplyDiffs() {
+            return applyDiffs;
+        }
+
+        public TaskProvider<ApplyDiffs> getInitializeDiffs() {
+            return initializeDiffs;
+        }
+
         public TaskProvider<GenerateDiffs> getGenerateDiffs() {
             return generateDiffs;
         }
@@ -165,18 +175,32 @@ public abstract class CleanroomExtension {
 
             SourceSets.linkSource(this.sourceSet, output);
 
+            this.initializeEnvironment = Tasks.register(project, "initialize" + capitalizedName + "PatchDevEnvironment");
             this.prepareSources = Tasks.copy(project, "prepare" + capitalizedName + "Sources", input, sourcesDir);
             this.prepareEnvironment = Tasks.register(project, "prepare" + capitalizedName + "PatchDevEnvironment");
             this.copyToSourceSet = Tasks.copy(project, "copy" + capitalizedName + "ToSourceSet", sourcesDir, output);
+            var applyTaskName = name.equals("initial") ? "applyInitialPatchDevDiffs" : "apply" + capitalizedName + "Diffs";
+            this.applyDiffs = Tasks.register(project, applyTaskName, ApplyDiffs.class);
+            this.initializeDiffs = Tasks.register(project, "initialize" + capitalizedName + "PatchDevSources", ApplyDiffs.class);
             this.generateDiffs = Tasks.register(project, "generate" + capitalizedName + "Diffs", GenerateDiffs.class);
             this.zipPatches = Tasks.zip(project, "zip" + capitalizedName + "Patches", this.generateDiffs.flatMap(GenerateDiffs::getPatchesDirectory), patchesZip);
-            Tasks.group(groupName, this.prepareEnvironment, this.generateDiffs, this.zipPatches);
+            Tasks.group(groupName, this.prepareEnvironment, this.applyDiffs, this.generateDiffs, this.zipPatches);
 
-            this.prepareSources.configure(task -> {
+            this.initializeEnvironment.configure(task -> {
                 if (this.dependsOn != null) {
                     task.dependsOn(this.dependsOn);
                 }
+                task.doLast($ -> {
+                    if (!input.isPresent()) {
+                        throw new InvalidUserDataException("Input for %s must be set!".formatted(name));
+                    }
+                    createDirectory(input.get(), "input", name);
+                    createDirectory(sourcesDir.get(), "staged input", name);
+                    createDirectory(output.get().getAsFile(), "output", name);
+                    createDirectory(patches.get().getAsFile(), "patches", name);
+                });
             });
+            this.prepareSources.configure(task -> task.dependsOn(this.initializeEnvironment));
             this.copyToSourceSet.configure(task -> {
                 task.dependsOn(this.prepareSources);
                 task.onlyIf("patch dev source tree is not yet populated", $ -> {
@@ -185,19 +209,31 @@ public abstract class CleanroomExtension {
                     return contents == null || contents.length == 0;
                 });
             });
-            this.prepareEnvironment.configure(task -> {
-                task.dependsOn(this.copyToSourceSet);
-                task.doLast($ -> {
-                    if (!input.isPresent()) {
-                        throw new InvalidUserDataException("input for %s must be set!".formatted(name));
-                    }
-                    createDirectory(input.get(), "input", name);
-                    createDirectory(output.get().getAsFile(), "output", name);
-                    createDirectory(patches.get().getAsFile(), "patches", name);
+            this.applyDiffs.configure(task -> {
+                task.dependsOn(this.prepareSources);
+                task.setDescription("Recreates the " + name + " patch-development sources and applies the current patch set.");
+                task.getOriginalDirectory().fileProvider(input);
+                task.getPatchesDirectory().set(patches);
+                task.getModifiedDirectory().set(output);
+                task.getCleanOutput().set(true);
+            });
+            this.initializeDiffs.configure(task -> {
+                task.dependsOn(this.prepareSources);
+                task.getOriginalDirectory().fileProvider(input);
+                task.getPatchesDirectory().set(patches);
+                task.getModifiedDirectory().set(output);
+                task.onlyIf("patch dev source tree is not yet populated", $ -> {
+                    var dir = output.get().getAsFile();
+                    var contents = dir.listFiles();
+                    return contents == null || contents.length == 0;
                 });
             });
+            this.prepareEnvironment.configure(task -> {
+                task.dependsOn(this.initializeDiffs);
+                task.doLast($ -> createDirectory(sourcesDir.get(), "staged input", name));
+            });
             this.generateDiffs.configure(task -> {
-                task.dependsOn(this.copyToSourceSet);
+                task.dependsOn(this.prepareEnvironment);
                 task.getOriginalDirectory().fileProvider(sourcesDir);
                 task.getModifiedDirectory().set(output);
                 task.getPatchesDirectory().set(patches);

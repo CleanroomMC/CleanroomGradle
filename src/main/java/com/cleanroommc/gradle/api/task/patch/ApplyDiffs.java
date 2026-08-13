@@ -35,6 +35,9 @@ public abstract class ApplyDiffs extends DefaultTask {
     @Input
     public abstract Property<Boolean> getInPlace();
 
+    @Input
+    public abstract Property<Boolean> getCleanOutput();
+
     /**
      * The active names identity string (see {@link com.cleanroommc.gradle.api.names.NamesSource}). When
      * present, the patches directory's {@code .mappings.json} stamp is validated against it: a mismatch
@@ -51,6 +54,7 @@ public abstract class ApplyDiffs extends DefaultTask {
 
     public ApplyDiffs() {
         this.getInPlace().convention(false);
+        this.getCleanOutput().convention(false);
     }
 
     @TaskAction
@@ -70,6 +74,9 @@ public abstract class ApplyDiffs extends DefaultTask {
         var counter = new AtomicInteger();
 
         if (!inPlace) {
+            if (this.getCleanOutput().get()) {
+                fsOps.delete(spec -> spec.delete(modifiedDir));
+            }
             fsOps.copy(spec -> {
                 spec.from(originalDir);
                 spec.into(modifiedDir);
