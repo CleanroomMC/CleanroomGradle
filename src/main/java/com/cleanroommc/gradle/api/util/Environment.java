@@ -8,7 +8,6 @@ public enum Environment {
     SRG,
     REOBF_SRG,
     MCP,
-    FORGE,
     CLEANROOM;
 
     @Override
