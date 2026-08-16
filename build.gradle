@@ -1,12 +1,11 @@
 plugins {
-    id 'java'
-    id 'idea'
     id 'java-gradle-plugin'
-    // id 'com.diffplug.spotless' version '6.23.3'
     id 'maven-publish'
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
 
 group = 'com.cleanroommc'
 version = '0.6.0'
@@ -32,10 +31,11 @@ dependencies {
     implementation 'org.ow2.asm:asm-util:9.6'
     implementation 'de.undercouch.download:de.undercouch.download.gradle.plugin:5.6.0'
     implementation 'de.siegmar:fastcsv:3.0.0'
+
     // CleanroomGradleSettings
     implementation 'org.gradle.toolchains:foojay-resolver:1.0.0'
 
-    // Forge
+    // Forge Toolchain
     implementation 'net.minecraftforge:srgutils:0.5.3'
     implementation 'net.minecraftforge:renamer-gradle:1.1.5'
 
@@ -44,29 +44,32 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-test {
-    useJUnitPlatform()
-    systemProperty 'plugin.project.dir', rootDir.absolutePath
-}
-
 gradlePlugin {
     plugins {
         cleanroomGradle {
             id = "${group}.cleanroomgradle"
             implementationClass = "${group}.gradle.CleanroomGradle"
+            displayName = 'CleanroomGradle'
+            description = 'Gradle plugin for Cleanroom and Cleanroom-targeted mod development'
         }
         cleanroomGradleSettings {
             id = "${group}.cleanroomgradle.settings"
             implementationClass = "${group}.gradle.CleanroomGradleSettings"
+            displayName = 'CleanroomGradle Settings'
+            description = 'Settings plugin that injects Cleanroom dependency repositories and the Foojay toolchain resolver'
         }
     }
-    automatedPublishing = true
 }
 
 jar {
     manifest {
-        attributes "Implementation-Version": version
+        attributes 'Implementation-Version': version
     }
+}
+
+test {
+    useJUnitPlatform()
+    systemProperty 'plugin.project.dir', rootDir.absolutePath
 }
 
 publishing {
@@ -86,33 +89,3 @@ publishing {
         }
     }
 }
-
-//spotless {
-//    encoding 'UTF-8'
-//    format ('misc') {
-//        target '*.gradle', '.gitattributes', '.gitignore', '*.properties'
-//        indentWithSpaces()
-//        trimTrailingWhitespace()
-//        endWithNewline()
-//    }
-//    java {
-//        importOrder 'java', 'javax', 'org', 'com', '', '\\#'
-//        removeUnusedImports()
-//        indentWithSpaces()
-//        trimTrailingWhitespace()
-//        endWithNewline()
-//        formatAnnotations()
-//        eclipse('4.26').configFile('../cleanroom_format.xml')
-//        custom 'noWildcardImports', com.diffplug.spotless.FormatterFunc.needsFile((text, file) -> {
-//            text.eachLine {
-//                if (it.trim() ==~ /^import\s(static\s)?\S+\*;/) {
-//                    throw new Error("${file.getName()}\n\t $it\n\t\tNo wildcard imports allowed, import individually.")
-//                }
-//            }
-//        })
-//    }
-//    json {
-//        target 'src/**/*.json'
-//        simple().indentWithSpaces(4)
-//    }
-//}
