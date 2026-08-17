@@ -117,6 +117,7 @@ public final class DistributionTasks {
         this.writeUserdevConfig = Tasks.register(project, "writeUserdevConfig", WriteUserdevConfig.class);
         Tasks.group("build", this.reobfJar);
         Tasks.group(GROUP_NAME, this.universalJar, this.userdevJar, this.javadocJar);
+        project.getTasks().named("assemble").configure(task -> task.dependsOn(this.universalJar, this.userdevJar, this.javadocJar));
 
         this.writeMcp2SrgDist.configure(task -> {
             task.dependsOn(mcp.extractMcpConfig);
@@ -124,6 +125,8 @@ public final class DistributionTasks {
             task.getJoinedSrgFile().set(srgMapping);
             task.getMethodMappings().fileProvider(mcpMappingsDir.map(dir -> new File(dir, "methods.csv")));
             task.getFieldMappings().fileProvider(mcpMappingsDir.map(dir -> new File(dir, "fields.csv")));
+            task.getTinyMappings().fileProvider(mcp.tinyFileWhenPresent);
+            task.getNamesId().set(mcp.activeNamesId);
             task.getDirection().set(WriteMappings.Direction.MCP_TO_SRG);
             task.getFormat().set(IMappingFile.Format.TSRG);
             task.getOutput().set(ext.getLocalCacheDirectory().file("mappings/mcp2srg.tsrg"));
