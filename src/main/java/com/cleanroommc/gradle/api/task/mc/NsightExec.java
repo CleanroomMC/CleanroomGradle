@@ -4,6 +4,7 @@ import com.cleanroommc.gradle.api.util.Platform;
 import org.gradle.api.GradleException;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Exec;
 import org.gradle.api.tasks.Input;
@@ -11,6 +12,7 @@ import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.Optional;
 import org.gradle.work.DisableCachingByDefault;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -31,6 +33,10 @@ public abstract class NsightExec extends Exec {
 
     @Input
     public abstract Property<String> getRunTaskName();
+
+    @Input
+    @Optional
+    public abstract ListProperty<String> getRunTaskArguments();
 
     @Internal
     public abstract Property<String> getJavaExecutable();
@@ -66,7 +72,9 @@ public abstract class NsightExec extends Exec {
         logger.lifecycle("\nJava Executable: " + javaExecutable);
         logger.lifecycle("Nsight Graphics NGFX Path: " + ngfxPath + "\n");
 
-        var wrapperArgs = String.join(" ", List.of("-classpath", wrapperJar, "org.gradle.wrapper.GradleWrapperMain", this.getRunTaskName().get()));
+        var wrapperArgv = new ArrayList<>(List.of("-classpath", wrapperJar, "org.gradle.wrapper.GradleWrapperMain", this.getRunTaskName().get()));
+        wrapperArgv.addAll(this.getRunTaskArguments().getOrElse(List.of()));
+        var wrapperArgs = String.join(" ", wrapperArgv);
 
         this.commandLine(
                 ngfxPath,
