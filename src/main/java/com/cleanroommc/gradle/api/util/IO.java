@@ -156,7 +156,10 @@ public final class IO {
 
     public static void downloadWithETag(String url, File dest) {
         try {
-            dest.getParentFile().mkdirs();
+            var parent = dest.getParentFile();
+            if (parent != null && !parent.isDirectory() && !parent.mkdirs()) {
+                throw new IOException("Could not create destination directory " + parent);
+            }
             var etagFile = new File(dest.getParent(), dest.getName() + ".etag");
             var builder = HttpRequest.newBuilder(URI.create(url));
             if (dest.exists() && etagFile.exists()) {
@@ -170,13 +173,15 @@ public final class IO {
                     catch (IOException e) { throw new UncheckedIOException(e); }
                 });
             } else if (response.statusCode() != 304) {
-                throw new RuntimeException("HTTP " + response.statusCode() + " downloading " + url);
+                throw new RuntimeException("HTTP " + response.statusCode() + " downloading " + url + " to " + dest
+                        + ". Check the URL, proxy, and repository availability.");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("Failed to download " + url, e);
+            throw new RuntimeException("Interrupted while downloading " + url + " to " + dest + ". Rerun the task to retry.", e);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to download " + url, e);
+            throw new RuntimeException("Failed to download " + url + " to " + dest
+                    + ". Check network access and filesystem permissions, then rerun the task.", e);
         }
     }
 

@@ -7,7 +7,6 @@ import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.ValueSource;
 import org.gradle.api.provider.ValueSourceParameters;
-
 import java.io.File;
 
 /**
@@ -38,7 +37,10 @@ public abstract class LauncherVersionMetaValueSource implements ValueSource<Vers
         var manifestFile = new File(cacheDirectory, "version_manifest_v2.json");
         if (offline) {
             if (!manifestFile.isFile()) {
-                throw new IllegalStateException("Gradle is offline and no cached launcher manifest exists at %s. Network access is required once to resolve Minecraft %s.".formatted(manifestFile, version));
+                var message = ("Gradle is offline and no cached launcher manifest exists at %s. "
+                        + "Run the requested task once without --offline to resolve Minecraft %s from %s.")
+                        .formatted(manifestFile, version, params.getManifestUrl().get());
+                throw new IllegalStateException(message);
             }
         } else {
             IO.downloadWithETag(params.getManifestUrl().get(), manifestFile);
@@ -55,17 +57,23 @@ public abstract class LauncherVersionMetaValueSource implements ValueSource<Vers
             }
         }
         if (metaUrl == null) {
-            throw new IllegalArgumentException("Minecraft version '%s' was not found in the launcher manifest.".formatted(version));
+            var message = "Minecraft version '%s' was not found in launcher manifest %s.".formatted(version, manifestFile);
+            throw new IllegalArgumentException(message);
         }
 
         var metaFile = new File(cacheDirectory, "versions/%s/meta.json".formatted(version));
         if (!IO.sha1Match(metaFile, metaSha1)) {
             if (offline) {
-                throw new IllegalStateException("Gradle is offline and no valid cached version metadata exists at %s. Network access is required once to resolve Minecraft %s.".formatted(metaFile, version));
+                var message = ("Gradle is offline and cached metadata for Minecraft %s is missing or corrupt at %s. "
+                        + "Run the requested task once without --offline to download %s.").formatted(version, metaFile, metaUrl);
+                throw new IllegalStateException(message);
             }
             IO.downloadWithETag(metaUrl, metaFile);
-            if (!IO.sha1Match(metaFile, metaSha1)) {
-                throw new IllegalStateException("SHA-1 mismatch for %s: expected %s but got %s.".formatted(metaFile, metaSha1, IO.sha1(metaFile)));
+            var actualSha1 = IO.sha1(metaFile);
+            if (!actualSha1.equalsIgnoreCase(metaSha1)) {
+                var message = "Downloaded metadata failed SHA-1 verification at %s: expected %s but got %s."
+                        .formatted(metaFile, metaSha1, actualSha1);
+                throw new IllegalStateException(message);
             }
         }
         return IO.readJson(metaFile, VersionMeta.class);

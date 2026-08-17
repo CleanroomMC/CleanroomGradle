@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.env;
 
+import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
@@ -54,7 +55,7 @@ public final class UserDevTasks {
     }
 
     public static boolean requested(Project project, CleanroomExtension ext) {
-        if (ext.getCleanroomVersion().isPresent()) {
+        if (ext.getVersion().isPresent()) {
             return true;
         }
         var configuration = project.getConfigurations().findByName(CONFIGURATION_NAME);
@@ -84,7 +85,7 @@ public final class UserDevTasks {
             configuration.setDescription("The Cleanroom userdev artifact this environment is built from.");
             configuration.setTransitive(false);
             configuration.defaultDependencies(dependencies -> {
-                var version = ext.getCleanroomVersion().getOrNull();
+                var version = ext.getVersion().getOrNull();
                 if (version != null) {
                     dependencies.add(project.getDependencies().create("com.cleanroommc:cleanroom:" + version + ":userdev@jar"));
                 }
@@ -106,7 +107,7 @@ public final class UserDevTasks {
             });
         });
 
-        var accessTransformerTool = Objects.toolConfig(project, "accesstransformer", "net.minecraftforge:accesstransformers:8.2.17");
+        var accessTransformerTool = Objects.toolConfig(project, "accesstransformer", Meta.DEFAULT_TOOLS.get("accesstransformer"));
 
         var userdevDir = ext.getLocalCacheDirectory().dir("userdev");
         var userdevJar = userdevDir.map(dir -> dir.file(USERDEV_JAR_NAME));

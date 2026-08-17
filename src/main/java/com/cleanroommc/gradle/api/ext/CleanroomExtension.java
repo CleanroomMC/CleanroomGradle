@@ -46,7 +46,9 @@ public abstract class CleanroomExtension {
 
     public abstract NamedDomainObjectContainer<PatchDevEnvironment> getPatchDev();
 
-    public abstract Property<Boolean> getLoaderProject();
+    public abstract NamedDomainObjectContainer<VanillaEnvironment> getVanilla();
+
+    public abstract Property<ProjectMode> getMode();
 
     public abstract ConfigurableFileCollection getAccessTransformers();
 
@@ -55,7 +57,7 @@ public abstract class CleanroomExtension {
     public abstract Property<String> getForgeVersion();
 
     // TODO: just getVersion, but we have getForgeVersion atm that will be removed.
-    public abstract Property<String> getCleanroomVersion();
+    public abstract Property<String> getVersion();
 
     public abstract ListProperty<String> getLwjglNativesClassifiers();
 
@@ -84,14 +86,15 @@ public abstract class CleanroomExtension {
                 .orElse(providers.of(BundledVersionMetaValueSource.class, spec -> {}))
         );
         this.getDevelopInitialPatches().convention(false);
-        this.getLoaderProject().convention(false);
+        this.getMode().convention(ProjectMode.USERDEV);
         this.getDiscardIntermediates().convention(
                 providers.gradleProperty("cleanroom.discardIntermediates")
                         .map(Boolean::parseBoolean)
-                        .orElse(this.getLoaderProject().map(loader -> !loader)));
+                        .orElse(this.getMode().map(mode -> mode != ProjectMode.LOADER)));
         this.getForgeVersion().convention("14.23.5.2864");
         this.getLwjglNativesClassifiers().convention(LwjglNatives.CLASSIFIERS);
         this.getPatchDev().all(env -> env.registerTasks(project, this.getLocalCacheDirectory()));
+        this.getVanilla().all(env -> env.register(project, this));
     }
 
     public static abstract class PatchDevEnvironment implements Named {

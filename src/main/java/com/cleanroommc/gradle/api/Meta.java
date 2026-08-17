@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.api;
 
+import java.util.Map;
 import java.util.regex.Pattern;
 
 public final class Meta {
@@ -16,6 +17,14 @@ public final class Meta {
     public static final String CLEANROOM_REPO = "https://maven.cleanroommc.com/";
 
     public static final String FORGE_REPO = "https://maven.minecraftforge.net/";
+
+    public static final Map<String, String> DEFAULT_TOOLS = Map.of(
+            "accesstransformer", "net.minecraftforge:accesstransformers:8.2.17",
+            "decompiler", "com.cleanroommc:cleanflower:1.0.0",
+            "installertools", "net.minecraftforge:installertools:1.4.1:fatjar",
+            "mcinjector", "de.oceanlabs.mcp:mcinjector:3.7.3",
+            "mergetool", "net.minecraftforge:mergetool:1.2.2"
+    );
 
     // RegEx's
     public static final Pattern NATIVES_PATTERN = Pattern.compile("^(?<group>.*)/(.*?)/(?<version>.*)/((?<name>.*?)-(\\k<version>)-)(?<classifier>.*).jar$");

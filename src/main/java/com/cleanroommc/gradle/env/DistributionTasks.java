@@ -46,7 +46,7 @@ import java.util.Set;
 
 /**
  * Registers the Cleanroom release/distribution pipeline.
- * Only instantiated when {@code cleanroom { loaderProject = true }}.
+ * Only instantiated for {@code cleanroom { mode = ProjectMode.LOADER }}.
  */
 public final class DistributionTasks {
 

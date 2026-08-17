@@ -59,6 +59,7 @@ class CleanroomGradlePluginTest {
                 }
                 group = 'com.example'
                 cleanroom {
+                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
                     developInitialPatches = false
                 }
                 """
@@ -71,15 +72,25 @@ class CleanroomGradlePluginTest {
         return GradleRunner.create().withProjectDir(this.projectDir.toFile()).withArguments(allArgs);
     }
 
+    private void assertProblemReported(String problemId) throws IOException {
+        var report = this.projectDir.resolve("build/reports/problems/problems-report.html");
+        assertTrue(Files.isRegularFile(report), "Gradle Problems report was not generated");
+        assertTrue(Files.readString(report).contains(problemId),
+                "Problems report does not contain '" + problemId + "'");
+    }
+
     @Test
     void pluginApplies() {
         var result = runner("help").build();
         assertEquals(TaskOutcome.SUCCESS, result.task(":help").getOutcome());
-        assertTrue(result.getOutput().contains("Running CleanroomGradle"), "plugin did not apply");
+        assertFalse(result.getOutput().contains("Applying CleanroomGradle"), "plugin application logged at lifecycle level");
+
+        var infoResult = runner("help", "--info").build();
+        assertTrue(infoResult.getOutput().contains("Applying CleanroomGradle"), "plugin application info log missing");
     }
 
     @Test
-    void cleanDeletesCleanroomCaches() throws IOException {
+    void cleanPreservesSharedCacheAndExplicitTaskDeletesIt() throws IOException {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
                 cleanroom {
                     cacheDirectory.set(layout.projectDirectory.dir('cleanroom-cache'))
@@ -96,8 +107,141 @@ class CleanroomGradlePluginTest {
 
         var result = runner("clean", "--configuration-cache").build();
         assertEquals(TaskOutcome.SUCCESS, result.task(":clean").getOutcome());
-        assertFalse(Files.exists(cacheMarker.getParent()), "Shared CleanroomGradle cache was not deleted");
+        assertTrue(Files.exists(cacheMarker), "Ordinary clean deleted the shared CleanroomGradle cache");
         assertFalse(Files.exists(localCacheMarker.getParent()), "Local CleanroomGradle cache was not deleted");
+
+        var sharedClean = runner("cleanCleanroomSharedCache", "--configuration-cache").build();
+        assertEquals(TaskOutcome.SUCCESS, sharedClean.task(":cleanCleanroomSharedCache").getOutcome());
+        assertFalse(Files.exists(cacheMarker.getParent()), "Explicit shared-cache cleanup did not delete the cache");
+    }
+
+    @Test
+    void explicitLoaderModeRegistersDistributionTasks() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                import com.cleanroommc.gradle.api.ext.ProjectMode
+
+                cleanroom.mode = ProjectMode.LOADER
+                """, StandardOpenOption.APPEND);
+
+        var explicit = runner("tasks", "--all").build();
+        assertTrue(explicit.getOutput().contains("universalJar"), "explicit loader mode did not register distribution tasks");
+        assertTrue(explicit.getOutput().contains("userdevJar"), "explicit loader mode did not register userdev distribution");
+    }
+
+    @Test
+    void userdevIsTheDefaultMode() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+                cleanroom.cleanroomVersion = '0.4.5'
+                """);
+
+        var result = runner("cleanroomInfo").build();
+        assertEquals(TaskOutcome.SUCCESS, result.task(":cleanroomInfo").getOutcome());
+        assertTrue(result.getOutput().contains("mode: userdev"));
+        assertTrue(result.getOutput().contains("discard intermediates: true"));
+    }
+
+    @Test
+    void quotedVanillaVersionsCreateIsolatedNamedEnvironments() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                import com.cleanroommc.gradle.api.task.mc.RunMinecraft
+
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+                cleanroom {
+                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.USERDEV
+                    cleanroomVersion = 'test-version'
+                    vanilla {
+                        "1.12" {
+                            client {
+                                args '--custom-client'
+                                maxHeapSize = '3G'
+                            }
+                            server {
+                                args '--custom-server'
+                            }
+                        }
+                        "26.1" {
+                            javaVersion = 25
+                        }
+                    }
+                }
+                gradle.projectsEvaluated {
+                    assert cleanroom.vanilla.named('1.12').get().version.get() == '1.12'
+                    assert cleanroom.vanilla.named('26.1').get().version.get() == '26.1'
+                    assert tasks.named('run1.12Client', RunMinecraft).get().args == ['--custom-client']
+                    assert tasks.named('run1.12Client', RunMinecraft).get().maxHeapSize == '3G'
+                    assert tasks.named('run1.12Server', RunMinecraft).get().args == ['--custom-server']
+                    assert tasks.findByName('run26.1Client') != null
+                    assert tasks.findByName('download1.12ClientJar') != null
+                    assert tasks.findByName('download26.1ClientJar') != null
+                    assert configurations.findByName('vanilla1.12') != null
+                    assert configurations.findByName('vanilla26.1') != null
+                }
+                """);
+
+        var result = runner("tasks", "--all", "--configuration-cache").build();
+        assertTrue(result.getOutput().contains("run1.12Client"));
+        assertTrue(result.getOutput().contains("download1.12Assets"));
+        assertTrue(result.getOutput().contains("run26.1Client"));
+
+        var reused = runner("tasks", "--all", "--configuration-cache").build();
+        assertTrue(reused.getOutput().contains("Reusing configuration cache"));
+    }
+
+    @Test
+    void invalidVanillaEnvironmentUsesProblemsApi() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                cleanroom.vanilla {
+                    "../escape" { }
+                }
+                """, StandardOpenOption.APPEND);
+
+        var result = runner("help").buildAndFail();
+        assertTrue(result.getOutput().contains("Invalid vanilla environment name '../escape'"));
+        assertProblemReported("invalid-vanilla-environment");
+    }
+
+    @Test
+    void vanillaModeDoesNotInferUserdevFromArtifactConfiguration() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                import com.cleanroommc.gradle.api.ext.ProjectMode
+
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+                cleanroom {
+                    mode = ProjectMode.VANILLA
+                    cleanroomVersion = '0.4.5'
+                }
+                gradle.projectsEvaluated {
+                    assert tasks.findByName('setupCleanroom') == null
+                }
+                """);
+
+        var result = runner("cleanroomInfo").build();
+        assertEquals(TaskOutcome.SUCCESS, result.task(":cleanroomInfo").getOutcome());
+        assertTrue(result.getOutput().contains("mode: vanilla"));
+    }
+
+    @Test
+    void explicitUserdevModeRequiresAnArtifact() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                import com.cleanroommc.gradle.api.ext.ProjectMode
+
+                cleanroom.mode = ProjectMode.USERDEV
+                """, StandardOpenOption.APPEND);
+
+        var result = runner("help").buildAndFail();
+        assertTrue(result.getOutput().contains("USERDEV mode requires cleanroom.cleanroomVersion"),
+                "missing userdev input did not have an actionable error");
+        assertProblemReported("missing-userdev");
     }
 
     @Test
@@ -111,6 +255,7 @@ class CleanroomGradlePluginTest {
                     id 'com.cleanroommc.cleanroomgradle'
                 }
                 cleanroom {
+                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
                     discardIntermediates = true
                     localCacheDirectory.set(layout.buildDirectory.dir('cleanroom_gradle'))
                 }
@@ -146,6 +291,7 @@ class CleanroomGradlePluginTest {
                     id 'com.cleanroommc.cleanroomgradle'
                 }
                 cleanroom {
+                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
                     discardIntermediates = false
                 }
                 def mid = layout.buildDirectory.file('cleanroom_gradle/mid.txt')
@@ -174,12 +320,60 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
+    void diagnosticsReportEffectiveConfigurationWithoutResolvingTools() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                import com.cleanroommc.gradle.api.ext.ProjectMode
+
+                cleanroom {
+                    mode = ProjectMode.VANILLA
+                    cacheDirectory = layout.projectDirectory.dir('shared-cache')
+                    localCacheDirectory = layout.projectDirectory.dir('work-cache')
+                }
+                dependencies {
+                    decompiler 'example:replacement-decompiler:1.0'
+                }
+                """, StandardOpenOption.APPEND);
+        var clientJar = this.projectDir.resolve("shared-cache/versions/1.12.2/client.jar");
+        Files.createDirectories(clientJar.getParent());
+        Files.writeString(clientJar, "cached");
+
+        var first = runner("cleanroomInfo", "--offline", "--configuration-cache").build();
+        assertEquals(TaskOutcome.SUCCESS, first.task(":cleanroomInfo").getOutcome());
+        assertTrue(first.getOutput().contains("mode: vanilla"));
+        assertTrue(first.getOutput().contains("Minecraft: 1.12.2"));
+        assertTrue(first.getOutput().contains("shared cache: " + this.projectDir.resolve("shared-cache")));
+        assertTrue(first.getOutput().contains("decompiler: example:replacement-decompiler:1.0"));
+        assertTrue(first.getOutput().contains("client jar: ready"));
+        assertTrue(first.getOutput().contains("server jar: missing"));
+
+        var second = runner("cleanroomInfo", "--offline", "--configuration-cache").build();
+        assertTrue(second.getOutput().contains("Reusing configuration cache"),
+                "diagnostics did not reuse the configuration cache. Output:\n" + second.getOutput());
+    }
+
+    @Test
+    void missingOfflineVersionMetadataHasRecoveryInstructions() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                cleanroom {
+                    cacheDirectory = layout.projectDirectory.dir('empty-cache')
+                    versionMetaUrl = 'https://example.invalid/version-meta.json'
+                }
+                """, StandardOpenOption.APPEND);
+
+        var result = runner("cleanroomInfo", "--offline").buildAndFail();
+        assertTrue(result.getOutput().contains("Gradle is offline and no cached version metadata exists at"));
+        assertTrue(result.getOutput().contains("https://example.invalid/version-meta.json"));
+        assertTrue(result.getOutput().contains("Run the requested task once without --offline"));
+    }
+
+    @Test
     void overridingToolConfigurations() throws IOException {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
                 plugins {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
                 }
+                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
 
                 dependencies {
                     decompiler 'example:replacement-decompiler:1.0'
@@ -224,6 +418,7 @@ class CleanroomGradlePluginTest {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
                 }
+                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
 
                 def customOutput = layout.buildDirectory.file('custom-merge.txt')
                 tasks.named('mergeJars', MergeJars) {
@@ -282,6 +477,7 @@ class CleanroomGradlePluginTest {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
                 }
+                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
 
                 Tasks.unzip(project, 'extractTestArchive',
                     layout.projectDirectory.file('input.zip'),
@@ -334,6 +530,7 @@ class CleanroomGradlePluginTest {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
                 }
+                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
 
                 tasks.register('runWithoutNatives', RunMinecraft) {
                     dependsOn tasks.named('classes')
@@ -352,7 +549,9 @@ class CleanroomGradlePluginTest {
     @Test
     void loaderTaskGroupsExposeOnlyEntryPoints() throws IOException {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
-                cleanroom.loaderProject = true
+                import com.cleanroommc.gradle.api.ext.ProjectMode
+
+                cleanroom.mode = ProjectMode.LOADER
 
                 gradle.projectsEvaluated {
                     assert cleanroom.discardIntermediates.get() == false
@@ -393,7 +592,12 @@ class CleanroomGradlePluginTest {
     @Test
     void userdevTaskGroupsExposeOnlyEntryPoints() throws IOException {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
-                cleanroom.cleanroomVersion = '0.4.5'
+                import com.cleanroommc.gradle.api.ext.ProjectMode
+
+                cleanroom {
+                    mode = ProjectMode.USERDEV
+                    cleanroomVersion = '0.4.5'
+                }
 
                 gradle.projectsEvaluated {
                     assert cleanroom.discardIntermediates.get() == true
@@ -428,6 +632,7 @@ class CleanroomGradlePluginTest {
                 }
                 group = 'com.example'
                 cleanroom {
+                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
                     patchDev {
                         example {
                             input = layout.buildDirectory.dir('input-src')
@@ -494,6 +699,7 @@ class CleanroomGradlePluginTest {
                     id 'com.cleanroommc.cleanroomgradle'
                 }
                 cleanroom {
+                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
                     patchDev {
                         example {
                             input = layout.buildDirectory.dir('missing-input')
@@ -512,8 +718,10 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
-    void loaderProjectRegistersDistributionTasks() throws IOException {
+    void loaderModeRegistersDistributionTasks() throws IOException {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
+                import com.cleanroommc.gradle.api.ext.ProjectMode
+
                 plugins {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
@@ -521,7 +729,7 @@ class CleanroomGradlePluginTest {
                 group = 'com.cleanroommc'
                 version = '0.1.0'
                 cleanroom {
-                    loaderProject = true
+                    mode = ProjectMode.LOADER
                 }
                 gradle.projectsEvaluated {
                     def minecraft = cleanroom.patchDev.minecraft
@@ -560,6 +768,8 @@ class CleanroomGradlePluginTest {
     @Test
     void sideOnlyPipelineDryRunResolvesTaskGraph() throws IOException {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
+                import com.cleanroommc.gradle.api.ext.ProjectMode
+
                 plugins {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
@@ -567,7 +777,7 @@ class CleanroomGradlePluginTest {
                 group = 'com.cleanroommc'
                 version = '0.1.0'
                 cleanroom {
-                    loaderProject = true
+                    mode = ProjectMode.LOADER
                 }
                 """);
 
@@ -588,12 +798,14 @@ class CleanroomGradlePluginTest {
     @Test
     void cleanroomRunPreparesMinecraftPatchDevWorkspace() throws IOException {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
+                import com.cleanroommc.gradle.api.ext.ProjectMode
+
                 plugins {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
                 }
                 cleanroom {
-                    loaderProject = true
+                    mode = ProjectMode.LOADER
                 }
                 """);
 
@@ -616,6 +828,8 @@ class CleanroomGradlePluginTest {
     @Test
     void userdevJarDryRunResolvesTaskGraph() throws IOException {
         Files.writeString(this.projectDir.resolve("build.gradle"), """
+                import com.cleanroommc.gradle.api.ext.ProjectMode
+
                 plugins {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
@@ -623,7 +837,7 @@ class CleanroomGradlePluginTest {
                 group = 'com.cleanroommc'
                 version = '0.1.0'
                 cleanroom {
-                    loaderProject = true
+                    mode = ProjectMode.LOADER
                 }
                 """);
 
@@ -688,6 +902,7 @@ class CleanroomGradlePluginTest {
                     id 'com.cleanroommc.cleanroomgradle'
                 }
                 cleanroom {
+                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
                     cacheDirectory.set(layout.projectDirectory.dir('cg-cache'))
                     versionMeta.set(IO.readJson(file('version-meta.json'), VersionMeta))
                 }
@@ -733,6 +948,7 @@ class CleanroomGradlePluginTest {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
                 }
+                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
 
                 tasks.named('downloadAssets') {
                     assetIndexFile = layout.projectDirectory.file('asset-index.json')
@@ -751,6 +967,36 @@ class CleanroomGradlePluginTest {
         var second = runner("downloadAssets").build();
         assertEquals(TaskOutcome.UP_TO_DATE, second.task(":downloadAssets").getOutcome());
         assertFalse(second.getOutput().contains("ASSET_TASK_EXECUTED"));
+    }
+
+    @Test
+    void offlineAssetValidationReportsAllProblemsAndRecovery() throws IOException {
+        var missingHash = "1111111111111111111111111111111111111111";
+        var corruptHash = "2222222222222222222222222222222222222222";
+        Files.writeString(this.projectDir.resolve("asset-index.json"), """
+                {
+                  "objects": {
+                    "minecraft/sounds/missing.ogg": {"hash":"%s","size":4},
+                    "minecraft/textures/corrupt.png": {"hash":"%s","size":7}
+                  }
+                }
+                """.formatted(missingHash, corruptHash));
+        var corruptAsset = this.projectDir.resolve("objects/22/" + corruptHash);
+        Files.createDirectories(corruptAsset.getParent());
+        Files.writeString(corruptAsset, "corrupt");
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                tasks.named('downloadAssets') {
+                    assetIndexFile = layout.projectDirectory.file('asset-index.json')
+                    objects = layout.projectDirectory.dir('objects')
+                }
+                """, StandardOpenOption.APPEND);
+
+        var result = runner("downloadAssets", "--offline").buildAndFail();
+        assertTrue(result.getOutput().contains("2 Minecraft asset(s) are missing or invalid"));
+        assertTrue(result.getOutput().contains("minecraft/sounds/missing.ogg: object is missing"));
+        assertTrue(result.getOutput().contains("minecraft/textures/corrupt.png: SHA-1 does not match"));
+        assertTrue(result.getOutput().contains("Run downloadAssets once without --offline to repair the shared asset cache"));
+        assertProblemReported("offline-assets");
     }
 
     @Test
@@ -787,6 +1033,7 @@ class CleanroomGradlePluginTest {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
                 }
+                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
 
                 def transformed = layout.buildDirectory.file('cached-at.jar')
                 tasks.register('cachedAccessTransform', AccessTransform) {
@@ -833,6 +1080,7 @@ class CleanroomGradlePluginTest {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
                 }
+                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
 
                 def patches = layout.buildDirectory.file('test.binpatches')
                 def generate = tasks.register('generateTestBinPatches', GenerateBinPatches) {

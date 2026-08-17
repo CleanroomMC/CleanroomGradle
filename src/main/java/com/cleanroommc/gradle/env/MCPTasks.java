@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.env;
 
+import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.cleanroommc.gradle.api.names.NamesSource;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
@@ -78,9 +79,9 @@ public final class MCPTasks {
         this.mcpVersionId = this.mcpConfig.map(MCPTasks::deriveMcpVersion);
         this.mcpMappingsId = this.mcpMappings.map(MCPTasks::deriveMcpMappings);
 
-        var mergeTool = Objects.toolConfig(project, "mergetool", "net.minecraftforge:mergetool:1.2.2");
-        var metadataInjector = Objects.toolConfig(project, "mcinjector", "de.oceanlabs.mcp:mcinjector:3.7.3");
-        var decompiler = Objects.toolConfig(project, "decompiler", "com.cleanroommc:cleanflower:1.0.0");
+        var mergeTool = Objects.toolConfig(project, "mergetool", Meta.DEFAULT_TOOLS.get("mergetool"));
+        var metadataInjector = Objects.toolConfig(project, "mcinjector", Meta.DEFAULT_TOOLS.get("mcinjector"));
+        var decompiler = Objects.toolConfig(project, "decompiler", Meta.DEFAULT_TOOLS.get("decompiler"));
 
         this.srgSource = SourceSets.internal(project, "srgSource");
         this.mcpSource = SourceSets.internal(project, "mcpSource");
@@ -355,8 +356,8 @@ public final class MCPTasks {
     }
 
     public void configureLoaderPipeline(Project project, CleanroomExtension ext, VanillaTasks vanilla) {
-        var installerTools = Objects.toolConfig(project, "installertools", "net.minecraftforge:installertools:1.4.1:fatjar");
-        var accessTransformerTool = Objects.toolConfig(project, "accesstransformer", "net.minecraftforge:accesstransformers:8.2.17");
+        var installerTools = Objects.toolConfig(project, "installertools", Meta.DEFAULT_TOOLS.get("installertools"));
+        var accessTransformerTool = Objects.toolConfig(project, "accesstransformer", Meta.DEFAULT_TOOLS.get("accesstransformer"));
 
         var extractInheritance = Tasks.tool(project, ext.getLocalCacheDirectory(), "extractInheritance", ExtractInheritance.class, installerTools);
         var checkSAS = Tasks.register(project, "checkSAS", CheckSAS.class);
