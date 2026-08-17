@@ -1,11 +1,22 @@
 package com.cleanroommc.gradle.api.util;
 
+import java.io.File;
+
 public final class Platform {
 
     public static final Platform CURRENT = new Platform();
 
     public static String fixCommandLine(String cmdlineArg) {
         return CURRENT.getOperatingSystem().isWindows() ? cmdlineArg.replace("\"", "\\\"") : cmdlineArg;
+    }
+
+    /** Joins an existing {@code java.library.path} with a natives directory using the host separator. */
+    public static String joinLibraryPath(String existing, File extra) {
+        var added = fixCommandLine(extra.getAbsolutePath());
+        if (existing == null || existing.isBlank()) {
+            return added;
+        }
+        return existing + File.pathSeparator + added;
     }
 
     private final OperatingSystem operatingSystem;

@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.io.File;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -48,6 +50,22 @@ class PlatformTest {
                 assertTrue(LwjglNatives.CLASSIFIERS.contains(classifier), () -> os + "/" + arch + " resolved to unpublished classifier " + classifier);
             }
         }
+    }
+
+    @Test
+    void joinLibraryPathUsesHostSeparator() {
+        var extra = new File("natives");
+        var joined = Platform.joinLibraryPath("/usr/lib", extra);
+        assertTrue(joined.contains(File.pathSeparator));
+        assertTrue(joined.endsWith(Platform.fixCommandLine(extra.getAbsolutePath())));
+    }
+
+    @Test
+    void joinLibraryPathWhenExistingEmpty() {
+        var extra = new File("natives");
+        var expected = Platform.fixCommandLine(extra.getAbsolutePath());
+        assertEquals(expected, Platform.joinLibraryPath("", extra));
+        assertEquals(expected, Platform.joinLibraryPath(null, extra));
     }
 
     @Test
