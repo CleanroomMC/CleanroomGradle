@@ -11,7 +11,8 @@ import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.InputFile;
-import org.gradle.api.tasks.OutputDirectory;
+import org.gradle.api.tasks.Internal;
+import org.gradle.api.tasks.OutputFiles;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
@@ -27,7 +28,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.List;
 
 @DisableCachingByDefault(because = "Maintains a large shared asset store")
 public abstract class DownloadAssets extends DefaultTask {
@@ -36,8 +37,23 @@ public abstract class DownloadAssets extends DefaultTask {
     @PathSensitive(PathSensitivity.NONE)
     public abstract RegularFileProperty getAssetIndexFile();
 
-    @OutputDirectory
+    @Internal
     public abstract DirectoryProperty getObjects();
+
+    @OutputFiles
+    public List<File> getAssetFiles() {
+        if (!this.getAssetIndexFile().isPresent()) {
+            return List.of();
+        }
+        var indexFile = this.getAssetIndexFile().get().getAsFile();
+        if (!indexFile.isFile()) {
+            return List.of();
+        }
+        var objectsDirectory = this.getObjects().get().getAsFile();
+        return IO.readJson(indexFile, AssetIndex.class).objectCollection().stream()
+                .map(asset -> new File(objectsDirectory, asset.path()))
+                .toList();
+    }
 
     @Inject
     public abstract WorkerExecutor getWorkerExecutor();
@@ -54,25 +70,15 @@ public abstract class DownloadAssets extends DefaultTask {
         var assetIndex = IO.readJson(this.getAssetIndexFile().get().getAsFile(), AssetIndex.class);
         var objectsDirectory = this.getObjects().get().getAsFile();
 
-        for (int i = 0x00; i <= 0xFF; i++) {
-            var objectDirectory = new File(objectsDirectory, String.format("%02x", i));
-            if (!objectDirectory.exists()) {
-                objectDirectory.mkdir();
-            }
-        }
-
         var executor = this.getWorkerExecutor();
         var queue = executor.noIsolation();
         var assets = assetIndex.objectCollection();
-
-        var downloads = new AtomicInteger(0);
-        var amounts = assets.size();
 
         boolean ran = false;
 
         for (var asset : assets) {
             var target = new File(objectsDirectory, asset.path());
-            if (!target.exists() || !IO.sha1Match(target, asset.hash())) {
+            if (!target.isFile() || target.length() != asset.size() || !IO.sha1Match(target, asset.hash())) {
                 ran = true;
                 queue.submit(AssetAction.class, action -> {
                     try {
@@ -84,12 +90,11 @@ public abstract class DownloadAssets extends DefaultTask {
                     action.getSha1().set(asset.hash());
                     action.getSize().set(asset.size());
                     action.getTargetFile().set(target);
-                    action.getDownloads().set(downloads);
                 });
             }
         }
 
-        if (!ran || downloads.get() == amounts) {
+        if (!ran) {
             this.setDidWork(false);
         }
 
@@ -104,8 +109,6 @@ public abstract class DownloadAssets extends DefaultTask {
         Property<Long> getSize();
 
         Property<File> getTargetFile();
-
-        Property<AtomicInteger> getDownloads();
 
     }
 
@@ -126,13 +129,12 @@ public abstract class DownloadAssets extends DefaultTask {
                         throw new RuntimeException("Asset %s had mismatching sizes. Downloaded %s | Expected %s "
                                 .formatted(target.getAbsolutePath(), size, params.getSize().get()));
                     }
-                    if (!IO.sha1Match(target, params.getSha1().get())) {
-                        var actual = IO.sha1(target);
+                    var actualSha1 = IO.sha1(target);
+                    if (!actualSha1.equalsIgnoreCase(params.getSha1().get())) {
                         FileUtils.deleteQuietly(target);
                         throw new RuntimeException("Asset %s had mismatching checksums. Downloaded %s | Expected %s "
-                                .formatted(target.getAbsolutePath(), actual, params.getSha1().get()));
+                                .formatted(target.getAbsolutePath(), actualSha1, params.getSha1().get()));
                     }
-                    params.getDownloads().get().incrementAndGet();
                     return;
                 } catch (IOException e) {
                     if (retry == 4) {

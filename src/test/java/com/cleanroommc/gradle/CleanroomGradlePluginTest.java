@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -716,6 +717,150 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
+    void assetOutputsIgnoreObjectsFromOtherIndexes() throws IOException {
+        var assetBytes = "cached-asset".getBytes(StandardCharsets.UTF_8);
+        var assetSha1 = DigestUtils.sha1Hex(assetBytes);
+        var assetPath = "objects/" + assetSha1.substring(0, 2) + "/" + assetSha1;
+        Files.writeString(this.projectDir.resolve("asset-index.json"), """
+                {"objects":{"example":{"hash":"%s","size":%d}}}
+                """.formatted(assetSha1, assetBytes.length));
+        var cachedAsset = this.projectDir.resolve(assetPath);
+        Files.createDirectories(cachedAsset.getParent());
+        Files.write(cachedAsset, assetBytes);
+
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+
+                tasks.named('downloadAssets') {
+                    assetIndexFile = layout.projectDirectory.file('asset-index.json')
+                    objects = layout.projectDirectory.dir('objects')
+                    doFirst {
+                        logger.lifecycle('ASSET_TASK_EXECUTED')
+                        assert outputs.files.files == [file('%s')] as Set
+                    }
+                }
+                """.formatted(assetPath));
+
+        var first = runner("downloadAssets").build();
+        assertTrue(first.getOutput().contains("ASSET_TASK_EXECUTED"));
+
+        Files.writeString(this.projectDir.resolve("objects/unrelated-object"), "other index");
+        var second = runner("downloadAssets").build();
+        assertEquals(TaskOutcome.UP_TO_DATE, second.task(":downloadAssets").getOutcome());
+        assertFalse(second.getOutput().contains("ASSET_TASK_EXECUTED"));
+    }
+
+    @Test
+    void accessTransformRestoresFromBuildCache() throws IOException {
+        var sourceDir = this.projectDir.resolve("src/main/java/example");
+        Files.createDirectories(sourceDir);
+        Files.writeString(sourceDir.resolve("CustomAccessTransform.java"), """
+                package example;
+
+                import java.nio.charset.StandardCharsets;
+                import java.nio.file.Files;
+                import java.nio.file.Path;
+                import java.util.zip.ZipEntry;
+                import java.util.zip.ZipOutputStream;
+
+                public final class CustomAccessTransform {
+                    public static void main(String[] args) throws Exception {
+                        var output = Path.of(args[0]);
+                        Files.createDirectories(output.getParent());
+                        try (var zip = new ZipOutputStream(Files.newOutputStream(output))) {
+                            zip.putNextEntry(new ZipEntry("result.txt"));
+                            zip.write(args[1].getBytes(StandardCharsets.UTF_8));
+                            zip.closeEntry();
+                        }
+                    }
+                }
+                """);
+        Files.writeString(this.projectDir.resolve("access.cfg"), "public example.Dummy");
+        Files.writeString(this.projectDir.resolve("input.jar"), "input");
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                import com.cleanroommc.gradle.api.task.mcp.AccessTransform
+
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+
+                def transformed = layout.buildDirectory.file('cached-at.jar')
+                tasks.register('cachedAccessTransform', AccessTransform) {
+                    dependsOn tasks.named('classes')
+                    toolClasspath.from(sourceSets.main.output)
+                    useDefaultToolArguments = false
+                    mainClass = 'example.CustomAccessTransform'
+                    args(transformed.get().asFile.absolutePath, 'cached')
+                    accessTransformers.from(layout.projectDirectory.file('access.cfg'))
+                    inputJar = layout.projectDirectory.file('input.jar')
+                    outputJar = transformed
+                }
+                """);
+
+        var first = runner("cachedAccessTransform", "--build-cache").build();
+        assertEquals(TaskOutcome.SUCCESS, first.task(":cachedAccessTransform").getOutcome());
+
+        Files.createDirectories(this.projectDir.resolve("relocated"));
+        Files.move(this.projectDir.resolve("input.jar"), this.projectDir.resolve("relocated/input.jar"));
+        var buildFile = this.projectDir.resolve("build.gradle");
+        Files.writeString(buildFile, Files.readString(buildFile).replace("file('input.jar')", "file('relocated/input.jar')"));
+        Files.delete(this.projectDir.resolve("build/cached-at.jar"));
+        var second = runner("cachedAccessTransform", "--build-cache").build();
+        assertEquals(TaskOutcome.FROM_CACHE, second.task(":cachedAccessTransform").getOutcome());
+    }
+
+    @Test
+    void binpatchRoundTripPreservesJarContents() throws IOException {
+        var original = this.projectDir.resolve("original.jar");
+        var modified = this.projectDir.resolve("modified.jar");
+        writeArchive(original, List.of(
+                new ArchiveEntry("a/A.class", "old"),
+                new ArchiveEntry("b/B.class", "removed"),
+                new ArchiveEntry("resource.txt", "resource")));
+        writeArchive(modified, List.of(
+                new ArchiveEntry("a/A.class", "new class contents"),
+                new ArchiveEntry("c/C.class", "added")));
+
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                import com.cleanroommc.gradle.api.task.patch.ApplyBinPatches
+                import com.cleanroommc.gradle.api.task.patch.GenerateBinPatches
+
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+
+                def patches = layout.buildDirectory.file('test.binpatches')
+                def generate = tasks.register('generateTestBinPatches', GenerateBinPatches) {
+                    originalJar = layout.projectDirectory.file('original.jar')
+                    modifiedJar = layout.projectDirectory.file('modified.jar')
+                    includedPrefixes = []
+                    binpatches = patches
+                }
+                tasks.register('applyTestBinPatches', ApplyBinPatches) {
+                    dependsOn generate
+                    originalJar = layout.projectDirectory.file('original.jar')
+                    binpatches = patches
+                    patchedJar = layout.buildDirectory.file('patched.jar')
+                }
+                """);
+
+        var result = runner("applyTestBinPatches").build();
+        assertEquals(TaskOutcome.SUCCESS, result.task(":generateTestBinPatches").getOutcome());
+        assertEquals(TaskOutcome.SUCCESS, result.task(":applyTestBinPatches").getOutcome());
+        try (var zip = new ZipFile(this.projectDir.resolve("build/patched.jar").toFile())) {
+            assertEquals("new class contents", readEntry(zip, "a/A.class"));
+            assertNull(zip.getEntry("b/B.class"));
+            assertEquals("added", readEntry(zip, "c/C.class"));
+            assertEquals("resource", readEntry(zip, "resource.txt"));
+        }
+    }
+
+    @Test
     void eligibleForConfigurationCache() throws IOException {
         Files.writeString(this.projectDir.resolve("gradle.properties"), "org.gradle.configuration-cache=true\norg.gradle.configuration-cache.problems=warn\n");
 
@@ -727,5 +872,23 @@ class CleanroomGradlePluginTest {
         var second = runner("remapSrg2Mcp", "--dry-run").build();
         assertTrue(second.getOutput().contains("Reusing configuration cache"), "CC not reused on second run. Output:\n" + second.getOutput());
     }
+
+    private static void writeArchive(Path output, List<ArchiveEntry> entries) throws IOException {
+        try (var zip = new ZipOutputStream(Files.newOutputStream(output))) {
+            for (var entry : entries) {
+                zip.putNextEntry(new ZipEntry(entry.name()));
+                zip.write(entry.contents().getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+        }
+    }
+
+    private static String readEntry(ZipFile zip, String name) throws IOException {
+        try (var input = zip.getInputStream(zip.getEntry(name))) {
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private record ArchiveEntry(String name, String contents) { }
 
 }
