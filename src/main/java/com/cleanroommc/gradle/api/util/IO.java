@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.TreeMap;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
@@ -113,19 +114,20 @@ public final class IO {
     public static void normalizeZip(Path path) {
         var temporary = path.resolveSibling(path.getFileName() + ".deterministic.tmp");
         try {
-            var entries = new TreeMap<String, byte[]>();
-            try (var input = zipIn(path.toFile())) {
-                ZipEntry entry;
-                while ((entry = input.getNextEntry()) != null) {
-                    entries.put(entry.getName(), input.readAllBytes());
+            try (var input = new ZipFile(path.toFile()); var output = zipOut(temporary.toFile())) {
+                var entries = new TreeMap<String, ZipEntry>();
+                var enumeration = input.entries();
+                while (enumeration.hasMoreElements()) {
+                    var entry = enumeration.nextElement();
+                    entries.put(entry.getName(), entry);
                 }
-            }
-            try (var output = zipOut(temporary.toFile())) {
                 for (var entry : entries.entrySet()) {
                     var zipEntry = new ZipEntry(entry.getKey());
                     zipEntry.setTime(0L);
                     output.putNextEntry(zipEntry);
-                    output.write(entry.getValue());
+                    try (var stream = input.getInputStream(entry.getValue())) {
+                        stream.transferTo(output);
+                    }
                     output.closeEntry();
                 }
             }
