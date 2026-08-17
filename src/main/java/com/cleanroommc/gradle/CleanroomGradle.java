@@ -1,6 +1,7 @@
 package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.api.ext.CleanroomExtension;
+import com.cleanroommc.gradle.api.task.IntermediateProcessor;
 import com.cleanroommc.gradle.api.util.CloseHttpClientFlowAction;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
@@ -29,6 +30,7 @@ public abstract class CleanroomGradle implements Plugin<Project> {
         getFlowScope().always(CloseHttpClientFlowAction.class, spec -> {});
 
         final var cleanroomExtension = Objects.extension(project, "cleanroom", CleanroomExtension.class);
+        IntermediateProcessor.register(project, cleanroomExtension);
         project.getPluginManager().withPlugin("base", plugin ->
                 project.getTasks().named("clean", Delete.class).configure(task ->
                         task.delete(cleanroomExtension.getCacheDirectory(), cleanroomExtension.getLocalCacheDirectory())));

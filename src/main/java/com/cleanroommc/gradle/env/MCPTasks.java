@@ -3,6 +3,7 @@ package com.cleanroommc.gradle.env;
 import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.cleanroommc.gradle.api.names.NamesSource;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
+import com.cleanroommc.gradle.api.task.IntermediateProcessor;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.common.Decompile;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
@@ -28,11 +29,13 @@ import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
+import org.gradle.api.tasks.Delete;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.compile.JavaCompile;
 
 import java.io.File;
+import java.util.List;
 
 public final class MCPTasks {
 
@@ -55,8 +58,9 @@ public final class MCPTasks {
     /** {@code MCP_VERSION} and {@code MCP_MAPPINGS} as the dev runtime expects them, e.g. {@code 20201025.185735} and {@code stable_39}. */
     public final Provider<String> mcpVersionId, mcpMappingsId;
 
-    private final Provider<File> tinyFileWhenPresent;
-    private final Provider<String> activeNamesId, mcpConfigVersion;
+    final Provider<File> tinyFileWhenPresent;
+    final Provider<String> activeNamesId;
+    private final Provider<String> mcpConfigVersion;
 
     public MCPTasks(Project project, CleanroomExtension ext, VanillaTasks vanilla) {
         this.mcpConfig = Objects.config(project, "mcpConfig", "de.oceanlabs.mcp:mcp_config:1.12.2-20201025.185735");
@@ -170,7 +174,7 @@ public final class MCPTasks {
             task.getAccessFile().set(mcpConfigDir.map(dir -> dir.file("access.txt")));
             task.getConstructorsFile().set(mcpConfigDir.map(dir -> dir.file("constructors.txt")));
             task.getExceptionsFile().set(mcpConfigDir.map(dir -> dir.file("exceptions.txt")));
-            task.getInjectedJar().set(new File(task.getWorkingDir(), "injected.jar"));
+            task.getInjectedJar().set(ext.getLocalCacheDirectory().file("injectMetadata/injected.jar"));
         });
         this.runSrgClient.configure(task -> {
             task.dependsOn(vanilla.downloadAssets);
@@ -195,7 +199,7 @@ public final class MCPTasks {
             task.getLogFile().convention(ext.getLocalCacheDirectory().file("decompileSrg/decompile.log"));
             task.getCompiledJar().value(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar));
             task.getLibraries().from(vanilla.vanillaConfig);
-            task.getDecompiledJar().set(new File(task.getWorkingDir(), "decompiled.jar"));
+            task.getDecompiledJar().set(ext.getLocalCacheDirectory().file("decompileSrg/decompiled.jar"));
         });
         this.applyInitialDiffs.configure(task -> {
             task.getOriginalDirectory().fileProvider(this.prepareApplyInitialDiffs.map(Copy::getDestinationDir));
@@ -274,6 +278,13 @@ public final class MCPTasks {
             task.classpath(SourceSets.classes(this.mcpSource), vanilla.vanillaConfig,
                     this.splitServerJar.flatMap(SplitJar::getExtraJar));
         });
+
+        var intermediates = IntermediateProcessor.of(project);
+        intermediates.discardAfterAll("discardInjectedJar",
+                List.of(this.decompileSrg, this.importMcpNames, this.runSrgClient, this.runSrgServer),
+                this.injectMetadata.flatMap(InjectMetadata::getInjectedJar)
+        );
+        intermediates.discardAfter(this.prepareApplyInitialDiffs, this.decompileSrg.flatMap(Decompile::getDecompiledJar));
     }
 
     private static String deriveMcpVersion(Configuration config) {
@@ -405,6 +416,21 @@ public final class MCPTasks {
                     vanilla.vanillaConfig,
                     this.splitServerJar.flatMap(SplitJar::getExtraJar)));
         });
+
+        var intermediates = IntermediateProcessor.of(project);
+        intermediates.alsoAfter(project.getTasks().named("discardInjectedJar", Delete.class), extractInheritance, applySAS);
+        intermediates.discardAfter(checkSAS, extractInheritance.flatMap(ExtractInheritance::getOutput));
+        intermediates.discardAfter(applySAS, checkSAS.flatMap(CheckSAS::getOutput));
+        intermediates.discardAfterAll("discardUniversalSrg",
+                List.of(accessTransformSrgJar, stripSrgClientJar, stripSrgServerJar),
+                applySAS.flatMap(ApplySAS::getOutputJar)
+        );
+        intermediates.discardAfterAll("discardSrgAtJar",
+                List.of(this.decompileSrg, this.importMcpNames),
+                accessTransformSrgJar.flatMap(AccessTransform::getOutputJar)
+        );
+        intermediates.discardAfter(this.runSrgClient, stripSrgClientJar.flatMap(StripSideOnlyJar::getOutputJar));
+        intermediates.discardAfter(this.runSrgServer, stripSrgServerJar.flatMap(StripSideOnlyJar::getOutputJar));
     }
 
 }

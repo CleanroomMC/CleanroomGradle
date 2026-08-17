@@ -20,7 +20,6 @@ import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
-import org.gradle.api.tasks.bundling.Zip;
 
 import javax.inject.Inject;
 import java.io.File;
@@ -37,7 +36,7 @@ public abstract class CleanroomExtension {
 
     public abstract DirectoryProperty getLocalCacheDirectory();
 
-    public abstract Property<Boolean> getDebug();
+    public abstract Property<Boolean> getDiscardIntermediates();
 
     public abstract Property<String> getVersionMetaUrl();
 
@@ -72,7 +71,6 @@ public abstract class CleanroomExtension {
         this.getCacheDirectory().fileValue(new File(project.getGradle().getGradleUserHomeDir(), "caches/" + Meta.CG_FOLDER));
         this.getVersionCacheDirectory().convention(this.getCacheDirectory().dir("versions/1.12.2"));
         this.getLocalCacheDirectory().convention(project.getLayout().getBuildDirectory().dir(Meta.CG_FOLDER));
-        this.getDebug().convention(false);
 
         var versionMetaCacheFile = this.getVersionCacheDirectory().file("meta.json");
         var offline = project.getGradle().getStartParameter().isOffline();
@@ -87,6 +85,10 @@ public abstract class CleanroomExtension {
         );
         this.getDevelopInitialPatches().convention(false);
         this.getLoaderProject().convention(false);
+        this.getDiscardIntermediates().convention(
+                providers.gradleProperty("cleanroom.discardIntermediates")
+                        .map(Boolean::parseBoolean)
+                        .orElse(this.getLoaderProject().map(loader -> !loader)));
         this.getForgeVersion().convention("14.23.5.2864");
         this.getLwjglNativesClassifiers().convention(LwjglNatives.CLASSIFIERS);
         this.getPatchDev().all(env -> env.registerTasks(project, this.getLocalCacheDirectory()));
@@ -104,11 +106,10 @@ public abstract class CleanroomExtension {
 
         private String dependsOn;
         private NamedDomainObjectProvider<SourceSet> sourceSet;
-        private TaskProvider<Copy> prepareSources, copyToSourceSet;
+        private TaskProvider<Copy> prepareSources;
         private TaskProvider<DefaultTask> initializeEnvironment, prepareEnvironment;
         private TaskProvider<ApplyDiffs> initializeDiffs, applyDiffs;
         private TaskProvider<GenerateDiffs> generateDiffs;
-        private TaskProvider<Zip> zipPatches;
 
         @Inject
         public PatchDevEnvironment(String name, ProjectLayout layout) {
@@ -130,16 +131,8 @@ public abstract class CleanroomExtension {
             return this.sourceSet;
         }
 
-        public TaskProvider<Copy> getPrepareSources() {
-            return prepareSources;
-        }
-
         public TaskProvider<DefaultTask> getPrepareEnvironment() {
             return prepareEnvironment;
-        }
-
-        public TaskProvider<Copy> getCopyToSourceSet() {
-            return copyToSourceSet;
         }
 
         public TaskProvider<ApplyDiffs> getApplyDiffs() {
@@ -152,10 +145,6 @@ public abstract class CleanroomExtension {
 
         public TaskProvider<GenerateDiffs> getGenerateDiffs() {
             return generateDiffs;
-        }
-
-        public TaskProvider<Zip> getZipPatches() {
-            return zipPatches;
         }
 
         private void registerTasks(Project project, DirectoryProperty localCache) {
@@ -178,13 +167,12 @@ public abstract class CleanroomExtension {
             this.initializeEnvironment = Tasks.register(project, "initialize" + capitalizedName + "PatchDevEnvironment");
             this.prepareSources = Tasks.copy(project, "prepare" + capitalizedName + "Sources", input, sourcesDir);
             this.prepareEnvironment = Tasks.register(project, "prepare" + capitalizedName + "PatchDevEnvironment");
-            this.copyToSourceSet = Tasks.copy(project, "copy" + capitalizedName + "ToSourceSet", sourcesDir, output);
             var applyTaskName = name.equals("initial") ? "applyInitialPatchDevDiffs" : "apply" + capitalizedName + "Diffs";
             this.applyDiffs = Tasks.register(project, applyTaskName, ApplyDiffs.class);
             this.initializeDiffs = Tasks.register(project, "initialize" + capitalizedName + "PatchDevSources", ApplyDiffs.class);
             this.generateDiffs = Tasks.register(project, "generate" + capitalizedName + "Diffs", GenerateDiffs.class);
-            this.zipPatches = Tasks.zip(project, "zip" + capitalizedName + "Patches", this.generateDiffs.flatMap(GenerateDiffs::getPatchesDirectory), patchesZip);
-            Tasks.group(groupName, this.prepareEnvironment, this.applyDiffs, this.generateDiffs, this.zipPatches);
+            var zipPatches = Tasks.zip(project, "zip" + capitalizedName + "Patches", this.generateDiffs.flatMap(GenerateDiffs::getPatchesDirectory), patchesZip);
+            Tasks.group(groupName, this.prepareEnvironment, this.applyDiffs, this.generateDiffs, zipPatches);
 
             this.initializeEnvironment.configure(task -> {
                 if (this.dependsOn != null) {
@@ -201,14 +189,6 @@ public abstract class CleanroomExtension {
                 });
             });
             this.prepareSources.configure(task -> task.dependsOn(this.initializeEnvironment));
-            this.copyToSourceSet.configure(task -> {
-                task.dependsOn(this.prepareSources);
-                task.onlyIf("patch dev source tree is not yet populated", $ -> {
-                    var dir = output.get().getAsFile();
-                    var contents = dir.listFiles();
-                    return contents == null || contents.length == 0;
-                });
-            });
             this.applyDiffs.configure(task -> {
                 task.dependsOn(this.prepareSources);
                 task.setDescription("Recreates the " + name + " patch-development sources and applies the current patch set.");

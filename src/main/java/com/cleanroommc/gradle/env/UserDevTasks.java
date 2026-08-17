@@ -4,6 +4,7 @@ import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.source.UserdevConfigValueSource;
+import com.cleanroommc.gradle.api.task.IntermediateProcessor;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.common.Decompile;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
@@ -35,6 +36,7 @@ import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.bundling.Jar;
 
 import java.io.File;
+import java.util.List;
 
 /**
  * Registers the tasks that set up a mod developer's environment against Cleanroom.
@@ -272,6 +274,8 @@ public final class UserDevTasks {
             task.getJoinedSrgFile().set(srgMapping);
             task.getMethodMappings().fileProvider(mcpMappingsDir.map(dir -> new File(dir, "methods.csv")));
             task.getFieldMappings().fileProvider(mcpMappingsDir.map(dir -> new File(dir, "fields.csv")));
+            task.getTinyMappings().fileProvider(mcp.tinyFileWhenPresent);
+            task.getNamesId().set(mcp.activeNamesId);
             task.getDirection().set(WriteMappings.Direction.MCP_TO_SRG);
             task.getFormat().set(IMappingFile.Format.TSRG);
             task.getOutput().set(ext.getLocalCacheDirectory().file("mappings/mcp2srg.tsrg"));
@@ -359,6 +363,22 @@ public final class UserDevTasks {
                 this.remapCleanroomSrg2Mcp.flatMap(RenameJar::getOutput)));
         dependencies.add(JavaPlugin.RUNTIME_ONLY_CONFIGURATION_NAME, project.files(
                 this.splitDevClientJar.flatMap(SplitJar::getExtraJar)));
+
+        var intermediates = IntermediateProcessor.of(project);
+        intermediates.discardAfter(this.splitDevClientJar, this.applyClientBinPatches.flatMap(ApplyBinPatches::getPatchedJar));
+        intermediates.discardAfter(this.splitDevServerJar, this.applyServerBinPatches.flatMap(ApplyBinPatches::getPatchedJar));
+        intermediates.discardAfterAll("discardDevSlimJars", List.of(this.mergeDevJars),
+                this.splitDevClientJar.flatMap(SplitJar::getSlimJar),
+                this.splitDevServerJar.flatMap(SplitJar::getSlimJar)
+        );
+        intermediates.discardAfter(this.remapDevNotch2Srg, this.mergeDevJars.flatMap(MergeJars::getMergedJar));
+        intermediates.discardAfter(this.injectDevMetadata, this.remapDevNotch2Srg.flatMap(RenameJar::getOutput));
+        intermediates.discardAfterAll("discardDevInjectedJar",
+                List.of(this.accessTransformDevJar, this.remapCleanroomSrg2Mcp),
+                this.injectDevMetadata.flatMap(InjectMetadata::getInjectedJar)
+        );
+        intermediates.discardAfter(this.remapDevSrg2Mcp, this.accessTransformDevJar.flatMap(AccessTransform::getOutputJar));
+        intermediates.discardAfter(this.accessTransformDevMcpJar, this.remapDevSrg2Mcp.flatMap(RenameJar::getOutput));
     }
 
 }

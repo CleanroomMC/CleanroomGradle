@@ -137,9 +137,8 @@ public final class Objects {
                 var url = new URI(Meta.MOJANG_PLAYER_API + URLEncoder.encode(username, StandardCharsets.UTF_8));
                 var json = IOUtils.toString(url, StandardCharsets.UTF_8);
                 var root = IO.readJson(json, JsonObject.class);
-                JsonObject rootObj = root.getAsJsonObject();
-                if (rootObj.has("id")) {
-                    String encid = rootObj.get("id").getAsString();
+                if (root != null && root.has("id")) {
+                    String encid = root.get("id").getAsString();
                     String dashed = encid.replaceFirst("(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}+)", "$1-$2-$3-$4-$5");
                     uuid = UUID.fromString(dashed);
                     cacheProperties.setProperty(username, uuid.toString());

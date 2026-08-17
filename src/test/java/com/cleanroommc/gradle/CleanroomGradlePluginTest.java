@@ -97,6 +97,73 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
+    void discardIntermediatesDeletesConsumedLocalCacheFiles() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"),
+                """
+                import com.cleanroommc.gradle.api.task.IntermediateProcessor
+
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+                cleanroom {
+                    discardIntermediates = true
+                    localCacheDirectory.set(layout.buildDirectory.dir('cleanroom_gradle'))
+                }
+                def mid = layout.buildDirectory.file('cleanroom_gradle/mid.txt')
+                def writeMid = tasks.register('writeMid') {
+                    outputs.file(mid)
+                    doLast { mid.get().asFile.text = 'mid' }
+                }
+                def readMid = tasks.register('readMid') {
+                    inputs.file(mid)
+                    dependsOn writeMid
+                    doLast { assert mid.get().asFile.file }
+                }
+                IntermediateProcessor.of(project).discardAfter(readMid, mid)
+                """
+        );
+        Files.writeString(this.projectDir.resolve("gradle.properties"),
+                "org.gradle.configuration-cache=true\norg.gradle.configuration-cache.problems=fail\n");
+
+        var result = runner("readMid").build();
+        assertEquals(TaskOutcome.SUCCESS, result.task(":readMid").getOutcome());
+        assertEquals(TaskOutcome.SUCCESS, result.task(":readMidIntermediates").getOutcome());
+        assertFalse(Files.exists(this.projectDir.resolve("build/cleanroom_gradle/mid.txt")), "intermediate file was left behind");
+    }
+
+    @Test
+    void discardIntermediatesOffKeepsConsumedFiles() throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                import com.cleanroommc.gradle.api.task.IntermediateProcessor
+
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+                cleanroom {
+                    discardIntermediates = false
+                }
+                def mid = layout.buildDirectory.file('cleanroom_gradle/mid.txt')
+                def writeMid = tasks.register('writeMid') {
+                    outputs.file(mid)
+                    doLast { mid.get().asFile.text = 'mid' }
+                }
+                def readMid = tasks.register('readMid') {
+                    inputs.file(mid)
+                    dependsOn writeMid
+                    doLast { assert mid.get().asFile.file }
+                }
+                IntermediateProcessor.of(project).discardAfter(readMid, mid)
+                """);
+
+        var result = runner("readMid").build();
+        assertEquals(TaskOutcome.SUCCESS, result.task(":readMid").getOutcome());
+        assertEquals(TaskOutcome.SKIPPED, result.task(":readMidIntermediates").getOutcome());
+        assertEquals("mid", Files.readString(this.projectDir.resolve("build/cleanroom_gradle/mid.txt")));
+    }
+
+    @Test
     void helpDoesNotResolveMinecraftMetadata() {
         var result = runner("help", "-Pmc=missing-version-for-lazy-configuration", "--offline").build();
         assertEquals(TaskOutcome.SUCCESS, result.task(":help").getOutcome());
@@ -284,6 +351,7 @@ class CleanroomGradlePluginTest {
                 cleanroom.loaderProject = true
 
                 gradle.projectsEvaluated {
+                    assert cleanroom.discardIntermediates.get() == false
                     assert tasks.findAll { it.group == 'vanilla' }*.name.toSet() == [
                         'decompileVersion', 'runVanillaClient', 'runVanillaServer'
                     ].toSet()
@@ -308,6 +376,7 @@ class CleanroomGradlePluginTest {
                     assert tasks.minecraftPatchDevClasses.group == null
                     assert tasks.findByName('srgSourceJar') == null
                     assert tasks.findByName('mcpSourceJar') == null
+                    assert tasks.findByName('copyMinecraftToSourceSet') == null
                     assert tasks.findByName('deobfDataLzma') == null
                     assert tasks.findByName('writeObf2Srg') == null
                     assert tasks.findAll { it.group != null }.every { !it.group.toLowerCase().endsWith(' tasks') }
@@ -323,6 +392,7 @@ class CleanroomGradlePluginTest {
                 cleanroom.cleanroomVersion = '0.4.5'
 
                 gradle.projectsEvaluated {
+                    assert cleanroom.discardIntermediates.get() == true
                     assert tasks.findAll { it.group == 'UserDev' }*.name.toSet() == [
                         'decompileDevJar', 'runClient', 'runServer', 'setupCleanroom'
                     ].toSet()
@@ -476,6 +546,11 @@ class CleanroomGradlePluginTest {
         assertTrue(output.contains("stripSrgServerJar"), "stripSrgServerJar not present");
         assertTrue(output.contains("stripClientMinecraftJar"), "stripClientMinecraftJar not present");
         assertTrue(output.contains("stripServerMinecraftJar"), "stripServerMinecraftJar not present");
+
+        var assemble = runner("assemble", "--dry-run").build().getOutput();
+        assertTrue(assemble.contains(":universalJar"), "assemble does not build universalJar");
+        assertTrue(assemble.contains(":userdevJar"), "assemble does not build userdevJar");
+        assertTrue(assemble.contains(":javadocJar"), "assemble does not build javadocJar");
     }
 
     @Test

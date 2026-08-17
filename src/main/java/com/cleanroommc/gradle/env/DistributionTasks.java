@@ -2,6 +2,7 @@ package com.cleanroommc.gradle.env;
 
 import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
+import com.cleanroommc.gradle.api.task.IntermediateProcessor;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.dist.WriteUserdevConfig;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
@@ -285,6 +286,24 @@ public final class DistributionTasks {
 
             task.from(javadocTask.map(Javadoc::getDestinationDir));
         });
+
+        var intermediates = IntermediateProcessor.of(project);
+        intermediates.discardAfterAll("discardReobfLoaderJar",
+                List.of(this.universalJar, this.userdevJar),
+                this.reobfJar.flatMap(RenameJar::getOutput)
+        );
+        intermediates.discardAfter(this.reobfMinecraftJar, this.minecraftClassesJar.flatMap(Jar::getArchiveFile));
+        intermediates.discardAfterAll("discardNotchMinecraftJar",
+                List.of(this.stripClientMinecraftJar, this.stripServerMinecraftJar),
+                this.reobfMinecraftJar.flatMap(RenameJar::getOutput)
+        );
+        intermediates.discardAfter(this.genClientBinPatches, this.stripClientMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar));
+        intermediates.discardAfter(this.genServerBinPatches, this.stripServerMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar));
+        intermediates.discardAfterAll("discardSideBinPatches",
+                List.of(this.genRuntimeBinPatches),
+                this.genClientBinPatches.flatMap(GenerateBinPatches::getBinpatches),
+                this.genServerBinPatches.flatMap(GenerateBinPatches::getBinpatches)
+        );
     }
 
     /** The specification version: the last release tag, i.e. the project version with any {@code +build...} suffix removed. */
