@@ -90,15 +90,14 @@ public final class DistributionTasks {
         var srgMapping = ext.getVersionCacheDirectory().file("mcp_config/config/joined.tsrg");
         var mcpMappingsDir = mcp.extractMcpMappings.map(Copy::getDestinationDir);
 
-        // TODO: Evaluate
-        // Old Forge files
-        var extraFiles = project.files(
+        var extraFiles = project.fileTree(layout.getProjectDirectory(), spec -> spec.include(
                 "CREDITS.txt",
                 "LICENSE.txt",
+                "LICENSE",
+                "CHANGELOG.md",
                 "LICENSE-Paulscode IBXM Library.txt",
-                "LICENSE-Paulscode SoundSystem CodecIBXM.txt",
-                layout.getBuildDirectory().file("changelog.txt")
-        );
+                "LICENSE-Paulscode SoundSystem CodecIBXM.txt"
+        ));
 
         this.writeMcp2SrgDist = Tasks.register(project, "writeMcp2SrgDist", WriteMappings.class);
         this.writeObf2SrgTsrg = Tasks.register(project, "writeObf2SrgTsrg", WriteMappings.class);
