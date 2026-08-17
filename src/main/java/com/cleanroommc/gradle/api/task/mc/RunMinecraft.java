@@ -7,11 +7,9 @@ import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.LaunchArguments;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.Platform;
-import com.cleanroommc.gradle.api.util.lazy.Providers;
 import com.cleanroommc.gradle.api.task.LazilyConstructedJavaExec;
 import net.minecraftforge.fml.relauncher.Side;
 import org.apache.commons.io.FileUtils;
-import org.gradle.api.file.Directory;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.provider.Property;
@@ -118,7 +116,8 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         var side = this.getSide().get();
 
         if (this.getNatives().isPresent()) {
-            this.systemProperty("java.library.path", Providers.libraryPath(this.getProject(), this.getNatives().map(Directory::getAsFile)));
+            this.systemProperty("java.library.path",
+                    Platform.joinLibraryPath(System.getProperty("java.library.path"), this.getNatives().get().getAsFile()));
         }
 
         if (!this.setCustomWorkingDir) {
