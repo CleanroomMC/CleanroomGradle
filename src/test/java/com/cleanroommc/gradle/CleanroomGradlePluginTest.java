@@ -6,8 +6,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import org.apache.commons.codec.digest.DigestUtils;
+
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -631,6 +634,85 @@ class CleanroomGradlePluginTest {
         assertTrue(output.contains(":writeMcp2Notch"), "writeMcp2Notch not present");
         assertTrue(output.contains(":writeSrg2Mcp"), "writeSrg2Mcp not present");
         assertTrue(output.contains(":writeMcp2SrgDist"), "writeMcp2SrgDist not present");
+    }
+
+    @Test
+    void SkipVanillaArtifactsWhenCacheMatches() throws IOException {
+        var sourceClient = this.projectDir.resolve("source-client.jar");
+        var sourceServer = this.projectDir.resolve("source-server.jar");
+        var sourceIndex = this.projectDir.resolve("source-assets.json");
+        var clientBytes = "cached-client".getBytes(StandardCharsets.UTF_8);
+        var serverBytes = "cached-server".getBytes(StandardCharsets.UTF_8);
+        var indexBytes = "{\"objects\":{}}".getBytes(StandardCharsets.UTF_8);
+        Files.write(sourceClient, clientBytes);
+        Files.write(sourceServer, serverBytes);
+        Files.write(sourceIndex, indexBytes);
+        var clientSha1 = DigestUtils.sha1Hex(clientBytes);
+        var serverSha1 = DigestUtils.sha1Hex(serverBytes);
+        var indexSha1 = DigestUtils.sha1Hex(indexBytes);
+
+        Files.writeString(this.projectDir.resolve("version-meta.json"),
+                """
+                {
+                  "assetIndex": {
+                    "id": "1.12",
+                    "sha1": "%s",
+                    "size": %d,
+                    "url": "%s"
+                  },
+                  "downloads": {
+                    "client": {
+                      "sha1": "%s",
+                      "size": %d,
+                      "url": "%s"
+                    },
+                    "server": {
+                      "sha1": "%s",
+                      "size": %d,
+                      "url": "%s"
+                    }
+                  },
+                  "id": "1.12.2"
+                }
+                """.formatted(indexSha1, indexBytes.length, sourceIndex.toUri(),
+                clientSha1, clientBytes.length, sourceClient.toUri(),
+                serverSha1, serverBytes.length, sourceServer.toUri()));
+        Files.writeString(this.projectDir.resolve("build.gradle"),
+                """
+                import com.cleanroommc.gradle.api.schema.VersionMeta
+                import com.cleanroommc.gradle.api.util.IO
+
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+                cleanroom {
+                    cacheDirectory.set(layout.projectDirectory.dir('cg-cache'))
+                    versionMeta.set(IO.readJson(file('version-meta.json'), VersionMeta))
+                }
+                """
+        );
+
+        var versionCache = this.projectDir.resolve("cg-cache/versions/1.12.2");
+        var indexCache = this.projectDir.resolve("cg-cache/assets/indexes");
+        Files.createDirectories(versionCache);
+        Files.createDirectories(indexCache);
+        Files.write(versionCache.resolve("client.jar"), clientBytes);
+        Files.write(versionCache.resolve("server.jar"), serverBytes);
+        Files.write(indexCache.resolve("1.12.json"), indexBytes);
+
+        var cached = runner("downloadClientJar", "downloadServerJar", "downloadAssetIndex").build();
+        assertEquals(TaskOutcome.SKIPPED, cached.task(":downloadClientJar").getOutcome());
+        assertEquals(TaskOutcome.SKIPPED, cached.task(":downloadServerJar").getOutcome());
+        assertEquals(TaskOutcome.SKIPPED, cached.task(":downloadAssetIndex").getOutcome());
+
+        Files.writeString(versionCache.resolve("client.jar"), "corrupt");
+        Files.writeString(indexCache.resolve("1.12.json"), "corrupt");
+        var restored = runner("downloadClientJar", "downloadAssetIndex").build();
+        assertEquals(TaskOutcome.SUCCESS, restored.task(":downloadClientJar").getOutcome());
+        assertEquals(TaskOutcome.SUCCESS, restored.task(":downloadAssetIndex").getOutcome());
+        assertArrayEquals(clientBytes, Files.readAllBytes(versionCache.resolve("client.jar")));
+        assertArrayEquals(indexBytes, Files.readAllBytes(indexCache.resolve("1.12.json")));
     }
 
     @Test

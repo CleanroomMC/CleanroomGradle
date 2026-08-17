@@ -59,6 +59,10 @@ public record VersionMeta(Arguments arguments,
         return assetIndex().url();
     }
 
+    public String assetIndexSha1() {
+        return assetIndex() == null ? null : assetIndex().sha1();
+    }
+
     public Download download(String key) {
         return downloads().get(key);
     }

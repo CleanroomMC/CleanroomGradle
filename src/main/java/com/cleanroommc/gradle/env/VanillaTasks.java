@@ -46,6 +46,18 @@ public final class VanillaTasks {
         }
     }
 
+    // gradle-download-task overwrite=true makes the task never UP-TO-DATE
+    private static void skipWhenSha1Matches(Download task, Provider<String> expectedSha1) {
+        task.onlyIf("destination is missing or SHA-1 does not match", t -> {
+            if (!expectedSha1.isPresent()) {
+                return false;
+            }
+            var dest = ((Download) t).getDest();
+            return dest == null || !IO.sha1Match(dest, expectedSha1.get());
+        });
+        task.doLast("verifySha1", t -> verifySha1(((Download) t).getDest(), expectedSha1.get()));
+    }
+
     /** {@value #DEFAULT_VERSION}, or the version requested with {@code -Pmc=<version>}. */
     public final Provider<String> minecraftVersion;
     /** Metadata of {@link #minecraftVersion}: the extension's meta by default, launcher-manifest-resolved under {@code -Pmc}. */
@@ -88,6 +100,7 @@ public final class VanillaTasks {
 
         var clientMappings = this.versionMeta.map(meta -> meta.download("client_mappings"));
         var serverDownload = this.versionMeta.map(meta -> meta.download("server"));
+        var assetIndex = this.versionMeta.map(VersionMeta::assetIndex);
 
         this.vanillaConfig = Objects.config(project, "vanilla");
         this.vanillaNativesConfig = Objects.config(project, "vanillaNatives");
@@ -111,32 +124,27 @@ public final class VanillaTasks {
         Tasks.group(GROUP_NAME, this.decompileVersion, this.runVanillaClient, this.runVanillaServer);
 
         this.downloadAssetIndex.configure(task -> {
+            task.onlyIf("VersionMeta offers an asset index", t -> assetIndex.isPresent());
             task.src(this.versionMeta.map(VersionMeta::assetIndexUrl));
             task.dest(ext.getCacheDirectory().file(this.versionMeta.map(meta -> "assets/indexes/" + meta.assetIndexId() + ".json")));
-            task.useETag(true);
+            skipWhenSha1Matches(task, this.versionMeta.map(VersionMeta::assetIndexSha1));
         });
         this.downloadClientJar.configure(task -> {
             task.src(this.versionMeta.map(VersionMeta::clientUrl));
             task.dest(versionCacheDirectory.map(dir -> dir.file("client.jar")));
-
-            var expectedSha1 = this.versionMeta.map(VersionMeta::clientSha1);
-            task.doLast("verifySha1", t -> verifySha1(((Download) t).getDest(), expectedSha1.get()));
+            skipWhenSha1Matches(task, this.versionMeta.map(VersionMeta::clientSha1));
         });
         this.downloadServerJar.configure(task -> {
             task.onlyIf("VersionMeta offers a server download", t -> serverDownload.isPresent());
             task.src(serverDownload.map(VersionMeta.Download::url));
             task.dest(versionCacheDirectory.map(dir -> dir.file("server.jar")));
-
-            var expectedSha1 = serverDownload.map(VersionMeta.Download::sha1);
-            task.doLast("verifySha1", t -> verifySha1(((Download) t).getDest(), expectedSha1.get()));
+            skipWhenSha1Matches(task, serverDownload.map(VersionMeta.Download::sha1));
         });
         this.downloadClientMappings.configure(task -> {
             task.onlyIf("VersionMeta offers client_mappings", t -> clientMappings.isPresent());
             task.src(clientMappings.map(VersionMeta.Download::url));
             task.dest(versionCacheDirectory.map(dir -> dir.file("client_mappings.txt")));
-
-            var expectedSha1 = clientMappings.map(VersionMeta.Download::sha1);
-            task.doLast("verifySha1", t -> verifySha1(((Download) t).getDest(), expectedSha1.get()));
+            skipWhenSha1Matches(task, clientMappings.map(VersionMeta.Download::sha1));
         });
         this.downloadAssets.configure(task -> {
             task.getAssetIndexFile().fileProvider(this.downloadAssetIndex.map(Download::getDest));
