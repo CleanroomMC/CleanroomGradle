@@ -6,21 +6,20 @@ import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.tasks.*;
-import org.gradle.work.DisableCachingByDefault;
 
 import java.io.File;
 
-@DisableCachingByDefault
+@CacheableTask
 public abstract class AccessTransform extends MavenJarExec {
 
     @Optional
     @InputFiles
     @SkipWhenEmpty
-    @PathSensitive(PathSensitivity.RELATIVE)
+    @PathSensitive(PathSensitivity.NONE)
     public abstract ConfigurableFileCollection getAccessTransformers();
 
     @InputFile
-    @PathSensitive(PathSensitivity.RELATIVE)
+    @PathSensitive(PathSensitivity.NONE)
     public abstract RegularFileProperty getInputJar();
 
     @OutputFile
