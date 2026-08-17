@@ -29,6 +29,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -79,9 +80,8 @@ public abstract class ApplyBinPatches extends DefaultTask {
             }
             int patched = 0;
             int removed = 0;
-            var seen = new HashSet<String>();
-            Map<String, byte[]> contents = new TreeMap<>();
-            try (var zip = new ZipFile(original.toFile())) {
+            try (var zip = new ZipFile(original.toFile()); var archive = IO.zipOut(temporary.toFile())) {
+                var contents = new TreeMap<String, ZipEntry>();
                 var entries = zip.entries();
                 while (entries.hasMoreElements()) {
                     ZipEntry entry = entries.nextElement();
@@ -93,30 +93,34 @@ public abstract class ApplyBinPatches extends DefaultTask {
                         removed++;
                         continue;
                     }
-                    byte[] data;
-                    try (InputStream input = zip.getInputStream(entry)) {
-                        data = input.readAllBytes();
-                    }
-                    byte[] delta = patches.deltas().get(name);
-                    if (delta != null) {
-                        data = patch(name, data, delta);
-                        seen.add(name);
-                        patched++;
-                    }
-                    contents.put(name, data);
+                    contents.put(name, entry);
                 }
-            }
-            var missing = new LinkedHashSet<>(patches.deltas().keySet());
-            missing.removeAll(seen);
-            if (!missing.isEmpty()) {
-                throw new IllegalStateException(("%d class(es) the binpatches change are absent from %s, " +
-                        "e.g. %s.The original jar does not match the one the patches were generated against.")
-                                .formatted(missing.size(), original.getFileName(), missing.getFirst()));
-            }
-            contents.putAll(patches.added());
-            try (var archive = IO.zipOut(temporary.toFile())) {
-                for (var entry : contents.entrySet()) {
-                    writeEntry(archive, entry.getKey(), entry.getValue());
+
+                var missing = new LinkedHashSet<>(patches.deltas().keySet());
+                missing.removeAll(contents.keySet());
+                if (!missing.isEmpty()) {
+                    throw new IllegalStateException(("%d class(es) that the binpatches change are absent from %s, " +
+                            "the original jar does not match the one the patches were generated against.")
+                            .formatted(missing.size(), original.getFileName()));
+                }
+
+                var outputNames = new TreeSet<>(contents.keySet());
+                outputNames.addAll(patches.added().keySet());
+                for (var name : outputNames) {
+                    byte[] data = null;
+                    var originalEntry = contents.get(name);
+                    if (originalEntry != null) {
+                        try (InputStream input = zip.getInputStream(originalEntry)) {
+                            data = input.readAllBytes();
+                        }
+                        byte[] delta = patches.deltas().get(name);
+                        if (delta != null) {
+                            data = patch(name, data, delta);
+                            patched++;
+                        }
+                    }
+                    data = patches.added().getOrDefault(name, data);
+                    writeEntry(archive, name, data);
                 }
             }
             getLogger().lifecycle("Binpatches: {} patched, {} added, {} removed -> {}",

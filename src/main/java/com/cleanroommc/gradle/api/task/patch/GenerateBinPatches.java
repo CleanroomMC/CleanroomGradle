@@ -59,25 +59,30 @@ public abstract class GenerateBinPatches extends DefaultTask {
         Path temporary = output.resolveSibling(output.getFileName() + ".tmp");
         Set<String> prefixes = getIncludedPrefixes().get();
         try {
-            Map<String, byte[]> original = readClasses(getOriginalJar().getAsFile().get().toPath(), prefixes);
-            Map<String, byte[]> modified = readClasses(getModifiedJar().getAsFile().get().toPath(), prefixes);
             Path parent = output.getParent();
             if (parent != null) {
                 Files.createDirectories(parent);
             }
             int changed = 0;
             int added = 0;
-            try (var archive = IO.zipOut(temporary.toFile())) {
-                for (Map.Entry<String, byte[]> entry : modified.entrySet()) {
+            try (var originalZip = new ZipFile(getOriginalJar().getAsFile().get());
+                 var modifiedZip = new ZipFile(getModifiedJar().getAsFile().get());
+                 var archive = IO.zipOut(temporary.toFile())) {
+                var original = indexClasses(originalZip, prefixes);
+                var modified = indexClasses(modifiedZip, prefixes);
+                for (var entry : modified.entrySet()) {
                     String name = entry.getKey();
-                    byte[] revised = entry.getValue();
-                    byte[] base = original.get(name);
-                    if (base == null) {
+                    byte[] revised = readEntry(modifiedZip, entry.getValue());
+                    var originalEntry = original.get(name);
+                    if (originalEntry == null) {
                         writeEntry(archive, name + ".add", revised);
                         added++;
-                    } else if (!Arrays.equals(base, revised)) {
-                        writeEntry(archive, name + ".binpatch", concatenate(sha256(base), BinDelta.encode(base, revised)));
-                        changed++;
+                    } else {
+                        byte[] base = readEntry(originalZip, originalEntry);
+                        if (!Arrays.equals(base, revised)) {
+                            writeEntry(archive, name + ".binpatch", concatenate(sha256(base), BinDelta.encode(base, revised)));
+                            changed++;
+                        }
                     }
                 }
                 var removed = new TreeSet<>(original.keySet());
@@ -96,21 +101,23 @@ public abstract class GenerateBinPatches extends DefaultTask {
         }
     }
 
-    private static Map<String, byte[]> readClasses(Path jar, Set<String> prefixes) throws IOException {
-        Map<String, byte[]> classes = new TreeMap<>();
-        try (var zip = new ZipFile(jar.toFile())) {
-            var entries = zip.entries();
-            while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                if (entry.isDirectory() || !entry.getName().endsWith(".class") || !included(entry.getName(), prefixes)) {
-                    continue;
-                }
-                try (InputStream input = zip.getInputStream(entry)) {
-                    classes.put(entry.getName(), input.readAllBytes());
-                }
+    private static Map<String, ZipEntry> indexClasses(ZipFile zip, Set<String> prefixes) {
+        var classes = new TreeMap<String, ZipEntry>();
+        var entries = zip.entries();
+        while (entries.hasMoreElements()) {
+            var entry = entries.nextElement();
+            if (entry.isDirectory() || !entry.getName().endsWith(".class") || !included(entry.getName(), prefixes)) {
+                continue;
             }
+            classes.put(entry.getName(), entry);
         }
         return classes;
+    }
+
+    private static byte[] readEntry(ZipFile zip, ZipEntry entry) throws IOException {
+        try (var input = zip.getInputStream(entry)) {
+            return input.readAllBytes();
+        }
     }
 
     private static boolean included(String name, Set<String> prefixes) {
