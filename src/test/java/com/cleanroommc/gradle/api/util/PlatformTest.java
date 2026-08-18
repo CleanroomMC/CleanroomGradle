@@ -23,53 +23,41 @@ class PlatformTest {
             "LINUX,   ARM64,   natives-linux-arm64",
             "LINUX,   PPC64LE, natives-linux-ppc64le",
             "LINUX,   RISCV64, natives-linux-riscv64",
-            "FREE_BSD, X64,    natives-freebsd"
+            "FREE_BSD, X64,    natives-freebsd",
+            "LINUX,   X86,     natives-linux",
+            "MAC_OS,  X86,     natives-macos",
+            "MAC_OS,  ARM32,   natives-macos",
+            "FREE_BSD, ARM64,  natives-freebsd"
     })
-    void resolveEachClassifierForEachPlatform(Platform.OperatingSystem os, Platform.Architecture arch, String classifier) {
-        assertEquals(classifier, new Platform(os, arch).lwjglNativesClassifier());
-    }
-
-    @ParameterizedTest
-    @CsvSource({
-            // LWJGL publishes no 32-bit Linux or macOS natives, so those hosts get the 64-bit build
-            "LINUX,  X86,     natives-linux",
-            "MAC_OS, X86,     natives-macos",
-            "MAC_OS, ARM32,   natives-macos",
-            // Nor a non-x64 FreeBSD build
-            "FREE_BSD, ARM64, natives-freebsd"
-    })
-    void fallbackWhenPlatformDoesNotHaveSpecifiedNative(Platform.OperatingSystem os, Platform.Architecture arch, String classifier) {
+    void lwjglNativesClassifier(Platform.OperatingSystem os, Platform.Architecture arch, String classifier) {
         assertEquals(classifier, new Platform(os, arch).lwjglNativesClassifier());
     }
 
     @Test
-    void everyResolvedClassifierIsOneThatIsPublished() {
+    void everyResolvedClassifierIsPublished() {
         for (var os : Platform.OperatingSystem.values()) {
             for (var arch : Platform.Architecture.values()) {
                 var classifier = new Platform(os, arch).lwjglNativesClassifier();
-                assertTrue(LwjglNatives.CLASSIFIERS.contains(classifier), () -> os + "/" + arch + " resolved to unpublished classifier " + classifier);
+                assertTrue(LwjglNatives.CLASSIFIERS.contains(classifier),
+                        () -> os + "/" + arch + " resolved to unpublished classifier " + classifier);
             }
         }
     }
 
     @Test
-    void joinLibraryPathUsesHostSeparator() {
+    void joinLibraryPath() {
         var extra = new File("natives");
+        var added = Platform.fixCommandLine(extra.getAbsolutePath());
+        assertEquals(added, Platform.joinLibraryPath("", extra));
+        assertEquals(added, Platform.joinLibraryPath(null, extra));
+
         var joined = Platform.joinLibraryPath("/usr/lib", extra);
         assertTrue(joined.contains(File.pathSeparator));
-        assertTrue(joined.endsWith(Platform.fixCommandLine(extra.getAbsolutePath())));
+        assertTrue(joined.endsWith(added));
     }
 
     @Test
-    void joinLibraryPathWhenExistingEmpty() {
-        var extra = new File("natives");
-        var expected = Platform.fixCommandLine(extra.getAbsolutePath());
-        assertEquals(expected, Platform.joinLibraryPath("", extra));
-        assertEquals(expected, Platform.joinLibraryPath(null, extra));
-    }
-
-    @Test
-    void consistencyCheck() {
+    void architectureFlags() {
         assertTrue(Platform.Architecture.ARM64.isArm() && Platform.Architecture.ARM64.is64Bit());
         assertTrue(Platform.Architecture.ARM32.isArm() && !Platform.Architecture.ARM32.is64Bit());
         assertTrue(!Platform.Architecture.X64.isArm() && Platform.Architecture.X64.is64Bit());

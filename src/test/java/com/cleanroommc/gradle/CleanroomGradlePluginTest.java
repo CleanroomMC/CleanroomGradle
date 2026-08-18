@@ -1,19 +1,19 @@
 package com.cleanroommc.gradle;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.gradle.testkit.runner.GradleRunner;
 import org.gradle.testkit.runner.TaskOutcome;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-
-import org.apache.commons.codec.digest.DigestUtils;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CleanroomGradlePluginTest {
 
-    // Injected from build.gradle
     private static final String PLUGIN_DIR = System.getProperty("plugin.project.dir", new File("").getAbsolutePath()).replace("\\", "/");
 
     @TempDir
@@ -51,111 +50,146 @@ class CleanroomGradlePluginTest {
                 """
                 .formatted(PLUGIN_DIR)
         );
-
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                group = 'com.example'
-                cleanroom {
-                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
-                    developInitialPatches = false
-                }
-                """
-        );
-    }
-
-    private GradleRunner runner(String... args) {
-        var allArgs = new ArrayList<>(Arrays.asList(args));
-        allArgs.add("--console=plain");
-        return GradleRunner.create().withProjectDir(this.projectDir.toFile()).withArguments(allArgs);
-    }
-
-    private void assertProblemReported(String problemId) throws IOException {
-        var report = this.projectDir.resolve("build/reports/problems/problems-report.html");
-        assertTrue(Files.isRegularFile(report), "Gradle Problems report was not generated");
-        assertTrue(Files.readString(report).contains(problemId),
-                "Problems report does not contain '" + problemId + "'");
+        writeVanillaBuild("");
     }
 
     @Test
-    void pluginApplies() {
-        var result = runner("help").build();
+    void pluginAppliesWithoutResolvingMetadata() {
+        var result = runner("help", "-Pmc=missing-version-for-lazy-configuration", "--offline").build();
         assertEquals(TaskOutcome.SUCCESS, result.task(":help").getOutcome());
-        assertFalse(result.getOutput().contains("Applying CleanroomGradle"), "plugin application logged at lifecycle level");
+        assertFalse(result.getOutput().contains("Applying CleanroomGradle"));
 
-        var infoResult = runner("help", "--info").build();
-        assertTrue(infoResult.getOutput().contains("Applying CleanroomGradle"), "plugin application info log missing");
+        var info = runner("help", "--info").build();
+        assertTrue(info.getOutput().contains("Applying CleanroomGradle"));
     }
 
     @Test
-    void cleanPreservesSharedCacheAndExplicitTaskDeletesIt() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
+    void userdevIsTheDefaultAndRequiresAnArtifact() throws IOException {
+        writeBuild("""
+                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.USERDEV
+                """);
+
+        var missing = runner("help").buildAndFail();
+        assertTrue(missing.getOutput().contains("USERDEV mode requires cleanroom.version"),
+                "missing userdev input did not have an actionable error");
+        assertProblemReported("missing-userdev");
+
+        writeBuild("""
                 cleanroom {
-                    cacheDirectory.set(layout.projectDirectory.dir('cleanroom-cache'))
-                    localCacheDirectory.set(layout.projectDirectory.dir('local-cache'))
+                    version = '0.4.5'
                 }
-                """, StandardOpenOption.APPEND);
+                gradle.projectsEvaluated {
+                    assert cleanroom.discardIntermediates.get() == true
+                    assert tasks.findAll { it.group == 'UserDev' }*.name.toSet() == [
+                        'decompileDevJar', 'runClient', 'runServer', 'setupCleanroom'
+                    ].toSet()
+                    assert tasks.reobfJar.group == 'build'
+                    assert tasks.copyUserdev.group == null
+                    assert tasks.remapDevSrg2Mcp.group == null
+                    assert tasks.findByName('writeMcp2Notch') == null
+                }
+                """);
 
-        var cacheMarker = this.projectDir.resolve("cleanroom-cache/marker");
-        var localCacheMarker = this.projectDir.resolve("local-cache/marker");
-        Files.createDirectories(cacheMarker.getParent());
-        Files.createDirectories(localCacheMarker.getParent());
-        Files.createFile(cacheMarker);
-        Files.createFile(localCacheMarker);
-
-        var result = runner("clean", "--configuration-cache").build();
-        assertEquals(TaskOutcome.SUCCESS, result.task(":clean").getOutcome());
-        assertTrue(Files.exists(cacheMarker), "Ordinary clean deleted the shared CleanroomGradle cache");
-        assertFalse(Files.exists(localCacheMarker.getParent()), "Local CleanroomGradle cache was not deleted");
-
-        var sharedClean = runner("cleanCleanroomSharedCache", "--configuration-cache").build();
-        assertEquals(TaskOutcome.SUCCESS, sharedClean.task(":cleanCleanroomSharedCache").getOutcome());
-        assertFalse(Files.exists(cacheMarker.getParent()), "Explicit shared-cache cleanup did not delete the cache");
+        var info = runner("cleanroomInfo").build();
+        assertEquals(TaskOutcome.SUCCESS, info.task(":cleanroomInfo").getOutcome());
+        assertTrue(info.getOutput().contains("mode: userdev"));
+        assertTrue(info.getOutput().contains("discard intermediates: true"));
     }
 
     @Test
-    void explicitLoaderModeRegistersDistributionTasks() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
+    void vanillaDoesNotRegisterUserdev() throws IOException {
+        writeBuild("""
                 import com.cleanroommc.gradle.api.ext.ProjectMode
 
-                cleanroom.mode = ProjectMode.LOADER
-                """, StandardOpenOption.APPEND);
-
-        var explicit = runner("tasks", "--all").build();
-        assertTrue(explicit.getOutput().contains("universalJar"), "explicit loader mode did not register distribution tasks");
-        assertTrue(explicit.getOutput().contains("userdevJar"), "explicit loader mode did not register userdev distribution");
-    }
-
-    @Test
-    void userdevIsTheDefaultMode() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
+                cleanroom {
+                    mode = ProjectMode.VANILLA
+                    version = '0.4.5'
                 }
-                cleanroom.cleanroomVersion = '0.4.5'
+                gradle.projectsEvaluated {
+                    assert tasks.findByName('setupCleanroom') == null
+                }
                 """);
 
         var result = runner("cleanroomInfo").build();
         assertEquals(TaskOutcome.SUCCESS, result.task(":cleanroomInfo").getOutcome());
-        assertTrue(result.getOutput().contains("mode: userdev"));
-        assertTrue(result.getOutput().contains("discard intermediates: true"));
+        assertTrue(result.getOutput().contains("mode: vanilla"));
     }
 
     @Test
-    void quotedVanillaVersionsCreateIsolatedNamedEnvironments() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
+    void loaderModeWiresDistributionAndPatchDev() throws IOException {
+        writeBuild("""
+                import com.cleanroommc.gradle.api.ext.ProjectMode
+
+                group = 'com.cleanroommc'
+                version = '0.1.0'
+                cleanroom.mode = ProjectMode.LOADER
+                gradle.projectsEvaluated {
+                    def minecraft = cleanroom.patchDev.minecraft
+                    assert cleanroom.discardIntermediates.get() == false
+                    assert minecraft.input.get().asFile == layout.buildDirectory.dir('cleanroom_gradle/sourceSets/mcp/sources').get().asFile
+                    assert minecraft.patches.get().asFile == layout.projectDirectory.dir('module/minecraft/patches').asFile
+                    assert minecraft.output.get().asFile == layout.projectDirectory.dir('module/minecraft/src/main/java').asFile
+                    assert tasks.findAll { it.group == 'vanilla' }*.name.toSet() == [
+                        'decompileVersion', 'runVanillaClient', 'runVanillaServer'
+                    ].toSet()
+                    assert tasks.findAll { it.group == 'MCP' }*.name.toSet() == [
+                        'importMcpNames', 'runMcpClient', 'runMcpServer',
+                        'runReobfSrgClient', 'runReobfSrgServer', 'runSrgClient', 'runSrgServer'
+                    ].toSet()
+                    assert tasks.findAll { it.group == 'cleanroom' }*.name.toSet() == [
+                        'runCleanroomClient', 'runCleanroomNsightClient', 'runCleanroomServer'
+                    ].toSet()
+                    assert tasks.findAll { it.group == 'distribution' }*.name.toSet() == [
+                        'javadocJar', 'universalJar', 'userdevJar'
+                    ].toSet()
+                    assert tasks.findAll { it.group == 'minecraft patch development' }*.name.toSet() == [
+                        'applyMinecraftDiffs', 'generateMinecraftDiffs',
+                        'prepareMinecraftPatchDevEnvironment', 'zipMinecraftPatches'
+                    ].toSet()
+                    assert tasks.reobfJar.group == 'build'
+                    assert tasks.downloadAssets.group == null
+                    assert tasks.remapSrg2Mcp.group == null
+                    assert tasks.writeMcp2Notch.group == null
+                    assert tasks.findByName('srgSourceJar') == null
+                    assert tasks.findByName('mcpSourceJar') == null
+                    assert tasks.findAll { it.group != null }.every { !it.group.toLowerCase().endsWith(' tasks') }
+                }
+                """);
+
+        var result = runner("assemble", "userdevJar", "runCleanroomClient", "runSrgClient", "genClientBinPatches", "--dry-run").build();
+        var output = result.getOutput();
+        assertTrue(output.contains(":universalJar"));
+        assertTrue(output.contains(":userdevJar"));
+        assertTrue(output.contains(":javadocJar"));
+        assertTrue(output.contains(":genRuntimeBinPatches"));
+        assertTrue(output.contains(":writeMcp2Notch"));
+        assertTrue(output.contains(":writeSrg2Mcp"));
+        assertTrue(output.contains(":writeMcp2SrgDist"));
+        assertTrue(output.contains(":decompileSrg"));
+        assertTrue(output.contains(":remapSrg2Mcp"));
+        assertTrue(output.contains(":prepareMinecraftSources"));
+        assertTrue(output.contains(":initializeMinecraftPatchDevSources"));
+        assertTrue(output.contains(":prepareMinecraftPatchDevEnvironment"));
+        assertTrue(output.contains(":prepareMcpInjectedSources"));
+        assertTrue(output.contains(":extractInheritance"));
+        assertTrue(output.contains(":checkSAS"));
+        assertTrue(output.contains(":applySAS"));
+        assertTrue(output.contains(":stripSrgClientJar"));
+        assertTrue(output.contains(":stripClientMinecraftJar"));
+        assertTrue(output.contains(":genClientBinPatches"));
+        assertTrue(output.indexOf(":initializeMinecraftPatchDevSources") < output.indexOf(":prepareMinecraftPatchDevEnvironment"));
+        assertTrue(output.indexOf(":prepareMinecraftPatchDevEnvironment") < output.lastIndexOf(":compileJava"));
+        assertTrue(output.indexOf(":prepareMcpInjectedSources") < output.lastIndexOf(":compileJava"));
+    }
+
+    @Test
+    void namedVanillaEnvironments() throws IOException {
+        writeBuild("""
                 import com.cleanroommc.gradle.api.task.mc.RunMinecraft
 
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
                 cleanroom {
                     mode = com.cleanroommc.gradle.api.ext.ProjectMode.USERDEV
-                    cleanroomVersion = 'test-version'
+                    version = 'test-version'
                     vanilla {
                         "1.12" {
                             client {
@@ -185,10 +219,10 @@ class CleanroomGradlePluginTest {
                 }
                 """);
 
-        var result = runner("tasks", "--all", "--configuration-cache").build();
-        assertTrue(result.getOutput().contains("run1.12Client"));
-        assertTrue(result.getOutput().contains("download1.12Assets"));
-        assertTrue(result.getOutput().contains("run26.1Client"));
+        var first = runner("tasks", "--all", "--configuration-cache").build();
+        assertTrue(first.getOutput().contains("run1.12Client"));
+        assertTrue(first.getOutput().contains("download1.12Assets"));
+        assertTrue(first.getOutput().contains("run26.1Client"));
 
         var reused = runner("tasks", "--all", "--configuration-cache").build();
         assertTrue(reused.getOutput().contains("Reusing configuration cache"));
@@ -196,11 +230,11 @@ class CleanroomGradlePluginTest {
 
     @Test
     void invalidVanillaEnvironmentUsesProblemsApi() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
+        writeVanillaBuild("""
                 cleanroom.vanilla {
                     "../escape" { }
                 }
-                """, StandardOpenOption.APPEND);
+                """);
 
         var result = runner("help").buildAndFail();
         assertTrue(result.getOutput().contains("Invalid vanilla environment name '../escape'"));
@@ -208,55 +242,40 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
-    void vanillaModeDoesNotInferUserdevFromArtifactConfiguration() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.ext.ProjectMode
-
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
+    void cleanPreservesSharedCache() throws IOException {
+        writeVanillaBuild("""
                 cleanroom {
-                    mode = ProjectMode.VANILLA
-                    cleanroomVersion = '0.4.5'
-                }
-                gradle.projectsEvaluated {
-                    assert tasks.findByName('setupCleanroom') == null
+                    cacheDirectory.set(layout.projectDirectory.dir('cleanroom-cache'))
+                    localCacheDirectory.set(layout.projectDirectory.dir('local-cache'))
                 }
                 """);
 
-        var result = runner("cleanroomInfo").build();
-        assertEquals(TaskOutcome.SUCCESS, result.task(":cleanroomInfo").getOutcome());
-        assertTrue(result.getOutput().contains("mode: vanilla"));
+        var cacheMarker = this.projectDir.resolve("cleanroom-cache/marker");
+        var localCacheMarker = this.projectDir.resolve("local-cache/marker");
+        Files.createDirectories(cacheMarker.getParent());
+        Files.createDirectories(localCacheMarker.getParent());
+        Files.createFile(cacheMarker);
+        Files.createFile(localCacheMarker);
+
+        var result = runner("clean").build();
+        assertEquals(TaskOutcome.SUCCESS, result.task(":clean").getOutcome());
+        assertTrue(Files.exists(cacheMarker), "Ordinary clean deleted the shared CleanroomGradle cache");
+        assertFalse(Files.exists(localCacheMarker.getParent()), "Local CleanroomGradle cache was not deleted");
+
+        var sharedClean = runner("cleanCleanroomSharedCache").build();
+        assertEquals(TaskOutcome.SUCCESS, sharedClean.task(":cleanCleanroomSharedCache").getOutcome());
+        assertFalse(Files.exists(cacheMarker.getParent()), "Explicit shared-cache cleanup did not delete the cache");
     }
 
-    @Test
-    void explicitUserdevModeRequiresAnArtifact() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.ext.ProjectMode
-
-                cleanroom.mode = ProjectMode.USERDEV
-                """, StandardOpenOption.APPEND);
-
-        var result = runner("help").buildAndFail();
-        assertTrue(result.getOutput().contains("USERDEV mode requires cleanroom.cleanroomVersion"),
-                "missing userdev input did not have an actionable error");
-        assertProblemReported("missing-userdev");
-    }
-
-    @Test
-    void discardIntermediatesDeletesConsumedLocalCacheFiles() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"),
-                """
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void discardIntermediates(boolean discard) throws IOException {
+        writeBuild("""
                 import com.cleanroommc.gradle.api.task.IntermediateProcessor
 
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
                 cleanroom {
                     mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
-                    discardIntermediates = true
+                    discardIntermediates = %s
                     localCacheDirectory.set(layout.buildDirectory.dir('cleanroom_gradle'))
                 }
                 def mid = layout.buildDirectory.file('cleanroom_gradle/mid.txt')
@@ -270,69 +289,31 @@ class CleanroomGradlePluginTest {
                     doLast { assert mid.get().asFile.file }
                 }
                 IntermediateProcessor.of(project).discardAfter(readMid, mid)
-                """
-        );
-        Files.writeString(this.projectDir.resolve("gradle.properties"),
-                "org.gradle.configuration-cache=true\norg.gradle.configuration-cache.problems=fail\n");
+                """.formatted(discard));
 
         var result = runner("readMid").build();
         assertEquals(TaskOutcome.SUCCESS, result.task(":readMid").getOutcome());
-        assertEquals(TaskOutcome.SUCCESS, result.task(":readMidIntermediates").getOutcome());
-        assertFalse(Files.exists(this.projectDir.resolve("build/cleanroom_gradle/mid.txt")), "intermediate file was left behind");
+        var intermediate = this.projectDir.resolve("build/cleanroom_gradle/mid.txt");
+        if (discard) {
+            assertEquals(TaskOutcome.SUCCESS, result.task(":readMidIntermediates").getOutcome());
+            assertFalse(Files.exists(intermediate), "intermediate file was left behind");
+        } else {
+            assertEquals(TaskOutcome.SKIPPED, result.task(":readMidIntermediates").getOutcome());
+            assertEquals("mid", Files.readString(intermediate));
+        }
     }
 
     @Test
-    void discardIntermediatesOffKeepsConsumedFiles() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.task.IntermediateProcessor
-
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
+    void diagnosticsReportWithoutResolvingTools() throws IOException {
+        writeVanillaBuild("""
                 cleanroom {
-                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
-                    discardIntermediates = false
-                }
-                def mid = layout.buildDirectory.file('cleanroom_gradle/mid.txt')
-                def writeMid = tasks.register('writeMid') {
-                    outputs.file(mid)
-                    doLast { mid.get().asFile.text = 'mid' }
-                }
-                def readMid = tasks.register('readMid') {
-                    inputs.file(mid)
-                    dependsOn writeMid
-                    doLast { assert mid.get().asFile.file }
-                }
-                IntermediateProcessor.of(project).discardAfter(readMid, mid)
-                """);
-
-        var result = runner("readMid").build();
-        assertEquals(TaskOutcome.SUCCESS, result.task(":readMid").getOutcome());
-        assertEquals(TaskOutcome.SKIPPED, result.task(":readMidIntermediates").getOutcome());
-        assertEquals("mid", Files.readString(this.projectDir.resolve("build/cleanroom_gradle/mid.txt")));
-    }
-
-    @Test
-    void helpDoesNotResolveMinecraftMetadata() {
-        var result = runner("help", "-Pmc=missing-version-for-lazy-configuration", "--offline").build();
-        assertEquals(TaskOutcome.SUCCESS, result.task(":help").getOutcome());
-    }
-
-    @Test
-    void diagnosticsReportEffectiveConfigurationWithoutResolvingTools() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.ext.ProjectMode
-
-                cleanroom {
-                    mode = ProjectMode.VANILLA
                     cacheDirectory = layout.projectDirectory.dir('shared-cache')
                     localCacheDirectory = layout.projectDirectory.dir('work-cache')
                 }
                 dependencies {
                     decompiler 'example:replacement-decompiler:1.0'
                 }
-                """, StandardOpenOption.APPEND);
+                """);
         var clientJar = this.projectDir.resolve("shared-cache/versions/1.12.2/client.jar");
         Files.createDirectories(clientJar.getParent());
         Files.writeString(clientJar, "cached");
@@ -352,13 +333,13 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
-    void missingOfflineVersionMetadataHasRecoveryInstructions() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
+    void missingOfflineVersionMetadataHasRecovery() throws IOException {
+        writeVanillaBuild("""
                 cleanroom {
                     cacheDirectory = layout.projectDirectory.dir('empty-cache')
                     versionMetaUrl = 'https://example.invalid/version-meta.json'
                 }
-                """, StandardOpenOption.APPEND);
+                """);
 
         var result = runner("cleanroomInfo", "--offline").buildAndFail();
         assertTrue(result.getOutput().contains("Gradle is offline and no cached version metadata exists at"));
@@ -367,137 +348,27 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
-    void overridingToolConfigurations() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
+    void mcpPipelineIsConfigurationCacheCompatible() throws IOException {
+        enableConfigurationCache();
 
-                dependencies {
-                    decompiler 'example:replacement-decompiler:1.0'
-                    mergetool 'example:replacement-merger:1.0'
-                    mcinjector 'example:replacement-injector:1.0'
-                }
+        var first = runner("remapSrg2Mcp", "--dry-run").build();
+        var output = first.getOutput();
+        assertTrue(output.contains(":remapSrg2Mcp"));
+        assertTrue(output.contains(":remapNotch2Srg"));
+        assertTrue(output.contains(":mergeJars"));
+        assertTrue(output.contains(":splitClientJar"));
+        assertTrue(output.contains(":splitServerJar"));
+        assertTrue(output.contains(":extractMcpConfig"));
+        assertTrue(output.contains(":decompileSrg"));
+        assertTrue(output.contains(":applyInitialDiffs"));
+        assertTrue(output.contains("Configuration cache entry stored"));
 
-                assert configurations.decompiler.dependencies.iterator().next().name == 'replacement-decompiler'
-                assert configurations.mergetool.dependencies.iterator().next().name == 'replacement-merger'
-                assert configurations.mcinjector.dependencies.iterator().next().name == 'replacement-injector'
-                """
-        );
-
-        var result = runner("help").build();
-        assertEquals(TaskOutcome.SUCCESS, result.task(":help").getOutcome());
+        var second = runner("remapSrg2Mcp", "--dry-run").build();
+        assertTrue(second.getOutput().contains("Reusing configuration cache"));
     }
 
     @Test
-    void incompatibleToolInvocationCanReplaceDefaultsWithConfigurationCache() throws IOException {
-        var sourceDir = this.projectDir.resolve("src/main/java/example");
-        Files.createDirectories(sourceDir);
-        Files.writeString(sourceDir.resolve("CustomMerge.java"), """
-                package example;
-
-                import java.nio.file.Files;
-                import java.nio.file.Path;
-
-                public final class CustomMerge {
-                    public static void main(String[] args) throws Exception {
-                        var output = Path.of(args[0]);
-                        Files.createDirectories(output.getParent());
-                        Files.writeString(output, args[1]);
-                    }
-                }
-                """
-        );
-
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.task.mcp.MergeJars
-
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
-
-                def customOutput = layout.buildDirectory.file('custom-merge.txt')
-                tasks.named('mergeJars', MergeJars) {
-                    setDependsOn([tasks.named('classes')])
-                    toolClasspath.setFrom(sourceSets.main.output)
-                    useDefaultToolArguments = false
-                    mainClass = 'example.CustomMerge'
-                    setArgs([customOutput.get().asFile.absolutePath, 'replacement-tool'])
-
-                    clientJar = layout.projectDirectory.file('build.gradle')
-                    serverJar = layout.projectDirectory.file('build.gradle')
-                    srgMappingFile = layout.projectDirectory.file('build.gradle')
-                    minecraftVersion = 'replacement'
-                    mergedJar = customOutput
-                }
-                """
-        );
-        Files.writeString(this.projectDir.resolve("gradle.properties"), "org.gradle.configuration-cache=true\norg.gradle.configuration-cache.problems=fail\n");
-
-        var first = runner("mergeJars").build();
-        assertEquals(TaskOutcome.SUCCESS, first.task(":mergeJars").getOutcome());
-        assertEquals("replacement-tool", Files.readString(this.projectDir.resolve("build/custom-merge.txt")));
-
-        Files.delete(this.projectDir.resolve("build/custom-merge.txt"));
-        var second = runner("mergeJars").build();
-        assertTrue(second.getOutput().contains("Reusing configuration cache"), "CC not reused on second run. Output:\n" + second.getOutput());
-        assertEquals(TaskOutcome.SUCCESS, second.task(":mergeJars").getOutcome());
-        assertEquals("replacement-tool", Files.readString(this.projectDir.resolve("build/custom-merge.txt")));
-    }
-
-    @Test
-    void mcpTasksRegister() {
-        // --dry-run resolves only the requested task graph
-        var result = runner("remapSrg2Mcp", "--dry-run").build();
-        assertTrue(result.getOutput().contains(":remapSrg2Mcp"), "remapSrg2Mcp not present");
-        assertTrue(result.getOutput().contains(":remapNotch2Srg"), "remapNotch2Srg not present");
-        assertTrue(result.getOutput().contains(":mergeJars"), "mergeJars not present");
-        assertTrue(result.getOutput().contains(":splitClientJar"), "splitClientJar not present");
-        assertTrue(result.getOutput().contains(":splitServerJar"), "splitServerJar not present");
-        assertTrue(result.getOutput().contains(":extractMcpConfig"), "extractMcpConfig not present");
-        assertTrue(result.getOutput().contains(":decompileSrg"), "decompileSrg not present");
-        assertTrue(result.getOutput().contains(":applyInitialDiffs"), "applyInitialDiffs not present");
-    }
-
-    @Test
-    void unzipTasksSupportConfigurationCache() throws IOException {
-        try (var output = new ZipOutputStream(Files.newOutputStream(this.projectDir.resolve("input.zip")))) {
-            output.putNextEntry(new ZipEntry("config/value.txt"));
-            output.write("extracted".getBytes());
-            output.closeEntry();
-        }
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.task.Tasks
-
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
-
-                Tasks.unzip(project, 'extractTestArchive',
-                    layout.projectDirectory.file('input.zip'),
-                    layout.buildDirectory.dir('extracted'))
-                """);
-        Files.writeString(this.projectDir.resolve("gradle.properties"), "org.gradle.configuration-cache=true\norg.gradle.configuration-cache.problems=fail\n");
-
-        var first = runner("extractTestArchive").build();
-        assertEquals(TaskOutcome.SUCCESS, first.task(":extractTestArchive").getOutcome());
-        assertEquals("extracted", Files.readString(this.projectDir.resolve("build/extracted/config/value.txt")));
-
-        Files.delete(this.projectDir.resolve("build/extracted/config/value.txt"));
-        var second = runner("extractTestArchive").build();
-        assertTrue(second.getOutput().contains("Reusing configuration cache"), "CC not reused on second run. Output:\n" + second.getOutput());
-        assertEquals(TaskOutcome.SUCCESS, second.task(":extractTestArchive").getOutcome());
-        assertEquals("extracted", Files.readString(this.projectDir.resolve("build/extracted/config/value.txt")));
-    }
-
-    @Test
-    void runTasksPrepareAssetsForClientsAndNativesForBothSides() {
+    void runTasksPrepareAssetsForClientsNotServers() {
         for (var task : List.of("runVanillaClient", "runSrgClient", "runReobfSrgClient", "runMcpClient")) {
             var output = runner(task, "--dry-run").build().getOutput();
             assertTrue(output.contains(":downloadAssets"), task + " does not prepare assets");
@@ -511,112 +382,7 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
-    void runMinecraftAllowsNoNatives() throws IOException {
-        var sourceDir = this.projectDir.resolve("src/main/java/example");
-        Files.createDirectories(sourceDir);
-        Files.writeString(sourceDir.resolve("NoNatives.java"), """
-                package example;
-
-                public final class NoNatives {
-                    public static void main(String[] args) {}
-                }
-                """);
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.task.mc.RunMinecraft
-                import com.cleanroommc.gradle.api.util.Environment
-                import net.minecraftforge.fml.relauncher.Side
-
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
-
-                tasks.register('runWithoutNatives', RunMinecraft) {
-                    dependsOn tasks.named('classes')
-                    getSide().set(Side.CLIENT)
-                    getEnv().set(Environment.MCP)
-                    getMainClass().set('example.NoNatives')
-                    classpath(sourceSets.main.output)
-                    getUUID().set('00000000-0000-0000-0000-000000000000')
-                }
-                """);
-
-        var result = runner("runWithoutNatives").build();
-        assertEquals(TaskOutcome.SUCCESS, result.task(":runWithoutNatives").getOutcome());
-    }
-
-    @Test
-    void loaderTaskGroupsExposeOnlyEntryPoints() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.ext.ProjectMode
-
-                cleanroom.mode = ProjectMode.LOADER
-
-                gradle.projectsEvaluated {
-                    assert cleanroom.discardIntermediates.get() == false
-                    assert tasks.findAll { it.group == 'vanilla' }*.name.toSet() == [
-                        'decompileVersion', 'runVanillaClient', 'runVanillaServer'
-                    ].toSet()
-                    assert tasks.findAll { it.group == 'MCP' }*.name.toSet() == [
-                        'importMcpNames', 'runMcpClient', 'runMcpServer',
-                        'runReobfSrgClient', 'runReobfSrgServer', 'runSrgClient', 'runSrgServer'
-                    ].toSet()
-                    assert tasks.findAll { it.group == 'cleanroom' }*.name.toSet() == [
-                        'runCleanroomClient', 'runCleanroomNsightClient', 'runCleanroomServer'
-                    ].toSet()
-                    assert tasks.findAll { it.group == 'distribution' }*.name.toSet() == [
-                        'javadocJar', 'universalJar', 'userdevJar'
-                    ].toSet()
-                    assert tasks.findAll { it.group == 'minecraft patch development' }*.name.toSet() == [
-                        'applyMinecraftDiffs', 'generateMinecraftDiffs',
-                        'prepareMinecraftPatchDevEnvironment', 'zipMinecraftPatches'
-                    ].toSet()
-                    assert tasks.reobfJar.group == 'build'
-                    assert tasks.downloadAssets.group == null
-                    assert tasks.remapSrg2Mcp.group == null
-                    assert tasks.writeMcp2Notch.group == null
-                    assert tasks.minecraftPatchDevClasses.group == null
-                    assert tasks.findByName('srgSourceJar') == null
-                    assert tasks.findByName('mcpSourceJar') == null
-                    assert tasks.findByName('copyMinecraftToSourceSet') == null
-                    assert tasks.findByName('deobfDataLzma') == null
-                    assert tasks.findByName('writeObf2Srg') == null
-                    assert tasks.findAll { it.group != null }.every { !it.group.toLowerCase().endsWith(' tasks') }
-                }
-                """, StandardOpenOption.APPEND);
-
-        assertEquals(TaskOutcome.SUCCESS, runner("help").build().task(":help").getOutcome());
-    }
-
-    @Test
-    void userdevTaskGroupsExposeOnlyEntryPoints() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.ext.ProjectMode
-
-                cleanroom {
-                    mode = ProjectMode.USERDEV
-                    cleanroomVersion = '0.4.5'
-                }
-
-                gradle.projectsEvaluated {
-                    assert cleanroom.discardIntermediates.get() == true
-                    assert tasks.findAll { it.group == 'UserDev' }*.name.toSet() == [
-                        'decompileDevJar', 'runClient', 'runServer', 'setupCleanroom'
-                    ].toSet()
-                    assert tasks.reobfJar.group == 'build'
-                    assert tasks.copyUserdev.group == null
-                    assert tasks.remapDevSrg2Mcp.group == null
-                    assert tasks.findByName('writeMcp2Notch') == null
-                }
-                """, StandardOpenOption.APPEND);
-
-        assertEquals(TaskOutcome.SUCCESS, runner("help").build().task(":help").getOutcome());
-    }
-
-    @Test
-    void renameTaskNotPresentOnAssemble() {
-        // remapNotch2Srg cannot be compiled into the graph when assemble runs
+    void assembleDoesNotResolveRemapNotch2Srg() {
         var result = runner("assemble", "--dry-run").build();
         assertFalse(result.getOutput().contains(":remapNotch2Srg"), "remapNotch2Srg present when running assemble");
     }
@@ -625,12 +391,7 @@ class CleanroomGradlePluginTest {
     void patchDevEnvironmentWorks() throws IOException {
         Files.createDirectories(this.projectDir.resolve("build/input-src"));
         Files.writeString(this.projectDir.resolve("build/input-src/A.java"), "class A {}\n");
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                group = 'com.example'
+        writeBuild("""
                 cleanroom {
                     mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
                     patchDev {
@@ -641,218 +402,41 @@ class CleanroomGradlePluginTest {
                         }
                     }
                 }
+                tasks.named('prepareExamplePatchDevEnvironment') {
+                    description = 'configured before project evaluation completes'
+                }
                 """);
-        Files.writeString(projectDir.resolve("gradle.properties"), "org.gradle.configuration-cache=true\norg.gradle.configuration-cache.problems=fail\n");
+        enableConfigurationCache();
 
         var first = runner("prepareExamplePatchDevEnvironment").build();
         assertEquals(TaskOutcome.SUCCESS, first.task(":prepareExamplePatchDevEnvironment").getOutcome());
-        assertTrue(first.getOutput().contains("Configuration cache entry stored"), "CC entry not stored on first run. Output:\n" + first.getOutput());
+        assertTrue(first.getOutput().contains("Configuration cache entry stored"));
         var output = this.projectDir.resolve("custom-output/A.java");
         assertTrue(Files.exists(output), "configured patchDev output was not populated");
+        assertTrue(Files.isDirectory(this.projectDir.resolve("custom-patches")));
 
         Files.writeString(output, "class A { int value; }\n");
         var generated = runner("generateExampleDiffs").build();
         assertEquals(TaskOutcome.SUCCESS, generated.task(":generateExampleDiffs").getOutcome());
-        assertTrue(Files.exists(this.projectDir.resolve("custom-patches/A.java.patch")), "configured patches output was not used");
+        assertTrue(Files.exists(this.projectDir.resolve("custom-patches/A.java.patch")));
 
         Files.writeString(output, "class A { int stale; }\n");
         Files.writeString(output.getParent().resolve("Stale.java"), "class Stale {}\n");
         var applied = runner("applyExampleDiffs").build();
         assertEquals(TaskOutcome.SUCCESS, applied.task(":applyExampleDiffs").getOutcome());
-        assertEquals("class A { int value; }\n", Files.readString(output),
-                "explicit patch application did not replace the populated development source tree");
-        assertFalse(Files.exists(output.getParent().resolve("Stale.java")),
-                "explicit patch application did not clean stale development sources");
+        assertEquals("class A { int value; }\n", Files.readString(output));
+        assertFalse(Files.exists(output.getParent().resolve("Stale.java")));
 
         Files.writeString(output, "class A { int value; int working; }\n");
-        // The prepare task's validation must survive CC serialization
         var second = runner("prepareExamplePatchDevEnvironment").build();
         assertEquals(TaskOutcome.SUCCESS, second.task(":prepareExamplePatchDevEnvironment").getOutcome());
-        assertTrue(second.getOutput().contains("Reusing configuration cache"), "CC not reused on second run. Output:\n" + second.getOutput());
+        assertTrue(second.getOutput().contains("Reusing configuration cache"));
         assertEquals("class A { int value; int working; }\n", Files.readString(output),
                 "preparing the environment overwrote edits in the populated development source tree");
     }
 
     @Test
-    void patchDevTasksCanBeConfiguredImmediately() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                cleanroom.patchDev {
-                    example {
-                        input = layout.projectDirectory
-                    }
-                }
-
-                tasks.named('prepareExamplePatchDevEnvironment') {
-                    description = 'configured before project evaluation completes'
-                }
-                """, StandardOpenOption.APPEND);
-
-        var result = runner("help", "--configuration-cache").build();
-        assertEquals(TaskOutcome.SUCCESS, result.task(":help").getOutcome());
-    }
-
-    @Test
-    void patchDevInitializationCreatesDeclaredDirectories() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                cleanroom {
-                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
-                    patchDev {
-                        example {
-                            input = layout.buildDirectory.dir('missing-input')
-                            patches = layout.projectDirectory.dir('missing-patches')
-                            output = layout.projectDirectory.dir('missing-output')
-                        }
-                    }
-                }
-                """);
-
-        var result = runner("prepareExamplePatchDevEnvironment").build();
-        assertEquals(TaskOutcome.SUCCESS, result.task(":prepareExamplePatchDevEnvironment").getOutcome());
-        assertTrue(Files.isDirectory(this.projectDir.resolve("build/missing-input")), "declared input directory was not created");
-        assertTrue(Files.isDirectory(this.projectDir.resolve("missing-patches")), "declared patches directory was not created");
-        assertTrue(Files.isDirectory(this.projectDir.resolve("missing-output")), "declared output directory was not created");
-    }
-
-    @Test
-    void loaderModeRegistersDistributionTasks() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.ext.ProjectMode
-
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                group = 'com.cleanroommc'
-                version = '0.1.0'
-                cleanroom {
-                    mode = ProjectMode.LOADER
-                }
-                gradle.projectsEvaluated {
-                    def minecraft = cleanroom.patchDev.minecraft
-                    assert minecraft.input.get().asFile == layout.buildDirectory.dir('cleanroom_gradle/sourceSets/mcp/sources').get().asFile
-                    assert minecraft.patches.get().asFile == layout.projectDirectory.dir('module/minecraft/patches').asFile
-                    assert minecraft.output.get().asFile == layout.projectDirectory.dir('module/minecraft/src/main/java').asFile
-                }
-                """);
-
-        var result = runner("tasks", "--all").build();
-        var output = result.getOutput();
-        assertTrue(output.contains("universalJar"), "universalJar not present");
-        assertTrue(output.contains("userdevJar"), "userdevJar not present");
-        assertTrue(output.contains("javadocJar"), "javadocJar not present");
-        assertTrue(output.contains("reobfJar"), "reobfJar not present");
-        assertTrue(output.contains("genClientBinPatches"), "genClientBinPatches not present");
-        assertTrue(output.contains("genServerBinPatches"), "genServerBinPatches not present");
-        assertTrue(output.contains("genRuntimeBinPatches"), "genRuntimeBinPatches not present");
-        assertTrue(output.contains("runCleanroomClient"), "runCleanroomClient not present");
-        assertTrue(output.contains("runCleanroomServer"), "runCleanroomServer not present");
-        assertTrue(output.contains("accessTransformSrgJar"), "accessTransformSrgJar not present");
-        assertTrue(output.contains("extractInheritance"), "extractInheritance not present");
-        assertTrue(output.contains("checkSAS"), "checkSAS not present");
-        assertTrue(output.contains("applySAS"), "applySAS not present");
-        assertTrue(output.contains("stripSrgClientJar"), "stripSrgClientJar not present");
-        assertTrue(output.contains("stripSrgServerJar"), "stripSrgServerJar not present");
-        assertTrue(output.contains("stripClientMinecraftJar"), "stripClientMinecraftJar not present");
-        assertTrue(output.contains("stripServerMinecraftJar"), "stripServerMinecraftJar not present");
-
-        var assemble = runner("assemble", "--dry-run").build().getOutput();
-        assertTrue(assemble.contains(":universalJar"), "assemble does not build universalJar");
-        assertTrue(assemble.contains(":userdevJar"), "assemble does not build userdevJar");
-        assertTrue(assemble.contains(":javadocJar"), "assemble does not build javadocJar");
-    }
-
-    @Test
-    void sideOnlyPipelineDryRunResolvesTaskGraph() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.ext.ProjectMode
-
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                group = 'com.cleanroommc'
-                version = '0.1.0'
-                cleanroom {
-                    mode = ProjectMode.LOADER
-                }
-                """);
-
-        var result = runner("decompileSrg", "runSrgClient", "runSrgServer",
-                "genClientBinPatches", "genServerBinPatches", "--dry-run").build();
-        var output = result.getOutput();
-        assertTrue(output.contains(":extractInheritance"), "inheritance extraction not present");
-        assertTrue(output.contains(":checkSAS"), "SAS validation not present");
-        assertTrue(output.contains(":applySAS"), "SAS application not present");
-        assertTrue(output.contains(":stripSrgClientJar"), "SRG client stripping not present");
-        assertTrue(output.contains(":stripSrgServerJar"), "SRG server stripping not present");
-        assertTrue(output.contains(":stripClientMinecraftJar"), "release client stripping not present");
-        assertTrue(output.contains(":stripServerMinecraftJar"), "release server stripping not present");
-        assertTrue(output.contains(":genClientBinPatches"), "client binpatch generation not present");
-        assertTrue(output.contains(":genServerBinPatches"), "server binpatch generation not present");
-    }
-
-    @Test
-    void cleanroomRunPreparesMinecraftPatchDevWorkspace() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.ext.ProjectMode
-
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                cleanroom {
-                    mode = ProjectMode.LOADER
-                }
-                """);
-
-        var result = runner("runCleanroomClient", "--dry-run").build();
-        var output = result.getOutput();
-        assertTrue(output.contains(":decompileSrg"), "Minecraft sources are not decompiled");
-        assertTrue(output.contains(":remapSrg2Mcp"), "decompiled sources are not remapped to MCP names");
-        assertTrue(output.contains(":prepareMinecraftSources"), "MCP sources are not staged for patch development");
-        assertTrue(output.contains(":initializeMinecraftPatchDevSources"), "Minecraft patches are not applied to the patch-dev source tree");
-        assertTrue(output.contains(":prepareMinecraftPatchDevEnvironment"), "Minecraft patch-dev environment is not prepared");
-        assertTrue(output.contains(":prepareMcpInjectedSources"), "MCP annotation source is not prepared");
-        assertTrue(output.indexOf(":initializeMinecraftPatchDevSources") < output.indexOf(":prepareMinecraftPatchDevEnvironment"),
-                "Minecraft patches must be applied while initializing the loader patch-dev environment. Output:\n" + output);
-        assertTrue(output.indexOf(":prepareMinecraftPatchDevEnvironment") < output.lastIndexOf(":compileJava"),
-                "Minecraft patch-dev environment must be prepared before the main sources compile. Output:\n" + output);
-        assertTrue(output.indexOf(":prepareMcpInjectedSources") < output.lastIndexOf(":compileJava"),
-                "MCP annotation source must be prepared before the main sources compile. Output:\n" + output);
-    }
-
-    @Test
-    void userdevJarDryRunResolvesTaskGraph() throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.ext.ProjectMode
-
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                group = 'com.cleanroommc'
-                version = '0.1.0'
-                cleanroom {
-                    mode = ProjectMode.LOADER
-                }
-                """);
-
-        var result = runner("userdevJar", "--dry-run").build();
-        var output = result.getOutput();
-        assertTrue(output.contains(":userdevJar"), "userdevJar not present");
-        assertTrue(output.contains(":jar"), "jar not present");
-        assertTrue(output.contains(":genRuntimeBinPatches"), "genRuntimeBinPatches not present");
-        assertTrue(output.contains(":writeMcp2Notch"), "writeMcp2Notch not present");
-        assertTrue(output.contains(":writeSrg2Mcp"), "writeSrg2Mcp not present");
-        assertTrue(output.contains(":writeMcp2SrgDist"), "writeMcp2SrgDist not present");
-    }
-
-    @Test
-    void SkipVanillaArtifactsWhenCacheMatches() throws IOException {
+    void downloadsSkipWhenCacheMatches() throws IOException {
         var sourceClient = this.projectDir.resolve("source-client.jar");
         var sourceServer = this.projectDir.resolve("source-server.jar");
         var sourceIndex = this.projectDir.resolve("source-assets.json");
@@ -892,22 +476,16 @@ class CleanroomGradlePluginTest {
                 """.formatted(indexSha1, indexBytes.length, sourceIndex.toUri(),
                 clientSha1, clientBytes.length, sourceClient.toUri(),
                 serverSha1, serverBytes.length, sourceServer.toUri()));
-        Files.writeString(this.projectDir.resolve("build.gradle"),
-                """
+        writeBuild("""
                 import com.cleanroommc.gradle.api.schema.VersionMeta
                 import com.cleanroommc.gradle.api.util.IO
 
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
                 cleanroom {
                     mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
                     cacheDirectory.set(layout.projectDirectory.dir('cg-cache'))
                     versionMeta.set(IO.readJson(file('version-meta.json'), VersionMeta))
                 }
-                """
-        );
+                """);
 
         var versionCache = this.projectDir.resolve("cg-cache/versions/1.12.2");
         var indexCache = this.projectDir.resolve("cg-cache/assets/indexes");
@@ -932,7 +510,7 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
-    void assetOutputsIgnoreObjectsFromOtherIndexes() throws IOException {
+    void assetOutputsAreIndexScoped() throws IOException {
         var assetBytes = "cached-asset".getBytes(StandardCharsets.UTF_8);
         var assetSha1 = DigestUtils.sha1Hex(assetBytes);
         var assetPath = "objects/" + assetSha1.substring(0, 2) + "/" + assetSha1;
@@ -943,13 +521,7 @@ class CleanroomGradlePluginTest {
         Files.createDirectories(cachedAsset.getParent());
         Files.write(cachedAsset, assetBytes);
 
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
-
+        writeVanillaBuild("""
                 tasks.named('downloadAssets') {
                     assetIndexFile = layout.projectDirectory.file('asset-index.json')
                     objects = layout.projectDirectory.dir('objects')
@@ -970,7 +542,7 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
-    void offlineAssetValidationReportsAllProblemsAndRecovery() throws IOException {
+    void offlineAssetValidationReportsProblems() throws IOException {
         var missingHash = "1111111111111111111111111111111111111111";
         var corruptHash = "2222222222222222222222222222222222222222";
         Files.writeString(this.projectDir.resolve("asset-index.json"), """
@@ -984,12 +556,12 @@ class CleanroomGradlePluginTest {
         var corruptAsset = this.projectDir.resolve("objects/22/" + corruptHash);
         Files.createDirectories(corruptAsset.getParent());
         Files.writeString(corruptAsset, "corrupt");
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
+        writeVanillaBuild("""
                 tasks.named('downloadAssets') {
                     assetIndexFile = layout.projectDirectory.file('asset-index.json')
                     objects = layout.projectDirectory.dir('objects')
                 }
-                """, StandardOpenOption.APPEND);
+                """);
 
         var result = runner("downloadAssets", "--offline").buildAndFail();
         assertTrue(result.getOutput().contains("2 Minecraft asset(s) are missing or invalid"));
@@ -997,67 +569,6 @@ class CleanroomGradlePluginTest {
         assertTrue(result.getOutput().contains("minecraft/textures/corrupt.png: SHA-1 does not match"));
         assertTrue(result.getOutput().contains("Run downloadAssets once without --offline to repair the shared asset cache"));
         assertProblemReported("offline-assets");
-    }
-
-    @Test
-    void accessTransformRestoresFromBuildCache() throws IOException {
-        var sourceDir = this.projectDir.resolve("src/main/java/example");
-        Files.createDirectories(sourceDir);
-        Files.writeString(sourceDir.resolve("CustomAccessTransform.java"), """
-                package example;
-
-                import java.nio.charset.StandardCharsets;
-                import java.nio.file.Files;
-                import java.nio.file.Path;
-                import java.util.zip.ZipEntry;
-                import java.util.zip.ZipOutputStream;
-
-                public final class CustomAccessTransform {
-                    public static void main(String[] args) throws Exception {
-                        var output = Path.of(args[0]);
-                        Files.createDirectories(output.getParent());
-                        try (var zip = new ZipOutputStream(Files.newOutputStream(output))) {
-                            zip.putNextEntry(new ZipEntry("result.txt"));
-                            zip.write(args[1].getBytes(StandardCharsets.UTF_8));
-                            zip.closeEntry();
-                        }
-                    }
-                }
-                """);
-        Files.writeString(this.projectDir.resolve("access.cfg"), "public example.Dummy");
-        Files.writeString(this.projectDir.resolve("input.jar"), "input");
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.task.mcp.AccessTransform
-
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
-
-                def transformed = layout.buildDirectory.file('cached-at.jar')
-                tasks.register('cachedAccessTransform', AccessTransform) {
-                    dependsOn tasks.named('classes')
-                    toolClasspath.from(sourceSets.main.output)
-                    useDefaultToolArguments = false
-                    mainClass = 'example.CustomAccessTransform'
-                    args(transformed.get().asFile.absolutePath, 'cached')
-                    accessTransformers.from(layout.projectDirectory.file('access.cfg'))
-                    inputJar = layout.projectDirectory.file('input.jar')
-                    outputJar = transformed
-                }
-                """);
-
-        var first = runner("cachedAccessTransform", "--build-cache").build();
-        assertEquals(TaskOutcome.SUCCESS, first.task(":cachedAccessTransform").getOutcome());
-
-        Files.createDirectories(this.projectDir.resolve("relocated"));
-        Files.move(this.projectDir.resolve("input.jar"), this.projectDir.resolve("relocated/input.jar"));
-        var buildFile = this.projectDir.resolve("build.gradle");
-        Files.writeString(buildFile, Files.readString(buildFile).replace("file('input.jar')", "file('relocated/input.jar')"));
-        Files.delete(this.projectDir.resolve("build/cached-at.jar"));
-        var second = runner("cachedAccessTransform", "--build-cache").build();
-        assertEquals(TaskOutcome.FROM_CACHE, second.task(":cachedAccessTransform").getOutcome());
     }
 
     @Test
@@ -1072,15 +583,9 @@ class CleanroomGradlePluginTest {
                 new ArchiveEntry("a/A.class", "new class contents"),
                 new ArchiveEntry("c/C.class", "added")));
 
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
+        writeVanillaBuild("""
                 import com.cleanroommc.gradle.api.task.patch.ApplyBinPatches
                 import com.cleanroommc.gradle.api.task.patch.GenerateBinPatches
-
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
 
                 def patches = layout.buildDirectory.file('test.binpatches')
                 def generate = tasks.register('generateTestBinPatches', GenerateBinPatches) {
@@ -1109,16 +614,89 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
-    void eligibleForConfigurationCache() throws IOException {
-        Files.writeString(this.projectDir.resolve("gradle.properties"), "org.gradle.configuration-cache=true\norg.gradle.configuration-cache.problems=warn\n");
+    void customToolInvocationReusesConfigurationCache() throws IOException {
+        var sourceDir = this.projectDir.resolve("src/main/java/example");
+        Files.createDirectories(sourceDir);
+        Files.writeString(sourceDir.resolve("CustomMerge.java"), """
+                package example;
 
-        // remapSrg2Mcp --dry-run serializes the whole MCP task chain into the CC snapshot
-        var first = runner("remapSrg2Mcp", "--dry-run").build();
-        assertTrue(first.getOutput().contains("Configuration cache entry stored"), "CC entry not stored on first run. Output:\n" + first.getOutput());
+                import java.nio.file.Files;
+                import java.nio.file.Path;
 
-        // Second run: must reuse snapshot
-        var second = runner("remapSrg2Mcp", "--dry-run").build();
-        assertTrue(second.getOutput().contains("Reusing configuration cache"), "CC not reused on second run. Output:\n" + second.getOutput());
+                public final class CustomMerge {
+                    public static void main(String[] args) throws Exception {
+                        var output = Path.of(args[0]);
+                        Files.createDirectories(output.getParent());
+                        Files.writeString(output, args[1]);
+                    }
+                }
+                """);
+        writeVanillaBuild("""
+                import com.cleanroommc.gradle.api.task.mcp.MergeJars
+
+                def customOutput = layout.buildDirectory.file('custom-merge.txt')
+                tasks.named('mergeJars', MergeJars) {
+                    setDependsOn([tasks.named('classes')])
+                    toolClasspath.setFrom(sourceSets.main.output)
+                    useDefaultToolArguments = false
+                    mainClass = 'example.CustomMerge'
+                    setArgs([customOutput.get().asFile.absolutePath, 'replacement-tool'])
+
+                    clientJar = layout.projectDirectory.file('build.gradle')
+                    serverJar = layout.projectDirectory.file('build.gradle')
+                    srgMappingFile = layout.projectDirectory.file('build.gradle')
+                    minecraftVersion = 'replacement'
+                    mergedJar = customOutput
+                }
+                """);
+        enableConfigurationCache();
+
+        var first = runner("mergeJars").build();
+        assertEquals(TaskOutcome.SUCCESS, first.task(":mergeJars").getOutcome());
+        assertEquals("replacement-tool", Files.readString(this.projectDir.resolve("build/custom-merge.txt")));
+
+        Files.delete(this.projectDir.resolve("build/custom-merge.txt"));
+        var second = runner("mergeJars").build();
+        assertTrue(second.getOutput().contains("Reusing configuration cache"));
+        assertEquals(TaskOutcome.SUCCESS, second.task(":mergeJars").getOutcome());
+        assertEquals("replacement-tool", Files.readString(this.projectDir.resolve("build/custom-merge.txt")));
+    }
+
+    private void writeVanillaBuild(String extra) throws IOException {
+        writeBuild("""
+                cleanroom {
+                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
+                    developInitialPatches = false
+                }
+                """ + extra);
+    }
+
+    private void writeBuild(String body) throws IOException {
+        Files.writeString(this.projectDir.resolve("build.gradle"), """
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+                group = 'com.example'
+                """ + body);
+    }
+
+    private void enableConfigurationCache() throws IOException {
+        Files.writeString(this.projectDir.resolve("gradle.properties"),
+                "org.gradle.configuration-cache=true\norg.gradle.configuration-cache.problems=fail\n");
+    }
+
+    private GradleRunner runner(String... args) {
+        var allArgs = new ArrayList<>(Arrays.asList(args));
+        allArgs.add("--console=plain");
+        return GradleRunner.create().withProjectDir(this.projectDir.toFile()).withArguments(allArgs);
+    }
+
+    private void assertProblemReported(String problemId) throws IOException {
+        var report = this.projectDir.resolve("build/reports/problems/problems-report.html");
+        assertTrue(Files.isRegularFile(report), "Gradle Problems report was not generated");
+        assertTrue(Files.readString(report).contains(problemId),
+                "Problems report does not contain '" + problemId + "'");
     }
 
     private static void writeArchive(Path output, List<ArchiveEntry> entries) throws IOException {
