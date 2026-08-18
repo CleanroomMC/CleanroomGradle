@@ -46,11 +46,11 @@ cleanroom {
 }
 ```
 
-| Mode | Purpose |
-|---|---|
-| `VANILLA` | Vanilla download, run, decompile, and shared MCP facilities only |
-| `LOADER` | Cleanroom loader sources, SAS/AT processing, run tasks, and distribution artifacts |
-| `USERDEV` | Mod workspace backed by `cleanroomVersion` or a `cleanroomUserdev` dependency |
+| Mode      | Purpose                                                                            |
+|-----------|------------------------------------------------------------------------------------|
+| `VANILLA` | Vanilla download, run, decompile, and shared MCP facilities only                   |
+| `LOADER`  | Cleanroom loader sources, SAS/AT processing, run tasks, and distribution artifacts |
+| `USERDEV` | Mod workspace backed by `cleanroomVersion` or a `cleanroomUserdev` dependency      |
 
 The default is `USERDEV`, since mod development is the primary use case. Loader development and standalone vanilla tooling must select `LOADER` or `VANILLA` explicitly.
 
