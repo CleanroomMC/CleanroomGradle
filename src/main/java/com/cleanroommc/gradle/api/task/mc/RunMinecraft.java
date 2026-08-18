@@ -27,6 +27,7 @@ import java.util.Scanner;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+@UntrackedTask(because = "Launches the game")
 @DisableCachingByDefault(because = "Launches the game")
 public abstract class RunMinecraft extends LazilyConstructedJavaExec {
 
