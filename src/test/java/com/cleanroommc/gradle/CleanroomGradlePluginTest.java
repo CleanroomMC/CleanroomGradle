@@ -368,6 +368,19 @@ class CleanroomGradlePluginTest {
     }
 
     @Test
+    void runMinecraftTasksIgnoreProcessExit() throws IOException {
+        writeVanillaBuild("""
+                import com.cleanroommc.gradle.api.task.mc.RunMinecraft
+                gradle.projectsEvaluated {
+                    assert !tasks.withType(RunMinecraft).empty
+                    assert tasks.withType(RunMinecraft).every { it.ignoreExitValue }
+                }
+                """);
+
+        assertEquals(TaskOutcome.SUCCESS, runner("help").build().task(":help").getOutcome());
+    }
+
+    @Test
     void runTasksPrepareAssetsForClientsNotServers() {
         for (var task : List.of("runVanillaClient", "runSrgClient", "runReobfSrgClient", "runMcpClient")) {
             var output = runner(task, "--dry-run").build().getOutput();
@@ -689,7 +702,12 @@ class CleanroomGradlePluginTest {
     private GradleRunner runner(String... args) {
         var allArgs = new ArrayList<>(Arrays.asList(args));
         allArgs.add("--console=plain");
-        return GradleRunner.create().withProjectDir(this.projectDir.toFile()).withArguments(allArgs);
+        var runner = GradleRunner.create().withProjectDir(this.projectDir.toFile()).withArguments(allArgs);
+        var testKitHome = System.getProperty("testkit.gradle.user.home");
+        if (testKitHome != null) {
+            runner.withTestKitDir(new File(testKitHome));
+        }
+        return runner;
     }
 
     private void assertProblemReported(String problemId) throws IOException {

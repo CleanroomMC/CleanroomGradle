@@ -10,6 +10,7 @@ import com.cleanroommc.gradle.api.util.Platform;
 import com.cleanroommc.gradle.api.task.LazilyConstructedJavaExec;
 import net.minecraftforge.fml.relauncher.Side;
 import org.apache.commons.io.FileUtils;
+import org.gradle.api.GradleException;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.provider.Property;
@@ -104,6 +105,7 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         this.setStandardInput(System.in);
         this.setStandardOutput(System.out);
         this.setErrorOutput(System.err);
+        this.setIgnoreExitValue(true);
 
         this.jvmArgs("-Dfile.encoding=UTF-8");
 
@@ -155,6 +157,18 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
                 }
             }
         }
+    }
+
+    @Override
+    protected void afterExec() {
+        var result = this.getExecutionResult().getOrNull();
+        if (result != null && isCrashExit(result.getExitValue())) {
+            throw new GradleException("Minecraft crashed (exit code " + result.getExitValue() + "). See the log above and the crash-reports directory.");
+        }
+    }
+
+    private static boolean isCrashExit(int exitValue) {
+        return exitValue == -1 || exitValue == -2 || exitValue == 254 || exitValue == 255;
     }
 
     @Override

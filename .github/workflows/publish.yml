@@ -1,0 +1,55 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      validate-only:
+        description: Validate publication metadata without uploading
+        type: boolean
+        default: false
+
+concurrency:
+  group: plugin-portal-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+
+      - name: Test
+        run: ./gradlew test
+
+      - name: Print version
+        run: ./gradlew -q printVersion -Pversioning.publish
+
+      - name: Publish to Plugin Portal
+        env:
+          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
+          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
+        run: ./gradlew publishPlugins --no-configuration-cache -Pversioning.publish ${{ inputs.validate-only && '--validate-only' || '' }}
+
+      - name: Publish to Cleanroom Maven
+        if: ${{ !inputs.validate-only }}
+        env:
+          ORG_GRADLE_PROJECT_CleanroomMavenUsername: ${{ secrets.MAVEN_NAME }}
+          ORG_GRADLE_PROJECT_CleanroomMavenPassword: ${{ secrets.MAVEN_PASSWORD }}
+        run: ./gradlew publish --no-configuration-cache -Pversioning.publish

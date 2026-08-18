@@ -1,6 +1,9 @@
 plugins {
+    id 'com.cleanroommc.versioning' version '1.0.0'
     id 'java-gradle-plugin'
     id 'maven-publish'
+    id 'com.gradle.plugin-publish' version '2.1.1'
+    id 'signing'
 }
 
 java {
@@ -8,7 +11,6 @@ java {
 }
 
 group = 'com.cleanroommc'
-version = '0.8.0'
 
 repositories {
     maven {
@@ -25,10 +27,10 @@ dependencies {
     implementation 'commons-codec:commons-codec:1.16.0'
     implementation 'org.apache.commons:commons-lang3:3.18.0'
     implementation 'io.github.java-diff-utils:java-diff-utils:4.15'
-    implementation 'org.ow2.asm:asm:9.6'
-    implementation 'org.ow2.asm:asm-commons:9.6'
-    implementation 'org.ow2.asm:asm-tree:9.6'
-    implementation 'org.ow2.asm:asm-util:9.6'
+    implementation 'org.ow2.asm:asm:9.10.1'
+    implementation 'org.ow2.asm:asm-commons:9.10.1'
+    implementation 'org.ow2.asm:asm-tree:9.10.1'
+    implementation 'org.ow2.asm:asm-util:9.10.1'
     implementation 'de.undercouch.download:de.undercouch.download.gradle.plugin:5.6.0'
     implementation 'de.siegmar:fastcsv:3.0.0'
 
@@ -45,18 +47,32 @@ dependencies {
 }
 
 gradlePlugin {
+    website = 'https://github.com/CleanroomMC/CleanroomGradle'
+    vcsUrl = 'https://github.com/CleanroomMC/CleanroomGradle.git'
     plugins {
         cleanroomGradle {
             id = "${group}.cleanroomgradle"
             implementationClass = "${group}.gradle.CleanroomGradle"
             displayName = 'CleanroomGradle'
             description = 'Gradle plugin for Cleanroom and Cleanroom-targeted mod development'
+            tags.set(['minecraft', 'cleanroom', 'forge', 'modding', '1.12.2', 'asm', 'transform', 'bytecode'])
+            compatibility {
+                features {
+                    configurationCache = true
+                }
+            }
         }
         cleanroomGradleSettings {
             id = "${group}.cleanroomgradle.settings"
             implementationClass = "${group}.gradle.CleanroomGradleSettings"
             displayName = 'CleanroomGradle Settings'
             description = 'Settings plugin that injects Cleanroom dependency repositories and the Foojay toolchain resolver'
+            tags.set(['minecraft', 'cleanroom', 'settings'])
+            compatibility {
+                features {
+                    configurationCache = true
+                }
+            }
         }
     }
 }
@@ -70,6 +86,8 @@ jar {
 test {
     useJUnitPlatform()
     systemProperty 'plugin.project.dir', rootDir.absolutePath
+    // includeBuild of this project has to resolve versioning
+    systemProperty 'testkit.gradle.user.home', gradle.gradleUserHomeDir.absolutePath
 }
 
 publishing {
@@ -81,11 +99,25 @@ publishing {
     repositories {
         maven {
             name = 'CleanroomMaven'
-            url = 'https://repo.cleanroommc.com/releases'
+            url = 'https://maven.cleanroommc.com'
             credentials(PasswordCredentials)
             authentication {
                 basic(BasicAuthentication)
             }
         }
+    }
+}
+
+def signingKey = providers.gradleProperty('signingKey')
+def signingPassword = providers.gradleProperty('signingPassword')
+
+signing {
+    required = {
+        gradle.taskGraph.allTasks.any {
+            it.name == 'publishPlugins'
+        }
+    }
+    if (signingKey.present && signingPassword.present) {
+        useInMemoryPgpKeys(signingKey.get(), signingPassword.get())
     }
 }
