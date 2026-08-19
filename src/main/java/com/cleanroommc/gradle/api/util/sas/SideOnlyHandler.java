@@ -212,29 +212,17 @@ public final class SideOnlyHandler {
                 removedClasses.add(node.name);
             }
         }
-        var changed = true;
-        while (changed) {
-            changed = false;
-            for (var className : classes.keySet()) {
-                if (!removedClasses.contains(className) && removedClasses.stream().anyMatch(parent -> className.startsWith(parent + "$"))) {
-                    removedClasses.add(className);
-                    changed = true;
-                }
-            }
-        }
+        addInnerClassesOfRemoved(classes.keySet(), removedClasses);
         var fieldsRemoved = 0;
         var methodsRemoved = 0;
         var annotationsRemoved = 0;
         var removedFields = new HashSet<FieldKey>();
         var removedMethods = new HashSet<MethodKey>();
         for (var node : classes.values()) {
-            var entryName = node.name + ".class";
             if (removedClasses.contains(node.name)) {
-                entries.remove(entryName);
                 continue;
             }
             annotationsRemoved += removeSideOnly(node.visibleAnnotations, node.invisibleAnnotations);
-            node.innerClasses.removeIf(inner -> removedClasses.contains(inner.name));
             var fieldIterator = node.fields.iterator();
             while (fieldIterator.hasNext()) {
                 var field = fieldIterator.next();
@@ -275,6 +263,18 @@ public final class SideOnlyHandler {
                     collectLambdaTargets(lambda, removedLambdaTargets::add);
                 }
             }
+        }
+        cascadeUnreachableInnerClasses(classes, removedClasses);
+        addInnerClassesOfRemoved(classes.keySet(), removedClasses);
+
+        for (var node : classes.values()) {
+            var entryName = node.name + ".class";
+            if (removedClasses.contains(node.name)) {
+                entries.remove(entryName);
+                continue;
+            }
+            node.innerClasses.removeIf(inner -> removedClasses.contains(inner.name));
+            sanitizeNests(node, removedClasses);
             sanitizeSignatures(node, removedClasses);
             entries.put(entryName, writeClass(node));
         }
@@ -284,6 +284,183 @@ public final class SideOnlyHandler {
         }
         writeArchive(output, entries);
         return new TransformResult(removedClasses.size(), fieldsRemoved, methodsRemoved, annotationsRemoved);
+    }
+
+    private static void cascadeUnreachableInnerClasses(Map<String, ClassNode> classes, Set<String> removedClasses) {
+        var reachable = new HashSet<String>();
+        var worklist = new ArrayDeque<String>();
+        for (var name : classes.keySet()) {
+            if (!removedClasses.contains(name) && name.indexOf('$') < 0) {
+                worklist.add(name);
+            }
+        }
+        var refs = new HashSet<String>();
+        while (!worklist.isEmpty()) {
+            var current = worklist.remove();
+            if (removedClasses.contains(current) || !reachable.add(current)) {
+                continue;
+            }
+            var node = classes.get(current);
+            if (node == null) {
+                continue;
+            }
+            refs.clear();
+            collectTypeLike(node.superName, refs);
+            node.interfaces.forEach(type -> collectTypeLike(type, refs));
+            for (var field : node.fields) {
+                collectFromDescriptor(field.desc, refs);
+            }
+            for (var method : node.methods) {
+                collectClassRefs(method, refs);
+            }
+            for (var ref : refs) {
+                if (classes.containsKey(ref) && !removedClasses.contains(ref) && !reachable.contains(ref)) {
+                    worklist.add(ref);
+                }
+            }
+        }
+        for (var name : classes.keySet()) {
+            if (name.indexOf('$') >= 0 && !removedClasses.contains(name) && !reachable.contains(name)) {
+                removedClasses.add(name);
+            }
+        }
+    }
+
+    private static void addInnerClassesOfRemoved(Set<String> classNames, Set<String> removedClasses) {
+        var changed = true;
+        while (changed) {
+            changed = false;
+            for (var className : classNames) {
+                if (!removedClasses.contains(className) && removedClasses.stream().anyMatch(parent -> className.startsWith(parent + "$"))) {
+                    removedClasses.add(className);
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    private static void sanitizeNests(ClassNode node, Set<String> removedClasses) {
+        if (node.nestHostClass != null && removedClasses.contains(node.nestHostClass)) {
+            node.nestHostClass = null;
+        }
+        if (node.nestMembers != null) {
+            node.nestMembers.removeIf(removedClasses::contains);
+            if (node.nestMembers.isEmpty()) {
+                node.nestMembers = null;
+            }
+        }
+        if (node.permittedSubclasses != null) {
+            node.permittedSubclasses.removeIf(removedClasses::contains);
+            if (node.permittedSubclasses.isEmpty()) {
+                node.permittedSubclasses = null;
+            }
+        }
+    }
+
+    private static void collectClassRefs(MethodNode method, Set<String> out) {
+        collectFromDescriptor(method.desc, out);
+        method.exceptions.forEach(type -> collectTypeLike(type, out));
+        method.tryCatchBlocks.forEach(block -> {
+            if (block.type != null) {
+                out.add(block.type);
+            }
+        });
+        for (var instruction : method.instructions) {
+            switch (instruction) {
+                case TypeInsnNode type -> collectTypeLike(type.desc, out);
+                case FieldInsnNode field -> {
+                    out.add(field.owner);
+                    collectFromDescriptor(field.desc, out);
+                }
+                case MethodInsnNode call -> {
+                    out.add(call.owner);
+                    collectFromDescriptor(call.desc, out);
+                }
+                case InvokeDynamicInsnNode dynamic -> {
+                    collectFromDescriptor(dynamic.desc, out);
+                    collectHandle(dynamic.bsm, out);
+                    for (var argument : dynamic.bsmArgs) {
+                        collectConstant(argument, out);
+                    }
+                }
+                case LdcInsnNode ldc -> collectConstant(ldc.cst, out);
+                case MultiANewArrayInsnNode array -> collectFromDescriptor(array.desc, out);
+                case FrameNode frame -> {
+                    collectFrame(frame.local, out);
+                    collectFrame(frame.stack, out);
+                }
+                default -> { }
+            }
+        }
+    }
+
+    private static void collectFrame(List<Object> values, Set<String> out) {
+        if (values == null) {
+            return;
+        }
+        values.stream()
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .forEach(value -> collectTypeLike(value, out));
+    }
+
+    private static void collectConstant(Object value, Set<String> out) {
+        if (value instanceof Type type) {
+            collectType(type, out);
+        } else if (value instanceof Handle handle) {
+            collectHandle(handle, out);
+        } else if (value instanceof ConstantDynamic dynamic) {
+            collectFromDescriptor(dynamic.getDescriptor(), out);
+            collectHandle(dynamic.getBootstrapMethod(), out);
+            for (var index = 0; index < dynamic.getBootstrapMethodArgumentCount(); index++) {
+                collectConstant(dynamic.getBootstrapMethodArgument(index), out);
+            }
+        }
+    }
+
+    private static void collectHandle(Handle handle, Set<String> out) {
+        out.add(handle.getOwner());
+        collectFromDescriptor(handle.getDesc(), out);
+    }
+
+    private static void collectTypeLike(String value, Set<String> out) {
+        if (value == null) {
+            return;
+        }
+        if (value.startsWith("[") || value.startsWith("L") || value.startsWith("(")) {
+            collectFromDescriptor(value, out);
+        } else {
+            out.add(value);
+        }
+    }
+
+    private static void collectFromDescriptor(String descriptor, Set<String> out) {
+        if (descriptor == null || descriptor.isEmpty()) {
+            return;
+        }
+        try {
+            if (descriptor.charAt(0) == '(') {
+                for (var type : Type.getArgumentTypes(descriptor)) {
+                    collectType(type, out);
+                }
+                collectType(Type.getReturnType(descriptor), out);
+            } else {
+                collectType(Type.getType(descriptor), out);
+            }
+        } catch (IllegalArgumentException ignored) {
+            // Some bootstrap handles expose a non-descriptor name in which their owner will still be collected
+        }
+    }
+
+    private static void collectType(Type type, Set<String> out) {
+        while (type.getSort() == Type.ARRAY) {
+            type = type.getElementType();
+        }
+        if (type.getSort() == Type.OBJECT) {
+            out.add(type.getInternalName());
+        } else if (type.getSort() == Type.METHOD) {
+            collectFromDescriptor(type.getDescriptor(), out);
+        }
     }
 
     private static void sanitizeSignatures(ClassNode node, Set<String> removedClasses) {
