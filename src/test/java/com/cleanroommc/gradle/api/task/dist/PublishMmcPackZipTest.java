@@ -50,7 +50,6 @@ class PublishMmcPackZipTest {
 
                 tasks.register('publishFixture', PublishMmcPackZip) {
                     instanceName = 'Cleanroom'
-                    minecraftVersion = '1.12.2'
                     cleanroomVersion = '2.0.0'
                     mainClass = 'top.outlands.foundation.boot.Foundation'
                     tweakers.add('net.minecraftforge.fml.common.launcher.FMLTweaker')
