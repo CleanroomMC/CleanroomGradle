@@ -21,9 +21,6 @@ import java.nio.file.Files;
 public abstract class WriteUserdevConfig extends DefaultTask {
 
     @Input
-    public abstract Property<String> getMinecraftVersion();
-
-    @Input
     public abstract Property<String> getCleanroomVersion();
 
     @Input
@@ -100,7 +97,7 @@ public abstract class WriteUserdevConfig extends DefaultTask {
                 new UserdevConfig.Run(getServerMainClass().get(), getLaunchClass().get(), getServerTweakClass().get(), getServerTarget().get()));
         var config = new UserdevConfig(
                 UserdevConfig.SPEC,
-                getMinecraftVersion().get(),
+                "1.12.2",
                 getCleanroomVersion().get(),
                 getForgeVersion().get(),
                 getMcpConfig().get(),
@@ -112,7 +109,8 @@ public abstract class WriteUserdevConfig extends DefaultTask {
                 getAccessTransformers().get(),
                 getLibraries().get(),
                 getLoaderGroup().get(),
-                runs);
+                runs
+        );
         var output = getOutput().getAsFile().get().toPath();
         try {
             var parent = output.getParent();

@@ -1,9 +1,11 @@
 package com.cleanroommc.gradle.env;
 
+import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.task.IntermediateProcessor;
 import com.cleanroommc.gradle.api.task.Tasks;
+import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip;
 import com.cleanroommc.gradle.api.task.dist.WriteUserdevConfig;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
@@ -18,9 +20,12 @@ import net.minecraftforge.fml.relauncher.Side;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
+import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 import org.gradle.api.artifacts.result.ResolvedComponentResult;
 import org.gradle.api.artifacts.result.ResolvedDependencyResult;
 import org.gradle.api.attributes.Category;
+import org.gradle.api.attributes.LibraryElements;
+import org.gradle.api.attributes.Usage;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Provider;
@@ -37,12 +42,14 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Registers the Cleanroom release/distribution pipeline.
@@ -69,6 +76,7 @@ public final class DistributionTasks {
     public final TaskProvider<GenerateBinPatches> genClientBinPatches, genServerBinPatches;
     public final TaskProvider<Zip> genRuntimeBinPatches;
     public final TaskProvider<WriteUserdevConfig> writeUserdevConfig;
+    public final TaskProvider<PublishMmcPackZip> publishMmcPackZip;
 
     public DistributionTasks(Project project, CleanroomExtension ext, VanillaTasks vanilla, MCPTasks mcp) {
         var layout = project.getLayout();
@@ -84,8 +92,8 @@ public final class DistributionTasks {
                                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ")))
                 .orElse("1970-01-01T00:00:00+0000");
 
-        var mainSourceSet = project.getExtensions().getByType(JavaPluginExtension.class)
-                .getSourceSets().named(SourceSet.MAIN_SOURCE_SET_NAME);
+        var javaExtension = project.getExtensions().getByType(JavaPluginExtension.class);
+        var mainSourceSet = javaExtension.getSourceSets().named(SourceSet.MAIN_SOURCE_SET_NAME);
         var jarTask = project.getTasks().named("jar", Jar.class);
 
         var srgMapping = ext.getVersionCacheDirectory().file("mcp_config/config/joined.tsrg");
@@ -99,6 +107,32 @@ public final class DistributionTasks {
                 "LICENSE-Paulscode IBXM Library.txt",
                 "LICENSE-Paulscode SoundSystem CodecIBXM.txt"
         ));
+
+        var runtimeClasspath = project.getConfigurations().named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME);
+        var mmcPackLibraries = Objects.config(project, "mmcPackLibraries");
+        mmcPackLibraries.configure(config -> {
+            config.setDescription("Runtime libraries embedded as hashed download metadata in the MMC/Prism pack.");
+            config.setCanBeConsumed(false);
+            config.setCanBeResolved(true);
+            config.extendsFrom(runtimeClasspath.get(), project.getConfigurations().getByName(LwjglNatives.ALL_CONFIGURATION_NAME));
+            config.attributes(attributes -> {
+                attributes.attribute(Usage.USAGE_ATTRIBUTE, project.getObjects().named(Usage.class, Usage.JAVA_RUNTIME));
+                attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.getObjects().named(Category.class, Category.LIBRARY));
+                attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, project.getObjects().named(LibraryElements.class, LibraryElements.JAR));
+            });
+        });
+        var mmcLibraryArtifacts = mmcPackLibraries.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts())
+                .map(artifacts -> artifacts.stream()
+                        .filter(artifact -> artifact.getId().getComponentIdentifier() instanceof ModuleComponentIdentifier)
+                        .sorted(Comparator.comparing(DistributionTasks::resolvedCoordinate))
+                        .map(artifact -> {
+                            var input = project.getObjects().newInstance(PublishMmcPackZip.LibraryArtifact.class);
+                            input.getCoordinate().set(resolvedCoordinate(artifact));
+                            input.getFile().fileValue(artifact.getFile());
+                            return input;
+                        })
+                        .toList()
+                );
 
         this.writeMcp2SrgDist = Tasks.register(project, "writeMcp2SrgDist", WriteMappings.class);
         this.writeObf2SrgTsrg = Tasks.register(project, "writeObf2SrgTsrg", WriteMappings.class);
@@ -115,9 +149,11 @@ public final class DistributionTasks {
         this.userdevJar = Tasks.register(project, "userdevJar", Jar.class);
         this.javadocJar = Tasks.register(project, "javadocJar", Jar.class);
         this.writeUserdevConfig = Tasks.register(project, "writeUserdevConfig", WriteUserdevConfig.class);
+        this.publishMmcPackZip = Tasks.register(project, "publishMmcPackZip", PublishMmcPackZip.class);
         Tasks.group("build", this.reobfJar);
-        Tasks.group(GROUP_NAME, this.universalJar, this.userdevJar, this.javadocJar);
-        project.getTasks().named("assemble").configure(task -> task.dependsOn(this.universalJar, this.userdevJar, this.javadocJar));
+        Tasks.group(GROUP_NAME, this.universalJar, this.userdevJar, this.javadocJar, this.publishMmcPackZip);
+        project.getTasks().named("assemble").configure(task ->
+                task.dependsOn(this.universalJar, this.userdevJar, this.javadocJar, this.publishMmcPackZip));
 
         this.writeMcp2SrgDist.configure(task -> {
             task.dependsOn(mcp.extractMcpConfig);
@@ -243,7 +279,6 @@ public final class DistributionTasks {
         this.writeUserdevConfig.configure(task -> {
             task.setDescription("Writes the metadata a mod developer's environment rebuilds itself from.");
 
-            task.getMinecraftVersion().set(MINECRAFT_VERSION);
             task.getCleanroomVersion().set(version);
             task.getForgeVersion().set(ext.getForgeVersion());
             task.getMcpConfig().set(mcp.mcpConfig.map(Objects::notation));
@@ -277,6 +312,34 @@ public final class DistributionTasks {
             task.from(this.writeMcp2SrgDist.flatMap(WriteMappings::getOutput),
                     spec -> spec.rename(name -> USERDEV_MCP2SRG));
             task.from(this.writeUserdevConfig.flatMap(WriteUserdevConfig::getOutput));
+        });
+        this.publishMmcPackZip.configure(task -> {
+            task.setDescription("Publishes a minimal MultiMC/PrismLauncher import ZIP.");
+
+            task.getInstanceName().set(titleProperty);
+            task.getCleanroomVersion().set(version);
+            task.getMainClass().set("top.outlands.foundation.boot.Foundation");
+            task.getTweakers().add("net.minecraftforge.fml.common.launcher.FMLTweaker");
+            task.getCompatibleJavaMajors().set(javaExtension.getToolchain().getLanguageVersion()
+                    .map(languageVersion -> List.of(languageVersion.asInt()))
+                    .orElse(List.of()));
+            task.getUniversalCoordinate().set(group + ":" + ARTIFACT_ID + ":" + version + ":universal");
+            task.getUniversalUrl().set(Meta.CLEANROOM_REPO
+                    + group.replace('.', '/') + "/" + ARTIFACT_ID + "/" + version + "/"
+                    + ARTIFACT_ID + "-" + version + "-universal.jar");
+            task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
+            task.getLibraries().set(mmcLibraryArtifacts);
+            task.getInheritedLibraries().set(ext.getVersionMeta().map(meta -> meta.libraries().stream()
+                    .map(library -> library.name())
+                    .collect(Collectors.toCollection(LinkedHashSet::new))));
+            // TODO: make this less hardcoded
+            task.getRepositoryUrls().put("*", "https://repo.maven.apache.org/maven2/");
+            task.getRepositoryUrls().put("com.cleanroommc", Meta.CLEANROOM_REPO);
+            task.getRepositoryUrls().put("top.outlands", Meta.CLEANROOM_REPO);
+            task.getRepositoryUrls().put("net.minecraftforge", Meta.FORGE_REPO);
+            task.getRepositoryUrls().put("de.oceanlabs.mcp", Meta.FORGE_REPO);
+            task.getRepositoryUrls().put("com.mojang", Meta.MOJANG_REPO);
+            task.getArchiveFile().set(layout.getBuildDirectory().file("libs/" + ARTIFACT_ID + "-" + version + "-mmc.zip"));
         });
         this.javadocJar.configure(task -> {
             task.setDescription("Packages Javadoc into a jar.");
@@ -373,6 +436,30 @@ public final class DistributionTasks {
             libraries.add(module + ":" + version + ":" + parts[2]);
         }
         return List.copyOf(libraries);
+    }
+
+    private static String resolvedCoordinate(ResolvedArtifactResult artifact) {
+        if (!(artifact.getId().getComponentIdentifier() instanceof ModuleComponentIdentifier module)) {
+            throw new IllegalArgumentException("MMC packs can only publish module artifacts: " + artifact.getId());
+        }
+        var fileName = artifact.getFile().getName();
+        var dot = fileName.lastIndexOf('.');
+        var extension = dot == -1 ? "jar" : fileName.substring(dot + 1);
+        var stem = dot == -1 ? fileName : fileName.substring(0, dot);
+        var prefix = module.getModule() + "-" + module.getVersion();
+        if (!stem.equals(prefix) && !stem.startsWith(prefix + "-")) {
+            throw new IllegalArgumentException("Cannot derive the classifier for " + artifact.getId()
+                    + " from file " + fileName);
+        }
+        var classifier = stem.length() == prefix.length() ? "" : stem.substring(prefix.length() + 1);
+        var coordinate = module.getGroup() + ":" + module.getModule() + ":" + module.getVersion();
+        if (!classifier.isEmpty()) {
+            coordinate += ":" + classifier;
+        }
+        if (!extension.equals("jar")) {
+            coordinate += "@" + extension;
+        }
+        return coordinate;
     }
 
 }

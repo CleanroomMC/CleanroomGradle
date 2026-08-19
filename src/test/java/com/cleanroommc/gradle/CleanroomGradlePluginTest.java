@@ -140,7 +140,7 @@ class CleanroomGradlePluginTest {
                         'runCleanroomClient', 'runCleanroomNsightClient', 'runCleanroomServer'
                     ].toSet()
                     assert tasks.findAll { it.group == 'distribution' }*.name.toSet() == [
-                        'javadocJar', 'universalJar', 'userdevJar'
+                        'javadocJar', 'publishMmcPackZip', 'universalJar', 'userdevJar'
                     ].toSet()
                     assert tasks.findAll { it.group == 'minecraft patch development' }*.name.toSet() == [
                         'applyMinecraftDiffs', 'generateMinecraftDiffs',
@@ -161,6 +161,7 @@ class CleanroomGradlePluginTest {
         assertTrue(output.contains(":universalJar"));
         assertTrue(output.contains(":userdevJar"));
         assertTrue(output.contains(":javadocJar"));
+        assertTrue(output.contains(":publishMmcPackZip"));
         assertTrue(output.contains(":genRuntimeBinPatches"));
         assertTrue(output.contains(":writeMcp2Notch"));
         assertTrue(output.contains(":writeSrg2Mcp"));

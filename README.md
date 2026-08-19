@@ -1,6 +1,6 @@
 # CleanroomGradle
 
-Gradle plugin for Cleanroom Loader development and Cleanroom-targeted mod development. The current release is `0.8.1`.
+Gradle plugin for Cleanroom Loader development and Cleanroom-targeted mod development. The current release is `0.9.0`.
 
 ## Applying the plugin
 
@@ -21,7 +21,7 @@ pluginManagement {
 }
 
 plugins {
-    id 'com.cleanroommc.cleanroomgradle.settings' version '0.8.1'
+    id 'com.cleanroommc.cleanroomgradle.settings' version '0.9.0'
 }
 ```
 
@@ -141,7 +141,7 @@ Compatibility is still ultimately constrained by the launch protocol and Java re
 | Diagnostics | `cleanroomInfo`                                                                                                                          |
 | Vanilla     | `decompileVersion`, `runVanillaClient`, `runVanillaServer`, plus `decompile<name>` and `run<name>Client`/`Server` for named environments |
 | MCP/loader  | `runSrgClient`, `runSrgServer`, `runMcpClient`, `runMcpServer`, `importMcpNames`                                                         |
-| Loader      | `runCleanroomClient`, `runCleanroomServer`, `universalJar`, `userdevJar`, `javadocJar`                                                   |
+| Loader      | `runCleanroomClient`, `runCleanroomServer`, `universalJar`, `userdevJar`, `javadocJar`, `publishMmcPackZip`                              |
 | Userdev     | `setupCleanroom`, `runClient`, `runServer`, `decompileDevJar`, `reobfJar`                                                                |
 
 Run `./gradlew tasks --all` for the complete pipeline.
