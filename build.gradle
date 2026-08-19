@@ -1,5 +1,5 @@
 plugins {
-    id 'com.cleanroommc.versioning' version '1.0.0'
+    id 'com.cleanroommc.versioning' version '2.0.0'
     id 'java-gradle-plugin'
     id 'maven-publish'
     id 'com.gradle.plugin-publish' version '2.1.1'
