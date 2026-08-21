@@ -67,7 +67,9 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     @Input
     public abstract ListProperty<String> getTweakers();
 
-    /** PrismLauncher compatibility hint with old MultiMC safely ignoring this field. */
+    /**
+     * PrismLauncher compatibility hint with old MultiMC safely ignoring this field.
+     */
     @Input
     public abstract ListProperty<Integer> getCompatibleJavaMajors();
 
@@ -90,7 +92,9 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     @Input
     public abstract SetProperty<String> getInheritedLibraries();
 
-    /** {@code *} entry is the fallback. */
+    /**
+     * {@code *} entry is the fallback.
+     */
     @Input
     public abstract MapProperty<String, String> getRepositoryUrls();
 

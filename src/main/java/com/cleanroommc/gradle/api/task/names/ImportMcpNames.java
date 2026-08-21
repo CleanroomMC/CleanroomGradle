@@ -48,7 +48,9 @@ public abstract class ImportMcpNames extends DefaultTask {
     @PathSensitive(PathSensitivity.NONE)
     public abstract RegularFileProperty getConstructorsFile();
 
-    /** Whether {@code cleanroom.namesDirectory} was configured; validated for a clear error message. */
+    /**
+     * Whether {@code cleanroom.namesDirectory} was configured; validated for a clear error message.
+     */
     @Input
     public abstract Property<Boolean> getNamesDirectoryConfigured();
 
@@ -83,7 +85,9 @@ public abstract class ImportMcpNames extends DefaultTask {
         getLogger().lifecycle("Tiny2 mappings written: {} classes -> {}", structure.classes().size(), output);
     }
 
-    /** Parses {@code constructors.txt} ({@code <id> <class> <desc>}) grouped by class internal name. */
+    /**
+     * Parses {@code constructors.txt} ({@code <id> <class> <desc>}) grouped by class internal name.
+     */
     private Map<String, List<TinyV2.Constructor>> readConstructors() {
         var byClass = new HashMap<String, List<TinyV2.Constructor>>();
         try {

@@ -23,13 +23,19 @@ import java.util.zip.ZipFile;
  */
 public record JarStructure(Map<String, ClassEntry> classes) {
 
-    /** A method or field: its name and JVM descriptor. */
+    /**
+     * A method or field: its name and JVM descriptor.
+     */
     public record Member(String name, String descriptor) { }
 
-    /** One class's SRG-named members. */
+    /**
+     * One class's SRG-named members.
+     */
     public record ClassEntry(String internalName, List<Member> methods, List<Member> fields) { }
 
-    /** Scans a jar, keeping only members whose names look like SRG ids (func_/field_). */
+    /**
+     * Scans a jar, keeping only members whose names look like SRG ids (func_/field_).
+     */
     public static JarStructure scan(File jarFile) {
         var classes = new LinkedHashMap<String, ClassEntry>();
         try (var zip = new ZipFile(jarFile)) {

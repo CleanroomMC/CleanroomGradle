@@ -45,7 +45,7 @@ public abstract class NsightExec extends Exec {
     public abstract RegularFileProperty getGradleWrapperJar();
 
     public NsightExec() {
-        this.doFirst(task -> this.configureCommandLine());
+        this.doFirst(task -> ((NsightExec) task).configureCommandLine());
     }
 
     private void configureCommandLine() {

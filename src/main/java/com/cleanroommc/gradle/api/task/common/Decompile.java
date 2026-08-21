@@ -130,12 +130,16 @@ public abstract class Decompile extends MavenJarExec {
     @Input
     public abstract MapProperty<String, Object> getOptions();
 
-    /** {@code -only=<prefix>}: only decompile classes matching these prefixes */
+    /**
+     * {@code -only=<prefix>}: only decompile classes matching these prefixes
+     */
     @Input
     @Optional
     public abstract ListProperty<String> getOnlyClasses();
 
-    /** {@code --silent}: suppress the decompiler's console output */
+    /**
+     * {@code --silent}: suppress the decompiler's console output
+     */
     @Input
     @Optional
     public abstract Property<Boolean> getSilent();

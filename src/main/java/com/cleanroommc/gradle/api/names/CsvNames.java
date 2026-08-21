@@ -14,7 +14,9 @@ import java.util.zip.ZipEntry;
  */
 public record CsvNames(Map<String, String> fields, Map<String, String> methods, Map<String, String> params, Map<String, String> docs) {
 
-    /** Reads the three CSVs out of an MCP names zip. */
+    /**
+     * Reads the three CSVs out of an MCP names zip.
+     */
     public static CsvNames fromZip(File zipFile) {
         var fields = new HashMap<String, String>();
         var methods = new HashMap<String, String>();
@@ -73,7 +75,9 @@ public record CsvNames(Map<String, String> fields, Map<String, String> methods, 
         }
     }
 
-    /** Strips surrounding quotes and unescapes doubled quotes from a CSV field. */
+    /**
+     * Strips surrounding quotes and unescapes doubled quotes from a CSV field.
+     */
     private static String unquote(String field) {
         var value = field.trim();
         if (value.length() >= 2 && value.charAt(0) == '"' && value.charAt(value.length() - 1) == '"') {

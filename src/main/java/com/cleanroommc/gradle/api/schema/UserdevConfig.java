@@ -59,12 +59,16 @@ public record UserdevConfig(
      */
     public record Run(String mainClass, String launchClass, String tweakClass, String target) { }
 
-    /** Reads the config out of an extracted userdev directory. */
+    /**
+     * Reads the config out of an extracted userdev directory.
+     */
     public static UserdevConfig read(File file) {
         return IO.readJson(file, UserdevConfig.class);
     }
 
-    /** Reads the config straight out of a userdev jar. */
+    /**
+     * Reads the config straight out of a userdev jar.
+     */
     public static UserdevConfig readFromJar(File jar) {
         try (var zip = new ZipFile(jar)) {
             var entry = zip.getEntry(FILE_NAME);

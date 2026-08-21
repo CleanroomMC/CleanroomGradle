@@ -10,7 +10,9 @@ public final class Platform {
         return CURRENT.getOperatingSystem().isWindows() ? cmdlineArg.replace("\"", "\\\"") : cmdlineArg;
     }
 
-    /** Joins an existing {@code java.library.path} with a natives directory using the host separator. */
+    /**
+     * Joins an existing {@code java.library.path} with a natives directory using the host separator.
+     */
     public static String joinLibraryPath(String existing, File extra) {
         var added = fixCommandLine(extra.getAbsolutePath());
         if (existing == null || existing.isBlank()) {

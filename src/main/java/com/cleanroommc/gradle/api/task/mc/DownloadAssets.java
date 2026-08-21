@@ -13,6 +13,7 @@ import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.problems.Problems;
+import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.OutputFiles;
@@ -60,13 +61,18 @@ public abstract class DownloadAssets extends DefaultTask {
                 .toList();
     }
 
+    @Input
+    public abstract Property<Boolean> getOffline();
+
     @Inject
     public abstract WorkerExecutor getWorkerExecutor();
 
     @Inject
     public abstract Problems getProblems();
 
-    private final boolean offline = this.getProject().getGradle().getStartParameter().isOffline();
+    public DownloadAssets() {
+        this.getOffline().convention(false);
+    }
 
     @TaskAction
     public void downloadAssets() {
@@ -85,7 +91,7 @@ public abstract class DownloadAssets extends DefaultTask {
             this.setDidWork(false);
             return;
         }
-        if (this.offline) {
+        if (this.getOffline().get()) {
             var shown = problems.stream().limit(20)
                     .map(problem -> "  - %s: %s (%s)".formatted(problem.asset().realPath(), problem.reason(), problem.target()))
                     .collect(Collectors.joining("\n"));

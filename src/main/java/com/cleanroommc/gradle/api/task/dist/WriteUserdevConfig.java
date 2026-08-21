@@ -16,7 +16,9 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
-/** Writes the {@code config.json} that {@code userdevJar} ships. */
+/**
+ * Writes the {@code config.json} that {@code userdevJar} ships.
+ */
 @CacheableTask
 public abstract class WriteUserdevConfig extends DefaultTask {
 

@@ -2,9 +2,13 @@ package com.cleanroommc.gradle.api.task;
 
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.provider.Property;
+import org.gradle.api.provider.ProviderFactory;
 import org.gradle.api.tasks.Classpath;
 import org.gradle.api.tasks.Input;
 import org.gradle.work.DisableCachingByDefault;
+
+import javax.inject.Inject;
+import java.io.File;
 
 @DisableCachingByDefault(because = "Executes a Maven-provided tool in an external JVM")
 public abstract class MavenJarExec extends LazilyConstructedJavaExec {
@@ -19,9 +23,16 @@ public abstract class MavenJarExec extends LazilyConstructedJavaExec {
     @Input
     public abstract Property<Boolean> getUseDefaultToolArguments();
 
+    @Inject
+    public abstract ProviderFactory getProviders();
+
     public MavenJarExec() {
         this.getUseDefaultToolArguments().convention(true);
         this.classpath(this.getToolClasspath());
+    }
+
+    protected void defaultLogFile(String fileName) {
+        this.getLogFile().fileProvider(this.getProviders().provider(() -> new File(this.getWorkingDir(), fileName)));
     }
 
 }

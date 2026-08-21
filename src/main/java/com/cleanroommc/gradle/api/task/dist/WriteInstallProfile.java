@@ -1,7 +1,6 @@
 package com.cleanroommc.gradle.api.task.dist;
 
 import com.cleanroommc.gradle.api.schema.VersionMeta;
-import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.dist.Artifact;
 import com.cleanroommc.gradle.api.util.dist.Coordinate;
 import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
@@ -134,8 +133,6 @@ public abstract class WriteInstallProfile extends DefaultTask {
         version.addProperty("releaseTime", getReleaseTime().get());
         version.addProperty("type", "release");
         version.addProperty("mainClass", getMainClass().get());
-        version.addProperty("inheritsFrom", (String) null);
-        version.remove("inheritsFrom");
         version.add("assetIndex", GSON.toJsonTree(meta.assetIndex()));
         version.addProperty("assets", meta.assets());
         version.add("downloads", GSON.toJsonTree(meta.downloads()));
@@ -208,10 +205,6 @@ public abstract class WriteInstallProfile extends DefaultTask {
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to write " + output, e);
         }
-    }
-
-    static String sha1(File file) {
-        return IO.sha1(file);
     }
 
 }

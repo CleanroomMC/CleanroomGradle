@@ -14,7 +14,9 @@ import org.gradle.api.tasks.TaskProvider;
 import javax.inject.Inject;
 import java.util.regex.Pattern;
 
-/** A named, independently runnable vanilla Minecraft environment. */
+/**
+ * A named, independently runnable vanilla Minecraft environment.
+ */
 public abstract class VanillaEnvironment implements Named {
 
     private static final Pattern VALID_NAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");

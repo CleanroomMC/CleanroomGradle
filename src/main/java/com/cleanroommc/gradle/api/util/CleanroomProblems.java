@@ -8,7 +8,9 @@ import org.gradle.api.problems.Severity;
 
 import java.util.function.Consumer;
 
-/** Structured problem identities and reporting helpers owned by CleanroomGradle. */
+/**
+ * Structured problem identities and reporting helpers owned by CleanroomGradle.
+ */
 public final class CleanroomProblems {
 
     public static final ProblemGroup GROUP = ProblemGroup.create("cleanroom-gradle", "CleanroomGradle");

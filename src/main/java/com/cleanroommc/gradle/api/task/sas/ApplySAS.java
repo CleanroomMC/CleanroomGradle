@@ -15,7 +15,9 @@ import org.gradle.api.tasks.TaskAction;
 import java.io.File;
 import java.io.IOException;
 
-/** Removes configured legacy {@code @SideOnly} annotations without removing their bytecode. */
+/**
+ * Removes configured legacy {@code @SideOnly} annotations without removing their bytecode.
+ */
 @CacheableTask
 public abstract class ApplySAS extends DefaultTask {
 

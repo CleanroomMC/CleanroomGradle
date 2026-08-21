@@ -15,7 +15,9 @@ import org.gradle.api.tasks.TaskAction;
 
 import java.io.IOException;
 
-/** Produces one physical-side jar by removing mismatched legacy {@code @SideOnly} bytecode. */
+/**
+ * Produces one physical-side jar by removing mismatched legacy {@code @SideOnly} bytecode.
+ */
 @CacheableTask
 public abstract class StripSideOnlyJar extends DefaultTask {
 

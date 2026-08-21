@@ -1,13 +1,21 @@
 package com.cleanroommc.gradle.api.ext;
 
-/** Selects which CleanroomGradle task pipeline a project exposes. */
+/**
+ * Selects which CleanroomGradle task pipeline a project exposes.
+ */
 public enum ProjectMode {
 
-    /** Register only the shared vanilla and MCP facilities. */
+    /**
+     * Vanilla download, run, and decompile tasks only.
+     */
     VANILLA,
-    /** Register the Cleanroom loader-development and distribution pipelines. */
+    /**
+     * Cleanroom loader sources, SAS/AT processing, run tasks, and distribution artifacts.
+     */
     LOADER,
-    /** Register the mod-development pipeline backed by a Cleanroom userdev artifact. */
+    /**
+     * Mod workspace backed by a Cleanroom userdev artifact.
+     */
     USERDEV
 
 }

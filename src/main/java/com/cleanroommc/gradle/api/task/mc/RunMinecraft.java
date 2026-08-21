@@ -206,7 +206,9 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         appendLegacyArguments();
     }
 
-    /** The pre-1.13 hardcoded argument list, resolved from the same properties as before (lazily, at exec time). */
+    /**
+     * The pre-1.13 hardcoded argument list, resolved from the same properties as before (lazily, at exec time).
+     */
     private void appendLegacyArguments() {
         this.args("--gameDir", (Supplier<File>) this::getWorkingDir,
                 "--version", this.getMinecraftVersion(),

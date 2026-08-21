@@ -38,7 +38,9 @@ public abstract class VerifyUserdevConfig extends DefaultTask {
     @Input
     public abstract Property<String> getMinecraftVersion();
 
-    /** Stamped with the verified artifact's version so the check is skipped while nothing changes. */
+    /**
+     * Stamped with the verified artifact's version so the check is skipped while nothing changes.
+     */
     @OutputFile
     public abstract RegularFileProperty getStamp();
 

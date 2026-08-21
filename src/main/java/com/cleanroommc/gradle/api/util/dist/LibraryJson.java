@@ -98,7 +98,9 @@ public final class LibraryJson {
         return output;
     }
 
-    /** A library entry whose file the installer embeds rather than downloads. */
+    /**
+     * A library entry whose file the installer embeds rather than downloads.
+     */
     public static JsonObject embeddedLibrary(Artifact artifact) {
         var download = new JsonObject();
         download.addProperty("path", artifact.coordinate().mavenPath());
@@ -149,7 +151,9 @@ public final class LibraryJson {
         return library;
     }
 
-    /** An artifact with no download url is one whose file travels inside the archive. */
+    /**
+     * An artifact with no download url is one whose file travels inside the archive.
+     */
     public static boolean isLocal(Artifact artifact) {
         return artifact.url() == null || artifact.url().isBlank();
     }
@@ -200,7 +204,9 @@ public final class LibraryJson {
         return new Artifact(coordinate, path, url);
     }
 
-    /** Longest matching group prefix wins with {@code *} being the fallback. */
+    /**
+     * Longest matching group prefix wins with {@code *} being the fallback.
+     */
     public static String artifactUrl(Coordinate coordinate, Map<String, String> repositories) {
         var selectedPrefix = repositories.keySet().stream()
                 .filter(prefix -> !prefix.equals("*"))

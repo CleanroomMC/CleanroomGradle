@@ -44,7 +44,9 @@ public final class LaunchArguments {
         this.warn = warn;
     }
 
-    /** Whether the meta carries game arguments in either the modern or legacy form. */
+    /**
+     * Whether the meta carries game arguments in either the modern or legacy form.
+     */
     public boolean hasGameArguments() {
         return hasModernArguments() || this.meta.minecraftArguments() != null;
     }
@@ -53,7 +55,9 @@ public final class LaunchArguments {
         return this.meta.arguments() != null && this.meta.arguments().game() != null;
     }
 
-    /** The rendered game (program) arguments. Empty when the meta declares none. */
+    /**
+     * The rendered game (program) arguments. Empty when the meta declares none.
+     */
     public List<String> gameArguments() {
         if (this.hasModernArguments()) {
             return this.render(this.meta.arguments().game(), false);
@@ -71,7 +75,9 @@ public final class LaunchArguments {
         return result;
     }
 
-    /** The rendered extra JVM arguments. Empty for legacy metadata. */
+    /**
+     * The rendered extra JVM arguments. Empty for legacy metadata.
+     */
     public List<String> jvmArguments() {
         if (this.meta.arguments() == null || this.meta.arguments().jvm() == null) {
             return List.of();

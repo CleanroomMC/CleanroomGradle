@@ -39,8 +39,8 @@ public final class Objects {
 
     public static NamedDomainObjectProvider<Configuration> config(Project project, String name, String defaultNotation) {
         var provider = project.getConfigurations().register(name);
-        provider.configure(config -> config.defaultDependencies(deps ->
-                deps.add(project.getDependencies().create(defaultNotation))));
+        var factory = project.getDependencyFactory();
+        provider.configure(config -> config.defaultDependencies(deps -> deps.add(factory.create(defaultNotation))));
         return provider;
     }
 
@@ -49,7 +49,8 @@ public final class Objects {
         config.setCanBeConsumed(false);
         config.setCanBeResolved(true);
         config.setDescription("Classpath for the " + name + " tool");
-        config.defaultDependencies(deps -> deps.add(project.getDependencies().create(defaultNotation)));
+        var factory = project.getDependencyFactory();
+        config.defaultDependencies(deps -> deps.add(factory.create(defaultNotation)));
         return config;
     }
 

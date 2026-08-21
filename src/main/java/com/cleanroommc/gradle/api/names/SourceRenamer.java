@@ -32,7 +32,9 @@ public final class SourceRenamer {
 
     private SourceRenamer() { }
 
-    /** Renames SRG ids in {@code lines} and inserts javadocs from {@code docs} (keyed by SRG id). */
+    /**
+     * Renames SRG ids in {@code lines} and inserts javadocs from {@code docs} (keyed by SRG id).
+     */
     public static List<String> rename(List<String> lines, Map<String, String> names, Map<String, String> docs) {
         var out = new ArrayList<String>(lines.size() + 64);
         var innerClasses = new ArrayDeque<Map.Entry<String, Integer>>();
@@ -58,7 +60,9 @@ public final class SourceRenamer {
         return result.toString();
     }
 
-    /** Looks up an SRG id, honouring the capitalized {@code Func_}/{@code Field_} Mixin-accessor form. */
+    /**
+     * Looks up an SRG id, honouring the capitalized {@code Func_}/{@code Field_} Mixin-accessor form.
+     */
     private static String getMapped(Map<String, String> names, String srg) {
         boolean capitalized = srg.charAt(0) == 'F';
         var key = capitalized ? 'f' + srg.substring(1) : srg;
@@ -119,7 +123,9 @@ public final class SourceRenamer {
         }
     }
 
-    /** Builds a one-line javadoc, or a multi-line block when the desc carries {@code \\n} markers. */
+    /**
+     * Builds a one-line javadoc, or a multi-line block when the desc carries {@code \\n} markers.
+     */
     private static String buildJavadoc(String indent, String doc) {
         if (!doc.contains("\\n")) {
             return indent + "/** " + doc + " */";

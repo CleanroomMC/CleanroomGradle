@@ -8,7 +8,7 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 
 /**
- * The nested input type buildscripts and {@code DistributionTasks} instantiate for every resolved runtime dependency.
+ * Nested input type for a resolved runtime library the MMC pack and installer profile publish.
  */
 public abstract class LibraryArtifact {
 

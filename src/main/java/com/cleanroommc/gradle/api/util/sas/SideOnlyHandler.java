@@ -44,7 +44,9 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
-/** In-process, deterministic handling of legacy Forge {@code @SideOnly} metadata. */
+/**
+ * In-process, deterministic handling of legacy Forge {@code @SideOnly} metadata.
+ */
 public final class SideOnlyHandler {
 
     public static final String SIDE_ONLY_DESCRIPTOR = "Lnet/minecraftforge/fml/relauncher/SideOnly;";

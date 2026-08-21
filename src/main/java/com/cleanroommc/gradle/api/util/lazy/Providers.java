@@ -11,8 +11,11 @@ import org.gradle.jvm.toolchain.JvmVendorSpec;
 public final class Providers {
 
     public static Provider<JavaLauncher> javaLauncher(Project project, int api) {
-        var ext = project.getExtensions();
-        return ext.getByType(JavaToolchainService.class).launcherFor(spec -> {
+        return javaLauncher(project.getExtensions().getByType(JavaToolchainService.class), api);
+    }
+
+    public static Provider<JavaLauncher> javaLauncher(JavaToolchainService toolchains, int api) {
+        return toolchains.launcherFor(spec -> {
             spec.getLanguageVersion().set(JavaLanguageVersion.of(api));
             spec.getVendor().set(JvmVendorSpec.ADOPTIUM);
             spec.getImplementation().set(JvmImplementation.VENDOR_SPECIFIC);

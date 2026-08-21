@@ -56,7 +56,9 @@ public abstract class GenerateDiffs extends DefaultTask {
     @Input
     public abstract Property<String> getMappingsId();
 
-    /** The mcp_config version recorded alongside the names id in {@code .mappings.json}. */
+    /**
+     * The mcp_config version recorded alongside the names id in {@code .mappings.json}.
+     */
     @Optional
     @Input
     public abstract Property<String> getMcpConfigVersion();
@@ -115,7 +117,9 @@ public abstract class GenerateDiffs extends DefaultTask {
         writeMappingsStamp(patchesDir);
     }
 
-    /** Records which names the patches were generated in, for {@link ApplyDiffs} to validate against. */
+    /**
+     * Records which names the patches were generated in, for {@link ApplyDiffs} to validate against.
+     */
     private void writeMappingsStamp(File patchesDir) {
         if (!this.getMappingsId().isPresent()) {
             return;

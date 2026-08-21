@@ -22,13 +22,19 @@ public final class TinyV2 {
 
     private TinyV2() { }
 
-    /** Flat SRG -> named lookups parsed from a Tiny2 file, plus member javadocs keyed by SRG id. */
+    /**
+     * Flat SRG -> named lookups parsed from a Tiny2 file, plus member javadocs keyed by SRG id.
+     */
     public record FlatNames(Map<String, String> methods, Map<String, String> fields, Map<String, String> params, Map<String, String> docs) { }
 
-    /** A constructor from {@code constructors.txt}: its param-number key ({@code i<id>}) and SRG descriptor. */
+    /**
+     * A constructor from {@code constructors.txt}: its param-number key ({@code i<id>}) and SRG descriptor.
+     */
     public record Constructor(String numberKey, String descriptor) { }
 
-    /** Builds Tiny2 text mapping SRG ids to MCP names, using {@code structure} for descriptors. */
+    /**
+     * Builds Tiny2 text mapping SRG ids to MCP names, using {@code structure} for descriptors.
+     */
     public static String write(JarStructure structure, CsvNames names, Map<String, List<Constructor>> constructorsByClass) {
         var paramsByMethodNum = groupParams(names.params());
         var out = new StringBuilder(1 << 20);
@@ -135,7 +141,9 @@ public final class TinyV2 {
 
     private record ParamEntry(int lvIndex, String srg, String named) { }
 
-    /** Groups {@code p_<methodNum>_<slot>_} params by their method number. */
+    /**
+     * Groups {@code p_<methodNum>_<slot>_} params by their method number.
+     */
     private static Map<String, List<ParamEntry>> groupParams(Map<String, String> params) {
         var byMethod = new HashMap<String, List<ParamEntry>>();
         for (var e : params.entrySet()) {
@@ -162,7 +170,9 @@ public final class TinyV2 {
         return parts.length >= 2 ? parts[1] : "";
     }
 
-    /** Parses a Tiny2 file into flat SRG -> named maps. */
+    /**
+     * Parses a Tiny2 file into flat SRG -> named maps.
+     */
     public static FlatNames read(Path file) {
         var methods = new HashMap<String, String>();
         var fields = new HashMap<String, String>();

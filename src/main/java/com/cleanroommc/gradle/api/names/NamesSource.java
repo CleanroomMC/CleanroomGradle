@@ -27,7 +27,9 @@ public record NamesSource(String id,
                           Map<String, String> params,
                           Map<String, String> docs) {
 
-    /** Resolves a names source from a Tiny2 file. */
+    /**
+     * Resolves a names source from a Tiny2 file.
+     */
     public static NamesSource fromTiny2(File tinyFile) {
         var flat = TinyV2.read(tinyFile.toPath());
         return new NamesSource(tiny2Id(tinyFile), flat.methods(), flat.fields(), flat.params(), flat.docs());
@@ -46,7 +48,9 @@ public record NamesSource(String id,
         return "mcp:" + channel + "_" + version;
     }
 
-    /** All member and parameter names merged into a single srg -> name lookup, for source renaming. */
+    /**
+     * All member and parameter names merged into a single srg -> name lookup, for source renaming.
+     */
     public Map<String, String> flatNames() {
         var flat = new HashMap<String, String>(this.methods.size() + this.fields.size() + this.params.size());
         flat.putAll(this.methods);

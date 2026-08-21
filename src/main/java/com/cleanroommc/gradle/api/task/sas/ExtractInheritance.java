@@ -10,8 +10,6 @@ import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 
-import java.io.File;
-
 /**
  * Runs installertools' {@code extract_inheritance} task against the injected srg-named jar to produce a
  * class/method inheritance map, consumed by {@link CheckSAS}.
@@ -30,7 +28,7 @@ public abstract class ExtractInheritance extends MavenJarExec {
     public abstract RegularFileProperty getOutput();
 
     public ExtractInheritance() {
-        this.getLogFile().fileProvider(this.getProject().provider(this::getWorkingDir).map(dir -> new File(dir, "extractInheritance.log")));
+        this.defaultLogFile("extractInheritance.log");
         this.getMainClass().set("net.minecraftforge.installertools.ConsoleTool");
         this.args("--task", "extract_inheritance",
                 "--input", this.getInputJar(),

@@ -110,7 +110,9 @@ public final class IO {
         return new ZipInputStream(in(file));
     }
 
-    /** Rewrites a ZIP with stable entry order and timestamps. */
+    /**
+     * Rewrites a ZIP with stable entry order and timestamps.
+     */
     public static void normalizeZip(Path path) {
         var temporary = path.resolveSibling(path.getFileName() + ".deterministic.tmp");
         try {

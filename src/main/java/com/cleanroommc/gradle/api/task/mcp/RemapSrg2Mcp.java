@@ -46,7 +46,9 @@ public abstract class RemapSrg2Mcp extends DefaultTask {
     @PathSensitive(PathSensitivity.NONE)
     public abstract RegularFileProperty getTinyMappings();
 
-    /** The active names identity string. Declared so a change of names source re-runs the remap. */
+    /**
+     * The active names identity string. Declared so a change of names source re-runs the remap.
+     */
     @Optional
     @Input
     public abstract Property<String> getNamesId();
