@@ -141,8 +141,8 @@ Compatibility is still ultimately constrained by the launch protocol and Java re
 | Diagnostics | `cleanroomInfo`                                                                                                                          |
 | Vanilla     | `decompileVersion`, `runVanillaClient`, `runVanillaServer`, plus `decompile<name>` and `run<name>Client`/`Server` for named environments |
 | MCP/loader  | `runSrgClient`, `runSrgServer`, `runMcpClient`, `runMcpServer`, `importMcpNames`                                                         |
-| Loader      | `runCleanroomClient`, `runCleanroomServer`, `universalJar`, `userdevJar`, `javadocJar`, `publishMmcPackZip`                              |
-| Userdev     | `setupCleanroom`, `runClient`, `runServer`, `decompileDevJar`, `reobfJar`                                                                |
+| Loader      | `setup`, `runCleanroomClient`, `runCleanroomServer`, `universalJar`, `userdevJar`, `javadocJar`, `publishMmcPackZip`                              |
+| Userdev     | `setup`, `runClient`, `runServer`, `decompileDevJar`, `reobfJar`                                                                |
 
 Run `./gradlew tasks --all` for the complete pipeline.
 

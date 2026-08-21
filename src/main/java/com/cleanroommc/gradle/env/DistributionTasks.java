@@ -60,7 +60,7 @@ import java.util.stream.Collectors;
  */
 public final class DistributionTasks {
 
-    private static final String GROUP_NAME = "distribution";
+    private static final String GROUP_NAME = "cleanroom distribution";
     private static final String MINECRAFT_VERSION = "1.12.2";
     private static final int MINIMUM_JAVA = 25;
     private static final String ARTIFACT_ID = "cleanroom";

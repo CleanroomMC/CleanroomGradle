@@ -10,6 +10,7 @@ import com.cleanroommc.gradle.api.task.mcp.SplitJar;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.util.Environment;
 import net.minecraftforge.fml.relauncher.Side;
+import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
@@ -22,6 +23,7 @@ public final class CleanroomTasks {
     private static final String GROUP_NAME = "cleanroom";
     private static final String MC_VERSION = "1.12.2";
 
+    public final TaskProvider<DefaultTask> setup;
     public final TaskProvider<RunMinecraft> runCleanroomClient, runCleanroomServer;
     public final TaskProvider<NsightExec> runCleanroomNsightClient;
 
@@ -35,6 +37,12 @@ public final class CleanroomTasks {
             env.getOutput().set(module.dir("src/main/java"));
             env.dependsOn(mcp.remapSrg2Mcp.getName());
         });
+        this.setup = Tasks.register(project, "setup");
+        this.setup.configure(task -> {
+            task.setDescription("Creates the loader environment by decompiling Minecraft and applying current patches.");
+            task.dependsOn(minecraftPatchDev.map(CleanroomExtension.PatchDevEnvironment::getApplyDiffs), mcp.prepareMcpInjectedSources);
+        });
+
         mainSourceSet.configure(sourceSet -> {
             sourceSet.getJava().srcDir(mcp.prepareMcpInjectedSources.map(Copy::getDestinationDir));
             project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class).configure(task ->
@@ -54,7 +62,7 @@ public final class CleanroomTasks {
         this.runCleanroomClient = Tasks.register(project, "runCleanroomClient", RunMinecraft.class);
         this.runCleanroomServer = Tasks.register(project, "runCleanroomServer", RunMinecraft.class);
         this.runCleanroomNsightClient = Tasks.register(project, "runCleanroomNsightClient", NsightExec.class);
-        Tasks.group(GROUP_NAME, this.runCleanroomClient, this.runCleanroomServer, this.runCleanroomNsightClient);
+        Tasks.group(GROUP_NAME, this.setup, this.runCleanroomClient, this.runCleanroomServer, this.runCleanroomNsightClient);
 
         this.runCleanroomClient.configure(task -> {
             task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), vanilla.downloadAssets, mcp.writeSrg2Mcp);

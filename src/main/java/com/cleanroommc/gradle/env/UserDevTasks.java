@@ -44,7 +44,8 @@ import java.util.List;
  */
 public final class UserDevTasks {
 
-    private static final String GROUP_NAME = "UserDev";
+    private static final String GROUP_NAME = "cleanroom userdev";
+    private static final String RUNS_GROUP_NAME = "cleanroom runs";
     private static final String USERDEV_JAR_NAME = "cleanroom-userdev.jar";
 
     public static final String CONFIGURATION_NAME = "cleanroomUserdev";
@@ -73,7 +74,7 @@ public final class UserDevTasks {
     public final TaskProvider<RenameJar> remapDevNotch2Srg, remapDevSrg2Mcp, remapCleanroomSrg2Mcp, reobfJar;
     public final TaskProvider<Decompile> decompileDevJar;
     public final TaskProvider<WriteMappings> writeMcp2Srg;
-    public final TaskProvider<DefaultTask> setupCleanroom;
+    public final TaskProvider<DefaultTask> setup;
     public final TaskProvider<RunMinecraft> runClient, runServer;
 
     public UserDevTasks(Project project, CleanroomExtension ext, VanillaTasks vanilla, MCPTasks mcp) {
@@ -136,10 +137,11 @@ public final class UserDevTasks {
         this.decompileDevJar = Tasks.tool(project, ext.getLocalCacheDirectory(), "decompileDevJar", Decompile.class, configurations.getByName("decompiler"));
         this.writeMcp2Srg = Tasks.register(project, "writeMcp2Srg", WriteMappings.class);
         this.reobfJar = project.getTasks().register("reobfJar", RenameJar.class, renamer);
-        this.setupCleanroom = Tasks.register(project, "setupCleanroom");
+        this.setup = Tasks.register(project, "setup");
         this.runClient = Tasks.register(project, "runClient", RunMinecraft.class);
         this.runServer = Tasks.register(project, "runServer", RunMinecraft.class);
-        Tasks.group(GROUP_NAME, this.setupCleanroom, this.decompileDevJar, this.runClient, this.runServer);
+        Tasks.group(GROUP_NAME, this.setup, this.decompileDevJar);
+        Tasks.group(RUNS_GROUP_NAME, this.runClient, this.runServer);
         Tasks.group("build", this.reobfJar);
 
         this.copyUserdev.configure(task -> {
@@ -292,8 +294,8 @@ public final class UserDevTasks {
         });
         // A mod's publishable artifact is the SRG-named one, the jar task's own output only runs in a dev environment
         project.getTasks().named("assemble").configure(task -> task.dependsOn(this.reobfJar));
-        this.setupCleanroom.configure(task -> {
-            task.setDescription("Builds the Cleanroom development environment this project compiles against.");
+        this.setup.configure(task -> {
+            task.setDescription("Create the Cleanroom development environment.");
             task.dependsOn(this.accessTransformDevMcpJar, this.remapCleanroomSrg2Mcp);
         });
 
@@ -306,8 +308,7 @@ public final class UserDevTasks {
         var server = userdevConfig.map(config -> config.runs().server());
 
         this.runClient.configure(task -> {
-            task.dependsOn(this.setupCleanroom, mainSourceSet.map(SourceSet::getClassesTaskName),
-                    vanilla.downloadAssets);
+            task.dependsOn(this.setup, mainSourceSet.map(SourceSet::getClassesTaskName), vanilla.downloadAssets);
 
             task.getSide().set(Side.CLIENT);
             task.getEnv().set(Environment.CLEANROOM);
@@ -334,7 +335,7 @@ public final class UserDevTasks {
             task.jvmArgs("-Dmixin.debug.export=true", "-Dmixin.checks.interfaces=true");
         });
         this.runServer.configure(task -> {
-            task.dependsOn(this.setupCleanroom, mainSourceSet.map(SourceSet::getClassesTaskName));
+            task.dependsOn(this.setup, mainSourceSet.map(SourceSet::getClassesTaskName));
 
             task.getSide().set(Side.SERVER);
             task.getEnv().set(Environment.CLEANROOM);

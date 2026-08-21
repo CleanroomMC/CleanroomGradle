@@ -81,7 +81,7 @@ class CleanroomGradlePluginTest {
                 gradle.projectsEvaluated {
                     assert cleanroom.discardIntermediates.get() == true
                     assert tasks.findAll { it.group == 'UserDev' }*.name.toSet() == [
-                        'decompileDevJar', 'runClient', 'runServer', 'setupCleanroom'
+                        'decompileDevJar', 'runClient', 'runServer', 'setup'
                     ].toSet()
                     assert tasks.reobfJar.group == 'build'
                     assert tasks.copyUserdev.group == null
@@ -106,7 +106,7 @@ class CleanroomGradlePluginTest {
                     version = '0.4.5'
                 }
                 gradle.projectsEvaluated {
-                    assert tasks.findByName('setupCleanroom') == null
+                    assert tasks.findByName('setup') == null
                 }
                 """);
 
@@ -137,10 +137,10 @@ class CleanroomGradlePluginTest {
                         'runReobfSrgClient', 'runReobfSrgServer', 'runSrgClient', 'runSrgServer'
                     ].toSet()
                     assert tasks.findAll { it.group == 'cleanroom' }*.name.toSet() == [
-                        'runCleanroomClient', 'runCleanroomNsightClient', 'runCleanroomServer'
+                        'setup', 'runCleanroomClient', 'runCleanroomNsightClient', 'runCleanroomServer'
                     ].toSet()
                     assert tasks.findAll { it.group == 'distribution' }*.name.toSet() == [
-                        'javadocJar', 'publishMmcPackZip', 'universalJar', 'userdevJar'
+                        'installerJar', 'javadocJar', 'publishMmcPackZip', 'universalJar', 'userdevJar'
                     ].toSet()
                     assert tasks.findAll { it.group == 'minecraft patch development' }*.name.toSet() == [
                         'applyMinecraftDiffs', 'generateMinecraftDiffs',
@@ -440,6 +440,12 @@ class CleanroomGradlePluginTest {
         assertEquals(TaskOutcome.SUCCESS, applied.task(":applyExampleDiffs").getOutcome());
         assertEquals("class A { int value; }\n", Files.readString(output));
         assertFalse(Files.exists(output.getParent().resolve("Stale.java")));
+        var dirty = this.projectDir.resolve("build/cleanroom_gradle/patchDev/example/dirty");
+        assertEquals("class A { int stale; }\n", Files.readString(dirty.resolve("A.java")),
+                "edits that no patch describes were not preserved");
+        assertEquals("class Stale {}\n", Files.readString(dirty.resolve("Stale.java")));
+        assertTrue(applied.getOutput().contains("did not match the current patch set"),
+                "applying patches over dirty sources did not warn about them");
 
         Files.writeString(output, "class A { int value; int working; }\n");
         var second = runner("prepareExamplePatchDevEnvironment").build();
