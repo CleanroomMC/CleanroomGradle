@@ -6,9 +6,11 @@ import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.task.IntermediateProcessor;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip;
+import com.cleanroommc.gradle.api.task.dist.WriteInstallProfile;
 import com.cleanroommc.gradle.api.task.dist.WriteUserdevConfig;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
+import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.task.patch.GenerateBinPatches;
 import com.cleanroommc.gradle.api.task.sas.StripSideOnlyJar;
@@ -16,6 +18,7 @@ import de.undercouch.gradle.tasks.download.Download;
 import net.minecraftforge.renamer.gradle.RenameJar;
 import net.minecraftforge.renamer.gradle.RenamerExtension;
 import net.minecraftforge.srgutils.IMappingFile;
+import org.gradle.jvm.toolchain.JavaLanguageVersion;
 import net.minecraftforge.fml.relauncher.Side;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
@@ -59,6 +62,7 @@ public final class DistributionTasks {
 
     private static final String GROUP_NAME = "distribution";
     private static final String MINECRAFT_VERSION = "1.12.2";
+    private static final int MINIMUM_JAVA = 25;
     private static final String ARTIFACT_ID = "cleanroom";
     private static final String MINECRAFT_PACKAGE = "net/minecraft/";
 
@@ -77,6 +81,8 @@ public final class DistributionTasks {
     public final TaskProvider<Zip> genRuntimeBinPatches;
     public final TaskProvider<WriteUserdevConfig> writeUserdevConfig;
     public final TaskProvider<PublishMmcPackZip> publishMmcPackZip;
+    public final TaskProvider<WriteInstallProfile> writeInstallProfile;
+    public final TaskProvider<Jar> installerJar;
 
     public DistributionTasks(Project project, CleanroomExtension ext, VanillaTasks vanilla, MCPTasks mcp) {
         var layout = project.getLayout();
@@ -108,6 +114,25 @@ public final class DistributionTasks {
                 "LICENSE-Paulscode SoundSystem CodecIBXM.txt"
         ));
 
+        // TODO: make this less hardcoded
+        var distributionRepositories = new LinkedHashMap<String, String>();
+        distributionRepositories.put("*", "https://repo.maven.apache.org/maven2/");
+        distributionRepositories.put("com.cleanroommc", Meta.CLEANROOM_REPO);
+        distributionRepositories.put("top.outlands", Meta.CLEANROOM_REPO);
+        distributionRepositories.put("net.minecraftforge", Meta.FORGE_REPO);
+        distributionRepositories.put("de.oceanlabs.mcp", Meta.FORGE_REPO);
+        distributionRepositories.put("com.mojang", Meta.MOJANG_REPO);
+
+        var installerBase = Objects.config(project, "installerBase");
+        installerBase.configure(config -> {
+            config.setDescription("The Cleanroom Installer runtime that installerJar re-packages.");
+            config.setCanBeConsumed(false);
+            config.setCanBeResolved(true);
+            config.setTransitive(false);
+        });
+        project.getDependencies().addProvider(installerBase.getName(),
+                ext.getInstallerVersion().map(installerVersion -> "com.cleanroommc:installer:" + installerVersion));
+
         var runtimeClasspath = project.getConfigurations().named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME);
         var mmcPackLibraries = Objects.config(project, "mmcPackLibraries");
         mmcPackLibraries.configure(config -> {
@@ -126,7 +151,7 @@ public final class DistributionTasks {
                         .filter(artifact -> artifact.getId().getComponentIdentifier() instanceof ModuleComponentIdentifier)
                         .sorted(Comparator.comparing(DistributionTasks::resolvedCoordinate))
                         .map(artifact -> {
-                            var input = project.getObjects().newInstance(PublishMmcPackZip.LibraryArtifact.class);
+                            var input = project.getObjects().newInstance(LibraryArtifact.class);
                             input.getCoordinate().set(resolvedCoordinate(artifact));
                             input.getFile().fileValue(artifact.getFile());
                             return input;
@@ -150,8 +175,10 @@ public final class DistributionTasks {
         this.javadocJar = Tasks.register(project, "javadocJar", Jar.class);
         this.writeUserdevConfig = Tasks.register(project, "writeUserdevConfig", WriteUserdevConfig.class);
         this.publishMmcPackZip = Tasks.register(project, "publishMmcPackZip", PublishMmcPackZip.class);
+        this.writeInstallProfile = Tasks.register(project, "writeInstallProfile", WriteInstallProfile.class);
+        this.installerJar = Tasks.register(project, "installerJar", Jar.class);
         Tasks.group("build", this.reobfJar);
-        Tasks.group(GROUP_NAME, this.universalJar, this.userdevJar, this.javadocJar, this.publishMmcPackZip);
+        Tasks.group(GROUP_NAME, this.universalJar, this.userdevJar, this.javadocJar, this.publishMmcPackZip, this.installerJar);
         project.getTasks().named("assemble").configure(task ->
                 task.dependsOn(this.universalJar, this.userdevJar, this.javadocJar, this.publishMmcPackZip));
 
@@ -332,15 +359,74 @@ public final class DistributionTasks {
             task.getInheritedLibraries().set(ext.getVersionMeta().map(meta -> meta.libraries().stream()
                     .map(library -> library.name())
                     .collect(Collectors.toCollection(LinkedHashSet::new))));
-            // TODO: make this less hardcoded
-            task.getRepositoryUrls().put("*", "https://repo.maven.apache.org/maven2/");
-            task.getRepositoryUrls().put("com.cleanroommc", Meta.CLEANROOM_REPO);
-            task.getRepositoryUrls().put("top.outlands", Meta.CLEANROOM_REPO);
-            task.getRepositoryUrls().put("net.minecraftforge", Meta.FORGE_REPO);
-            task.getRepositoryUrls().put("de.oceanlabs.mcp", Meta.FORGE_REPO);
-            task.getRepositoryUrls().put("com.mojang", Meta.MOJANG_REPO);
-            task.getArchiveFile().set(layout.getBuildDirectory().file("libs/" + ARTIFACT_ID + "-" + version + "-mmc.zip"));
+            task.getRepositoryUrls().set(distributionRepositories);
+            // Every published pack so far is the classifier-less zip beside the jars; keep that name.
+            task.getArchiveFile().set(layout.getBuildDirectory().file("libs/" + ARTIFACT_ID + "-" + version + ".zip"));
         });
+        this.writeInstallProfile.configure(task -> {
+            task.setDescription("Writes install_profile.json and version.json for the Cleanroom installer.");
+
+            task.getProfileName().set(titleProperty);
+            task.getCleanroomVersion().set(version);
+            task.getVersionId().set(MINECRAFT_VERSION + "-" + titleProperty.get() + "-" + version);
+            task.getMainClass().set("top.outlands.foundation.boot.Foundation");
+            task.getServerMainClass().set("top.outlands.foundation.boot.Foundation");
+            task.getTweakers().add("net.minecraftforge.fml.common.launcher.FMLTweaker");
+            task.getServerTweakers().add("net.minecraftforge.fml.common.launcher.FMLServerTweaker");
+            task.getJvmArgs().set(ext.getInstallerJvmArgs());
+            task.getMinimumJava().set(MINIMUM_JAVA);
+            task.getRecommendedJava().set(javaExtension.getToolchain().getLanguageVersion()
+                    .map(JavaLanguageVersion::asInt)
+                    .orElse(MINIMUM_JAVA)
+            );
+            task.getUniversalCoordinate().set(group + ":" + ARTIFACT_ID + ":" + version + ":universal");
+            task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
+            task.getLibraries().set(mmcLibraryArtifacts);
+            task.getInheritedLibraries().set(ext.getVersionMeta().map(meta -> meta.libraries().stream()
+                    .map(library -> library.name())
+                    .collect(Collectors.toCollection(LinkedHashSet::new))));
+            task.getRepositoryUrls().set(distributionRepositories);
+            task.getVersionMeta().set(ext.getVersionMeta());
+            task.getReleaseTime().set(timestampProperty);
+            task.getInstallProfile().set(ext.getLocalCacheDirectory().map(dir -> dir.file("dist/install_profile.json")));
+            task.getVersionJson().set(ext.getLocalCacheDirectory().map(dir -> dir.file("dist/version.json")));
+        });
+
+        this.installerJar.configure(task -> {
+            task.setDescription("Assembles the version-pinned Cleanroom installer jar.");
+            task.setPreserveFileTimestamps(false);
+            task.setReproducibleFileOrder(true);
+
+            task.getArchiveBaseName().set(ARTIFACT_ID);
+            task.getArchiveVersion().set(version);
+            task.getArchiveClassifier().set("installer");
+
+            task.from(project.zipTree(installerBase.map(config -> {
+                var files = config.getFiles();
+                if (files.size() != 1) {
+                    throw new IllegalStateException("Expected exactly one installer runtime jar on the "
+                            + installerBase.getName() + " configuration, resolved " + files
+                            + ". Set cleanroom.installerVersion to a published com.cleanroommc:installer release.");
+                }
+                return files.iterator().next();
+            })), spec -> spec.exclude("META-INF/MANIFEST.MF", "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA"));
+            task.from(this.writeInstallProfile.flatMap(WriteInstallProfile::getInstallProfile));
+            task.from(this.writeInstallProfile.flatMap(WriteInstallProfile::getVersionJson));
+            task.from(this.universalJar.flatMap(Jar::getArchiveFile), spec -> {
+                spec.into("maven/" + group.replace('.', '/') + "/" + ARTIFACT_ID + "/" + version);
+                spec.rename(_ -> ARTIFACT_ID + "-" + version + ".jar");
+            });
+            task.from(this.publishMmcPackZip.flatMap(PublishMmcPackZip::getArchiveFile), spec -> {
+                spec.into("mmc");
+                spec.rename(_ -> "pack.zip");
+            });
+            task.getManifest().attributes(Map.of(
+                    "Main-Class", "com.cleanroommc.installer.Main",
+                    "Implementation-Version", version,
+                    "Cleanroom-Version", version)
+            );
+        });
+
         this.javadocJar.configure(task -> {
             task.setDescription("Packages Javadoc into a jar.");
             task.setPreserveFileTimestamps(false);

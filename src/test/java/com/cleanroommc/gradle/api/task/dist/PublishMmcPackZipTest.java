@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.api.task.dist;
 
+import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -37,6 +38,7 @@ class PublishMmcPackZipTest {
         Files.writeString(directory.resolve("build.gradle"), """
                 import com.cleanroommc.gradle.api.ext.ProjectMode
                 import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip
+                import com.cleanroommc.gradle.api.util.dist.LibraryArtifact
 
                 plugins {
                     id 'java'
@@ -44,7 +46,7 @@ class PublishMmcPackZipTest {
                 }
                 cleanroom.mode = ProjectMode.VANILLA
 
-                def foundation = objects.newInstance(PublishMmcPackZip.LibraryArtifact)
+                def foundation = objects.newInstance(LibraryArtifact)
                 foundation.coordinate = 'top.outlands:foundation:2.0.0'
                 foundation.file = file('%s')
 
@@ -167,6 +169,50 @@ class PublishMmcPackZipTest {
         assertFalse(Files.exists(directory.resolve("cleanroom-mmc-overlay.zip")));
     }
 
+    @Test
+    void embedsTheUniversalJarForALocalBuild() throws Exception {
+        var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
+        var task = project.getTasks().create("publishMmcPackZip", PublishMmcPackZip.class);
+
+        var universal = file("cleanroom-1.0.0+build.4-universal.jar", "local cleanroom");
+        var foundation = file("foundation-1.2.3.jar", "foundation");
+
+        task.getInstanceName().set("Cleanroom");
+        task.getCleanroomVersion().set("1.0.0+build.4");
+        task.getMainClass().set("top.outlands.foundation.boot.Foundation");
+        task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0+build.4:universal");
+        task.getUniversalUrl().set("https://maven.cleanroommc.com/never/downloaded.jar");
+        task.getUniversalJar().fileValue(universal.toFile());
+        task.getEmbedUniversalJar().set(true);
+        task.getLibraries().add(library(project, "top.outlands:foundation:1.2.3", foundation));
+        task.getRepositoryUrls().put("*", "https://repo.maven.apache.org/maven2/");
+        task.getArchiveFile().fileValue(directory.resolve("cleanroom-local.zip").toFile());
+
+        task.publish();
+
+        try (var zip = new ZipFile(task.getArchiveFile().get().getAsFile())) {
+            var embedded = "libraries/cleanroom-1.0.0+build.4-universal.jar";
+            assertEquals(Set.of("instance.cfg", "mmc-pack.json", "patches/net.minecraftforge.json", embedded),
+                    entries(zip));
+            assertEquals("local cleanroom", text(zip, embedded));
+
+            var libraries = json(zip, "patches/net.minecraftforge.json").getAsJsonArray("libraries");
+            var universalLibrary = library(libraries, "com.cleanroommc:cleanroom:1.0.0+build.4:universal", false);
+            assertEquals("local", universalLibrary.get("MMC-hint").getAsString());
+            var download = universalLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact");
+            assertEquals(Set.of("path", "sha1", "size"), download.keySet());
+            assertEquals("com/cleanroommc/cleanroom/1.0.0+build.4/cleanroom-1.0.0+build.4-universal.jar",
+                    download.get("path").getAsString());
+            assertEquals(DigestUtils.sha1Hex(Files.readAllBytes(universal)), download.get("sha1").getAsString());
+            assertEquals(Files.size(universal), download.get("size").getAsLong());
+
+            var foundationLibrary = library(libraries, "top.outlands:foundation:1.2.3", false);
+            assertFalse(foundationLibrary.has("MMC-hint"));
+            assertDownload(foundationLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"), foundation,
+                    "https://repo.maven.apache.org/maven2/top/outlands/foundation/1.2.3/foundation-1.2.3.jar");
+        }
+    }
+
     private Path file(String name, String contents) throws IOException {
         return Files.writeString(directory.resolve(name), contents, StandardCharsets.UTF_8);
     }
@@ -182,8 +228,8 @@ class PublishMmcPackZipTest {
         return path.toAbsolutePath().toString().replace("\\", "\\\\").replace("'", "\\'");
     }
 
-    private static PublishMmcPackZip.LibraryArtifact library(org.gradle.api.Project project, String coordinate, Path file) {
-        var library = project.getObjects().newInstance(PublishMmcPackZip.LibraryArtifact.class);
+    private static LibraryArtifact library(org.gradle.api.Project project, String coordinate, Path file) {
+        var library = project.getObjects().newInstance(LibraryArtifact.class);
         library.getCoordinate().set(coordinate);
         library.getFile().fileValue(file.toFile());
         return library;

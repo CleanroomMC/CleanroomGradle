@@ -61,6 +61,10 @@ public abstract class CleanroomExtension {
 
     public abstract ListProperty<String> getLwjglNativesClassifiers();
 
+    public abstract Property<String> getInstallerVersion();
+
+    public abstract ListProperty<String> getInstallerJvmArgs();
+
     /**
      * Directory holding a hand-edited Tiny2 names source ({@code mappings.tiny}).
      * Unset by default as the pipeline uses the MCP CSVs from the {@code mcpMappings} dependency.
@@ -92,6 +96,7 @@ public abstract class CleanroomExtension {
                         .map(Boolean::parseBoolean)
                         .orElse(this.getMode().map(mode -> mode != ProjectMode.LOADER)));
         this.getForgeVersion().convention("14.23.5.2864");
+        this.getInstallerVersion().convention("0.1.0");
         this.getLwjglNativesClassifiers().convention(LwjglNatives.CLASSIFIERS);
         this.getPatchDev().all(env -> env.registerTasks(project, this.getLocalCacheDirectory()));
         this.getVanilla().all(env -> env.register(project, this));
