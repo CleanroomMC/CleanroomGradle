@@ -117,6 +117,55 @@ public final class DistributionTasks {
         var mmcLibraryArtifacts = ResolvedLibraries.artifacts(project.getObjects(),
                 mmcPackLibraries.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts()));
 
+        var installerLibraries = Objects.config(project, "installerLibraries");
+        installerLibraries.configure(config -> {
+            config.setDescription("Classpath libraries listed in the installer's version.json.");
+            config.setCanBeConsumed(false);
+            config.setCanBeResolved(true);
+            config.extendsFrom(mmcPackLibraries.get());
+            config.exclude(Map.of("group", VanillaTasks.LWJGL2_GROUP));
+            config.withDependencies(dependencies -> VanillaTasks.addDistributionLibraries(
+                    project.getDependencyFactory(), dependencies, minecraft.getVersionMeta().get()));
+            config.attributes(attributes -> {
+                attributes.attribute(Usage.USAGE_ATTRIBUTE, project.getObjects().named(Usage.class, Usage.JAVA_RUNTIME));
+                attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.getObjects().named(Category.class, Category.LIBRARY));
+                attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, project.getObjects().named(LibraryElements.class, LibraryElements.JAR));
+            });
+        });
+        var installerNatives = Objects.config(project, "installerNatives");
+        installerNatives.configure(config -> {
+            config.setDescription("Extracted natives listed in the installer's version.json, for every platform.");
+            config.setCanBeConsumed(false);
+            config.setCanBeResolved(true);
+            config.setTransitive(false);
+            config.withDependencies(dependencies -> VanillaTasks.addDistributionNatives(
+                    project.getDependencyFactory(), dependencies, minecraft.getVersionMeta().get()));
+        });
+        var manifestUrls = minecraft.getVersionMeta().map(meta -> {
+            var urls = new LinkedHashMap<String, String>();
+            for (var library : meta.libraries()) {
+                var downloads = library.downloads();
+                if (downloads == null) {
+                    continue;
+                }
+                if (downloads.artifact() != null && downloads.artifact().url() != null) {
+                    urls.put(library.name(), downloads.artifact().url());
+                }
+                if (downloads.classifiers() != null) {
+                    downloads.classifiers().forEach((classifier, download) -> {
+                        if (download.url() != null) {
+                            urls.put(library.name() + ":" + classifier, download.url());
+                        }
+                    });
+                }
+            }
+            return urls;
+        });
+        var installerLibraryArtifacts = ResolvedLibraries.artifacts(project.getObjects(),
+                installerLibraries.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts()));
+        var installerNativeArtifacts = ResolvedLibraries.artifacts(project.getObjects(),
+                installerNatives.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts()));
+
         this.writeMcp2Srg = mappings.write(project, caches, "writeMcp2Srg", WriteMappings.Direction.MCP_TO_SRG, "mcp2srg.tsrg");
         this.writeObf2SrgTsrg = mappings.write(project, caches, "writeObf2SrgTsrg", WriteMappings.Direction.OBF_TO_SRG, "obf2srg.tsrg");
         this.writeMcp2Notch = mappings.write(project, caches, "writeMcp2Notch", WriteMappings.Direction.MCP_TO_NOTCH, "mcp2notch.tsrg");
@@ -327,11 +376,11 @@ public final class DistributionTasks {
             );
             task.getUniversalCoordinate().set(universal.serialized());
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
-            task.getLibraries().set(mmcLibraryArtifacts);
-            task.getInheritedLibraries().set(minecraft.getVersionMeta().map(meta -> meta.libraries().stream()
-                    .map(library -> library.name())
-                    .collect(Collectors.toCollection(LinkedHashSet::new))));
+            task.getLibraries().set(installerLibraryArtifacts);
+            task.getNativeLibraries().set(installerNativeArtifacts);
+            task.getExcludedLibraryGroups().add(VanillaTasks.LWJGL2_GROUP);
             task.getRepositoryUrls().set(distributionRepositories);
+            task.getManifestUrls().set(manifestUrls);
             task.getVersionMeta().set(minecraft.getVersionMeta());
             task.getReleaseTime().set(timestampProperty);
             task.getInstallProfile().set(caches.getLocalDirectory().map(dir -> dir.file("dist/install_profile.json")));

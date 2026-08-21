@@ -39,8 +39,43 @@ import java.util.Map;
 
 public final class VanillaTasks {
 
+    public static final String LWJGL2_GROUP = "org.lwjgl.lwjgl";
+
     private static final String GROUP_NAME = "vanilla";
+    private static final String NATIVES_PREFIX = "natives-";
     private static final String DEFAULT_VERSION = "1.12.2";
+
+    public static void addDistributionLibraries(DependencyFactory factory, DependencySet dependencies, VersionMeta meta) {
+        var nativeModules = nativeModules(meta);
+        for (var library : meta.libraries()) {
+            if (library.artifact() == null || isLwjgl2(library.name())) {
+                continue;
+            }
+            var dependency = factory.create(library.name());
+            for (var module : nativeModules) {
+                dependency.exclude(module);
+            }
+            dependencies.add(dependency);
+        }
+    }
+
+    public static void addDistributionNatives(DependencyFactory factory, DependencySet dependencies, VersionMeta meta) {
+        for (var library : meta.libraries()) {
+            if (!library.hasNatives() || library.downloads() == null
+                    || library.downloads().classifiers() == null || isLwjgl2(library.name())) {
+                continue;
+            }
+            var coordinates = library.name().split(":");
+            for (var classifier : library.downloads().classifiers().keySet()) {
+                if (!classifier.startsWith(NATIVES_PREFIX)) {
+                    continue;
+                }
+                var dependency = factory.create("%s:%s:%s:%s".formatted(coordinates[0], coordinates[1], coordinates[2], classifier));
+                dependency.setTransitive(false);
+                dependencies.add(dependency);
+            }
+        }
+    }
 
     private static void verifySha1(File file, String expectedSha1) {
         var actualSha1 = IO.sha1(file);
@@ -60,6 +95,54 @@ public final class VanillaTasks {
             return dest == null || !IO.sha1Match(dest, expectedSha1.get());
         });
         task.doLast("verifySha1", t -> verifySha1(((Download) t).getDest(), expectedSha1.get()));
+    }
+
+    private static boolean isLwjgl2(String name) {
+        return name.startsWith(LWJGL2_GROUP + ":");
+    }
+
+    private static void addLibraries(DependencyFactory factory, DependencySet dependencies, VersionMeta meta) {
+        var nativeModules = nativeModules(meta);
+        for (var library : meta.libraries()) {
+            if (!library.isValidForOS(Platform.CURRENT) || library.artifact() == null) {
+                continue;
+            }
+            var dependency = factory.create(library.name());
+            for (var module : nativeModules) {
+                dependency.exclude(module);
+            }
+            dependencies.add(dependency);
+        }
+    }
+
+    private static void addNatives(DependencyFactory factory, DependencySet dependencies, VersionMeta meta) {
+        for (var library : meta.libraries()) {
+            if (!library.isValidForOS(Platform.CURRENT) || !library.hasNativesForOS(Platform.CURRENT)) {
+                continue;
+            }
+            var classifier = library.classifierForOS(Platform.CURRENT);
+            if (classifier == null) {
+                continue;
+            }
+            var matcher = Meta.NATIVES_PATTERN.matcher(classifier.path());
+            if (!matcher.find()) {
+                throw new IllegalStateException("Failed to match regex for natives path: " + classifier.path());
+            }
+            var notation = "%s:%s:%s:%s".formatted(matcher.group("group").replace('/', '.'),
+                    matcher.group("name"), matcher.group("version"), matcher.group("classifier"));
+            var dependency = factory.create(notation);
+            dependency.setTransitive(false);
+            dependencies.add(dependency);
+        }
+    }
+
+    private static List<Map<String, String>> nativeModules(VersionMeta meta) {
+        return meta.libraries().stream()
+                .filter(VersionMeta.Library::hasNatives)
+                .map(library -> library.name().split(":"))
+                .map(coordinates -> Map.of("group", coordinates[0], "module", coordinates[1]))
+                .distinct()
+                .toList();
     }
 
     /**
@@ -282,49 +365,5 @@ public final class VanillaTasks {
     private record Spec(boolean primary, String taskSuffix, String cacheName,
                         Provider<String> minecraftVersion, Provider<VersionMeta> versionMeta,
                         Provider<Directory> versionCacheDirectory, Provider<Integer> javaMajor) { }
-
-    private static void addLibraries(DependencyFactory factory, DependencySet dependencies, VersionMeta meta) {
-        var nativeModules = nativeModules(meta);
-        for (var library : meta.libraries()) {
-            if (!library.isValidForOS(Platform.CURRENT) || library.artifact() == null) {
-                continue;
-            }
-            var dependency = factory.create(library.name());
-            for (var module : nativeModules) {
-                dependency.exclude(module);
-            }
-            dependencies.add(dependency);
-        }
-    }
-
-    private static void addNatives(DependencyFactory factory, DependencySet dependencies, VersionMeta meta) {
-        for (var library : meta.libraries()) {
-            if (!library.isValidForOS(Platform.CURRENT) || !library.hasNativesForOS(Platform.CURRENT)) {
-                continue;
-            }
-            var classifier = library.classifierForOS(Platform.CURRENT);
-            if (classifier == null) {
-                continue;
-            }
-            var matcher = Meta.NATIVES_PATTERN.matcher(classifier.path());
-            if (!matcher.find()) {
-                throw new IllegalStateException("Failed to match regex for natives path: " + classifier.path());
-            }
-            var notation = "%s:%s:%s:%s".formatted(matcher.group("group").replace('/', '.'),
-                    matcher.group("name"), matcher.group("version"), matcher.group("classifier"));
-            var dependency = factory.create(notation);
-            dependency.setTransitive(false);
-            dependencies.add(dependency);
-        }
-    }
-
-    private static List<Map<String, String>> nativeModules(VersionMeta meta) {
-        return meta.libraries().stream()
-                .filter(VersionMeta.Library::hasNatives)
-                .map(library -> library.name().split(":"))
-                .map(coordinates -> Map.of("group", coordinates[0], "module", coordinates[1]))
-                .distinct()
-                .toList();
-    }
 
 }

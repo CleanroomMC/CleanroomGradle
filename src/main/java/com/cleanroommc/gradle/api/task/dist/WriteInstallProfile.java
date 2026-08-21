@@ -32,7 +32,10 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Writes the two JSON documents a Cleanroom installer jar carries.
@@ -40,6 +43,10 @@ import java.util.List;
  * <p>{@code version.json} is deliberately self-contained.
  * Inheriting from {@code 1.12.2} would make the launcher merge the parent's libraries,
  * which some are replaced (e.g. LWJGL 2).
+ *
+ * <p>The library list is the resolved graph: Cleanroom's runtime, every-platform LWJGL 3 natives,
+ * and every-platform vanilla jars and extracted natives. LWJGL 2 is omitted because Cleanroom ships LWJGL 3.
+ * The version manifest is used only for Mojang-hosted download URLs and launch metadata.
  *
  * <p>{@code install_profile.json} keeps the empty {@code processors} and {@code data} blocks Forge's format defines.
  * Forge needs them to patch jars it may not redistribute.
@@ -95,11 +102,17 @@ public abstract class WriteInstallProfile extends DefaultTask {
     @Nested
     public abstract ListProperty<LibraryArtifact> getLibraries();
 
+    @Nested
+    public abstract ListProperty<LibraryArtifact> getNativeLibraries();
+
     @Input
-    public abstract SetProperty<String> getInheritedLibraries();
+    public abstract SetProperty<String> getExcludedLibraryGroups();
 
     @Input
     public abstract MapProperty<String, String> getRepositoryUrls();
+
+    @Input
+    public abstract MapProperty<String, String> getManifestUrls();
 
     @Internal
     public abstract Property<VersionMeta> getVersionMeta();
@@ -124,15 +137,31 @@ public abstract class WriteInstallProfile extends DefaultTask {
                 Coordinate.parse(getUniversalCoordinate().get()),
                 getUniversalJar().get().getAsFile().toPath(),
                 LibraryJson.artifactUrl(Coordinate.parse(getUniversalCoordinate().get()), getRepositoryUrls().get()));
-        var artifacts = LibraryJson.resolve(universal, getLibraries().get(),
-                getInheritedLibraries().get(), getRepositoryUrls().get());
-        artifacts.removeIf(artifact -> artifact.coordinate().sameArtifact(universal.coordinate()));
+        var excluded = getExcludedLibraryGroups().get();
+        var artifacts = LibraryJson.resolve(universal, getLibraries().get(), getRepositoryUrls().get());
+        artifacts.removeIf(artifact -> drop(artifact, universal, excluded));
+        var natives = LibraryJson.resolve(universal, getNativeLibraries().get(), getRepositoryUrls().get());
+        natives.removeIf(artifact -> drop(artifact, universal, excluded));
 
-        writeJson(getVersionJson().get().getAsFile(), versionJson(artifacts, universal));
+        writeJson(getVersionJson().get().getAsFile(), versionJson(manifestUrls(artifacts), manifestUrls(natives), universal));
         writeJson(getInstallProfile().get().getAsFile(), installProfile(universal));
     }
 
-    private JsonObject versionJson(List<Artifact> artifacts, Artifact universal) {
+    private boolean drop(Artifact artifact, Artifact universal, Set<String> excluded) {
+        return artifact.coordinate().sameArtifact(universal.coordinate()) || excluded.contains(artifact.coordinate().group());
+    }
+
+    private List<Artifact> manifestUrls(List<Artifact> artifacts) {
+        var urls = getManifestUrls().get();
+        return artifacts.stream()
+                .map(artifact -> {
+                    var url = urls.get(artifact.coordinate().serialized());
+                    return url == null ? artifact : new Artifact(artifact.coordinate(), artifact.path(), url);
+                })
+                .toList();
+    }
+
+    private JsonObject versionJson(List<Artifact> artifacts, List<Artifact> natives, Artifact universal) {
         var meta = getVersionMeta().get();
         var version = new JsonObject();
         version.addProperty("id", getVersionId().get());
@@ -153,21 +182,50 @@ public abstract class WriteInstallProfile extends DefaultTask {
 
         var libraries = new JsonArray();
         libraries.add(LibraryJson.embeddedLibrary(universal));
-        for (var library : meta.libraries()) {
-            libraries.add(GSON.toJsonTree(library));
-        }
         libraries.addAll(LibraryJson.mojangLibraries(artifacts));
+        libraries.addAll(LibraryJson.mojangNativeLibraries(natives));
         version.add("libraries", libraries);
         return version;
     }
 
     private String minecraftArguments(VersionMeta meta) {
-        var builder = new StringBuilder(meta.minecraftArguments() == null ? "" : meta.minecraftArguments());
-        for (var tweaker : getTweakers().get()) {
-            builder.append(" --tweakClass ").append(tweaker);
+        var arguments = new ArrayList<String>();
+        var vanilla = meta.minecraftArguments() == null ? "" : meta.minecraftArguments().trim();
+        if (!vanilla.isEmpty()) {
+            Collections.addAll(arguments, vanilla.split("\\s+"));
         }
-        builder.append(" --versionType ").append(getProfileName().get());
-        return builder.toString().trim();
+        for (var tweaker : getTweakers().get()) {
+            addOption(arguments, "--tweakClass", tweaker);
+        }
+        // Vanilla already passes --versionType; ours replaces it instead of being appended after it
+        replaceOption(arguments, "--versionType", getProfileName().get());
+        return String.join(" ", arguments);
+    }
+
+    /**
+     * Appends an option a launcher reads more than once, such as {@code --tweakClass}, unless that exact pair is there.
+     */
+    private static void addOption(List<String> arguments, String key, String value) {
+        for (int i = 0; i < arguments.size() - 1; i++) {
+            if (arguments.get(i).equals(key) && arguments.get(i + 1).equals(value)) {
+                return;
+            }
+        }
+        arguments.add(key);
+        arguments.add(value);
+    }
+
+    /**
+     * Sets an option a launcher reads once, dropping whatever value the vanilla arguments carried.
+     */
+    private static void replaceOption(List<String> arguments, String key, String value) {
+        for (int i = arguments.size() - 2; i >= 0; i--) {
+            if (arguments.get(i).equals(key)) {
+                arguments.subList(i, i + 2).clear();
+            }
+        }
+        arguments.add(key);
+        arguments.add(value);
     }
 
     private JsonObject installProfile(Artifact universal) {

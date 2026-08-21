@@ -19,7 +19,8 @@ import java.util.TreeMap;
 /**
  * Turns resolved artifacts into the library entries launchers understand.
  *
- * <p>Both the MMC pack and the installer profile describe the same dependency set in two dialects of the same JSON.
+ * <p>The MMC pack and the installer profile are two dialects of the same JSON.
+ * MMC writes the overlay on top of Minecraft 1.12.2, whereas the installer list is self-contained.
  */
 public final class LibraryJson {
 
@@ -29,8 +30,14 @@ public final class LibraryJson {
      * Resolves the library inputs into a deterministic, deduplicated artifact list.
      *
      * @param universal    the loader's own jar, always listed first
-     * @param inherited    coordinates the parent component already supplies, which are skipped
      * @param repositories group prefix to base URL, with {@code *} as the fallback
+     */
+    public static List<Artifact> resolve(Artifact universal, List<? extends LibraryArtifact> libraries, Map<String, String> repositories) {
+        return resolve(universal, libraries, Set.of(), repositories);
+    }
+
+    /**
+     * @param inherited coordinates the parent component already supplies, which are skipped
      */
     public static List<Artifact> resolve(Artifact universal, List<? extends LibraryArtifact> libraries,
                                          Set<String> inherited, Map<String, String> repositories) {
@@ -79,8 +86,8 @@ public final class LibraryJson {
     }
 
     /**
-     * The Mojang dialect used by {@code version.json}:
-     * One flat entry per artifact, natives included, ordinary entries carries their classifiers in their names.
+     * The Mojang dialect used by {@code version.json} for classpath libraries:
+     * One flat entry per artifact, classifiers in the name, including LWJGL 3 native jars.
      */
     public static JsonArray mojangLibraries(List<Artifact> artifacts) {
         var sorted = new ArrayList<>(artifacts);
@@ -94,6 +101,26 @@ public final class LibraryJson {
             library.addProperty("name", artifact.coordinate().serialized());
             library.add("downloads", downloads);
             output.add(library);
+        }
+        return output;
+    }
+
+    /**
+     * The Mojang dialect for natives:
+     * One entry per module, its classifiers under a {@code natives} platform map, extracted rather than classpathed.
+     */
+    public static JsonArray mojangNativeLibraries(List<Artifact> artifacts) {
+        var natives = new TreeMap<String, List<Artifact>>();
+        for (var artifact : artifacts) {
+            if (!isNative(artifact.coordinate())) {
+                throw new GradleException("Not a natives library: " + artifact.coordinate().serialized());
+            }
+            natives.computeIfAbsent(artifact.coordinate().module(), ignored -> new ArrayList<>()).add(artifact);
+        }
+        var output = new JsonArray();
+        for (var nativeArtifacts : natives.values()) {
+            nativeArtifacts.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
+            output.add(nativeLibrary(nativeArtifacts.getFirst().coordinate().withoutClassifier(), nativeArtifacts));
         }
         return output;
     }
