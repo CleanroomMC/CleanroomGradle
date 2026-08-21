@@ -14,10 +14,12 @@ import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.MapProperty;
 import org.gradle.api.provider.Property;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.provider.SetProperty;
 import org.gradle.api.tasks.CacheableTask;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.OutputFile;
@@ -99,8 +101,13 @@ public abstract class WriteInstallProfile extends DefaultTask {
     @Input
     public abstract MapProperty<String, String> getRepositoryUrls();
 
-    @Input
+    @Internal
     public abstract Property<VersionMeta> getVersionMeta();
+
+    @Input
+    public Provider<String> getVersionMetaContent() {
+        return getVersionMeta().map(VersionMeta::toString);
+    }
 
     @Input
     public abstract Property<String> getReleaseTime();
