@@ -11,6 +11,7 @@ import com.cleanroommc.gradle.api.task.dist.WriteInstallProfile;
 import com.cleanroommc.gradle.api.task.dist.WriteUserdevConfig;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
+import com.cleanroommc.gradle.api.util.dist.Coordinate;
 import com.cleanroommc.gradle.api.util.dist.Repositories;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
@@ -73,6 +74,7 @@ public final class DistributionTasks {
         var providers = project.getProviders();
         var group = String.valueOf(project.getGroup());
         var version = String.valueOf(project.getVersion());
+        var universal = new Coordinate(group, ARTIFACT_ID, version, "universal", "jar");
         var titleProperty = providers.gradleProperty("title").orElse("Cleanroom");
         var vendorProperty = providers.gradleProperty("vendor").orElse("CleanroomMC");
         var timestampProperty = providers.environmentVariable("SOURCE_DATE_EPOCH")
@@ -296,10 +298,8 @@ public final class DistributionTasks {
             task.getCompatibleJavaMajors().set(javaExtension.getToolchain().getLanguageVersion()
                     .map(languageVersion -> List.of(languageVersion.asInt()))
                     .orElse(List.of()));
-            task.getUniversalCoordinate().set(group + ":" + ARTIFACT_ID + ":" + version + ":universal");
-            task.getUniversalUrl().set(Repositories.CLEANROOM_REPO
-                    + group.replace('.', '/') + "/" + ARTIFACT_ID + "/" + version + "/"
-                    + ARTIFACT_ID + "-" + version + "-universal.jar");
+            task.getUniversalCoordinate().set(universal.serialized());
+            task.getUniversalUrl().set(Repositories.CLEANROOM_REPO + universal.mavenPath());
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
             task.getLibraries().set(mmcLibraryArtifacts);
             task.getInheritedLibraries().set(minecraft.getVersionMeta().map(meta -> meta.libraries().stream()
@@ -325,7 +325,7 @@ public final class DistributionTasks {
                     .map(JavaLanguageVersion::asInt)
                     .orElse(MINIMUM_JAVA)
             );
-            task.getUniversalCoordinate().set(group + ":" + ARTIFACT_ID + ":" + version + ":universal");
+            task.getUniversalCoordinate().set(universal.serialized());
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
             task.getLibraries().set(mmcLibraryArtifacts);
             task.getInheritedLibraries().set(minecraft.getVersionMeta().map(meta -> meta.libraries().stream()
@@ -362,7 +362,7 @@ public final class DistributionTasks {
             task.from(this.writeInstallProfile.flatMap(WriteInstallProfile::getVersionJson));
             task.from(this.universalJar.flatMap(Jar::getArchiveFile), spec -> {
                 spec.into("maven/" + group.replace('.', '/') + "/" + ARTIFACT_ID + "/" + version);
-                spec.rename(_ -> ARTIFACT_ID + "-" + version + ".jar");
+                spec.rename(_ -> universal.fileName());
             });
             task.from(this.publishMmcPackZip.flatMap(PublishMmcPackZip::getArchiveFile), spec -> {
                 spec.into("mmc");
