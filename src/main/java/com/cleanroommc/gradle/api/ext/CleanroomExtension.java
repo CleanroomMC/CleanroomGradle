@@ -165,6 +165,7 @@ public abstract class CleanroomExtension {
 
             var patchDevDir = localCache.dir("patchDev/" + name);
             var sourcesDir = patchDevDir.map(dir -> dir.dir("sources").getAsFile());
+            var dirtyDir = patchDevDir.map(dir -> dir.dir("dirty"));
             var patchesZip = patchDevDir.map(dir -> dir.file("patches.zip").getAsFile());
             var input = this.getInput().map(Directory::getAsFile);
             var output = this.getOutput();
@@ -204,6 +205,7 @@ public abstract class CleanroomExtension {
                 task.getPatchesDirectory().set(patches);
                 task.getModifiedDirectory().set(output);
                 task.getCleanOutput().set(true);
+                task.getDirtyDirectory().set(dirtyDir);
             });
             this.initializeDiffs.configure(task -> {
                 task.dependsOn(this.prepareSources);
