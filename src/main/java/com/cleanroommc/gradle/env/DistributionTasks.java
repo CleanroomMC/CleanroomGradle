@@ -368,7 +368,7 @@ public final class DistributionTasks {
 
             task.getProfileName().set(titleProperty);
             task.getCleanroomVersion().set(version);
-            task.getVersionId().set(MINECRAFT_VERSION + "-" + titleProperty.get() + "-" + version);
+            task.getVersionId().set(titleProperty.get() + "-" + version);
             task.getMainClass().set("top.outlands.foundation.boot.Foundation");
             task.getServerMainClass().set("top.outlands.foundation.boot.Foundation");
             task.getTweakers().add("net.minecraftforge.fml.common.launcher.FMLTweaker");
