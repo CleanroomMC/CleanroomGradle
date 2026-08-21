@@ -27,7 +27,7 @@ class VanillaEnvironmentTest {
                 import com.cleanroommc.gradle.api.task.mc.RunMinecraft
 
                 cleanroom {
-                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.USERDEV
+                    mode = 'userdev'
                     userdev {
                         version = 'test-version'
                     }

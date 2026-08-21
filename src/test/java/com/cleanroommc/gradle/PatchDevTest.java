@@ -31,7 +31,7 @@ class PatchDevTest {
         Files.writeString(this.projectDir.resolve("build/input-src/A.java"), "class A {}\n");
         this.project.build("""
                 cleanroom {
-                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
+                    mode = 'vanilla'
                     patches {
                         patchDev {
                             example {

@@ -3,6 +3,7 @@ package com.cleanroommc.gradle.api.ext;
 import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.source.BundledVersionMetaValueSource;
 import com.cleanroommc.gradle.api.source.VersionMetaValueSource;
+import com.cleanroommc.gradle.api.util.EnumValues;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import org.gradle.api.Action;
 import org.gradle.api.NamedDomainObjectContainer;
@@ -25,8 +26,15 @@ public abstract class CleanroomExtension {
     private final PatchesExtension patches;
     private final LoaderExtension loader;
     private final UserdevExtension userdev;
+    private final Property<ProjectMode> mode;
 
-    public abstract Property<ProjectMode> getMode();
+    public Property<ProjectMode> getMode() {
+        return mode;
+    }
+
+    public void setMode(String mode) {
+        this.mode.set(EnumValues.parse(ProjectMode.class, mode));
+    }
 
     public abstract NamedDomainObjectContainer<VanillaEnvironment> getVanilla();
 
@@ -38,6 +46,7 @@ public abstract class CleanroomExtension {
         this.patches = objects.newInstance(PatchesExtension.class);
         this.loader = objects.newInstance(LoaderExtension.class);
         this.userdev = objects.newInstance(UserdevExtension.class);
+        this.mode = objects.property(ProjectMode.class);
 
         final var providers = project.getProviders();
 

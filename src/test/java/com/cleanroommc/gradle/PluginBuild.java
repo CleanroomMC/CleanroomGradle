@@ -56,7 +56,7 @@ final class PluginBuild {
     PluginBuild vanilla(String extra) throws IOException {
         return build("""
                 cleanroom {
-                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
+                    mode = 'vanilla'
                     patches.developInitial = false
                 }
                 """ + extra);
@@ -65,7 +65,7 @@ final class PluginBuild {
     PluginBuild loader(String extra) throws IOException {
         return build("""
                 cleanroom {
-                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.LOADER
+                    mode = 'loader'
                     patches.developInitial = false
                 }
                 """ + extra);

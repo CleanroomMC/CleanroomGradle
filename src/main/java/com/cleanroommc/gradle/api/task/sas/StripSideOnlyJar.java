@@ -1,9 +1,11 @@
 package com.cleanroommc.gradle.api.task.sas;
 
+import com.cleanroommc.gradle.api.util.EnumValues;
 import com.cleanroommc.gradle.api.util.sas.SideOnlyHandler;
 import net.minecraftforge.fml.relauncher.Side;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.CacheableTask;
 import org.gradle.api.tasks.Input;
@@ -13,6 +15,7 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 
+import javax.inject.Inject;
 import java.io.IOException;
 
 /**
@@ -21,12 +24,20 @@ import java.io.IOException;
 @CacheableTask
 public abstract class StripSideOnlyJar extends DefaultTask {
 
+    private final Property<Side> targetSide;
+
     @InputFile
     @PathSensitive(PathSensitivity.RELATIVE)
     public abstract RegularFileProperty getInputJar();
 
     @Input
-    public abstract Property<Side> getTargetSide();
+    public Property<Side> getTargetSide() {
+        return targetSide;
+    }
+
+    public void setTargetSide(String targetSide) {
+        this.targetSide.set(EnumValues.parse(Side.class, targetSide));
+    }
 
     @Input
     public abstract Property<Boolean> getValidateReferences();
@@ -34,7 +45,9 @@ public abstract class StripSideOnlyJar extends DefaultTask {
     @OutputFile
     public abstract RegularFileProperty getOutputJar();
 
-    public StripSideOnlyJar() {
+    @Inject
+    public StripSideOnlyJar(ObjectFactory objects) {
+        this.targetSide = objects.property(Side.class);
         this.getValidateReferences().convention(true);
     }
 

@@ -64,7 +64,7 @@ class MinecraftCacheTest {
                 import com.cleanroommc.gradle.api.task.IntermediateProcessor
 
                 cleanroom {
-                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
+                    mode = 'vanilla'
                     caches {
                         discardIntermediates = %s
                         localDirectory.set(layout.buildDirectory.dir('cleanroom_gradle'))
@@ -133,7 +133,7 @@ class MinecraftCacheTest {
                 import com.cleanroommc.gradle.api.util.IO
 
                 cleanroom {
-                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.VANILLA
+                    mode = 'vanilla'
                     caches.directory.set(layout.projectDirectory.dir('cg-cache'))
                     minecraft.versionMeta.set(IO.readJson(file('version-meta.json'), VersionMeta))
                 }

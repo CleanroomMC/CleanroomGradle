@@ -1,6 +1,7 @@
 package com.cleanroommc.gradle.api.task.mc;
 
 import com.cleanroommc.gradle.api.schema.VersionMeta;
+import com.cleanroommc.gradle.api.util.EnumValues;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.LaunchArguments;
@@ -12,6 +13,7 @@ import org.gradle.api.GradleException;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.*;
 import org.gradle.work.DisableCachingByDefault;
@@ -36,6 +38,11 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         return userInput.startsWith("y") || userInput.startsWith("Y");
     }
 
+    private final Property<Side> side;
+    private final Property<Environment> env;
+
+    private boolean setCustomWorkingDir = false;
+
     @Inject
     public abstract ProjectLayout getProjectLayout();
 
@@ -43,10 +50,22 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     public abstract Property<String> getMinecraftVersion();
 
     @Input
-    public abstract Property<Side> getSide();
+    public Property<Side> getSide() {
+        return side;
+    }
+
+    public void setSide(String side) {
+        this.side.set(EnumValues.parse(Side.class, side));
+    }
 
     @Input
-    public abstract Property<Environment> getEnv();
+    public Property<Environment> getEnv() {
+        return env;
+    }
+
+    public void setEnv(String env) {
+        this.env.set(EnumValues.parse(Environment.class, env));
+    }
 
     @InputDirectory
     @Optional
@@ -84,9 +103,10 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     @Input
     public abstract Property<String> getLauncherVersion();
 
-    private boolean setCustomWorkingDir = false;
-
-    public RunMinecraft() {
+    @Inject
+    public RunMinecraft(ObjectFactory objects) {
+        this.side = objects.property(Side.class);
+        this.env = objects.property(Environment.class);
         this.getAccessToken().convention("0");
         this.getUsername().convention("Developer");
         this.getOffline().convention(false);

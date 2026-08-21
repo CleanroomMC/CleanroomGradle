@@ -36,7 +36,6 @@ class PublishMmcPackZipTest {
         var foundation = file("foundation-2.0.0.jar", "foundation");
         Files.writeString(directory.resolve("settings.gradle"), "rootProject.name = 'mmc-task-test'\n");
         Files.writeString(directory.resolve("build.gradle"), """
-                import com.cleanroommc.gradle.api.ext.ProjectMode
                 import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip
                 import com.cleanroommc.gradle.api.util.dist.LibraryArtifact
 
@@ -44,7 +43,7 @@ class PublishMmcPackZipTest {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
                 }
-                cleanroom.mode = ProjectMode.VANILLA
+                cleanroom.mode = 'vanilla'
 
                 def foundation = objects.newInstance(LibraryArtifact)
                 foundation.coordinate = 'top.outlands:foundation:2.0.0'

@@ -84,7 +84,7 @@ class ProjectModeTest {
         this.project.build("""
                 group = 'com.cleanroommc'
                 version = '0.1.0'
-                cleanroom.mode = com.cleanroommc.gradle.api.ext.ProjectMode.LOADER
+                cleanroom.mode = 'loader'
                 gradle.projectsEvaluated {
                     def minecraft = cleanroom.patches.patchDev.minecraft
                     assert cleanroom.caches.discardIntermediates.get() == false
@@ -128,7 +128,7 @@ class ProjectModeTest {
                 group = 'com.cleanroommc'
                 version = '0.1.0'
                 cleanroom {
-                    mode = com.cleanroommc.gradle.api.ext.ProjectMode.LOADER
+                    mode = 'loader'
                     patches.developInitial = false
                 }
                 """);
@@ -147,12 +147,32 @@ class ProjectModeTest {
     }
 
     @Test
+    void unknownStringModeFails() throws IOException {
+        this.project.build("""
+                cleanroom {
+                    mode = 'nope'
+                }
+                """);
+
+        var output = this.project.runner("help").buildAndFail().getOutput();
+        assertTrue(output.contains("Unknown ProjectMode 'nope'"));
+        assertTrue(output.contains("VANILLA, LOADER, USERDEV"));
+    }
+
+    @Test
     void runMinecraftTasksIgnoreProcessExit() throws IOException {
         this.project.vanilla("""
                 import com.cleanroommc.gradle.api.task.mc.RunMinecraft
+                tasks.named('runVanillaClient', RunMinecraft) {
+                    side = 'server'
+                    env = 'mcp'
+                }
                 gradle.projectsEvaluated {
                     assert !tasks.withType(RunMinecraft).empty
                     assert tasks.withType(RunMinecraft).every { it.ignoreExitValue }
+                    def run = tasks.named('runVanillaClient', RunMinecraft).get()
+                    assert run.side.get() == net.minecraftforge.fml.relauncher.Side.SERVER
+                    assert run.env.get() == com.cleanroommc.gradle.api.util.Environment.MCP
                 }
                 """);
         assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());

@@ -1,6 +1,6 @@
 # CleanroomGradle
 
-Gradle plugin for Cleanroom Loader development and Cleanroom-targeted mod development. The current release is `0.9.1`.
+Gradle plugin for Cleanroom Loader development and Cleanroom-targeted mod development. The current release is `0.10.0`.
 
 ## Applying the plugin
 
@@ -21,7 +21,7 @@ pluginManagement {
 }
 
 plugins {
-    id 'com.cleanroommc.cleanroomgradle.settings' version '0.9.1'
+    id 'com.cleanroommc.cleanroomgradle.settings' version '0.10.0'
 }
 ```
 
@@ -38,10 +38,8 @@ plugins {
 Choose the pipeline explicitly for predictable task registration:
 
 ```groovy
-import com.cleanroommc.gradle.api.ext.ProjectMode
-
 cleanroom {
-    mode = ProjectMode.USERDEV // VANILLA, LOADER, or default: USERDEV
+    mode = 'userdev' // 'vanilla', 'loader', or default: 'userdev'
     userdev {
         version = '0.7.0-alpha'
     }

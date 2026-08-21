@@ -46,7 +46,7 @@ import java.util.stream.Collectors;
 
 /**
  * Registers the Cleanroom release/distribution pipeline.
- * Only instantiated for {@code cleanroom { mode = ProjectMode.LOADER }}.
+ * Only instantiated for {@code cleanroom { mode = 'loader' }}.
  */
 public final class DistributionTasks {
 
