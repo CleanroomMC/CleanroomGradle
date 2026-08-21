@@ -6,7 +6,14 @@ import com.cleanroommc.gradle.api.util.CleanroomProblems;
 import com.cleanroommc.gradle.api.util.CloseHttpClientFlowAction;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
-import com.cleanroommc.gradle.env.*;
+import com.cleanroommc.gradle.env.CleanroomTasks;
+import com.cleanroommc.gradle.env.DistributionTasks;
+import com.cleanroommc.gradle.env.MCPTasks;
+import com.cleanroommc.gradle.env.MaintenanceTasks;
+import com.cleanroommc.gradle.env.McpMappings;
+import com.cleanroommc.gradle.env.ToolConfigs;
+import com.cleanroommc.gradle.env.UserDevTasks;
+import com.cleanroommc.gradle.env.VanillaTasks;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -33,38 +40,47 @@ public abstract class CleanroomGradle implements Plugin<Project> {
         project.getPlugins().apply("net.minecraftforge.renamer");
         getFlowScope().always(CloseHttpClientFlowAction.class, spec -> {});
 
-        final var maintenanceGroup = "cleanroom maintenance";
+        final var ext = Objects.extension(project, "cleanroom", CleanroomExtension.class);
+        ToolConfigs.register(project);
 
-        final var cleanroomExtension = Objects.extension(project, "cleanroom", CleanroomExtension.class);
-        IntermediateProcessor.register(project, cleanroomExtension);
+        var intermediates = new IntermediateProcessor(project.getTasks(), ext.getCaches().getDiscardIntermediates());
+        project.getExtensions().add(IntermediateProcessor.class, IntermediateProcessor.EXTENSION_NAME, intermediates);
+
         project.getPluginManager().withPlugin("base", plugin -> project.getTasks().named("clean", Delete.class)
-                .configure(task -> task.delete(cleanroomExtension.getLocalCacheDirectory())));
+                .configure(task -> task.delete(ext.getCaches().getLocalDirectory())));
 
-        LwjglNatives.register(project, cleanroomExtension);
+        LwjglNatives.register(project, ext.getLoader().getLwjglNativesClassifiers());
 
-        final var vanillaTasks = new VanillaTasks(project, cleanroomExtension);
-        final var maintenanceTasks = new MaintenanceTasks(project, cleanroomExtension, vanillaTasks, pluginVersion);
-        final var mcpTasks = new MCPTasks(project, cleanroomExtension, vanillaTasks);
+        final var vanillaTasks = new VanillaTasks(project, ext.getCaches(), ext.getMinecraft());
+        final var maintenanceTasks = new MaintenanceTasks(project, ext.getCaches(), ext.getMappings(), vanillaTasks, pluginVersion);
         UserDevTasks.configuration(project);
 
         project.afterEvaluate(evaluatedProject -> {
-            mcpTasks.configurePatchDevelopment(evaluatedProject, cleanroomExtension, vanillaTasks);
-
-            var mode = cleanroomExtension.getMode().get();
+            var mode = ext.getMode().get();
             switch (mode) {
                 case LOADER -> {
-                    mcpTasks.configureLoaderPipeline(evaluatedProject, cleanroomExtension, vanillaTasks);
-                    new CleanroomTasks(evaluatedProject, cleanroomExtension, vanillaTasks, mcpTasks);
-                    new DistributionTasks(evaluatedProject, cleanroomExtension, vanillaTasks, mcpTasks);
+                    var mappings = new McpMappings(evaluatedProject, ext.getCaches(), ext.getMappings());
+                    mappings.configurePatchMappings(ext.getPatches());
+                    var mcpTasks = new MCPTasks(evaluatedProject, ext.getCaches(), ext.getMinecraft(), ext.getMappings(),
+                            vanillaTasks, mappings, intermediates);
+                    mcpTasks.configureLoaderPipeline(evaluatedProject, ext.getCaches(), ext.getLoader(), vanillaTasks, intermediates);
+                    mcpTasks.configureInitialPatches(evaluatedProject, ext.getCaches(), ext.getPatches(), vanillaTasks, mappings);
+                    new CleanroomTasks(evaluatedProject, ext.getCaches(), ext.getMinecraft(), ext.getLoader(),
+                            ext.getPatches(), vanillaTasks, mcpTasks, mappings);
+                    new DistributionTasks(evaluatedProject, ext.getCaches(), ext.getMinecraft(), ext.getLoader(),
+                            vanillaTasks, mappings, intermediates);
                 }
                 case USERDEV -> {
-                    if (!UserDevTasks.requested(evaluatedProject, cleanroomExtension)) {
-                        var message = "USERDEV mode requires cleanroom.version or a dependency in the cleanroomUserdev configuration.";
+                    if (!UserDevTasks.requested(evaluatedProject, ext.getUserdev())) {
+                        var message = "USERDEV mode requires cleanroom.userdev.version or a dependency in the cleanroomUserdev configuration.";
                         throw CleanroomProblems.throwing(getProblems(), new InvalidUserDataException(message),
                                 CleanroomProblems.MISSING_USERDEV, message,
-                                "Set cleanroom.version or declare a cleanroomUserdev dependency.");
+                                "Set cleanroom.userdev.version or declare a cleanroomUserdev dependency.");
                     }
-                    new UserDevTasks(evaluatedProject, cleanroomExtension, vanillaTasks, mcpTasks);
+                    var mappings = new McpMappings(evaluatedProject, ext.getCaches(), ext.getMappings());
+                    mappings.configurePatchMappings(ext.getPatches());
+                    new UserDevTasks(evaluatedProject, ext.getCaches(), ext.getMinecraft(), ext.getUserdev(),
+                            vanillaTasks, mappings, intermediates);
                 }
                 case VANILLA -> { }
             }

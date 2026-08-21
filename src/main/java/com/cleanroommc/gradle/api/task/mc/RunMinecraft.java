@@ -1,11 +1,9 @@
 package com.cleanroommc.gradle.api.task.mc;
 
-import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.LaunchArguments;
-import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.Platform;
 import com.cleanroommc.gradle.api.task.LazilyConstructedJavaExec;
 import net.minecraftforge.fml.relauncher.Side;
@@ -13,6 +11,7 @@ import org.apache.commons.io.FileUtils;
 import org.gradle.api.GradleException;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.ProjectLayout;
+import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.*;
 import org.gradle.work.DisableCachingByDefault;
@@ -25,7 +24,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Scanner;
-import java.util.UUID;
 import java.util.function.Supplier;
 
 @UntrackedTask(because = "Launches the game")
@@ -73,6 +71,13 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     @Optional
     public abstract Property<String> getAccessToken();
 
+    @Input
+    @Optional
+    public abstract Property<Boolean> getOffline();
+
+    @Internal
+    public abstract RegularFileProperty getUuidCache();
+
     @Internal
     public abstract Property<VersionMeta> getVersionMeta();
 
@@ -82,24 +87,10 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     private boolean setCustomWorkingDir = false;
 
     public RunMinecraft() {
-        var ext = CleanroomExtension.get(this.getProject());
-        var offline = this.getProject().getGradle().getStartParameter().isOffline();
-
-        this.getMinecraftVersion().convention("1.12.2");
-        this.getAssetIndexVersion().convention("1.12");
-        this.getVanillaAssetsLocation().convention(ext.getCacheDirectory().dir("assets"));
         this.getAccessToken().convention("0");
-
         this.getUsername().convention("Developer");
-        var uuidCache = ext.getCacheDirectory().file("uuid_cache.properties");
-        this.getUUID().convention(getUsername()
-                .map(u -> Objects.resolveUuid(offline, uuidCache.get().getAsFile(), u))
-                .map(UUID::toString));
-
-        this.getVersionMeta().convention(ext.getVersionMeta());
-        var pluginVersion = String.valueOf(this.getProject().getVersion());
-        this.getLauncherVersion().convention("unspecified".equals(pluginVersion) ? "dev" : pluginVersion);
-
+        this.getOffline().convention(false);
+        this.getLauncherVersion().convention("dev");
         this.getMainClass().convention(this.getSide().map(side -> side.isClient() ? "net.minecraft.client.main.Main" : "net.minecraft.server.MinecraftServer"));
 
         this.setStandardInput(System.in);

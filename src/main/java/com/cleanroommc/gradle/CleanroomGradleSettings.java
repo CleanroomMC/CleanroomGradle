@@ -1,6 +1,6 @@
 package com.cleanroommc.gradle;
 
-import com.cleanroommc.gradle.api.Meta;
+import com.cleanroommc.gradle.api.util.dist.Repositories;
 import org.gradle.api.Plugin;
 import org.gradle.api.artifacts.dsl.RepositoryHandler;
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
@@ -32,9 +32,9 @@ public class CleanroomGradleSettings implements Plugin<Settings> {
     private void addRepositories(Settings settings) {
         var repositories = settings.getDependencyResolutionManagement().getRepositories();
         repositories.mavenCentral();
-        maven(repositories, "Mojang Libraries", Meta.MOJANG_REPO, false);
-        maven(repositories, "MinecraftForge", Meta.FORGE_REPO, true);
-        maven(repositories, "CleanroomMC", Meta.CLEANROOM_REPO, true);
+        maven(repositories, "Mojang Libraries", Repositories.MOJANG_REPO, false);
+        maven(repositories, "MinecraftForge", Repositories.FORGE_REPO, true);
+        maven(repositories, "CleanroomMC", Repositories.CLEANROOM_REPO, true);
     }
 
     private void maven(RepositoryHandler repositories, String name, String url, boolean artifactMetadata) {

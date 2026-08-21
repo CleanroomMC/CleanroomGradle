@@ -42,23 +42,27 @@ import com.cleanroommc.gradle.api.ext.ProjectMode
 
 cleanroom {
     mode = ProjectMode.USERDEV // VANILLA, LOADER, or default: USERDEV
-    version = '0.7.0-alpha'
+    userdev {
+        version = '0.7.0-alpha'
+    }
 }
 ```
 
 | Mode      | Purpose                                                                            |
 |-----------|------------------------------------------------------------------------------------|
-| `VANILLA` | Vanilla download, run, decompile, and shared MCP facilities only                   |
+| `VANILLA` | Vanilla download, run, and decompile only                                          |
 | `LOADER`  | Cleanroom loader sources, SAS/AT processing, run tasks, and distribution artifacts |
-| `USERDEV` | Mod workspace backed by `cleanroomVersion` or a `cleanroomUserdev` dependency      |
+| `USERDEV` | Mod workspace backed by `cleanroom.userdev.version` or a `cleanroomUserdev` dependency |
 
-The default is `USERDEV`, since mod development is the primary use case. Loader development and standalone vanilla tooling must select `LOADER` or `VANILLA` explicitly.
+The default is `USERDEV`, since mod development is the primary use case. Loader development and standalone vanilla tooling must select `LOADER` or `VANILLA` explicitly. Each mode registers only the tasks it needs.
 
 `USERDEV` requires one of:
 
 ```groovy
 cleanroom {
-    version '0.7.0-alpha'
+    userdev {
+        version = '0.7.0-alpha'
+    }
 }
 
 // or
@@ -71,21 +75,29 @@ dependencies {
 
 ```groovy
 cleanroom {
-    // Optional cache overrides, shared downloads use Gradle user home by default
-    cacheDirectory = layout.projectDirectory.dir('.gradle/cleanroom-shared')
-    versionCacheDirectory = layout.projectDirectory.dir('.gradle/cleanroom-shared/versions/1.12.2')
+    caches {
+        // Optional cache overrides, shared downloads use Gradle user home by default
+        directory = layout.projectDirectory.dir('.gradle/cleanroom-shared')
+        versionDirectory = layout.projectDirectory.dir('.gradle/cleanroom-shared/versions/1.12.2')
+        // Project-local generated/intermediate data
+        localDirectory = layout.buildDirectory.dir('cleanroom_gradle')
+        // Loader defaults false; other modes default true
+        discardIntermediates = true
+    }
 
-    // Project-local generated/intermediate data
-    localCacheDirectory = layout.buildDirectory.dir('cleanroom_gradle')
+    mappings {
+        // Optional editable Tiny v2 source at <directory>/mappings.tiny
+        namesDirectory = layout.projectDirectory.dir('mappings')
+    }
 
-    // Loader defaults false; other modes default true
-    discardIntermediates = true
+    userdev {
+        accessTransformers.from('src/main/resources/META-INF/accesstransformer.cfg')
+    }
 
-    // Optional editable Tiny v2 source at <directory>/mappings.tiny
-    namesDirectory = layout.projectDirectory.dir('mappings')
-
-    accessTransformers.from('src/main/resources/META-INF/accesstransformer.cfg')
-    sideAnnotationStrippers.from('src/main/resources/META-INF/side_annotation_stripper.cfg')
+    loader {
+        accessTransformers.from('src/main/resources/META-INF/accesstransformer.cfg')
+        sideAnnotationStrippers.from('src/main/resources/META-INF/side_annotation_stripper.cfg')
+    }
 }
 ```
 
@@ -164,9 +176,9 @@ Configuration and task validation failures use Gradle's Problems API where Gradl
 Gradle build-cache and configuration-cache support are enabled by this project's defaults.
 Expensive deterministic transforms including: decompilation, mappings, access transformation, SAS, and binpatch work declare cacheable inputs and outputs.
 
-- `clean` deletes the build directory and `localCacheDirectory` as it preserves shared Minecraft downloads.
-- `cleanCleanroomSharedCache` explicitly deletes the configured shared `cacheDirectory`.
-- `cleanroom.discardIntermediates=true` deletes consumed project-local pipeline artifacts - cacheable tasks can restore them later.
+- `clean` deletes the build directory and `caches.localDirectory`; it preserves shared Minecraft downloads.
+- `cleanCleanroomSharedCache` explicitly deletes the configured shared `caches.directory`.
+- `cleanroom.discardIntermediates=true` (or `caches.discardIntermediates`) deletes consumed project-local pipeline artifacts - cacheable tasks can restore them later.
 
 For shared CI reuse, configure a Gradle local or remote build cache in the consuming build's `settings.gradle`; CleanroomGradle does not choose credentials or a cache server for you.
 

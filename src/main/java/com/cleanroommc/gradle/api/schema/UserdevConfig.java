@@ -48,6 +48,12 @@ public record UserdevConfig(
 
     public static final int SPEC = 1;
     public static final String FILE_NAME = "config.json";
+    public static final String BINPATCHES = "binpatches.zip";
+    public static final String CLIENT_BINPATCHES = "binpatch/client/";
+    public static final String SERVER_BINPATCHES = "binpatch/server/";
+    public static final String SRG2MCP = "srg2mcp.tsrg";
+    public static final String MCP2SRG = "mcp2srg.tsrg";
+    public static final String ATS = "ats";
 
     public record Runs(Run client, Run server) { }
 

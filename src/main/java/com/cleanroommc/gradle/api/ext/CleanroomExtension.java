@@ -1,25 +1,14 @@
 package com.cleanroommc.gradle.api.ext;
 
 import com.cleanroommc.gradle.api.Meta;
-import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.source.BundledVersionMetaValueSource;
 import com.cleanroommc.gradle.api.source.VersionMetaValueSource;
-import com.cleanroommc.gradle.api.task.Tasks;
-import com.cleanroommc.gradle.api.task.patch.ApplyDiffs;
-import com.cleanroommc.gradle.api.task.patch.GenerateDiffs;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
-import com.cleanroommc.gradle.api.util.lazy.SourceSets;
-import org.apache.commons.lang3.StringUtils;
-import org.gradle.api.*;
-import org.gradle.api.file.ConfigurableFileCollection;
-import org.gradle.api.file.Directory;
-import org.gradle.api.file.DirectoryProperty;
-import org.gradle.api.file.ProjectLayout;
-import org.gradle.api.provider.ListProperty;
+import org.gradle.api.Action;
+import org.gradle.api.NamedDomainObjectContainer;
+import org.gradle.api.Project;
+import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Property;
-import org.gradle.api.tasks.Copy;
-import org.gradle.api.tasks.SourceSet;
-import org.gradle.api.tasks.TaskProvider;
 
 import javax.inject.Inject;
 import java.io.File;
@@ -30,215 +19,106 @@ public abstract class CleanroomExtension {
         return project.getExtensions().getByType(CleanroomExtension.class);
     }
 
-    public abstract DirectoryProperty getCacheDirectory();
-
-    public abstract DirectoryProperty getVersionCacheDirectory();
-
-    public abstract DirectoryProperty getLocalCacheDirectory();
-
-    public abstract Property<Boolean> getDiscardIntermediates();
-
-    public abstract Property<String> getVersionMetaUrl();
-
-    public abstract Property<VersionMeta> getVersionMeta();
-
-    public abstract Property<Boolean> getDevelopInitialPatches();
-
-    public abstract NamedDomainObjectContainer<PatchDevEnvironment> getPatchDev();
-
-    public abstract NamedDomainObjectContainer<VanillaEnvironment> getVanilla();
+    private final CachesExtension caches;
+    private final MinecraftExtension minecraft;
+    private final MappingsExtension mappings;
+    private final PatchesExtension patches;
+    private final LoaderExtension loader;
+    private final UserdevExtension userdev;
 
     public abstract Property<ProjectMode> getMode();
 
-    public abstract ConfigurableFileCollection getAccessTransformers();
+    public abstract NamedDomainObjectContainer<VanillaEnvironment> getVanilla();
 
-    public abstract ConfigurableFileCollection getSideAnnotationStrippers();
+    @Inject
+    public CleanroomExtension(Project project, ObjectFactory objects) {
+        this.caches = objects.newInstance(CachesExtension.class);
+        this.minecraft = objects.newInstance(MinecraftExtension.class);
+        this.mappings = objects.newInstance(MappingsExtension.class);
+        this.patches = objects.newInstance(PatchesExtension.class);
+        this.loader = objects.newInstance(LoaderExtension.class);
+        this.userdev = objects.newInstance(UserdevExtension.class);
 
-    public abstract Property<String> getForgeVersion();
-
-    // TODO: just getVersion, but we have getForgeVersion atm that will be removed.
-    public abstract Property<String> getVersion();
-
-    public abstract ListProperty<String> getLwjglNativesClassifiers();
-
-    public abstract Property<String> getInstallerVersion();
-
-    public abstract ListProperty<String> getInstallerJvmArgs();
-
-    /**
-     * Directory holding a hand-edited Tiny2 names source ({@code mappings.tiny}).
-     * Unset by default as the pipeline uses the MCP CSVs from the {@code mcpMappings} dependency.
-     */
-    public abstract DirectoryProperty getNamesDirectory();
-
-    public CleanroomExtension(Project project) {
         final var providers = project.getProviders();
 
-        this.getCacheDirectory().fileValue(new File(project.getGradle().getGradleUserHomeDir(), "caches/" + Meta.CG_FOLDER));
-        this.getVersionCacheDirectory().convention(this.getCacheDirectory().dir("versions/1.12.2"));
-        this.getLocalCacheDirectory().convention(project.getLayout().getBuildDirectory().dir(Meta.CG_FOLDER));
+        this.caches.getDirectory().fileValue(new File(project.getGradle().getGradleUserHomeDir(), "caches/" + Meta.CG_FOLDER));
+        this.caches.getVersionDirectory().convention(this.caches.getDirectory().dir("versions/1.12.2"));
+        this.caches.getLocalDirectory().convention(project.getLayout().getBuildDirectory().dir(Meta.CG_FOLDER));
 
-        var versionMetaCacheFile = this.getVersionCacheDirectory().file("meta.json");
-        var offline = project.getGradle().getStartParameter().isOffline();
-        this.getVersionMeta().convention(
-            this.getVersionMetaUrl()
-                .flatMap(url -> providers.of(VersionMetaValueSource.class, spec -> {
-                    spec.getParameters().getCacheFile().set(versionMetaCacheFile);
-                    spec.getParameters().getVersionMetaUrl().set(url);
-                    spec.getParameters().getOffline().set(offline);
-                }))
-                .orElse(providers.of(BundledVersionMetaValueSource.class, spec -> {}))
-        );
-        this.getDevelopInitialPatches().convention(false);
         this.getMode().convention(ProjectMode.USERDEV);
-        this.getDiscardIntermediates().convention(
+        this.caches.getDiscardIntermediates().convention(
                 providers.gradleProperty("cleanroom.discardIntermediates")
                         .map(Boolean::parseBoolean)
                         .orElse(this.getMode().map(mode -> mode != ProjectMode.LOADER)));
-        this.getForgeVersion().convention("14.23.5.2864");
-        this.getInstallerVersion().convention("0.1.0");
-        this.getLwjglNativesClassifiers().convention(LwjglNatives.CLASSIFIERS);
-        this.getPatchDev().all(env -> env.registerTasks(project, this.getLocalCacheDirectory()));
-        this.getVanilla().all(env -> env.register(project, this));
+
+        var versionMetaCacheFile = this.caches.getVersionDirectory().file("meta.json");
+        var offline = project.getGradle().getStartParameter().isOffline();
+        this.minecraft.getVersionMeta().convention(
+                this.minecraft.getVersionMetaUrl()
+                        .flatMap(url -> providers.of(VersionMetaValueSource.class, spec -> {
+                            spec.getParameters().getCacheFile().set(versionMetaCacheFile);
+                            spec.getParameters().getVersionMetaUrl().set(url);
+                            spec.getParameters().getOffline().set(offline);
+                        }))
+                        .orElse(providers.of(BundledVersionMetaValueSource.class, spec -> {}))
+        );
+
+        this.patches.getDevelopInitial().convention(false);
+        this.patches.getPatchDev().all(env -> env.registerTasks(project, this.caches.getLocalDirectory()));
+
+        this.loader.getForgeVersion().convention("14.23.5.2864");
+        this.loader.getInstallerVersion().convention("0.1.0");
+        this.loader.getLwjglNativesClassifiers().convention(LwjglNatives.CLASSIFIERS);
+
+        this.getVanilla().all(env -> env.register(project, this.caches, this.minecraft));
     }
 
-    public static abstract class PatchDevEnvironment implements Named {
+    public CachesExtension getCaches() {
+        return caches;
+    }
 
-        public abstract DirectoryProperty getInput();
+    public MinecraftExtension getMinecraft() {
+        return minecraft;
+    }
 
-        public abstract DirectoryProperty getPatches();
+    public MappingsExtension getMappings() {
+        return mappings;
+    }
 
-        public abstract DirectoryProperty getOutput();
+    public PatchesExtension getPatches() {
+        return patches;
+    }
 
-        private final String name;
+    public LoaderExtension getLoader() {
+        return loader;
+    }
 
-        private String dependsOn;
-        private NamedDomainObjectProvider<SourceSet> sourceSet;
-        private TaskProvider<Copy> prepareSources;
-        private TaskProvider<DefaultTask> initializeEnvironment, prepareEnvironment;
-        private TaskProvider<ApplyDiffs> initializeDiffs, applyDiffs;
-        private TaskProvider<GenerateDiffs> generateDiffs;
+    public UserdevExtension getUserdev() {
+        return userdev;
+    }
 
-        @Inject
-        public PatchDevEnvironment(String name, ProjectLayout layout) {
-            this.name = name;
-            this.getPatches().convention(layout.getProjectDirectory().dir("patches").dir(name));
-            this.getOutput().convention(layout.getProjectDirectory().dir("src/" + name + "PatchDev/java"));
-        }
+    public void caches(Action<CachesExtension> action) {
+        action.execute(caches);
+    }
 
-        @Override
-        public String getName() {
-            return this.name;
-        }
+    public void minecraft(Action<MinecraftExtension> action) {
+        action.execute(minecraft);
+    }
 
-        public void dependsOn(String dependsOn) {
-            this.dependsOn = dependsOn;
-        }
+    public void mappings(Action<MappingsExtension> action) {
+        action.execute(mappings);
+    }
 
-        public NamedDomainObjectProvider<SourceSet> getSourceSet() {
-            return this.sourceSet;
-        }
+    public void patches(Action<PatchesExtension> action) {
+        action.execute(patches);
+    }
 
-        public TaskProvider<DefaultTask> getPrepareEnvironment() {
-            return prepareEnvironment;
-        }
+    public void loader(Action<LoaderExtension> action) {
+        action.execute(loader);
+    }
 
-        public TaskProvider<ApplyDiffs> getApplyDiffs() {
-            return applyDiffs;
-        }
-
-        public TaskProvider<ApplyDiffs> getInitializeDiffs() {
-            return initializeDiffs;
-        }
-
-        public TaskProvider<GenerateDiffs> getGenerateDiffs() {
-            return generateDiffs;
-        }
-
-        private void registerTasks(Project project, DirectoryProperty localCache) {
-            var name = this.name;
-
-            this.sourceSet = SourceSets.internal(project, name + "PatchDev");
-
-            var groupName = name + " patch development";
-            var capitalizedName = StringUtils.capitalize(name);
-
-            var patchDevDir = localCache.dir("patchDev/" + name);
-            var sourcesDir = patchDevDir.map(dir -> dir.dir("sources").getAsFile());
-            var dirtyDir = patchDevDir.map(dir -> dir.dir("dirty"));
-            var patchesZip = patchDevDir.map(dir -> dir.file("patches.zip").getAsFile());
-            var input = this.getInput().map(Directory::getAsFile);
-            var output = this.getOutput();
-            var patches = this.getPatches();
-
-            SourceSets.linkSource(this.sourceSet, output);
-
-            this.initializeEnvironment = Tasks.register(project, "initialize" + capitalizedName + "PatchDevEnvironment");
-            this.prepareSources = Tasks.copy(project, "prepare" + capitalizedName + "Sources", input, sourcesDir);
-            this.prepareEnvironment = Tasks.register(project, "prepare" + capitalizedName + "PatchDevEnvironment");
-            var applyTaskName = name.equals("initial") ? "applyInitialPatchDevDiffs" : "apply" + capitalizedName + "Diffs";
-            this.applyDiffs = Tasks.register(project, applyTaskName, ApplyDiffs.class);
-            this.initializeDiffs = Tasks.register(project, "initialize" + capitalizedName + "PatchDevSources", ApplyDiffs.class);
-            this.generateDiffs = Tasks.register(project, "generate" + capitalizedName + "Diffs", GenerateDiffs.class);
-            var zipPatches = Tasks.zip(project, "zip" + capitalizedName + "Patches", this.generateDiffs.flatMap(GenerateDiffs::getPatchesDirectory), patchesZip);
-            Tasks.group(groupName, this.prepareEnvironment, this.applyDiffs, this.generateDiffs, zipPatches);
-
-            this.initializeEnvironment.configure(task -> {
-                if (this.dependsOn != null) {
-                    task.dependsOn(this.dependsOn);
-                }
-                task.doLast($ -> {
-                    if (!input.isPresent()) {
-                        throw new InvalidUserDataException("Input for %s must be set!".formatted(name));
-                    }
-                    createDirectory(input.get(), "input", name);
-                    createDirectory(sourcesDir.get(), "staged input", name);
-                    createDirectory(output.get().getAsFile(), "output", name);
-                    createDirectory(patches.get().getAsFile(), "patches", name);
-                });
-            });
-            this.prepareSources.configure(task -> task.dependsOn(this.initializeEnvironment));
-            this.applyDiffs.configure(task -> {
-                task.dependsOn(this.prepareSources);
-                task.setDescription("Recreates the " + name + " patch-development sources and applies the current patch set.");
-                task.getOriginalDirectory().fileProvider(input);
-                task.getPatchesDirectory().set(patches);
-                task.getModifiedDirectory().set(output);
-                task.getCleanOutput().set(true);
-                task.getDirtyDirectory().set(dirtyDir);
-            });
-            this.initializeDiffs.configure(task -> {
-                task.dependsOn(this.prepareSources);
-                task.getOriginalDirectory().fileProvider(input);
-                task.getPatchesDirectory().set(patches);
-                task.getModifiedDirectory().set(output);
-                task.onlyIf("patch dev source tree is not yet populated", $ -> {
-                    var dir = output.get().getAsFile();
-                    var contents = dir.listFiles();
-                    return contents == null || contents.length == 0;
-                });
-            });
-            this.prepareEnvironment.configure(task -> {
-                task.dependsOn(this.initializeDiffs);
-                task.doLast($ -> createDirectory(sourcesDir.get(), "staged input", name));
-            });
-            this.generateDiffs.configure(task -> {
-                task.dependsOn(this.prepareEnvironment);
-                task.getOriginalDirectory().fileProvider(sourcesDir);
-                task.getModifiedDirectory().set(output);
-                task.getPatchesDirectory().set(patches);
-            });
-        }
-
-        private static void createDirectory(File directory, String property, String environment) {
-            if (directory.isDirectory()) {
-                return;
-            }
-            if (directory.exists() || !directory.mkdirs()) {
-                throw new InvalidUserDataException("%s for %s is not a directory and could not be created!".formatted(property, environment));
-            }
-        }
-
+    public void userdev(Action<UserdevExtension> action) {
+        action.execute(userdev);
     }
 
 }

@@ -1,6 +1,8 @@
 package com.cleanroommc.gradle.api.util.dist;
 
 import org.gradle.api.GradleException;
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
+import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 
 import java.util.Locale;
 
@@ -8,6 +10,22 @@ import java.util.Locale;
  * A Maven coordinate in {@code group:artifact:version[:classifier][@extension]} form.
  */
 public record Coordinate(String group, String artifact, String version, String classifier, String extension) {
+
+    public static Coordinate from(ResolvedArtifactResult artifact) {
+        if (!(artifact.getId().getComponentIdentifier() instanceof ModuleComponentIdentifier module)) {
+            throw new GradleException("Expected a module artifact: " + artifact.getId());
+        }
+        var fileName = artifact.getFile().getName();
+        var dot = fileName.lastIndexOf('.');
+        var extension = dot == -1 ? "jar" : fileName.substring(dot + 1);
+        var stem = dot == -1 ? fileName : fileName.substring(0, dot);
+        var prefix = module.getModule() + "-" + module.getVersion();
+        if (!stem.equals(prefix) && !stem.startsWith(prefix + "-")) {
+            throw new GradleException("Cannot derive the classifier for " + artifact.getId() + " from file " + fileName);
+        }
+        var classifier = stem.length() == prefix.length() ? null : stem.substring(prefix.length() + 1);
+        return new Coordinate(module.getGroup(), module.getModule(), module.getVersion(), classifier, extension);
+    }
 
     public static Coordinate parse(String value) {
         var extensionSplit = value.split("@", 2);

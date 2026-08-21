@@ -1,6 +1,10 @@
 package com.cleanroommc.gradle.env;
 
-import com.cleanroommc.gradle.api.ext.CleanroomExtension;
+import com.cleanroommc.gradle.api.ext.CachesExtension;
+import com.cleanroommc.gradle.api.ext.LoaderExtension;
+import com.cleanroommc.gradle.api.ext.MinecraftExtension;
+import com.cleanroommc.gradle.api.ext.PatchDevEnvironment;
+import com.cleanroommc.gradle.api.ext.PatchesExtension;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.util.lazy.SourceSets;
@@ -21,18 +25,18 @@ import org.gradle.api.tasks.compile.JavaCompile;
 public final class CleanroomTasks {
 
     private static final String GROUP_NAME = "cleanroom";
-    private static final String MC_VERSION = "1.12.2";
 
     public final TaskProvider<DefaultTask> setup;
     public final TaskProvider<RunMinecraft> runCleanroomClient, runCleanroomServer;
     public final TaskProvider<NsightExec> runCleanroomNsightClient;
 
-    public CleanroomTasks(Project project, CleanroomExtension ext, VanillaTasks vanilla, MCPTasks mcp) {
+    public CleanroomTasks(Project project, CachesExtension caches, MinecraftExtension minecraft, LoaderExtension loader,
+                          PatchesExtension patches, VanillaTasks vanilla, MCPTasks mcp, McpMappings mappings) {
         var mainSourceSet = project.getExtensions().getByType(SourceSetContainer.class).named(SourceSet.MAIN_SOURCE_SET_NAME);
         SourceSets.extendFromConfiguration(project, mainSourceSet, vanilla.vanillaConfig);
-        var minecraftPatchDev = ext.getPatchDev().register("minecraft", env -> {
+        var minecraftPatchDev = patches.getPatchDev().register("minecraft", env -> {
             var module = project.getLayout().getProjectDirectory().dir("module/minecraft");
-            env.getInput().set(ext.getLocalCacheDirectory().dir("sourceSets/mcp/sources"));
+            env.getInput().set(caches.getLocalDirectory().dir("sourceSets/mcp/sources"));
             env.getPatches().set(module.dir("patches"));
             env.getOutput().set(module.dir("src/main/java"));
             env.dependsOn(mcp.remapSrg2Mcp.getName());
@@ -40,24 +44,31 @@ public final class CleanroomTasks {
         this.setup = Tasks.register(project, "setup");
         this.setup.configure(task -> {
             task.setDescription("Creates the loader environment by decompiling Minecraft and applying current patches.");
-            task.dependsOn(minecraftPatchDev.map(CleanroomExtension.PatchDevEnvironment::getApplyDiffs), mcp.prepareMcpInjectedSources);
+            task.dependsOn(minecraftPatchDev.map(PatchDevEnvironment::getApplyDiffs), mcp.prepareMcpInjectedSources);
         });
 
         mainSourceSet.configure(sourceSet -> {
             sourceSet.getJava().srcDir(mcp.prepareMcpInjectedSources.map(Copy::getDestinationDir));
             project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class).configure(task ->
-                    task.dependsOn(minecraftPatchDev.map(CleanroomExtension.PatchDevEnvironment::getPrepareEnvironment),
+                    task.dependsOn(minecraftPatchDev.map(PatchDevEnvironment::getPrepareEnvironment),
                             mcp.prepareMcpInjectedSources));
         });
         var runDir = project.getLayout().getProjectDirectory().dir("run").getAsFile();
-        var forgeGroup = String.valueOf(project.getGroup());
-
-        var assetsDir = ext.getCacheDirectory().dir("assets");
-        var assetIndex = ext.getVersionMeta().map(VersionMeta::assetIndexId);
+        var offline = project.getGradle().getStartParameter().isOffline();
         var natives = vanilla.extractNatives.map(Copy::getDestinationDir);
-        var mcpToSrg = mcp.writeSrg2Mcp.flatMap(WriteMappings::getOutput);
-        var mcpVersion = mcp.mcpVersionId;
-        var mcpMappings = mcp.mcpMappingsId;
+        var mcpToSrg = mappings.writeSrg2Mcp.flatMap(WriteMappings::getOutput);
+
+        var fml = new MinecraftRuns.Fml();
+        fml.minecraftVersion = vanilla.minecraftVersion;
+        fml.mcpVersion = mappings.mcpVersionId;
+        fml.mcpMappings = mappings.mcpMappingsId;
+        fml.mcpToSrg = mcpToSrg;
+        fml.forgeGroup = String.valueOf(project.getGroup());
+        fml.forgeVersion = loader.getForgeVersion();
+        fml.assetIndex = minecraft.getVersionMeta().map(VersionMeta::assetIndexId);
+        fml.assets = caches.getDirectory().dir("assets");
+        fml.natives = natives;
+        fml.launchClass = "top.outlands.foundation.boot.Foundation";
 
         this.runCleanroomClient = Tasks.register(project, "runCleanroomClient", RunMinecraft.class);
         this.runCleanroomServer = Tasks.register(project, "runCleanroomServer", RunMinecraft.class);
@@ -65,58 +76,58 @@ public final class CleanroomTasks {
         Tasks.group(GROUP_NAME, this.setup, this.runCleanroomClient, this.runCleanroomServer, this.runCleanroomNsightClient);
 
         this.runCleanroomClient.configure(task -> {
-            task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), vanilla.downloadAssets, mcp.writeSrg2Mcp);
-
+            task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), vanilla.downloadAssets, mappings.writeSrg2Mcp);
+            MinecraftRuns.caches(task, caches, minecraft.getVersionMeta(), offline);
             task.getSide().set(Side.CLIENT);
             task.getEnv().set(Environment.CLEANROOM);
+            task.getMinecraftVersion().set(vanilla.minecraftVersion);
             task.getMainClass().set("com.cleanroommc.boot.MainClient");
             task.setWorkingDir(runDir);
             task.getNatives().fileProvider(natives);
-            task.getAssetIndexVersion().set(assetIndex);
-            task.getVanillaAssetsLocation().set(assetsDir);
             task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitClientJar.flatMap(SplitJar::getExtraJar));
-
-            task.environment("target", "fmldevclient");
-            task.environment("tweakClass", "net.minecraftforge.fml.common.launcher.FMLTweaker");
-            task.environment("mainClass", "top.outlands.foundation.boot.Foundation");
-            task.environment("assetIndex", assetIndex);
-            task.environment("assetDirectory", assetsDir);
-            task.environment("nativesDirectory", natives);
-            task.environment("MC_VERSION", MC_VERSION);
-            task.environment("MCP_VERSION", mcpVersion);
-            task.environment("MCP_MAPPINGS", mcpMappings);
-            task.environment("MCP_TO_SRG", mcpToSrg);
-            task.environment("FORGE_GROUP", forgeGroup);
-            task.environment("FORGE_VERSION", ext.getForgeVersion());
-
-            task.jvmArgs("-Dmixin.debug.export=true", "-Dmixin.checks.interfaces=true");
+            var client = new MinecraftRuns.Fml();
+            client.client = true;
+            client.target = "fmldevclient";
+            client.tweakClass = "net.minecraftforge.fml.common.launcher.FMLTweaker";
+            client.launchClass = fml.launchClass;
+            client.minecraftVersion = fml.minecraftVersion;
+            client.mcpVersion = fml.mcpVersion;
+            client.mcpMappings = fml.mcpMappings;
+            client.mcpToSrg = fml.mcpToSrg;
+            client.forgeGroup = fml.forgeGroup;
+            client.forgeVersion = fml.forgeVersion;
+            client.assetIndex = fml.assetIndex;
+            client.assets = fml.assets;
+            client.natives = fml.natives;
+            MinecraftRuns.fmlEnvironment(task, client);
         });
 
         this.runCleanroomServer.configure(task -> {
-            task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), mcp.writeSrg2Mcp);
-
+            task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), mappings.writeSrg2Mcp);
+            MinecraftRuns.caches(task, caches, minecraft.getVersionMeta(), offline);
             task.getSide().set(Side.SERVER);
             task.getEnv().set(Environment.CLEANROOM);
+            task.getMinecraftVersion().set(vanilla.minecraftVersion);
             task.getMainClass().set("com.cleanroommc.boot.MainServer");
             task.setWorkingDir(runDir);
             task.getNatives().fileProvider(natives);
             task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitServerJar.flatMap(SplitJar::getExtraJar));
-
-            task.environment("target", "fmldevserver");
-            task.environment("tweakClass", "net.minecraftforge.fml.common.launcher.FMLServerTweaker");
-            task.environment("mainClass", "top.outlands.foundation.boot.Foundation");
-            task.environment("MC_VERSION", MC_VERSION);
-            task.environment("MCP_VERSION", mcpVersion);
-            task.environment("MCP_MAPPINGS", mcpMappings);
-            task.environment("MCP_TO_SRG", mcpToSrg);
-            task.environment("FORGE_GROUP", forgeGroup);
-            task.environment("FORGE_VERSION", ext.getForgeVersion());
+            var server = new MinecraftRuns.Fml();
+            server.client = false;
+            server.target = "fmldevserver";
+            server.tweakClass = "net.minecraftforge.fml.common.launcher.FMLServerTweaker";
+            server.launchClass = fml.launchClass;
+            server.minecraftVersion = fml.minecraftVersion;
+            server.mcpVersion = fml.mcpVersion;
+            server.mcpMappings = fml.mcpMappings;
+            server.mcpToSrg = fml.mcpToSrg;
+            server.forgeGroup = fml.forgeGroup;
+            server.forgeVersion = fml.forgeVersion;
+            MinecraftRuns.fmlEnvironment(task, server);
         });
 
         this.runCleanroomNsightClient.configure(task -> {
-            // Mirror the run task's dependencies (ngfx re-launches it through the Gradle wrapper).
-            task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), vanilla.downloadAssets, vanilla.extractNatives, mcp.writeSrg2Mcp);
-
+            task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), vanilla.downloadAssets, vanilla.extractNatives, mappings.writeSrg2Mcp);
             task.getActivity().set(project.getProviders().gradleProperty("nsight_activity"));
             task.getNgfxPath().set(project.getProviders().gradleProperty("nsight_ngfx_path"));
             task.getRunTaskName().set(this.runCleanroomClient.getName());
@@ -125,6 +136,5 @@ public final class CleanroomTasks {
                     .map(launcher -> launcher.getExecutablePath().getAsFile().getAbsolutePath()));
         });
     }
-
 
 }

@@ -1,7 +1,8 @@
 package com.cleanroommc.gradle.env;
 
 import com.cleanroommc.gradle.api.Meta;
-import com.cleanroommc.gradle.api.ext.CleanroomExtension;
+import com.cleanroommc.gradle.api.ext.CachesExtension;
+import com.cleanroommc.gradle.api.ext.MappingsExtension;
 import com.cleanroommc.gradle.api.ext.ProjectMode;
 import com.cleanroommc.gradle.api.task.CleanroomInfo;
 import org.gradle.api.Project;
@@ -33,11 +34,12 @@ public class MaintenanceTasks {
     public final TaskProvider<Delete> cleanCleanroomSharedCache;
     public final TaskProvider<CleanroomInfo> cleanroomInfo;
 
-    public MaintenanceTasks(Project project, CleanroomExtension ext, VanillaTasks vanillaTasks, String pluginVersion) {
+    public MaintenanceTasks(Project project, CachesExtension caches, MappingsExtension mappings,
+                            VanillaTasks vanillaTasks, String pluginVersion) {
         this.cleanCleanroomSharedCache = project.getTasks().register("cleanCleanroomSharedCache", Delete.class, task -> {
             task.setGroup(GROUP_NAME);
             task.setDescription("Deletes the configured shared CleanroomGradle cache.");
-            task.delete(ext.getCacheDirectory());
+            task.delete(caches.getDirectory());
         });
         this.cleanroomInfo = project.getTasks().register("cleanroomInfo", CleanroomInfo.class, task -> {
             task.setGroup(GROUP_NAME);
@@ -45,18 +47,18 @@ public class MaintenanceTasks {
             task.getPluginVersion().set(pluginVersion);
             task.getMinecraftVersion().set(vanillaTasks.minecraftVersion);
             task.getOffline().set(project.getGradle().getStartParameter().isOffline());
-            task.getDiscardIntermediates().set(ext.getDiscardIntermediates());
-            task.getNamesSource().set(ext.getNamesDirectory()
+            task.getDiscardIntermediates().set(caches.getDiscardIntermediates());
+            task.getNamesSource().set(mappings.getNamesDirectory()
                     .map(directory -> "Tiny v2 (" + directory.file("mappings.tiny").getAsFile() + ")")
                     .orElse("MCP CSV dependency"));
-            task.getSharedCacheDirectory().set(ext.getCacheDirectory());
+            task.getSharedCacheDirectory().set(caches.getDirectory());
             task.getVersionCacheDirectory().set(vanillaTasks.versionCacheDirectory);
-            task.getLocalCacheDirectory().set(ext.getLocalCacheDirectory());
+            task.getLocalCacheDirectory().set(caches.getLocalDirectory());
             task.getOfflineCacheFiles().put("client jar", vanillaTasks.versionCacheDirectory
                     .map(directory -> directory.file("client.jar").getAsFile().getAbsolutePath()));
             task.getOfflineCacheFiles().put("server jar", vanillaTasks.versionCacheDirectory
                     .map(directory -> directory.file("server.jar").getAsFile().getAbsolutePath()));
-            task.getOfflineCacheFiles().put("asset index", ext.getCacheDirectory().file(
+            task.getOfflineCacheFiles().put("asset index", caches.getDirectory().file(
                             vanillaTasks.versionMeta.map(meta -> "assets/indexes/" + meta.assetIndexId() + ".json"))
                     .map(file -> file.getAsFile().getAbsolutePath()));
         });

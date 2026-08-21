@@ -1,11 +1,11 @@
 package com.cleanroommc.gradle.api.util;
 
-import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.DependencySet;
-import org.gradle.api.artifacts.ModuleDependency;
+import org.gradle.api.artifacts.dsl.DependencyFactory;
 import org.gradle.api.plugins.JavaPlugin;
+import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Provider;
 
 import java.util.List;
@@ -22,7 +22,7 @@ import java.util.List;
  *
  * <p>LWJGL ships one native jar per platform. But the published metadata has to serve every distribution.
  * Runtime classpath takes {@link Platform#lwjglNativesClassifier()}.
- * While publications takes every classifier in {@link CleanroomExtension#getLwjglNativesClassifiers()}.
+ * While publications take every classifier in {@code cleanroom.loader.lwjglNativesClassifiers}.
  */
 public final class LwjglNatives {
 
@@ -52,8 +52,9 @@ public final class LwjglNatives {
 
     private static final String CLASSIFIER_PREFIX = "natives-";
 
-    public static void register(Project project, CleanroomExtension ext) {
+    public static void register(Project project, ListProperty<String> classifiers) {
         var configurations = project.getConfigurations();
+        var factory = project.getDependencyFactory();
         var declared = configurations.register(CONFIGURATION_NAME, config -> {
             config.setDescription("LWJGL modules that need natives. Use without declaring the classifiers");
             config.setCanBeResolved(false);
@@ -63,13 +64,13 @@ public final class LwjglNatives {
             config.setDescription("LWJGL natives for the current platform");
             config.setCanBeResolved(false);
             config.setCanBeConsumed(false);
-            config.withDependencies(dependencies -> create(project, dependencies, declared.get(), List.of(Platform.CURRENT.lwjglNativesClassifier())));
+            config.withDependencies(dependencies -> create(factory, dependencies, declared.get(), List.of(Platform.CURRENT.lwjglNativesClassifier())));
         });
         var all = configurations.register(ALL_CONFIGURATION_NAME, config -> {
             config.setDescription("LWJGL natives for every platform");
             config.setCanBeResolved(false);
             config.setCanBeConsumed(false);
-            config.withDependencies(dependencies -> create(project, dependencies, declared.get(), ext.getLwjglNativesClassifiers().get()));
+            config.withDependencies(dependencies -> create(factory, dependencies, declared.get(), classifiers.get()));
         });
         project.getPlugins().withType(JavaPlugin.class, $ -> {
             configurations.named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME).configure(config -> config.extendsFrom(current.get()));
@@ -77,10 +78,10 @@ public final class LwjglNatives {
         });
     }
 
-    public static Provider<List<String>> publishedCoordinates(Project project, CleanroomExtension ext) {
+    public static Provider<List<String>> publishedCoordinates(Project project, ListProperty<String> classifiers) {
         return project.getConfigurations().named(CONFIGURATION_NAME).map(config -> config.getAllDependencies().stream()
                 .filter(dependency -> dependency.getGroup() != null)
-                .flatMap(dependency -> ext.getLwjglNativesClassifiers().get().stream()
+                .flatMap(dependency -> classifiers.get().stream()
                         .map(classifier -> dependency.getGroup() + ":" + dependency.getName() + ":" + classifier))
                 .toList()
         );
@@ -95,12 +96,12 @@ public final class LwjglNatives {
         return !classifier.startsWith(CLASSIFIER_PREFIX) || classifier.equals(Platform.CURRENT.lwjglNativesClassifier());
     }
 
-    private static void create(Project project, DependencySet target, Configuration declared, List<String> classifiers) {
+    private static void create(DependencyFactory factory, DependencySet target, Configuration declared, List<String> classifiers) {
         for (var dependency : declared.getAllDependencies()) {
             var version = dependency.getVersion() == null ? "" : dependency.getVersion();
             for (var classifier : classifiers) {
                 var notation = "%s:%s:%s:%s".formatted(dependency.getGroup(), dependency.getName(), version, classifier);
-                var created = (ModuleDependency) project.getDependencies().create(notation);
+                var created = factory.create(notation);
                 created.setTransitive(false);
                 target.add(created);
             }

@@ -1,7 +1,8 @@
 package com.cleanroommc.gradle.env;
 
-import com.cleanroommc.gradle.api.Meta;
-import com.cleanroommc.gradle.api.ext.CleanroomExtension;
+import com.cleanroommc.gradle.api.ext.CachesExtension;
+import com.cleanroommc.gradle.api.ext.LoaderExtension;
+import com.cleanroommc.gradle.api.ext.MinecraftExtension;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.task.IntermediateProcessor;
 import com.cleanroommc.gradle.api.task.Tasks;
@@ -10,29 +11,22 @@ import com.cleanroommc.gradle.api.task.dist.WriteInstallProfile;
 import com.cleanroommc.gradle.api.task.dist.WriteUserdevConfig;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
-import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
+import com.cleanroommc.gradle.api.util.dist.Repositories;
+import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.task.patch.GenerateBinPatches;
 import com.cleanroommc.gradle.api.task.sas.StripSideOnlyJar;
 import de.undercouch.gradle.tasks.download.Download;
 import net.minecraftforge.renamer.gradle.RenameJar;
 import net.minecraftforge.renamer.gradle.RenamerExtension;
-import net.minecraftforge.srgutils.IMappingFile;
 import org.gradle.jvm.toolchain.JavaLanguageVersion;
 import net.minecraftforge.fml.relauncher.Side;
 import org.gradle.api.Project;
-import org.gradle.api.artifacts.component.ComponentIdentifier;
-import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
-import org.gradle.api.artifacts.result.ResolvedArtifactResult;
-import org.gradle.api.artifacts.result.ResolvedComponentResult;
-import org.gradle.api.artifacts.result.ResolvedDependencyResult;
 import org.gradle.api.attributes.Category;
 import org.gradle.api.attributes.LibraryElements;
 import org.gradle.api.attributes.Usage;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
-import org.gradle.api.provider.Provider;
-import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.bundling.Jar;
@@ -40,18 +34,14 @@ import org.gradle.api.tasks.bundling.Zip;
 import org.gradle.api.tasks.javadoc.Javadoc;
 import org.gradle.external.javadoc.MinimalJavadocOptions;
 
-import java.io.File;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -66,14 +56,7 @@ public final class DistributionTasks {
     private static final String ARTIFACT_ID = "cleanroom";
     private static final String MINECRAFT_PACKAGE = "net/minecraft/";
 
-    public static final String USERDEV_BINPATCHES = "binpatches.zip";
-    public static final String USERDEV_CLIENT_BINPATCHES = "binpatch/client/";
-    public static final String USERDEV_SERVER_BINPATCHES = "binpatch/server/";
-    public static final String USERDEV_SRG2MCP = "srg2mcp.tsrg";
-    public static final String USERDEV_MCP2SRG = "mcp2srg.tsrg";
-    public static final String USERDEV_ATS = "ats";
-
-    public final TaskProvider<WriteMappings> writeMcp2SrgDist, writeObf2SrgTsrg, writeMcp2Notch;
+    public final TaskProvider<WriteMappings> writeMcp2Srg, writeObf2SrgTsrg, writeMcp2Notch;
     public final TaskProvider<RenameJar> reobfJar, reobfMinecraftJar;
     public final TaskProvider<Jar> minecraftClassesJar, universalJar, userdevJar, javadocJar;
     public final TaskProvider<StripSideOnlyJar> stripClientMinecraftJar, stripServerMinecraftJar;
@@ -84,7 +67,8 @@ public final class DistributionTasks {
     public final TaskProvider<WriteInstallProfile> writeInstallProfile;
     public final TaskProvider<Jar> installerJar;
 
-    public DistributionTasks(Project project, CleanroomExtension ext, VanillaTasks vanilla, MCPTasks mcp) {
+    public DistributionTasks(Project project, CachesExtension caches, MinecraftExtension minecraft, LoaderExtension loader,
+                             VanillaTasks vanilla, McpMappings mappings, IntermediateProcessor intermediates) {
         var layout = project.getLayout();
         var providers = project.getProviders();
         var group = String.valueOf(project.getGroup());
@@ -102,26 +86,8 @@ public final class DistributionTasks {
         var mainSourceSet = javaExtension.getSourceSets().named(SourceSet.MAIN_SOURCE_SET_NAME);
         var jarTask = project.getTasks().named("jar", Jar.class);
 
-        var srgMapping = ext.getVersionCacheDirectory().file("mcp_config/config/joined.tsrg");
-        var mcpMappingsDir = mcp.extractMcpMappings.map(Copy::getDestinationDir);
-
-        var extraFiles = project.fileTree(layout.getProjectDirectory(), spec -> spec.include(
-                "CREDITS.txt",
-                "LICENSE.txt",
-                "LICENSE",
-                "CHANGELOG.md",
-                "LICENSE-Paulscode IBXM Library.txt",
-                "LICENSE-Paulscode SoundSystem CodecIBXM.txt"
-        ));
-
-        // TODO: make this less hardcoded
-        var distributionRepositories = new LinkedHashMap<String, String>();
-        distributionRepositories.put("*", "https://repo.maven.apache.org/maven2/");
-        distributionRepositories.put("com.cleanroommc", Meta.CLEANROOM_REPO);
-        distributionRepositories.put("top.outlands", Meta.CLEANROOM_REPO);
-        distributionRepositories.put("net.minecraftforge", Meta.FORGE_REPO);
-        distributionRepositories.put("de.oceanlabs.mcp", Meta.FORGE_REPO);
-        distributionRepositories.put("com.mojang", Meta.MOJANG_REPO);
+        var archives = Tasks.archives(project);
+        var distributionRepositories = Repositories.distribution();
 
         var installerBase = Objects.config(project, "installerBase");
         installerBase.configure(config -> {
@@ -131,7 +97,7 @@ public final class DistributionTasks {
             config.setTransitive(false);
         });
         project.getDependencies().addProvider(installerBase.getName(),
-                ext.getInstallerVersion().map(installerVersion -> "com.cleanroommc:installer:" + installerVersion));
+                loader.getInstallerVersion().map(installerVersion -> "com.cleanroommc:installer:" + installerVersion));
 
         var runtimeClasspath = project.getConfigurations().named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME);
         var mmcPackLibraries = Objects.config(project, "mmcPackLibraries");
@@ -146,22 +112,12 @@ public final class DistributionTasks {
                 attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, project.getObjects().named(LibraryElements.class, LibraryElements.JAR));
             });
         });
-        var mmcLibraryArtifacts = mmcPackLibraries.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts())
-                .map(artifacts -> artifacts.stream()
-                        .filter(artifact -> artifact.getId().getComponentIdentifier() instanceof ModuleComponentIdentifier)
-                        .sorted(Comparator.comparing(DistributionTasks::resolvedCoordinate))
-                        .map(artifact -> {
-                            var input = project.getObjects().newInstance(LibraryArtifact.class);
-                            input.getCoordinate().set(resolvedCoordinate(artifact));
-                            input.getFile().fileValue(artifact.getFile());
-                            return input;
-                        })
-                        .toList()
-                );
+        var mmcLibraryArtifacts = ResolvedLibraries.artifacts(project.getObjects(),
+                mmcPackLibraries.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts()));
 
-        this.writeMcp2SrgDist = Tasks.register(project, "writeMcp2SrgDist", WriteMappings.class);
-        this.writeObf2SrgTsrg = Tasks.register(project, "writeObf2SrgTsrg", WriteMappings.class);
-        this.writeMcp2Notch = mcp.registerMcp2Notch(project, ext);
+        this.writeMcp2Srg = mappings.write(project, caches, "writeMcp2Srg", WriteMappings.Direction.MCP_TO_SRG, "mcp2srg.tsrg");
+        this.writeObf2SrgTsrg = mappings.write(project, caches, "writeObf2SrgTsrg", WriteMappings.Direction.OBF_TO_SRG, "obf2srg.tsrg");
+        this.writeMcp2Notch = mappings.write(project, caches, "writeMcp2Notch", WriteMappings.Direction.MCP_TO_NOTCH, "mcp2notch.tsrg");
         this.reobfJar = project.getTasks().register("reobfJar", RenameJar.class, project.getExtensions().getByType(RenamerExtension.class));
         this.minecraftClassesJar = Tasks.register(project, "minecraftClassesJar", Jar.class);
         this.reobfMinecraftJar = project.getTasks().register("reobfMinecraftJar", RenameJar.class, project.getExtensions().getByType(RenamerExtension.class));
@@ -182,79 +138,59 @@ public final class DistributionTasks {
         project.getTasks().named("assemble").configure(task ->
                 task.dependsOn(this.universalJar, this.userdevJar, this.javadocJar, this.publishMmcPackZip));
 
-        this.writeMcp2SrgDist.configure(task -> {
-            task.dependsOn(mcp.extractMcpConfig);
-
-            task.getJoinedSrgFile().set(srgMapping);
-            task.getMethodMappings().fileProvider(mcpMappingsDir.map(dir -> new File(dir, "methods.csv")));
-            task.getFieldMappings().fileProvider(mcpMappingsDir.map(dir -> new File(dir, "fields.csv")));
-            task.getTinyMappings().fileProvider(mcp.tinyFileWhenPresent);
-            task.getNamesId().set(mcp.activeNamesId);
-            task.getDirection().set(WriteMappings.Direction.MCP_TO_SRG);
-            task.getFormat().set(IMappingFile.Format.TSRG);
-            task.getOutput().set(ext.getLocalCacheDirectory().file("mappings/mcp2srg.tsrg"));
-        });
-        this.writeObf2SrgTsrg.configure(task -> {
-            task.dependsOn(mcp.extractMcpConfig);
-
-            task.getJoinedSrgFile().set(srgMapping);
-            task.getDirection().set(WriteMappings.Direction.OBF_TO_SRG);
-            task.getFormat().set(IMappingFile.Format.TSRG);
-            task.getOutput().set(ext.getLocalCacheDirectory().file("mappings/obf2srg.tsrg"));
-        });
         this.reobfJar.configure(task -> {
             task.getInput().set(jarTask.flatMap(Jar::getArchiveFile));
-            task.getMap().setFrom(this.writeMcp2SrgDist.flatMap(WriteMappings::getOutput));
+            task.getMap().setFrom(this.writeMcp2Srg.flatMap(WriteMappings::getOutput));
             task.getLibraries().setFrom(vanilla.vanillaConfig, mainSourceSet.map(SourceSet::getCompileClasspath));
-            task.getOutput().set(ext.getLocalCacheDirectory().file("dist/reobf/" + ARTIFACT_ID + "-srg.jar"));
+            task.getOutput().set(caches.getLocalDirectory().file("dist/reobf/" + ARTIFACT_ID + "-srg.jar"));
         });
         this.minecraftClassesJar.configure(task -> {
             task.setDescription("Repackages only the patched-Minecraft portion of the main jar for binpatch generation.");
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);
 
-            task.from(project.zipTree(jarTask.flatMap(Jar::getArchiveFile)), spec -> spec.include("net/minecraft/**"));
-            task.getDestinationDirectory().set(ext.getLocalCacheDirectory().dir("dist/reobf"));
+            task.from(archives.zipTree(jarTask.flatMap(Jar::getArchiveFile)), spec -> spec.include("net/minecraft/**"));
+            task.getDestinationDirectory().set(caches.getLocalDirectory().dir("dist/reobf"));
             task.getArchiveFileName().set("minecraft-mcp.jar");
         });
         this.reobfMinecraftJar.configure(task -> {
             task.getInput().set(this.minecraftClassesJar.flatMap(Jar::getArchiveFile));
             task.getMap().setFrom(this.writeMcp2Notch.flatMap(WriteMappings::getOutput));
             task.getLibraries().setFrom(vanilla.vanillaConfig, mainSourceSet.map(SourceSet::getCompileClasspath));
-            task.getOutput().set(ext.getLocalCacheDirectory().file("dist/reobf/minecraft-notch.jar"));
+            task.getOutput().set(caches.getLocalDirectory().file("dist/reobf/minecraft-notch.jar"));
         });
         this.stripClientMinecraftJar.configure(task -> {
             task.getInputJar().set(this.reobfMinecraftJar.flatMap(RenameJar::getOutput));
             task.getTargetSide().set(Side.CLIENT);
-            task.getOutputJar().set(ext.getLocalCacheDirectory().file("dist/reobf/minecraft-client.jar"));
+            task.getOutputJar().set(caches.getLocalDirectory().file("dist/reobf/minecraft-client.jar"));
         });
         this.stripServerMinecraftJar.configure(task -> {
             task.getInputJar().set(this.reobfMinecraftJar.flatMap(RenameJar::getOutput));
             task.getTargetSide().set(Side.SERVER);
-            task.getOutputJar().set(ext.getLocalCacheDirectory().file("dist/reobf/minecraft-server.jar"));
+            task.getOutputJar().set(caches.getLocalDirectory().file("dist/reobf/minecraft-server.jar"));
         });
         this.genClientBinPatches.configure(task -> {
             task.getOriginalJar().fileProvider(vanilla.downloadClientJar.map(Download::getDest));
             task.getModifiedJar().set(this.stripClientMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar));
             task.getIncludedPrefixes().add(MINECRAFT_PACKAGE);
-            task.getBinpatches().set(ext.getLocalCacheDirectory().file("binpatches/client.zip"));
+            task.getBinpatches().set(caches.getLocalDirectory().file("binpatches/client.zip"));
         });
         this.genServerBinPatches.configure(task -> {
             task.getOriginalJar().fileProvider(vanilla.downloadServerJar.map(Download::getDest));
             task.getModifiedJar().set(this.stripServerMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar));
             task.getIncludedPrefixes().add(MINECRAFT_PACKAGE);
-            task.getBinpatches().set(ext.getLocalCacheDirectory().file("binpatches/server.zip"));
+            task.getBinpatches().set(caches.getLocalDirectory().file("binpatches/server.zip"));
         });
         this.genRuntimeBinPatches.configure(task -> {
             task.setDescription("Merges client and server binpatches into a single archive for runtime.");
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);
 
-            task.from(project.zipTree(this.genClientBinPatches.flatMap(GenerateBinPatches::getBinpatches)),
+            task.from(archives.zipTree(this.genClientBinPatches.flatMap(GenerateBinPatches::getBinpatches)),
                     spec -> spec.into("binpatch/client"));
-            task.from(project.zipTree(this.genServerBinPatches.flatMap(GenerateBinPatches::getBinpatches)),
+            task.from(archives.zipTree(this.genServerBinPatches.flatMap(GenerateBinPatches::getBinpatches)),
                     spec -> spec.into("binpatch/server"));
-            task.getDestinationDirectory().set(ext.getLocalCacheDirectory().dir("binpatches"));
+            task.getDestinationDirectory().set(caches.getLocalDirectory().dir("binpatches"));
             task.getArchiveFileName().set("runtime.zip");
         });
         this.universalJar.configure(task -> {
@@ -267,14 +203,21 @@ public final class DistributionTasks {
             task.getArchiveClassifier().set("universal");
             task.getInputs().property("manifestTimestamp", timestampProperty);
 
-            task.from(project.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)), spec -> spec.exclude("net/minecraft/**"));
-            task.from(extraFiles);
+            task.from(archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)), spec -> spec.exclude("net/minecraft/**"));
+            task.from(layout.getProjectDirectory(), spec -> spec.include(
+                    "CREDITS.txt",
+                    "LICENSE.txt",
+                    "LICENSE",
+                    "CHANGELOG.md",
+                    "LICENSE-Paulscode IBXM Library.txt",
+                    "LICENSE-Paulscode SoundSystem CodecIBXM.txt"
+            ));
             task.from(this.writeObf2SrgTsrg.flatMap(WriteMappings::getOutput),
                     spec -> spec.rename(name -> "deobf_data-" + MINECRAFT_VERSION + ".tsrg"));
             task.from(this.genRuntimeBinPatches.flatMap(Zip::getArchiveFile),
                     spec -> spec.rename(name -> "binpatches.zip"));
 
-            var forgeVersion = ext.getForgeVersion();
+            var forgeVersion = loader.getForgeVersion();
             task.doFirst("configureManifest", t -> {
                 var jar = (Jar) t;
 
@@ -307,18 +250,21 @@ public final class DistributionTasks {
             task.setDescription("Writes the metadata a mod developer's environment rebuilds itself from.");
 
             task.getCleanroomVersion().set(version);
-            task.getForgeVersion().set(ext.getForgeVersion());
-            task.getMcpConfig().set(mcp.mcpConfig.map(Objects::notation));
-            task.getBinpatches().set(USERDEV_BINPATCHES);
-            task.getClientBinpatches().set(USERDEV_CLIENT_BINPATCHES);
-            task.getServerBinpatches().set(USERDEV_SERVER_BINPATCHES);
-            task.getSrg2Mcp().set(USERDEV_SRG2MCP);
-            task.getMcp2Srg().set(USERDEV_MCP2SRG);
-            task.getAccessTransformers().set(ext.getAccessTransformers().getElements().map(files ->
-                    files.stream().map(file -> USERDEV_ATS + "/" + file.getAsFile().getName()).toList()));
-            task.getLibraries().set(resolvedLibraries(project).zip(LwjglNatives.publishedCoordinates(project, ext), DistributionTasks::mergeLibraries));
+            task.getForgeVersion().set(loader.getForgeVersion());
+            task.getMcpConfig().set(mappings.mcpConfig.map(Objects::notation));
+            task.getBinpatches().set(UserdevConfig.BINPATCHES);
+            task.getClientBinpatches().set(UserdevConfig.CLIENT_BINPATCHES);
+            task.getServerBinpatches().set(UserdevConfig.SERVER_BINPATCHES);
+            task.getSrg2Mcp().set(UserdevConfig.SRG2MCP);
+            task.getMcp2Srg().set(UserdevConfig.MCP2SRG);
+            task.getAccessTransformers().set(loader.getAccessTransformers().getElements().map(files ->
+                    files.stream().map(file -> UserdevConfig.ATS + "/" + file.getAsFile().getName()).toList()));
+            task.getLibraries().set(ResolvedLibraries.modules(project.getConfigurations()
+                    .named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME)
+                    .flatMap(config -> config.getIncoming().getResolutionResult().getRootComponent()))
+                    .zip(LwjglNatives.publishedCoordinates(project, loader.getLwjglNativesClassifiers()), ResolvedLibraries::mergeNatives));
             task.getLoaderGroup().set(group);
-            task.getOutput().set(ext.getLocalCacheDirectory().file("dist/" + UserdevConfig.FILE_NAME));
+            task.getOutput().set(caches.getLocalDirectory().file("dist/" + UserdevConfig.FILE_NAME));
         });
         this.userdevJar.configure(task -> {
             task.setDescription("Assembles the userdev jar for mod developers.");
@@ -330,14 +276,14 @@ public final class DistributionTasks {
             task.getArchiveClassifier().set("userdev");
 
             // SRG-named
-            task.from(project.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)), spec -> spec.exclude(MINECRAFT_PACKAGE + "**"));
+            task.from(archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)), spec -> spec.exclude(MINECRAFT_PACKAGE + "**"));
             task.from(this.genRuntimeBinPatches.flatMap(Zip::getArchiveFile),
-                    spec -> spec.rename(name -> USERDEV_BINPATCHES));
-            task.from(ext.getAccessTransformers(), spec -> spec.into(USERDEV_ATS));
-            task.from(mcp.writeSrg2Mcp.flatMap(WriteMappings::getOutput),
-                    spec -> spec.rename(name -> USERDEV_SRG2MCP));
-            task.from(this.writeMcp2SrgDist.flatMap(WriteMappings::getOutput),
-                    spec -> spec.rename(name -> USERDEV_MCP2SRG));
+                    spec -> spec.rename(name -> UserdevConfig.BINPATCHES));
+            task.from(loader.getAccessTransformers(), spec -> spec.into(UserdevConfig.ATS));
+            task.from(mappings.writeSrg2Mcp.flatMap(WriteMappings::getOutput),
+                    spec -> spec.rename(name -> UserdevConfig.SRG2MCP));
+            task.from(this.writeMcp2Srg.flatMap(WriteMappings::getOutput),
+                    spec -> spec.rename(name -> UserdevConfig.MCP2SRG));
             task.from(this.writeUserdevConfig.flatMap(WriteUserdevConfig::getOutput));
         });
         this.publishMmcPackZip.configure(task -> {
@@ -351,12 +297,12 @@ public final class DistributionTasks {
                     .map(languageVersion -> List.of(languageVersion.asInt()))
                     .orElse(List.of()));
             task.getUniversalCoordinate().set(group + ":" + ARTIFACT_ID + ":" + version + ":universal");
-            task.getUniversalUrl().set(Meta.CLEANROOM_REPO
+            task.getUniversalUrl().set(Repositories.CLEANROOM_REPO
                     + group.replace('.', '/') + "/" + ARTIFACT_ID + "/" + version + "/"
                     + ARTIFACT_ID + "-" + version + "-universal.jar");
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
             task.getLibraries().set(mmcLibraryArtifacts);
-            task.getInheritedLibraries().set(ext.getVersionMeta().map(meta -> meta.libraries().stream()
+            task.getInheritedLibraries().set(minecraft.getVersionMeta().map(meta -> meta.libraries().stream()
                     .map(library -> library.name())
                     .collect(Collectors.toCollection(LinkedHashSet::new))));
             task.getRepositoryUrls().set(distributionRepositories);
@@ -368,12 +314,12 @@ public final class DistributionTasks {
 
             task.getProfileName().set(titleProperty);
             task.getCleanroomVersion().set(version);
-            task.getVersionId().set(titleProperty.get() + "-" + version);
+            task.getVersionId().set(titleProperty.map(title -> title + "-" + version));
             task.getMainClass().set("top.outlands.foundation.boot.Foundation");
             task.getServerMainClass().set("top.outlands.foundation.boot.Foundation");
             task.getTweakers().add("net.minecraftforge.fml.common.launcher.FMLTweaker");
             task.getServerTweakers().add("net.minecraftforge.fml.common.launcher.FMLServerTweaker");
-            task.getJvmArgs().set(ext.getInstallerJvmArgs());
+            task.getJvmArgs().set(loader.getInstallerJvmArgs());
             task.getMinimumJava().set(MINIMUM_JAVA);
             task.getRecommendedJava().set(javaExtension.getToolchain().getLanguageVersion()
                     .map(JavaLanguageVersion::asInt)
@@ -382,14 +328,14 @@ public final class DistributionTasks {
             task.getUniversalCoordinate().set(group + ":" + ARTIFACT_ID + ":" + version + ":universal");
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
             task.getLibraries().set(mmcLibraryArtifacts);
-            task.getInheritedLibraries().set(ext.getVersionMeta().map(meta -> meta.libraries().stream()
+            task.getInheritedLibraries().set(minecraft.getVersionMeta().map(meta -> meta.libraries().stream()
                     .map(library -> library.name())
                     .collect(Collectors.toCollection(LinkedHashSet::new))));
             task.getRepositoryUrls().set(distributionRepositories);
-            task.getVersionMeta().set(ext.getVersionMeta());
+            task.getVersionMeta().set(minecraft.getVersionMeta());
             task.getReleaseTime().set(timestampProperty);
-            task.getInstallProfile().set(ext.getLocalCacheDirectory().map(dir -> dir.file("dist/install_profile.json")));
-            task.getVersionJson().set(ext.getLocalCacheDirectory().map(dir -> dir.file("dist/version.json")));
+            task.getInstallProfile().set(caches.getLocalDirectory().map(dir -> dir.file("dist/install_profile.json")));
+            task.getVersionJson().set(caches.getLocalDirectory().map(dir -> dir.file("dist/version.json")));
         });
 
         this.installerJar.configure(task -> {
@@ -401,15 +347,17 @@ public final class DistributionTasks {
             task.getArchiveVersion().set(version);
             task.getArchiveClassifier().set("installer");
 
-            task.from(project.zipTree(installerBase.map(config -> {
-                var files = config.getFiles();
-                if (files.size() != 1) {
-                    throw new IllegalStateException("Expected exactly one installer runtime jar on the "
-                            + installerBase.getName() + " configuration, resolved " + files
-                            + ". Set cleanroom.installerVersion to a published com.cleanroommc:installer release.");
-                }
-                return files.iterator().next();
-            })), spec -> spec.exclude("META-INF/MANIFEST.MF", "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA"));
+            var installerRuntime = installerBase.flatMap(config ->
+                    config.getIncoming().getArtifacts().getResolvedArtifacts().map(artifacts -> {
+                        if (artifacts.size() != 1) {
+                            throw new IllegalStateException("Expected exactly one installer runtime jar on the "
+                                    + "installerBase configuration, resolved " + artifacts.size()
+                                    + ". Set cleanroom.loader.installerVersion to a published com.cleanroommc:installer release.");
+                        }
+                        return artifacts.iterator().next().getFile();
+                    }));
+            task.from(archives.zipTree(installerRuntime), spec -> spec.exclude(
+                    "META-INF/MANIFEST.MF", "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA"));
             task.from(this.writeInstallProfile.flatMap(WriteInstallProfile::getInstallProfile));
             task.from(this.writeInstallProfile.flatMap(WriteInstallProfile::getVersionJson));
             task.from(this.universalJar.flatMap(Jar::getArchiveFile), spec -> {
@@ -439,7 +387,6 @@ public final class DistributionTasks {
             task.from(javadocTask.map(Javadoc::getDestinationDir));
         });
 
-        var intermediates = IntermediateProcessor.of(project);
         intermediates.discardAfterAll("discardReobfLoaderJar",
                 List.of(this.universalJar, this.userdevJar),
                 this.reobfJar.flatMap(RenameJar::getOutput)
@@ -458,94 +405,12 @@ public final class DistributionTasks {
         );
     }
 
-    /** The specification version: the last release tag, i.e. the project version with any {@code +build...} suffix removed. */
+    /**
+     * The specification version: the last release tag, i.e. the project version with any {@code +build...} suffix removed.
+     */
     private static String specVersion(String version) {
         var idx = version.indexOf('+');
         return idx == -1 ? version : version.substring(0, idx);
-    }
-
-    private static Provider<List<String>> resolvedLibraries(Project project) {
-        return project.getConfigurations().named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME)
-                .flatMap(config -> config.getIncoming().getResolutionResult().getRootComponent())
-                .map(root -> {
-                    var coordinates = new LinkedHashSet<String>();
-                    collectModules(root, coordinates, new HashSet<>());
-                    return List.copyOf(coordinates);
-                });
-    }
-
-    private static void collectModules(ResolvedComponentResult component, Set<String> coordinates, Set<ComponentIdentifier> seen) {
-        if (!seen.add(component.getId())) {
-            return;
-        }
-        // A platform contributes versions rather than a jar, so it is not a library to put on a classpath
-        if (component.getId() instanceof ModuleComponentIdentifier module && !isPlatform(component)) {
-            coordinates.add(module.getGroup() + ":" + module.getModule() + ":" + module.getVersion());
-        }
-        for (var dependency : component.getDependencies()) {
-            if (dependency instanceof ResolvedDependencyResult resolved) {
-                collectModules(resolved.getSelected(), coordinates, seen);
-            }
-        }
-    }
-
-    private static boolean isPlatform(ResolvedComponentResult component) {
-        for (var variant : component.getVariants()) {
-            var attributes = variant.getAttributes();
-            for (var attribute : attributes.keySet()) {
-                if (!Category.CATEGORY_ATTRIBUTE.getName().equals(attribute.getName())) {
-                    continue;
-                }
-                var category = String.valueOf(attributes.getAttribute(attribute));
-                if (Category.REGULAR_PLATFORM.equals(category) || Category.ENFORCED_PLATFORM.equals(category)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private static List<String> mergeLibraries(List<String> modules, List<String> natives) {
-        var versions = new LinkedHashMap<String, String>();
-        for (var module : modules) {
-            var parts = module.split(":");
-            versions.put(parts[0] + ":" + parts[1], parts[2]);
-        }
-        var libraries = new LinkedHashSet<>(modules);
-        for (var nativeLibrary : natives) {
-            var parts = nativeLibrary.split(":");
-            var module = parts[0] + ":" + parts[1];
-            var version = versions.get(module);
-            if (version == null) {
-                continue;
-            }
-            libraries.add(module + ":" + version + ":" + parts[2]);
-        }
-        return List.copyOf(libraries);
-    }
-
-    private static String resolvedCoordinate(ResolvedArtifactResult artifact) {
-        if (!(artifact.getId().getComponentIdentifier() instanceof ModuleComponentIdentifier module)) {
-            throw new IllegalArgumentException("MMC packs can only publish module artifacts: " + artifact.getId());
-        }
-        var fileName = artifact.getFile().getName();
-        var dot = fileName.lastIndexOf('.');
-        var extension = dot == -1 ? "jar" : fileName.substring(dot + 1);
-        var stem = dot == -1 ? fileName : fileName.substring(0, dot);
-        var prefix = module.getModule() + "-" + module.getVersion();
-        if (!stem.equals(prefix) && !stem.startsWith(prefix + "-")) {
-            throw new IllegalArgumentException("Cannot derive the classifier for " + artifact.getId()
-                    + " from file " + fileName);
-        }
-        var classifier = stem.length() == prefix.length() ? "" : stem.substring(prefix.length() + 1);
-        var coordinate = module.getGroup() + ":" + module.getModule() + ":" + module.getVersion();
-        if (!classifier.isEmpty()) {
-            coordinate += ":" + classifier;
-        }
-        if (!extension.equals("jar")) {
-            coordinate += "@" + extension;
-        }
-        return coordinate;
     }
 
 }

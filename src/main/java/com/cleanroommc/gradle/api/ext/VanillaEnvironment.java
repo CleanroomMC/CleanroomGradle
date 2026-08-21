@@ -59,7 +59,7 @@ public abstract class VanillaEnvironment implements Named {
         return tasks().runVanillaServer;
     }
 
-    public void register(Project project, CleanroomExtension extension) {
+    public void register(Project project, CachesExtension caches, MinecraftExtension minecraft) {
         if (this.tasks != null) {
             return;
         }
@@ -75,7 +75,7 @@ public abstract class VanillaEnvironment implements Named {
             throw CleanroomProblems.throwing(getProblems(), new InvalidUserDataException(message),
                     CleanroomProblems.INVALID_VANILLA_ENVIRONMENT, message, "Choose a different vanilla environment name.");
         }
-        this.tasks = new VanillaTasks(project, extension, this);
+        this.tasks = new VanillaTasks(project, caches, minecraft, this);
     }
 
     private VanillaTasks tasks() {
