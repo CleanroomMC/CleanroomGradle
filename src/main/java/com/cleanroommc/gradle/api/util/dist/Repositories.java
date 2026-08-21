@@ -14,6 +14,7 @@ public final class Repositories {
     public static final String FORGE_REPO = "https://maven.minecraftforge.net/";
     public static final String MOJANG_REPO = "https://libraries.minecraft.net/";
 
+    // TODO
     public static Map<String, String> distribution() {
         var repositories = new LinkedHashMap<String, String>();
         repositories.put("*", "https://repo.maven.apache.org/maven2/");
@@ -22,6 +23,9 @@ public final class Repositories {
         repositories.put("net.minecraftforge", FORGE_REPO);
         repositories.put("de.oceanlabs.mcp", FORGE_REPO);
         repositories.put("com.mojang", MOJANG_REPO);
+        // Legacy Minecraft libraries Mojang hosts
+        repositories.put("java3d", MOJANG_REPO);
+        repositories.put("lzma", MOJANG_REPO);
         return repositories;
     }
 
