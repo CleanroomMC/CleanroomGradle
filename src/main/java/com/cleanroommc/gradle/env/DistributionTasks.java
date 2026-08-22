@@ -226,12 +226,14 @@ public final class DistributionTasks {
             task.getOriginalJar().fileProvider(vanilla.downloadClientJar.map(Download::getDest));
             task.getModifiedJar().set(this.stripClientMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar));
             task.getIncludedPrefixes().add(MINECRAFT_PACKAGE);
+            task.getObfuscationMappings().set(this.writeObf2SrgTsrg.flatMap(WriteMappings::getOutput));
             task.getBinpatches().set(caches.getLocalDirectory().file("binpatches/client.zip"));
         });
         this.genServerBinPatches.configure(task -> {
             task.getOriginalJar().fileProvider(vanilla.downloadServerJar.map(Download::getDest));
             task.getModifiedJar().set(this.stripServerMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar));
             task.getIncludedPrefixes().add(MINECRAFT_PACKAGE);
+            task.getObfuscationMappings().set(this.writeObf2SrgTsrg.flatMap(WriteMappings::getOutput));
             task.getBinpatches().set(caches.getLocalDirectory().file("binpatches/server.zip"));
         });
         this.genRuntimeBinPatches.configure(task -> {

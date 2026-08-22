@@ -8,13 +8,14 @@ import org.gradle.api.provider.SetProperty;
 import org.gradle.api.tasks.CacheableTask;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -50,6 +51,11 @@ public abstract class GenerateBinPatches extends DefaultTask {
     @Input
     public abstract SetProperty<String> getIncludedPrefixes();
 
+    @InputFile
+    @Optional
+    @PathSensitive(PathSensitivity.NONE)
+    public abstract RegularFileProperty getObfuscationMappings();
+
     @OutputFile
     public abstract RegularFileProperty getBinpatches();
 
@@ -57,7 +63,12 @@ public abstract class GenerateBinPatches extends DefaultTask {
     public void generate() {
         Path output = getBinpatches().getAsFile().get().toPath();
         Path temporary = output.resolveSibling(output.getFileName() + ".tmp");
-        Set<String> prefixes = getIncludedPrefixes().get();
+        Set<String> prefixes;
+        try {
+            prefixes = collectPrefixes();
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read obfuscation mappings", e);
+        }
         try {
             Path parent = output.getParent();
             if (parent != null) {
@@ -99,6 +110,23 @@ public abstract class GenerateBinPatches extends DefaultTask {
             }
             throw new UncheckedIOException("Failed to generate binpatches", e);
         }
+    }
+
+    private Set<String> collectPrefixes() throws IOException {
+        var prefixes = new TreeSet<>(getIncludedPrefixes().get());
+        File mappings = getObfuscationMappings().getAsFile().getOrNull();
+        if (mappings == null) {
+            return prefixes;
+        }
+        for (String line : Files.readAllLines(mappings.toPath(), StandardCharsets.UTF_8)) {
+            if (line.isEmpty() || Character.isWhitespace(line.charAt(0))) {
+                continue;
+            }
+            String obfuscatedName = line.split(" ", 2)[0];
+            prefixes.add(obfuscatedName + ".class");
+            prefixes.add(obfuscatedName + "$");
+        }
+        return prefixes;
     }
 
     private static Map<String, ZipEntry> indexClasses(ZipFile zip, Set<String> prefixes) {
