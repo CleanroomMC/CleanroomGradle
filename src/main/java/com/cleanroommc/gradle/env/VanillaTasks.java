@@ -24,6 +24,7 @@ import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.DependencySet;
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.dsl.DependencyFactory;
 import org.gradle.api.file.Directory;
 import org.gradle.api.file.RegularFile;
@@ -34,6 +35,7 @@ import org.gradle.jvm.toolchain.JavaLauncher;
 import org.gradle.jvm.toolchain.JavaToolchainService;
 
 import java.io.File;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -59,13 +61,17 @@ public final class VanillaTasks {
         }
     }
 
-    public static void addDistributionNatives(DependencyFactory factory, DependencySet dependencies, VersionMeta meta) {
+    static void addDistributionNatives(DependencyFactory factory, DependencySet dependencies, VersionMeta meta,
+                                       Map<String, String> selectedVersions) {
         for (var library : meta.libraries()) {
             if (!library.hasNatives() || library.downloads() == null
                     || library.downloads().classifiers() == null || isLwjgl2(library.name())) {
                 continue;
             }
             var coordinates = library.name().split(":");
+            if (ordinaryArtifactWasReplaced(library, coordinates, selectedVersions)) {
+                continue;
+            }
             for (var classifier : library.downloads().classifiers().keySet()) {
                 if (!classifier.startsWith(NATIVES_PREFIX)) {
                     continue;
@@ -101,6 +107,25 @@ public final class VanillaTasks {
         return name.startsWith(LWJGL2_GROUP + ":");
     }
 
+    static Map<String, String> selectedVersions(Configuration configuration) {
+        var versions = new LinkedHashMap<String, String>();
+        for (var component : configuration.getIncoming().getResolutionResult().getAllComponents()) {
+            if (component.getId() instanceof ModuleComponentIdentifier module) {
+                versions.put(module.getGroup() + ":" + module.getModule(), module.getVersion());
+            }
+        }
+        return versions;
+    }
+
+    private static boolean ordinaryArtifactWasReplaced(VersionMeta.Library library, String[] coordinates,
+                                                        Map<String, String> selectedVersions) {
+        if (library.artifact() == null) {
+            return false;
+        }
+        var selectedVersion = selectedVersions.get(coordinates[0] + ":" + coordinates[1]);
+        return selectedVersion != null && !selectedVersion.equals(coordinates[2]);
+    }
+
     private static void addLibraries(DependencyFactory factory, DependencySet dependencies, VersionMeta meta) {
         var nativeModules = nativeModules(meta);
         for (var library : meta.libraries()) {
@@ -115,9 +140,14 @@ public final class VanillaTasks {
         }
     }
 
-    private static void addNatives(DependencyFactory factory, DependencySet dependencies, VersionMeta meta) {
+    static void addNatives(DependencyFactory factory, DependencySet dependencies, VersionMeta meta,
+                           Map<String, String> selectedVersions) {
         for (var library : meta.libraries()) {
             if (!library.isValidForOS(Platform.CURRENT) || !library.hasNativesForOS(Platform.CURRENT)) {
+                continue;
+            }
+            var coordinates = library.name().split(":");
+            if (ordinaryArtifactWasReplaced(library, coordinates, selectedVersions)) {
                 continue;
             }
             var classifier = library.classifierForOS(Platform.CURRENT);
@@ -187,8 +217,9 @@ public final class VanillaTasks {
         this.vanillaNativesConfig = Objects.config(project, configurationName(spec, "vanillaNatives", "Natives"));
         this.vanillaConfig.configure(config -> config.withDependencies(dependencies ->
                 addLibraries(factory, dependencies, this.versionMeta.get())));
+        var selectedVanillaVersions = project.provider(() -> selectedVersions(this.vanillaConfig.get()));
         this.vanillaNativesConfig.configure(config -> config.withDependencies(dependencies ->
-                addNatives(factory, dependencies, this.versionMeta.get())));
+                addNatives(factory, dependencies, this.versionMeta.get(), selectedVanillaVersions.get())));
 
         var decompiler = ToolConfigs.get(project, "decompiler");
         var offline = project.getGradle().getStartParameter().isOffline();

@@ -132,6 +132,7 @@ public final class DistributionTasks {
                 attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, project.getObjects().named(LibraryElements.class, LibraryElements.JAR));
             });
         });
+        var selectedInstallerVersions = providers.provider(() -> VanillaTasks.selectedVersions(installerLibraries.get()));
         var installerNatives = Objects.config(project, "installerNatives");
         installerNatives.configure(config -> {
             config.setDescription("Extracted natives listed in the installer's version.json, for every platform.");
@@ -139,7 +140,8 @@ public final class DistributionTasks {
             config.setCanBeResolved(true);
             config.setTransitive(false);
             config.withDependencies(dependencies -> VanillaTasks.addDistributionNatives(
-                    project.getDependencyFactory(), dependencies, minecraft.getVersionMeta().get()));
+                    project.getDependencyFactory(), dependencies, minecraft.getVersionMeta().get(),
+                    selectedInstallerVersions.get()));
         });
         var manifestUrls = minecraft.getVersionMeta().map(meta -> {
             var urls = new LinkedHashMap<String, String>();

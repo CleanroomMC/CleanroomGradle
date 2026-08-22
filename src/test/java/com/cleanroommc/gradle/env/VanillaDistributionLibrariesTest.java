@@ -39,14 +39,19 @@ class VanillaDistributionLibrariesTest {
                         "natives-linux", "natives-osx", "natives-windows"),
                 natives("net.java.jinput:jinput-platform:2.0.5",
                         "natives-linux", "natives-osx", "natives-windows"),
-                natives("com.mojang:text2speech:1.10.3", "natives-linux", "natives-windows"),
-                natives("ca.weblite:java-objc-bridge:1.0.0", "natives-osx"));
+                nativesWithArtifact("com.mojang:text2speech:1.10.3", "natives-linux", "natives-windows"),
+                nativesWithArtifact("ca.weblite:java-objc-bridge:1.0.0", "natives-osx"));
 
         VanillaTasks.addDistributionLibraries(project.getDependencyFactory(), libraries.getDependencies(), meta);
-        VanillaTasks.addDistributionNatives(project.getDependencyFactory(), natives.getDependencies(), meta);
+        VanillaTasks.addDistributionNatives(project.getDependencyFactory(), natives.getDependencies(), meta,
+                Map.of("ca.weblite:java-objc-bridge", "1.2", "com.mojang:text2speech", "1.10.3"));
 
         var libraryNames = names(libraries.getDependencies());
-        assertEquals(Set.of("com.paulscode:soundsystem:20120107", "com.google.guava:guava:21.0"), libraryNames);
+        assertEquals(Set.of(
+                "com.paulscode:soundsystem:20120107",
+                "com.google.guava:guava:21.0",
+                "com.mojang:text2speech:1.10.3",
+                "ca.weblite:java-objc-bridge:1.0.0"), libraryNames);
         assertTrue(libraryNames.stream().noneMatch(name -> name.startsWith(VanillaTasks.LWJGL2_GROUP + ":")));
 
         var nativeNames = names(natives.getDependencies());
@@ -55,10 +60,29 @@ class VanillaDistributionLibrariesTest {
                 "net.java.jinput:jinput-platform:2.0.5:natives-osx",
                 "net.java.jinput:jinput-platform:2.0.5:natives-windows",
                 "com.mojang:text2speech:1.10.3:natives-linux",
-                "com.mojang:text2speech:1.10.3:natives-windows",
-                "ca.weblite:java-objc-bridge:1.0.0:natives-osx"), nativeNames);
+                "com.mojang:text2speech:1.10.3:natives-windows"), nativeNames);
         assertTrue(nativeNames.stream().noneMatch(name -> name.startsWith(VanillaTasks.LWJGL2_GROUP + ":")));
+        assertTrue(nativeNames.stream().noneMatch(name -> name.startsWith("ca.weblite:java-objc-bridge:")));
         assertFalse(nativeNames.contains("org.lwjgl:lwjgl:3.3.6:natives-linux"));
+    }
+
+    @Test
+    void localGraphPrefersReplacementOrdinaryArtifact() {
+        var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
+        var natives = project.getConfigurations().create("vanillaNatives");
+        var meta = versionMeta(
+                natives("net.java.jinput:jinput-platform:2.0.5",
+                        "natives-linux", "natives-osx", "natives-windows"),
+                nativesWithArtifact("ca.weblite:java-objc-bridge:1.0.0",
+                        "natives-linux", "natives-osx", "natives-windows"));
+
+        VanillaTasks.addNatives(project.getDependencyFactory(), natives.getDependencies(), meta,
+                Map.of("ca.weblite:java-objc-bridge", "1.2", "net.java.jinput:jinput-platform", "2.0.10"));
+
+        var nativeNames = names(natives.getDependencies());
+        assertEquals(1, nativeNames.size());
+        assertTrue(nativeNames.iterator().next().startsWith("net.java.jinput:jinput-platform:2.0.5:natives-"));
+        assertTrue(nativeNames.stream().noneMatch(name -> name.startsWith("ca.weblite:java-objc-bridge:")));
     }
 
     private static Set<String> names(Iterable<Dependency> dependencies) {
@@ -95,13 +119,29 @@ class VanillaDistributionLibrariesTest {
     }
 
     private static VersionMeta.Library natives(String name, String... classifiers) {
+        return natives(name, false, classifiers);
+    }
+
+    private static VersionMeta.Library nativesWithArtifact(String name, String... classifiers) {
+        return natives(name, true, classifiers);
+    }
+
+    private static VersionMeta.Library natives(String name, boolean withArtifact, String... classifiers) {
         var downloads = new LinkedHashMap<String, VersionMeta.Download>();
         var platforms = new LinkedHashMap<String, String>();
+        var coordinates = name.split(":");
+        var basePath = coordinates[0].replace('.', '/') + "/" + coordinates[1] + "/" + coordinates[2] + "/"
+                + coordinates[1] + "-" + coordinates[2] + "-";
         for (var classifier : classifiers) {
-            downloads.put(classifier, new VersionMeta.Download("path", "sha1", 1, "https://example.invalid/" + classifier));
+            downloads.put(classifier, new VersionMeta.Download(basePath + classifier + ".jar", "sha1", 1,
+                    "https://example.invalid/" + classifier));
             platforms.put(classifier.substring("natives-".length()), classifier);
         }
-        return new VersionMeta.Library(new VersionMeta.Downloads(null, downloads), name, platforms, null, null);
+        var artifact = withArtifact
+                ? new VersionMeta.Download(basePath.substring(0, basePath.length() - 1) + ".jar", "sha1", 1,
+                "https://example.invalid/" + coordinates[1] + ".jar")
+                : null;
+        return new VersionMeta.Library(new VersionMeta.Downloads(artifact, downloads), name, platforms, null, null);
     }
 
 }
