@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.api.util.inject;
 
+import com.cleanroommc.gradle.api.util.IO;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -15,14 +16,10 @@ import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.LocalVariableNode;
 import org.objectweb.asm.tree.MethodNode;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -35,8 +32,6 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 
 /**
  * In-process replacement for MCInjector.
@@ -90,7 +85,7 @@ public final class MetadataInjector {
         var processed = 0;
         var copied = 0;
         try {
-            try (var out = new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(temporary), BUFFER))) {
+            try (var out = IO.zipOut(temporary, BUFFER)) {
                 var names = new HashSet<String>();
                 for (var index = 0; index < entries.size(); index++) {
                     var entry = entries.get(index);
@@ -112,11 +107,7 @@ public final class MetadataInjector {
                     out.closeEntry();
                 }
             }
-            try {
-                Files.move(temporary, absolute, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException ignored) {
-                Files.move(temporary, absolute, StandardCopyOption.REPLACE_EXISTING);
-            }
+            IO.move(temporary, absolute);
         } finally {
             Files.deleteIfExists(temporary);
         }
@@ -126,7 +117,7 @@ public final class MetadataInjector {
     private static List<Entry> readEntries(Path input) throws IOException {
         var entries = new ArrayList<Entry>();
         var names = new HashSet<String>();
-        try (var in = new ZipInputStream(new BufferedInputStream(Files.newInputStream(input), BUFFER))) {
+        try (var in = IO.zipIn(input, BUFFER)) {
             for (var entry = in.getNextEntry(); entry != null; entry = in.getNextEntry()) {
                 var directory = entry.isDirectory();
                 if (!directory && !names.add(entry.getName())) {

@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.api.util.sas;
 
+import com.cleanroommc.gradle.api.util.IO;
 import net.minecraftforge.fml.relauncher.Side;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -22,10 +23,8 @@ import org.objectweb.asm.signature.SignatureVisitor;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -40,9 +39,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
-import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import java.util.zip.ZipOutputStream;
 
 /**
  * In-process, deterministic handling of legacy Forge {@code @SideOnly} metadata.
@@ -770,10 +767,8 @@ public final class SideOnlyHandler {
                 if (entry.isDirectory() || signatureFile(entry.getName())) {
                     continue;
                 }
-                try (var stream = zip.getInputStream(entry)) {
-                    if (result.put(entry.getName(), stream.readAllBytes()) != null) {
-                        throw new IOException("Duplicate jar entry: " + entry.getName());
-                    }
+                if (result.put(entry.getName(), IO.readEntry(zip, entry)) != null) {
+                    throw new IOException("Duplicate jar entry: " + entry.getName());
                 }
             }
         }
@@ -793,20 +788,12 @@ public final class SideOnlyHandler {
                     .filter(entry -> !MANIFEST.equals(entry.getKey()))
                     .sorted(Map.Entry.comparingByKey())
                     .forEach(entry -> ordered.put(entry.getKey(), entry.getValue()));
-            try (var outputStream = new ZipOutputStream(Files.newOutputStream(temporary))) {
+            try (var outputStream = IO.zipOut(temporary.toFile())) {
                 for (var entry : ordered.entrySet()) {
-                    var zipEntry = new ZipEntry(entry.getKey());
-                    zipEntry.setTime(0L);
-                    outputStream.putNextEntry(zipEntry);
-                    outputStream.write(entry.getValue());
-                    outputStream.closeEntry();
+                    IO.writeEntry(outputStream, entry.getKey(), entry.getValue());
                 }
             }
-            try {
-                Files.move(temporary, absolute, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException ignored) {
-                Files.move(temporary, absolute, StandardCopyOption.REPLACE_EXISTING);
-            }
+            IO.move(temporary, absolute);
         } finally {
             Files.deleteIfExists(temporary);
         }

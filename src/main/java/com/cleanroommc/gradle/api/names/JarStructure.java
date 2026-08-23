@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.api.names;
 
+import com.cleanroommc.gradle.api.util.IO;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -8,7 +9,6 @@ import org.objectweb.asm.Opcodes;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -45,13 +45,11 @@ public record JarStructure(Map<String, ClassEntry> classes) {
                 if (entry.isDirectory() || !entry.getName().endsWith(".class")) {
                     continue;
                 }
-                try (InputStream in = zip.getInputStream(entry)) {
-                    ClassReader reader = new ClassReader(in);
-                    Collector collector = new Collector();
-                    reader.accept(collector, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-                    if (!collector.methods.isEmpty() || !collector.fields.isEmpty()) {
-                        classes.put(collector.internalName, new ClassEntry(collector.internalName, collector.methods, collector.fields));
-                    }
+                ClassReader reader = new ClassReader(IO.readEntry(zip, entry));
+                Collector collector = new Collector();
+                reader.accept(collector, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                if (!collector.methods.isEmpty() || !collector.fields.isEmpty()) {
+                    classes.put(collector.internalName, new ClassEntry(collector.internalName, collector.methods, collector.fields));
                 }
             }
         } catch (IOException e) {

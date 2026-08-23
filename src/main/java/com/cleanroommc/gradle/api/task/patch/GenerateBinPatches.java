@@ -18,12 +18,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
@@ -31,7 +27,6 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import java.util.zip.ZipOutputStream;
 
 /**
  * Creates a deterministic archive containing class deltas between two jars at the same naming level.
@@ -83,25 +78,25 @@ public abstract class GenerateBinPatches extends DefaultTask {
                 var modified = indexClasses(modifiedZip, prefixes);
                 for (var entry : modified.entrySet()) {
                     String name = entry.getKey();
-                    byte[] revised = readEntry(modifiedZip, entry.getValue());
+                    byte[] revised = IO.readEntry(modifiedZip, entry.getValue());
                     var originalEntry = original.get(name);
                     if (originalEntry == null) {
-                        writeEntry(archive, name + ".add", revised);
+                        IO.writeEntry(archive, name + ".add", revised);
                         added++;
                     } else {
-                        byte[] base = readEntry(originalZip, originalEntry);
+                        byte[] base = IO.readEntry(originalZip, originalEntry);
                         if (!Arrays.equals(base, revised)) {
-                            writeEntry(archive, name + ".binpatch", concatenate(sha256(base), BinDelta.encode(base, revised)));
+                            IO.writeEntry(archive, name + ".binpatch", concatenate(IO.sha256(base), BinDelta.encode(base, revised)));
                             changed++;
                         }
                     }
                 }
                 var removed = new TreeSet<>(original.keySet());
                 removed.removeAll(modified.keySet());
-                writeEntry(archive, "META-INF/binpatch-removed.txt", String.join("\n", removed).getBytes(StandardCharsets.UTF_8));
+                IO.writeEntry(archive, "META-INF/binpatch-removed.txt", String.join("\n", removed).getBytes(StandardCharsets.UTF_8));
                 getLogger().lifecycle("Binpatches: {} changed, {} added, {} removed -> {}", changed, added, removed.size(), output.getFileName());
             }
-            moveIntoPlace(temporary, output);
+            IO.move(temporary, output);
         } catch (IOException e) {
             try {
                 Files.deleteIfExists(temporary);
@@ -142,12 +137,6 @@ public abstract class GenerateBinPatches extends DefaultTask {
         return classes;
     }
 
-    private static byte[] readEntry(ZipFile zip, ZipEntry entry) throws IOException {
-        try (var input = zip.getInputStream(entry)) {
-            return input.readAllBytes();
-        }
-    }
-
     private static boolean included(String name, Set<String> prefixes) {
         if (prefixes.isEmpty()) {
             return true;
@@ -160,34 +149,10 @@ public abstract class GenerateBinPatches extends DefaultTask {
         return false;
     }
 
-    private static void writeEntry(ZipOutputStream output, String name, byte[] data) throws IOException {
-        var entry = new ZipEntry(name);
-        entry.setTime(0L);
-        output.putNextEntry(entry);
-        output.write(data);
-        output.closeEntry();
-    }
-
-    private static byte[] sha256(byte[] data) {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(data);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is unavailable", e);
-        }
-    }
-
     private static byte[] concatenate(byte[] first, byte[] second) {
         byte[] result = Arrays.copyOf(first, first.length + second.length);
         System.arraycopy(second, 0, result, first.length, second.length);
         return result;
-    }
-
-    private static void moveIntoPlace(Path temporary, Path output) throws IOException {
-        try {
-            Files.move(temporary, output, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException ignored) {
-            Files.move(temporary, output, StandardCopyOption.REPLACE_EXISTING);
-        }
     }
 
 }

@@ -14,15 +14,10 @@ import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -32,7 +27,6 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import java.util.zip.ZipOutputStream;
 
 /**
  * Reconstructs a patched jar out of an original jar and a {@link GenerateBinPatches} archive.
@@ -112,9 +106,7 @@ public abstract class ApplyBinPatches extends DefaultTask {
                     byte[] data = null;
                     var originalEntry = contents.get(name);
                     if (originalEntry != null) {
-                        try (InputStream input = zip.getInputStream(originalEntry)) {
-                            data = input.readAllBytes();
-                        }
+                        data = IO.readEntry(zip, originalEntry);
                         byte[] delta = patches.deltas().get(name);
                         if (delta != null) {
                             data = patch(name, data, delta);
@@ -122,12 +114,12 @@ public abstract class ApplyBinPatches extends DefaultTask {
                         }
                     }
                     data = patches.added().getOrDefault(name, data);
-                    writeEntry(archive, name, data);
+                    IO.writeEntry(archive, name, data);
                 }
             }
             getLogger().lifecycle("Binpatches: {} patched, {} added, {} removed -> {}",
                     patched, patches.added().size(), removed, output.getFileName());
-            moveIntoPlace(temporary, output);
+            IO.move(temporary, output);
         } catch (IOException e) {
             try {
                 Files.deleteIfExists(temporary);
@@ -151,10 +143,7 @@ public abstract class ApplyBinPatches extends DefaultTask {
                     continue;
                 }
                 String name = entry.getName().substring(prefix.length());
-                byte[] data;
-                try (InputStream input = zip.getInputStream(entry)) {
-                    data = input.readAllBytes();
-                }
+                byte[] data = IO.readEntry(zip, entry);
                 if (name.equals(REMOVED_ENTRY)) {
                     for (String line : new String(data, StandardCharsets.UTF_8).split("\n")) {
                         String trimmed = line.trim();
@@ -177,7 +166,7 @@ public abstract class ApplyBinPatches extends DefaultTask {
             throw new IllegalStateException("Binpatch for " + name + " is truncated.");
         }
         byte[] expected = Arrays.copyOf(patch, SHA256_LENGTH);
-        byte[] actual = sha256(original);
+        byte[] actual = IO.sha256(original);
         if (!Arrays.equals(expected, actual)) {
             throw new IllegalStateException(("SHA-256 mismatch for %s: " +
                     "the original class is not the one the binpatch was generated against. " +
@@ -185,30 +174,6 @@ public abstract class ApplyBinPatches extends DefaultTask {
                     "and make sure the userdev artifact targets this Minecraft version.").formatted(name));
         }
         return BinDelta.decode(original, Arrays.copyOfRange(patch, SHA256_LENGTH, patch.length));
-    }
-
-    private static void writeEntry(ZipOutputStream output, String name, byte[] data) throws IOException {
-        var entry = new ZipEntry(name);
-        entry.setTime(0L);
-        output.putNextEntry(entry);
-        output.write(data);
-        output.closeEntry();
-    }
-
-    private static byte[] sha256(byte[] data) {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(data);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is unavailable", e);
-        }
-    }
-
-    private static void moveIntoPlace(Path temporary, Path output) throws IOException {
-        try {
-            Files.move(temporary, output, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException ignored) {
-            Files.move(temporary, output, StandardCopyOption.REPLACE_EXISTING);
-        }
     }
 
     private record Patches(Map<String, byte[]> deltas, Map<String, byte[]> added, Set<String> removed) { }

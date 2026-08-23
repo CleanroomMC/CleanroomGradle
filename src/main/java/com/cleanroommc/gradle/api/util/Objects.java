@@ -4,7 +4,6 @@ import com.cleanroommc.gradle.api.Meta;
 import com.google.gson.JsonObject;
 import kotlin.jvm.functions.Function0;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -15,6 +14,8 @@ import org.gradle.api.provider.Provider;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -136,7 +137,8 @@ public final class Objects {
         if (!isOffline) {
             try {
                 var url = new URI(Meta.MOJANG_PLAYER_API + URLEncoder.encode(username, StandardCharsets.UTF_8));
-                var json = IOUtils.toString(url, StandardCharsets.UTF_8);
+                var request = HttpRequest.newBuilder(url).GET().build();
+                var json = IO.httpClient().send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)).body();
                 var root = IO.readJson(json, JsonObject.class);
                 if (root != null && root.has("id")) {
                     String encid = root.get("id").getAsString();
@@ -148,6 +150,8 @@ public final class Objects {
                     }
                 }
             } catch (IOException ignore) {
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
             }

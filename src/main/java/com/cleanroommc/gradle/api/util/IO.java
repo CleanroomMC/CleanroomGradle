@@ -8,6 +8,7 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 
 import java.io.*;
+import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -18,6 +19,8 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.TreeMap;
@@ -67,6 +70,18 @@ public final class IO {
         }
     }
 
+    public static <T> T readJson(Path jsonPath, Type type) {
+        try (var reader = Files.newBufferedReader(jsonPath)) {
+            return GSON.fromJson(reader, type);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static <T> T readJson(File jsonPath, Type type) {
+        return readJson(jsonPath.toPath(), type);
+    }
+
     public static String sha1(Path path) {
         try (var is = Files.newInputStream(path)) {
             return DigestUtils.sha1Hex(is);
@@ -90,6 +105,14 @@ public final class IO {
         return sha1Match(path.toPath(), expectedHash);
     }
 
+    public static byte[] sha256(byte[] data) {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(data);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
+    }
+
     public static FileOutputStream out(File file) throws FileNotFoundException {
         return new FileOutputStream(file);
     }
@@ -108,6 +131,36 @@ public final class IO {
 
     public static ZipInputStream zipIn(File file) throws FileNotFoundException {
         return new ZipInputStream(in(file));
+    }
+
+    public static ZipOutputStream zipOut(Path path, int bufferSize) throws IOException {
+        return new ZipOutputStream(new BufferedOutputStream(Files.newOutputStream(path), bufferSize));
+    }
+
+    public static ZipInputStream zipIn(Path path, int bufferSize) throws IOException {
+        return new ZipInputStream(new BufferedInputStream(Files.newInputStream(path), bufferSize));
+    }
+
+    public static byte[] readEntry(ZipFile zip, ZipEntry entry) throws IOException {
+        try (var input = zip.getInputStream(entry)) {
+            return input.readAllBytes();
+        }
+    }
+
+    public static void writeEntry(ZipOutputStream output, String name, byte[] data) throws IOException {
+        var entry = new ZipEntry(name);
+        entry.setTime(0L);
+        output.putNextEntry(entry);
+        output.write(data);
+        output.closeEntry();
+    }
+
+    public static void move(Path source, Path target) throws IOException {
+        try {
+            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException ignored) {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 
     /**
@@ -133,11 +186,7 @@ public final class IO {
                     output.closeEntry();
                 }
             }
-            try {
-                Files.move(temporary, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (AtomicMoveNotSupportedException ignored) {
-                Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING);
-            }
+            move(temporary, path);
         } catch (IOException e) {
             try {
                 Files.deleteIfExists(temporary);
