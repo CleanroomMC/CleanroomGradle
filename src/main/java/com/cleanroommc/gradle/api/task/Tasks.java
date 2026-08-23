@@ -25,6 +25,10 @@ public final class Tasks {
         return project.getTasks().register(name, type);
     }
 
+    public static <T extends Task> TaskProvider<T> register(Project project, String name, Class<T> type, Object... ctorArgs) {
+        return project.getTasks().register(name, type, ctorArgs);
+    }
+
     public static <T extends MavenJarExec> TaskProvider<T> tool(Project project, DirectoryProperty localCache,
                                                                 String name, Class<T> type, Configuration classpath) {
         var task = register(project, name, type);

@@ -1,15 +1,22 @@
 package com.cleanroommc.gradle.api.task.mcp;
 
-import com.cleanroommc.gradle.api.task.MavenJarExec;
+import com.cleanroommc.gradle.api.util.inject.MetadataInjector;
+import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.tasks.*;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
 
+/**
+ * Adds the metadata a decompiler needs to the SRG named jar.
+ * <ul>
+ *     <li>Visibilities from {@code access.txt}</li>
+ *     <li>{@code throws} clauses from {@code exceptions.txt}</li>
+ *     <li>Parameter names keyed off {@code constructors.txt}</li>
+ * </ul>
+ */
 @CacheableTask
-public abstract class InjectMetadata extends MavenJarExec {
+public abstract class InjectMetadata extends DefaultTask {
 
     @InputFile
     @PathSensitive(PathSensitivity.RELATIVE)
@@ -30,26 +37,17 @@ public abstract class InjectMetadata extends MavenJarExec {
     @OutputFile
     public abstract RegularFileProperty getInjectedJar();
 
-    public InjectMetadata() {
-        this.getMainClass().convention("de.oceanlabs.mcp.mcinjector.MCInjector");
-    }
-
-    @Override
-    protected void beforeExec() {
-        if (!this.getUseDefaultToolArguments().get()) {
-            return;
-        }
-        try {
-            Files.deleteIfExists(this.getInjectedJar().get().getAsFile().toPath());
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to remove the previous metadata injected jar", e);
-        }
-        this.args("--in", this.getSrgJar(),
-                "--out", this.getInjectedJar(),
-                "--lvt=LVT",
-                "--acc", this.getAccessFile(),
-                "--ctr", this.getConstructorsFile(),
-                "--exc", this.getExceptionsFile());
+    @TaskAction
+    public void inject() throws IOException {
+        var result = MetadataInjector.inject(
+                this.getSrgJar().get().getAsFile().toPath(),
+                this.getInjectedJar().get().getAsFile().toPath(),
+                this.getAccessFile().get().getAsFile().toPath(),
+                this.getConstructorsFile().get().getAsFile().toPath(),
+                this.getExceptionsFile().get().getAsFile().toPath()
+        );
+        this.getLogger().lifecycle("Injected metadata into {} classes, copied {} entries, recorded {} abstract methods",
+                result.classesProcessed(), result.entriesCopied(), result.abstractMethodsRecorded());
     }
 
 }

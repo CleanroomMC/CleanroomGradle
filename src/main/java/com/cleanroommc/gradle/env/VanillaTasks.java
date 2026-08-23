@@ -242,8 +242,7 @@ public final class VanillaTasks {
         this.downloadAssets = Tasks.register(project, downloadAssetsName, DownloadAssets.class);
         this.extractNatives = Tasks.unzip(project, extractNativesName, this.vanillaNativesConfig,
                 this.versionCacheDirectory.map(dir -> dir.dir("natives/" + spec.cacheName())));
-        this.remapClientToOfficial = project.getTasks().register(remapClientName, RenameJar.class,
-                project.getExtensions().getByType(RenamerExtension.class));
+        this.remapClientToOfficial = Tasks.register(project, remapClientName, RenameJar.class, project.getExtensions().getByType(RenamerExtension.class));
         this.decompileVersion = Tasks.tool(project, caches.getLocalDirectory(), decompileName, Decompile.class, decompiler);
         this.runVanillaClient = Tasks.register(project, runClientName, RunMinecraft.class);
         this.runVanillaServer = Tasks.register(project, runServerName, RunMinecraft.class);

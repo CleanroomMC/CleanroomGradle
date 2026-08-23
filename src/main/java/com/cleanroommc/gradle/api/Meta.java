@@ -16,7 +16,6 @@ public final class Meta {
             "accesstransformer", "net.minecraftforge:accesstransformers:8.2.17",
             "decompiler", "com.cleanroommc:cleanflower:1.0.0",
             "installertools", "net.minecraftforge:installertools:1.4.1:fatjar",
-            "mcinjector", "de.oceanlabs.mcp:mcinjector:3.7.3",
             "mergetool", "net.minecraftforge:mergetool:1.2.2"
     );
 

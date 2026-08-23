@@ -171,9 +171,9 @@ public final class DistributionTasks {
         this.writeMcp2Srg = mappings.write(project, caches, "writeMcp2Srg", WriteMappings.Direction.MCP_TO_SRG, "mcp2srg.tsrg");
         this.writeObf2SrgTsrg = mappings.write(project, caches, "writeObf2SrgTsrg", WriteMappings.Direction.OBF_TO_SRG, "obf2srg.tsrg");
         this.writeMcp2Notch = mappings.write(project, caches, "writeMcp2Notch", WriteMappings.Direction.MCP_TO_NOTCH, "mcp2notch.tsrg");
-        this.reobfJar = project.getTasks().register("reobfJar", RenameJar.class, project.getExtensions().getByType(RenamerExtension.class));
+        this.reobfJar = Tasks.register(project, "reobfJar", RenameJar.class, project.getExtensions().getByType(RenamerExtension.class));
         this.minecraftClassesJar = Tasks.register(project, "minecraftClassesJar", Jar.class);
-        this.reobfMinecraftJar = project.getTasks().register("reobfMinecraftJar", RenameJar.class, project.getExtensions().getByType(RenamerExtension.class));
+        this.reobfMinecraftJar = Tasks.register(project, "reobfMinecraftJar", RenameJar.class, project.getExtensions().getByType(RenamerExtension.class));
         this.stripClientMinecraftJar = Tasks.register(project, "stripClientMinecraftJar", StripSideOnlyJar.class);
         this.stripServerMinecraftJar = Tasks.register(project, "stripServerMinecraftJar", StripSideOnlyJar.class);
         this.genClientBinPatches = Tasks.register(project, "genClientBinPatches", GenerateBinPatches.class);

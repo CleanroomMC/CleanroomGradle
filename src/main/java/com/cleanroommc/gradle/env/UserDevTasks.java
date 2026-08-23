@@ -143,15 +143,14 @@ public final class UserDevTasks {
         spec.mergedJar = userdevDir.map(dir -> dir.file("merged.jar"));
         spec.srgJar = userdevDir.map(dir -> dir.file("minecraft-srg.jar"));
         spec.injectedJar = userdevDir.map(dir -> dir.file("minecraft-injected.jar"));
-        spec.injectLog = userdevDir.map(dir -> dir.file("mcinjector.log"));
         this.jars = MinecraftJarPipeline.register(project, caches, spec);
 
         this.accessTransformDevJar = Tasks.tool(project, caches.getLocalDirectory(), "accessTransformDevJar", AccessTransform.class, accessTransformerTool);
-        this.remapDevSrg2Mcp = project.getTasks().register("remapDevSrg2Mcp", RenameJar.class, renamer);
-        this.remapCleanroomSrg2Mcp = project.getTasks().register("remapCleanroomSrg2Mcp", RenameJar.class, renamer);
+        this.remapDevSrg2Mcp = Tasks.register(project, "remapDevSrg2Mcp", RenameJar.class, renamer);
+        this.remapCleanroomSrg2Mcp = Tasks.register(project, "remapCleanroomSrg2Mcp", RenameJar.class, renamer);
         this.decompileDevJar = Tasks.tool(project, caches.getLocalDirectory(), "decompileDevJar", Decompile.class, ToolConfigs.get(project, "decompiler"));
         this.writeMcp2Srg = mappings.write(project, caches, "writeMcp2Srg", WriteMappings.Direction.MCP_TO_SRG, "mcp2srg.tsrg");
-        this.reobfJar = project.getTasks().register("reobfJar", RenameJar.class, renamer);
+        this.reobfJar = Tasks.register(project, "reobfJar", RenameJar.class, renamer);
         this.setup = Tasks.register(project, "setup");
         this.runClient = Tasks.register(project, "runClient", RunMinecraft.class);
         this.runServer = Tasks.register(project, "runServer", RunMinecraft.class);

@@ -32,14 +32,13 @@ public final class MinecraftJarPipeline {
 
     private MinecraftJarPipeline(Project project, CachesExtension caches, Spec spec) {
         var mergetool = ToolConfigs.get(project, "mergetool");
-        var mcinjector = ToolConfigs.get(project, "mcinjector");
         var renamer = project.getExtensions().getByType(RenamerExtension.class);
 
         this.splitClient = Tasks.register(project, spec.splitClientName, SplitJar.class);
         this.splitServer = Tasks.register(project, spec.splitServerName, SplitJar.class);
         this.merge = Tasks.tool(project, caches.getLocalDirectory(), spec.mergeName, MergeJars.class, mergetool);
-        this.remapNotch2Srg = project.getTasks().register(spec.remapName, RenameJar.class, renamer);
-        this.inject = Tasks.tool(project, caches.getLocalDirectory(), spec.injectName, InjectMetadata.class, mcinjector);
+        this.remapNotch2Srg = Tasks.register(project, spec.remapName, RenameJar.class, renamer);
+        this.inject = Tasks.register(project, spec.injectName, InjectMetadata.class);
 
         this.splitClient.configure(task -> {
             task.dependsOn(spec.extractMcpConfig);
@@ -71,7 +70,6 @@ public final class MinecraftJarPipeline {
             }
         });
         this.inject.configure(task -> {
-            task.getLogFile().convention(spec.injectLog);
             task.getSrgJar().set(this.remapNotch2Srg.flatMap(RenameJar::getOutput));
             task.getAccessFile().set(spec.mcpConfigDir.map(dir -> dir.file("access.txt")));
             task.getConstructorsFile().set(spec.mcpConfigDir.map(dir -> dir.file("constructors.txt")));
@@ -101,7 +99,6 @@ public final class MinecraftJarPipeline {
         public Provider<? extends RegularFile> mergedJar;
         public Provider<? extends RegularFile> srgJar;
         public Provider<? extends RegularFile> injectedJar;
-        public Provider<? extends RegularFile> injectLog;
 
     }
 

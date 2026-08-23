@@ -151,8 +151,8 @@ Compatibility is still ultimately constrained by the launch protocol and Java re
 | Diagnostics | `cleanroomInfo`                                                                                                                          |
 | Vanilla     | `decompileVersion`, `runVanillaClient`, `runVanillaServer`, plus `decompile<name>` and `run<name>Client`/`Server` for named environments |
 | MCP/loader  | `runSrgClient`, `runSrgServer`, `runMcpClient`, `runMcpServer`, `importMcpNames`                                                         |
-| Loader      | `setup`, `runCleanroomClient`, `runCleanroomServer`, `universalJar`, `userdevJar`, `javadocJar`, `publishMmcPackZip`                              |
-| Userdev     | `setup`, `runClient`, `runServer`, `decompileDevJar`, `reobfJar`                                                                |
+| Loader      | `setup`, `runCleanroomClient`, `runCleanroomServer`, `universalJar`, `userdevJar`, `javadocJar`, `publishMmcPackZip`                     |
+| Userdev     | `setup`, `runClient`, `runServer`, `decompileDevJar`, `reobfJar`                                                                         |
 
 Run `./gradlew tasks --all` for the complete pipeline.
 
@@ -188,7 +188,6 @@ Tool configurations use defaults only while empty. Add a dependency to replace a
 dependencies {
     decompiler 'example:replacement-decompiler:1.0'
     mergetool 'example:replacement-merger:1.0'
-    mcinjector 'example:replacement-injector:1.0'
     accesstransformer 'example:replacement-at:1.0'
     installertools 'example:replacement-installer-tools:1.0'
 }

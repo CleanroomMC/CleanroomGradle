@@ -5,6 +5,7 @@ import com.cleanroommc.gradle.api.ext.CachesExtension;
 import com.cleanroommc.gradle.api.ext.MappingsExtension;
 import com.cleanroommc.gradle.api.ext.ProjectMode;
 import com.cleanroommc.gradle.api.task.CleanroomInfo;
+import com.cleanroommc.gradle.api.task.Tasks;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.tasks.Delete;
@@ -34,13 +35,8 @@ public class MaintenanceTasks {
     public final TaskProvider<Delete> cleanCleanroomSharedCache;
     public final TaskProvider<CleanroomInfo> cleanroomInfo;
 
-    public MaintenanceTasks(Project project, CachesExtension caches, MappingsExtension mappings,
-                            VanillaTasks vanillaTasks, String pluginVersion) {
-        this.cleanCleanroomSharedCache = project.getTasks().register("cleanCleanroomSharedCache", Delete.class, task -> {
-            task.setGroup(GROUP_NAME);
-            task.setDescription("Deletes the configured shared CleanroomGradle cache.");
-            task.delete(caches.getDirectory());
-        });
+    public MaintenanceTasks(Project project, CachesExtension caches, MappingsExtension mappings, VanillaTasks vanillaTasks, String pluginVersion) {
+        this.cleanCleanroomSharedCache = Tasks.register(project, "cleanCleanroomSharedCache", Delete.class);
         this.cleanroomInfo = project.getTasks().register("cleanroomInfo", CleanroomInfo.class, task -> {
             task.setGroup(GROUP_NAME);
             task.setDescription("Prints the effective CleanroomGradle mode, versions, caches, tools, and offline readiness.");
@@ -61,6 +57,11 @@ public class MaintenanceTasks {
             task.getOfflineCacheFiles().put("asset index", caches.getDirectory().file(
                             vanillaTasks.versionMeta.map(meta -> "assets/indexes/" + meta.assetIndexId() + ".json"))
                     .map(file -> file.getAsFile().getAbsolutePath()));
+        });
+        this.cleanCleanroomSharedCache.configure(task -> {
+            task.setGroup(GROUP_NAME);
+            task.setDescription("Deletes the configured shared CleanroomGradle cache.");
+            task.delete(caches.getDirectory());
         });
     }
 

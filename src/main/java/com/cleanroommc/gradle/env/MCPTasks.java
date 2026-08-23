@@ -82,7 +82,6 @@ public final class MCPTasks {
         spec.serverExtra = caches.getVersionDirectory().map(d -> d.file("server-extra.jar"));
         spec.mergedJar = mcpDir.map(d -> d.file("merged.jar"));
         spec.injectedJar = caches.getLocalDirectory().file("injectMetadata/injected.jar");
-        spec.injectLog = caches.getLocalDirectory().file("injectMetadata/mcinjector.log");
         this.jars = MinecraftJarPipeline.register(project, caches, spec);
         this.splitClientJar = this.jars.splitClient;
         this.splitServerJar = this.jars.splitServer;
