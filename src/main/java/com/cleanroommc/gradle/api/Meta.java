@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.api;
 
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -18,6 +19,21 @@ public final class Meta {
             "installertools", "net.minecraftforge:installertools:1.4.1:fatjar",
             "mergetool", "net.minecraftforge:mergetool:1.2.2"
     );
+
+    // Dependencies Shenanigans
+    public static final String ASM_VERSION = "9.10.1";
+
+    /**
+     * Module versions forced onto every tool classpath.
+     * The published tool artifacts pulls in ASM releases thatare too old.
+     */
+    public static final String[] FORCED_TOOL_MODULES = new String[] {
+            "org.ow2.asm:asm:" + ASM_VERSION,
+            "org.ow2.asm:asm-analysis:" + ASM_VERSION,
+            "org.ow2.asm:asm-commons:" + ASM_VERSION,
+            "org.ow2.asm:asm-tree:" + ASM_VERSION,
+            "org.ow2.asm:asm-util:" + ASM_VERSION
+    };
 
     // RegEx's
     public static final Pattern NATIVES_PATTERN = Pattern.compile("^(?<group>.*)/(.*?)/(?<version>.*)/((?<name>.*?)-(\\k<version>)-)(?<classifier>.*).jar$");
