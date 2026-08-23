@@ -52,7 +52,6 @@ public final class Objects {
         config.setDescription("Classpath for the " + name + " tool");
         var factory = project.getDependencyFactory();
         config.defaultDependencies(deps -> deps.add(factory.create(defaultNotation)));
-        config.getResolutionStrategy().force(Meta.FORCED_TOOL_MODULES);
         return config;
     }
 
