@@ -5,6 +5,7 @@ import com.cleanroommc.gradle.api.ext.CachesExtension;
 import com.cleanroommc.gradle.api.ext.LoaderExtension;
 import com.cleanroommc.gradle.api.ext.MinecraftExtension;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
+import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.task.IntermediateProcessor;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip;
@@ -67,6 +68,7 @@ public final class DistributionTasks {
     public final TaskProvider<Zip> genRuntimeBinPatches;
     public final TaskProvider<WriteUserdevConfig> writeUserdevConfig;
     public final TaskProvider<PublishMmcPackZip> publishMmcPackZip;
+    public final TaskProvider<Zip> installerMmcPackZip;
     public final TaskProvider<WriteInstallProfile> writeInstallProfile;
     public final TaskProvider<Jar> installerJar;
 
@@ -180,6 +182,7 @@ public final class DistributionTasks {
         this.javadocJar = Tasks.register(project, "javadocJar", Jar.class);
         this.writeUserdevConfig = Tasks.register(project, "writeUserdevConfig", WriteUserdevConfig.class);
         this.publishMmcPackZip = Tasks.register(project, "publishMmcPackZip", PublishMmcPackZip.class);
+        this.installerMmcPackZip = Tasks.register(project, "packageInstallerMmcPackZip", Zip.class);
         this.writeInstallProfile = Tasks.register(project, "writeInstallProfile", WriteInstallProfile.class);
         this.installerJar = Tasks.register(project, "installerJar", Jar.class);
         var clientTweakClass = loader.getClientTweakClass();
@@ -359,12 +362,24 @@ public final class DistributionTasks {
             task.getUniversalUrl().set(universalUrl);
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
             task.getLibraries().set(distributionLibraryArtifacts);
-            task.getInheritedLibraries().set(minecraft.getVersionMeta().map(meta -> meta.libraries().stream()
-                    .map(library -> library.name())
-                    .collect(Collectors.toSet())));
+            task.getInheritedLibraries().set(minecraft.getVersionMeta()
+                    .map(meta -> meta.libraries().stream()
+                            .map(VersionMeta.Library::name)
+                            .collect(Collectors.toSet())
+                    )
+            );
             task.getMinecraftExcludeRules().set(distributionLibraries.map(ResolvedLibraries::excludeRules));
             // Every published pack so far is the classifier-less zip beside the jars; keep that name.
             task.getArchiveFile().set(layout.getBuildDirectory().file("libs/" + ARTIFACT_ID + "-" + version + ".zip"));
+        });
+        this.installerMmcPackZip.configure(task -> {
+            task.setDescription("Packages the MMC instance metadata embedded in installerJar without duplicating its universal jar.");
+            task.setPreserveFileTimestamps(false);
+            task.setReproducibleFileOrder(true);
+            task.from(archives.zipTree(this.publishMmcPackZip.flatMap(PublishMmcPackZip::getArchiveFile)),
+                    spec -> spec.exclude("libraries/" + universal.fileName()));
+            task.getDestinationDirectory().set(caches.getLocalDirectory().dir("dist"));
+            task.getArchiveFileName().set("mmc-installer.zip");
         });
         this.writeInstallProfile.configure(task -> {
             task.setDescription("Writes install_profile.json and version.json for the Cleanroom installer.");
@@ -418,7 +433,7 @@ public final class DistributionTasks {
                 spec.into("maven/" + group.replace('.', '/') + "/" + ARTIFACT_ID + "/" + version);
                 spec.rename(_ -> universal.fileName());
             });
-            task.from(this.publishMmcPackZip.flatMap(PublishMmcPackZip::getArchiveFile), spec -> {
+            task.from(this.installerMmcPackZip.flatMap(Zip::getArchiveFile), spec -> {
                 spec.into("mmc");
                 spec.rename(_ -> "pack.zip");
             });

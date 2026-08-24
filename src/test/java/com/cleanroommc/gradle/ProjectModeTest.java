@@ -6,8 +6,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -146,6 +153,8 @@ class ProjectModeTest {
                     def pack = tasks.named('publishMmcPackZip', PublishMmcPackZip).get()
                     assert pack.mainClass.get() == 'example.Launch'
                     assert pack.tweakers.get() == ['example.ClientTweaker']
+                    def embeddedPack = tasks.named('packageInstallerMmcPackZip', Zip).get()
+                    assert embeddedPack.archiveFileName.get() == 'mmc-installer.zip'
                     def installer = tasks.named('writeInstallProfile', WriteInstallProfile).get()
                     assert installer.mainClass.get() == 'example.Launch'
                     assert installer.serverMainClass.get() == 'example.Launch'
@@ -157,6 +166,45 @@ class ProjectModeTest {
         assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
         PluginBuild.notScheduled(this.project.runner("runCleanroomClient", "--dry-run").build().getOutput(),
                 "writeUserdevConfig");
+    }
+
+    @Test
+    void installerMmcPackReusesMetadataWithoutTheUniversalPayload() throws IOException {
+        this.project.build("""
+                apply plugin: 'maven-publish'
+                group = 'com.cleanroommc'
+                version = '0.1.0'
+                cleanroom.mode = 'loader'
+                publishing.repositories.maven {
+                    url = layout.buildDirectory.dir('fixture-repository')
+                }
+                gradle.projectsEvaluated {
+                    tasks.named('packageInstallerMmcPackZip', Zip) {
+                        destinationDirectory = layout.buildDirectory.dir('fixture')
+                        archiveFileName = 'thin.zip'
+                    }
+                }
+                """);
+        Path source = this.projectDir.resolve("build/libs/cleanroom-0.1.0.zip");
+        Files.createDirectories(source.getParent());
+        try (var zip = new ZipOutputStream(Files.newOutputStream(source))) {
+            write(zip, "instance.cfg", "instance");
+            write(zip, "patches/net.minecraftforge.json", "metadata");
+            write(zip, "libraries/patchy-999999.0-empty.jar", "empty");
+            write(zip, "libraries/cleanroom-0.1.0-universal.jar", "universal");
+        }
+
+        var result = this.project.runner("packageInstallerMmcPackZip", "-x", "publishMmcPackZip").build();
+
+        assertEquals(TaskOutcome.SUCCESS, result.task(":packageInstallerMmcPackZip").getOutcome());
+        try (var zip = new ZipFile(this.projectDir.resolve("build/fixture/thin.zip").toFile())) {
+            Set<String> entries = zip.stream()
+                    .filter(entry -> !entry.isDirectory())
+                    .map(ZipEntry::getName)
+                    .collect(Collectors.toSet());
+            assertEquals(Set.of("instance.cfg", "patches/net.minecraftforge.json",
+                    "libraries/patchy-999999.0-empty.jar"), entries);
+        }
     }
 
     @Test
@@ -198,6 +246,12 @@ class ProjectModeTest {
                 """);
 
         assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
+    }
+
+    private static void write(ZipOutputStream zip, String name, String contents) throws IOException {
+        zip.putNextEntry(new ZipEntry(name));
+        zip.write(contents.getBytes(StandardCharsets.UTF_8));
+        zip.closeEntry();
     }
 
     @Test
