@@ -26,37 +26,49 @@ public final class LibraryJson {
 
     private static final String NATIVES_PREFIX = "natives-";
 
-    /**
-     * Resolves the library inputs into a deterministic, deduplicated artifact list.
-     *
-     * @param universal    the loader's own jar, always listed first
-     * @param repositories group prefix to base URL, with {@code *} as the fallback
-     */
-    public static List<Artifact> resolve(Artifact universal, List<? extends LibraryArtifact> libraries, Map<String, String> repositories) {
-        return resolve(universal, libraries, Set.of(), repositories);
+    public static List<Artifact> resolve(Artifact universal, List<? extends LibraryArtifact> libraries) {
+        return resolve(universal, libraries, Set.of());
     }
 
     /**
      * @param inherited coordinates the parent component already supplies, which are skipped
      */
     public static List<Artifact> resolve(Artifact universal, List<? extends LibraryArtifact> libraries,
-                                         Set<String> inherited, Map<String, String> repositories) {
+                                         Set<String> inherited) {
         var artifacts = new TreeMap<String, Artifact>();
         artifacts.put(universal.coordinate().serialized(), universal);
 
+        resolveInto(artifacts, libraries, inherited, universal.coordinate());
+        return new ArrayList<>(artifacts.values());
+    }
+
+    /**
+     * Resolves a component's libraries without adding the Cleanroom universal artifact.
+     *
+     * @param inherited coordinates a parent component already supplies, which are skipped
+     */
+    public static List<Artifact> resolve(List<? extends LibraryArtifact> libraries, Set<String> inherited) {
+        var artifacts = new TreeMap<String, Artifact>();
+        resolveInto(artifacts, libraries, inherited, null);
+        return new ArrayList<>(artifacts.values());
+    }
+
+    private static void resolveInto(Map<String, Artifact> artifacts, List<? extends LibraryArtifact> libraries,
+                                    Set<String> inherited, Coordinate universal) {
         for (var input : libraries) {
             var coordinate = Coordinate.parse(input.getCoordinate().get());
-            if (inherited.contains(coordinate.serialized()) || coordinate.sameArtifact(universal.coordinate())) {
+            if (inherited.contains(coordinate.serialized())
+                    || universal != null && coordinate.sameArtifact(universal)) {
                 continue;
             }
             var path = input.getFile().get().getAsFile().toPath();
-            var artifact = artifact(coordinate, path, artifactUrl(coordinate, repositories));
+            var url = trailingSlash(input.getRepositoryUrl().get()) + coordinate.mavenPath();
+            var artifact = artifact(coordinate, path, url);
             var previous = artifacts.put(coordinate.serialized(), artifact);
             if (previous != null && !previous.path().equals(path)) {
                 throw new GradleException("Multiple files resolved for library " + coordinate.serialized());
             }
         }
-        return new ArrayList<>(artifacts.values());
     }
 
     /**
@@ -229,21 +241,6 @@ public final class LibraryJson {
             throw new GradleException("Library does not exist: " + path);
         }
         return new Artifact(coordinate, path, url);
-    }
-
-    /**
-     * Longest matching group prefix wins with {@code *} being the fallback.
-     */
-    public static String artifactUrl(Coordinate coordinate, Map<String, String> repositories) {
-        var selectedPrefix = repositories.keySet().stream()
-                .filter(prefix -> !prefix.equals("*"))
-                .filter(prefix -> coordinate.group().equals(prefix) || coordinate.group().startsWith(prefix + "."))
-                .max(Comparator.comparingInt(String::length));
-        var repository = selectedPrefix.map(repositories::get).orElse(repositories.get("*"));
-        if (repository == null || repository.isBlank()) {
-            throw new GradleException("No download repository configured for " + coordinate.serialized());
-        }
-        return trailingSlash(repository) + coordinate.mavenPath();
     }
 
     public static String nativePlatform(String classifier) {

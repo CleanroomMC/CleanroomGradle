@@ -38,6 +38,93 @@ class PluginApplyTest {
     }
 
     @Test
+    void keepsDefaultRepositoriesWhenConsumerDeclaresRepositories() throws IOException {
+        this.project.vanilla("""
+                repositories {
+                    maven {
+                        name = 'Consumer'
+                        url = 'https://example.invalid/repository/'
+                    }
+                }
+                afterEvaluate {
+                    def urls = repositories.findAll { it.hasProperty('url') }.collect { it.url.toString() }
+                    assert urls.contains('https://repo.maven.apache.org/maven2/')
+                    assert urls.contains('https://libraries.minecraft.net/')
+                    assert urls.contains('https://maven.minecraftforge.net/')
+                    assert urls.contains('https://maven.cleanroommc.com/')
+                    assert urls.contains('https://example.invalid/repository/')
+                }
+                """);
+
+        assertEquals(TaskOutcome.SUCCESS, this.project.runner("help", "--offline").build().task(":help").getOutcome());
+    }
+
+    @Test
+    void restrictsExclusiveGroupsToTheirDefaultRepository() throws IOException {
+        this.repositoryArtifact("net.minecraftforge");
+        Files.createDirectories(this.projectDir.resolve("empty-repository"));
+        this.project.vanilla("""
+                repositories {
+                    maven {
+                        name = 'Consumer'
+                        url = layout.projectDirectory.dir('consumer-repository')
+                        metadataSources {
+                            artifact()
+                        }
+                    }
+                }
+                repositories.named('MinecraftForge') {
+                    url = layout.projectDirectory.dir('empty-repository')
+                }
+                configurations {
+                    repositoryProbe
+                }
+                dependencies {
+                    repositoryProbe 'net.minecraftforge:probe:1.0'
+                }
+                tasks.register('resolveRepositoryContent') {
+                    inputs.files(configurations.repositoryProbe)
+                }
+        """);
+
+        var failure = this.project.runner("resolveRepositoryContent", "--offline").buildAndFail();
+        assertTrue(failure.getOutput().contains("Could not find net.minecraftforge:probe:1.0"));
+    }
+
+    @Test
+    void keepsUnfilteredConsumerDuplicateAlongsideExclusiveDefault() throws IOException {
+        this.assertDefaultAndConsumerContentResolve("""
+                maven {
+                    name = 'Consumer Forge'
+                    url = layout.projectDirectory.dir('consumer-repository')
+                    metadataSources {
+                        artifact()
+                    }
+                }
+                """);
+    }
+
+    @Test
+    void pairsConsumerExclusiveContentWithExclusiveDefault() throws IOException {
+        this.assertDefaultAndConsumerContentResolve("""
+                exclusiveContent {
+                    forRepository {
+                        maven {
+                            name = 'Consumer Forge'
+                            url = layout.projectDirectory.dir('consumer-repository')
+                            metadataSources {
+                                artifact()
+                            }
+                        }
+                    }
+                    filter {
+                        includeGroup 'example.consumer'
+                    }
+                }
+                """);
+    }
+
+    @Test
     void cleanroomInfoIsConfigurationCacheCompatible() throws IOException {
         this.project.vanilla("""
                 cleanroom {
@@ -79,6 +166,47 @@ class PluginApplyTest {
         assertTrue(output.contains("Gradle is offline and no cached version metadata exists at"));
         assertTrue(output.contains("https://example.invalid/version-meta.json"));
         assertTrue(output.contains("Run the requested task once without --offline"));
+    }
+
+    private void repositoryArtifact(String group) throws IOException {
+        var artifact = this.projectDir.resolve("consumer-repository")
+                .resolve(group.replace('.', '/')).resolve("probe/1.0/probe-1.0.jar");
+        Files.createDirectories(artifact.getParent());
+        Files.writeString(artifact, group);
+    }
+
+    private void assertDefaultAndConsumerContentResolve(String consumerRepository) throws IOException {
+        this.repositoryArtifact("net.minecraftforge");
+        this.repositoryArtifact("example.consumer");
+        this.project.vanilla("""
+                repositories {
+                %s
+                }
+                repositories.named('MinecraftForge') {
+                    url = layout.projectDirectory.dir('consumer-repository')
+                }
+                configurations {
+                    forgeRepositoryProbe
+                    consumerRepositoryProbe
+                }
+                dependencies {
+                    forgeRepositoryProbe 'net.minecraftforge:probe:1.0'
+                    consumerRepositoryProbe 'example.consumer:probe:1.0'
+                }
+                tasks.register('resolveRepositoryContent') {
+                    inputs.files(configurations.forgeRepositoryProbe, configurations.consumerRepositoryProbe)
+                    doLast {
+                        assert inputs.files.files.size() == 2
+                    }
+                }
+                afterEvaluate {
+                    assert repositories.findAll { it.name in ['MinecraftForge', 'Consumer Forge'] }
+                            .collect { it.url }.toSet().size() == 1
+                }
+                """.formatted(consumerRepository.indent(4)));
+
+        assertEquals(TaskOutcome.SUCCESS, this.project.runner("resolveRepositoryContent", "--offline").build()
+                .task(":resolveRepositoryContent").getOutcome());
     }
 
 }

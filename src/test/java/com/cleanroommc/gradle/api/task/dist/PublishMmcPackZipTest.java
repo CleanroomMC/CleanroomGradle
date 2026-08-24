@@ -4,6 +4,7 @@ import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.gradle.api.GradleException;
 import org.gradle.testkit.runner.GradleRunner;
 import org.gradle.testkit.runner.TaskOutcome;
 import org.gradle.testfixtures.ProjectBuilder;
@@ -23,6 +24,7 @@ import java.util.zip.ZipFile;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PublishMmcPackZipTest {
@@ -34,6 +36,7 @@ class PublishMmcPackZipTest {
     void executesAsAValidatedCacheableGradleTask() throws IOException {
         var universal = file("cleanroom-2.0.0-universal.jar", "cleanroom");
         var foundation = file("foundation-2.0.0.jar", "foundation");
+        var lwjgl = file("lwjgl-3.4.2.jar", "lwjgl");
         Files.writeString(directory.resolve("settings.gradle"), "rootProject.name = 'mmc-task-test'\n");
         Files.writeString(directory.resolve("build.gradle"), """
                 import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip
@@ -48,6 +51,12 @@ class PublishMmcPackZipTest {
                 def foundation = objects.newInstance(LibraryArtifact)
                 foundation.coordinate = 'top.outlands:foundation:2.0.0'
                 foundation.file = file('%s')
+                foundation.repositoryUrl = 'https://repo.maven.apache.org/maven2/'
+
+                def lwjgl = objects.newInstance(LibraryArtifact)
+                lwjgl.coordinate = 'org.lwjgl:lwjgl:3.4.2'
+                lwjgl.file = file('%s')
+                lwjgl.repositoryUrl = 'https://repo.maven.apache.org/maven2/'
 
                 tasks.register('publishFixture', PublishMmcPackZip) {
                     instanceName = 'Cleanroom'
@@ -59,10 +68,10 @@ class PublishMmcPackZipTest {
                     universalUrl = 'https://example.invalid/cleanroom.jar'
                     universalJar = file('%s')
                     libraries.add(foundation)
-                    repositoryUrls.put('*', 'https://repo.maven.apache.org/maven2/')
+                    libraries.add(lwjgl)
                     archiveFile = layout.buildDirectory.file('cleanroom-mmc.zip')
                 }
-                """.formatted(escape(foundation), escape(universal)));
+                """.formatted(escape(foundation), escape(lwjgl), escape(universal)));
 
         var first = runner("publishFixture", "--configuration-cache").build();
         assertEquals(TaskOutcome.SUCCESS, first.task(":publishFixture").getOutcome());
@@ -83,10 +92,10 @@ class PublishMmcPackZipTest {
         var universal = file("cleanroom-1.0.0-universal.jar", "cleanroom");
         var foundation = file("foundation-1.2.3.jar", "foundation");
         var inherited = file("guava-21.0.jar", "minecraft already supplies this");
-        var lwjgl = file("lwjgl-3.3.6.jar", "lwjgl");
-        var windows = file("lwjgl-3.3.6-natives-windows.jar", "windows native");
-        var windowsArm = file("lwjgl-3.3.6-natives-windows-arm64.jar", "windows arm native");
-        var macArm = file("lwjgl-3.3.6-natives-macos-arm64.jar", "mac arm native");
+        var lwjgl = file("lwjgl-3.4.2.jar", "lwjgl");
+        var windows = file("lwjgl-3.4.2-natives-windows.jar", "windows native");
+        var windowsArm = file("lwjgl-3.4.2-natives-windows-arm64.jar", "windows arm native");
+        var macArm = file("lwjgl-3.4.2-natives-macos-arm64.jar", "mac arm native");
 
         task.getInstanceName().set("Cleanroom");
         task.getCleanroomVersion().set("1.0.0");
@@ -96,32 +105,35 @@ class PublishMmcPackZipTest {
         task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0:universal");
         task.getUniversalUrl().set("https://maven.cleanroommc.com/com/cleanroommc/cleanroom/1.0.0/cleanroom-1.0.0-universal.jar");
         task.getUniversalJar().fileValue(universal.toFile());
-        task.getLibraries().add(library(project, "top.outlands:foundation:1.2.3", foundation));
+        task.getLibraries().add(library(project, "top.outlands:foundation:1.2.3", foundation,
+                "https://packages.cleanroommc.com/releases/"));
         task.getLibraries().add(library(project, "com.google.guava:guava:21.0", inherited));
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.3.6", lwjgl));
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.3.6:natives-windows", windows));
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.3.6:natives-windows-arm64", windowsArm));
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.3.6:natives-macos-arm64", macArm));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", lwjgl));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-windows", windows));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-windows-arm64", windowsArm));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-macos-arm64", macArm));
         task.getInheritedLibraries().add("com.google.guava:guava:21.0");
-        task.getRepositoryUrls().put("*", "https://repo.maven.apache.org/maven2/");
-        task.getRepositoryUrls().put("top.outlands", "https://maven.cleanroommc.com/");
         task.getArchiveFile().fileValue(directory.resolve("cleanroom-mmc.zip").toFile());
 
         task.publish();
 
         try (var zip = new ZipFile(task.getArchiveFile().get().getAsFile())) {
-            assertEquals(Set.of("instance.cfg", "mmc-pack.json", "patches/net.minecraftforge.json"), entries(zip));
+            assertEquals(Set.of("instance.cfg", "mmc-pack.json", "patches/org.lwjgl.json",
+                    "patches/net.minecraftforge.json"), entries(zip));
             assertEquals("InstanceType=OneSix\nname=Cleanroom\niconKey=default\n", text(zip, "instance.cfg"));
 
             var pack = json(zip, "mmc-pack.json");
             assertEquals(Set.of("formatVersion", "components"), pack.keySet());
             assertEquals(1, pack.get("formatVersion").getAsInt());
             var components = pack.getAsJsonArray("components");
-            assertEquals(2, components.size());
+            assertEquals(3, components.size());
             assertEquals(Set.of("uid", "version", "important"), components.get(0).getAsJsonObject().keySet());
             assertEquals("net.minecraft", components.get(0).getAsJsonObject().get("uid").getAsString());
             assertEquals(Set.of("uid", "version"), components.get(1).getAsJsonObject().keySet());
-            assertEquals("net.minecraftforge", components.get(1).getAsJsonObject().get("uid").getAsString());
+            assertEquals("org.lwjgl", components.get(1).getAsJsonObject().get("uid").getAsString());
+            assertEquals("3.4.2", components.get(1).getAsJsonObject().get("version").getAsString());
+            assertEquals(Set.of("uid", "version"), components.get(2).getAsJsonObject().keySet());
+            assertEquals("net.minecraftforge", components.get(2).getAsJsonObject().get("uid").getAsString());
 
             var patch = json(zip, "patches/net.minecraftforge.json");
             assertEquals(Set.of("formatVersion", "name", "uid", "version", "requires", "mainClass",
@@ -132,12 +144,20 @@ class PublishMmcPackZipTest {
             assertFalse(patch.has("+jvmArgs"));
             assertEquals(List.of(25), patch.getAsJsonArray("compatibleJavaMajors").asList().stream()
                     .map(element -> element.getAsInt()).toList());
+            var requirements = patch.getAsJsonArray("requires");
+            assertEquals(2, requirements.size());
+            assertEquals("net.minecraft", requirements.get(0).getAsJsonObject().get("uid").getAsString());
+            assertEquals("1.12.2", requirements.get(0).getAsJsonObject().get("equals").getAsString());
+            assertEquals("org.lwjgl", requirements.get(1).getAsJsonObject().get("uid").getAsString());
+            assertEquals("3.4.2", requirements.get(1).getAsJsonObject().get("equals").getAsString());
 
             var libraries = patch.getAsJsonArray("libraries");
-            assertEquals(4, libraries.size(), libraries.toString());
+            assertEquals(2, libraries.size(), libraries.toString());
             assertTrue(libraries.asList().stream().noneMatch(element -> element.getAsJsonObject().has("MMC-hint")));
             assertTrue(libraries.asList().stream().noneMatch(element ->
                     element.getAsJsonObject().get("name").getAsString().equals("com.google.guava:guava:21.0")));
+            assertTrue(libraries.asList().stream().noneMatch(element ->
+                    element.getAsJsonObject().get("name").getAsString().startsWith("org.lwjgl:")));
 
             var universalLibrary = library(libraries, "com.cleanroommc:cleanroom:1.0.0:universal", false);
             assertDownload(universalLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"),
@@ -145,24 +165,33 @@ class PublishMmcPackZipTest {
 
             var foundationLibrary = library(libraries, "top.outlands:foundation:1.2.3", false);
             assertDownload(foundationLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"), foundation,
-                    "https://maven.cleanroommc.com/top/outlands/foundation/1.2.3/foundation-1.2.3.jar");
+                    "https://packages.cleanroommc.com/releases/top/outlands/foundation/1.2.3/foundation-1.2.3.jar");
 
-            var lwjglLibrary = library(libraries, "org.lwjgl:lwjgl:3.3.6", false);
+            var lwjglPatch = json(zip, "patches/org.lwjgl.json");
+            assertEquals(Set.of("formatVersion", "name", "uid", "version", "libraries"), lwjglPatch.keySet());
+            assertEquals("org.lwjgl", lwjglPatch.get("uid").getAsString());
+            assertEquals("3.4.2", lwjglPatch.get("version").getAsString());
+            var lwjglLibraries = lwjglPatch.getAsJsonArray("libraries");
+            assertEquals(2, lwjglLibraries.size(), lwjglLibraries.toString());
+            assertTrue(lwjglLibraries.asList().stream().noneMatch(element ->
+                    element.getAsJsonObject().get("name").getAsString().startsWith("org.lwjgl.lwjgl:")));
+
+            var lwjglLibrary = library(lwjglLibraries, "org.lwjgl:lwjgl:3.4.2", false);
             assertDownload(lwjglLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"), lwjgl,
-                    "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.3.6/lwjgl-3.3.6.jar");
+                    "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.4.2/lwjgl-3.4.2.jar");
 
-            var lwjglNatives = library(libraries, "org.lwjgl:lwjgl:3.3.6", true);
+            var lwjglNatives = library(lwjglLibraries, "org.lwjgl:lwjgl:3.4.2", true);
             var nativeMap = lwjglNatives.getAsJsonObject("natives");
             assertEquals("natives-windows", nativeMap.get("windows").getAsString());
             assertEquals("natives-windows-arm64", nativeMap.get("windows-arm64").getAsString());
             assertEquals("natives-macos-arm64", nativeMap.get("osx-arm64").getAsString());
             var classifiers = lwjglNatives.getAsJsonObject("downloads").getAsJsonObject("classifiers");
             assertDownload(classifiers.getAsJsonObject("natives-windows"), windows,
-                    "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.3.6/lwjgl-3.3.6-natives-windows.jar");
+                    "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.4.2/lwjgl-3.4.2-natives-windows.jar");
             assertDownload(classifiers.getAsJsonObject("natives-windows-arm64"), windowsArm,
-                    "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.3.6/lwjgl-3.3.6-natives-windows-arm64.jar");
+                    "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.4.2/lwjgl-3.4.2-natives-windows-arm64.jar");
             assertDownload(classifiers.getAsJsonObject("natives-macos-arm64"), macArm,
-                    "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.3.6/lwjgl-3.3.6-natives-macos-arm64.jar");
+                    "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.4.2/lwjgl-3.4.2-natives-macos-arm64.jar");
         }
 
         assertFalse(Files.exists(directory.resolve("cleanroom-mmc-overlay.zip")));
@@ -175,6 +204,7 @@ class PublishMmcPackZipTest {
 
         var universal = file("cleanroom-1.0.0+build.4-universal.jar", "local cleanroom");
         var foundation = file("foundation-1.2.3.jar", "foundation");
+        var lwjgl = file("lwjgl-3.4.2.jar", "lwjgl");
 
         task.getInstanceName().set("Cleanroom");
         task.getCleanroomVersion().set("1.0.0+build.4");
@@ -184,15 +214,15 @@ class PublishMmcPackZipTest {
         task.getUniversalJar().fileValue(universal.toFile());
         task.getEmbedUniversalJar().set(true);
         task.getLibraries().add(library(project, "top.outlands:foundation:1.2.3", foundation));
-        task.getRepositoryUrls().put("*", "https://repo.maven.apache.org/maven2/");
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", lwjgl));
         task.getArchiveFile().fileValue(directory.resolve("cleanroom-local.zip").toFile());
 
         task.publish();
 
         try (var zip = new ZipFile(task.getArchiveFile().get().getAsFile())) {
             var embedded = "libraries/cleanroom-1.0.0+build.4-universal.jar";
-            assertEquals(Set.of("instance.cfg", "mmc-pack.json", "patches/net.minecraftforge.json", embedded),
-                    entries(zip));
+            assertEquals(Set.of("instance.cfg", "mmc-pack.json", "patches/org.lwjgl.json",
+                    "patches/net.minecraftforge.json", embedded), entries(zip));
             assertEquals("local cleanroom", text(zip, embedded));
 
             var libraries = json(zip, "patches/net.minecraftforge.json").getAsJsonArray("libraries");
@@ -212,6 +242,28 @@ class PublishMmcPackZipTest {
         }
     }
 
+    @Test
+    void rejectsMixedLwjglComponentVersions() throws IOException {
+        var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
+        var task = project.getTasks().create("publishMmcPackZip", PublishMmcPackZip.class);
+        var universal = file("cleanroom-1.0.0-universal.jar", "cleanroom");
+
+        task.getInstanceName().set("Cleanroom");
+        task.getCleanroomVersion().set("1.0.0");
+        task.getMainClass().set("top.outlands.foundation.boot.Foundation");
+        task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0:universal");
+        task.getUniversalUrl().set("https://maven.cleanroommc.com/cleanroom.jar");
+        task.getUniversalJar().fileValue(universal.toFile());
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2",
+                file("lwjgl-3.4.2.jar", "lwjgl")));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl-stb:3.4.0",
+                file("lwjgl-stb-3.4.0.jar", "stb")));
+        task.getArchiveFile().fileValue(directory.resolve("cleanroom-mmc.zip").toFile());
+
+        var failure = assertThrows(GradleException.class, task::publish);
+        assertTrue(failure.getMessage().contains("requires exactly one LWJGL version"));
+    }
+
     private Path file(String name, String contents) throws IOException {
         return Files.writeString(directory.resolve(name), contents, StandardCharsets.UTF_8);
     }
@@ -228,9 +280,15 @@ class PublishMmcPackZipTest {
     }
 
     private static LibraryArtifact library(org.gradle.api.Project project, String coordinate, Path file) {
+        return library(project, coordinate, file, "https://repo.maven.apache.org/maven2/");
+    }
+
+    private static LibraryArtifact library(org.gradle.api.Project project, String coordinate, Path file,
+                                           String repositoryUrl) {
         var library = project.getObjects().newInstance(LibraryArtifact.class);
         library.getCoordinate().set(coordinate);
         library.getFile().fileValue(file.toFile());
+        library.getRepositoryUrl().set(repositoryUrl);
         return library;
     }
 

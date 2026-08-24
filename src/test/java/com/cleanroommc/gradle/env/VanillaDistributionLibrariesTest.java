@@ -28,8 +28,8 @@ class VanillaDistributionLibrariesTest {
     @Test
     void distributionGraphOmitsLwjgl2AndKeepsEveryPlatform() {
         var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
-        var libraries = project.getConfigurations().create("installerLibraries");
-        var natives = project.getConfigurations().create("installerNatives");
+        var libraries = project.getConfigurations().create("distributionLibraries");
+        var natives = project.getConfigurations().create("distributionNatives");
         var meta = versionMeta(
                 jar("com.paulscode:soundsystem:20120107"),
                 jar("com.google.guava:guava:21.0"),
@@ -63,7 +63,7 @@ class VanillaDistributionLibrariesTest {
                 "com.mojang:text2speech:1.10.3:natives-windows"), nativeNames);
         assertTrue(nativeNames.stream().noneMatch(name -> name.startsWith(VanillaTasks.LWJGL2_GROUP + ":")));
         assertTrue(nativeNames.stream().noneMatch(name -> name.startsWith("ca.weblite:java-objc-bridge:")));
-        assertFalse(nativeNames.contains("org.lwjgl:lwjgl:3.3.6:natives-linux"));
+        assertFalse(nativeNames.contains("org.lwjgl:lwjgl:3.4.2:natives-linux"));
     }
 
     @Test

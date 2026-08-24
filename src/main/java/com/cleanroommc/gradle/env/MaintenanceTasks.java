@@ -1,36 +1,17 @@
 package com.cleanroommc.gradle.env;
 
-import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.ext.CachesExtension;
 import com.cleanroommc.gradle.api.ext.MappingsExtension;
 import com.cleanroommc.gradle.api.ext.ProjectMode;
 import com.cleanroommc.gradle.api.task.CleanroomInfo;
 import com.cleanroommc.gradle.api.task.Tasks;
 import org.gradle.api.Project;
-import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.tasks.Delete;
 import org.gradle.api.tasks.TaskProvider;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public class MaintenanceTasks {
 
     private static final String GROUP_NAME = "cleanroom maintenance";
-
-    private static LinkedHashMap<String, String> configuredTools(Project project) {
-        var tools = new LinkedHashMap<String, String>();
-        Meta.DEFAULT_TOOLS.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry -> {
-            var configuration = project.getConfigurations().findByName(entry.getKey());
-            var declared = configuration == null ? Set.<Dependency>of() : configuration.getDependencies();
-            tools.put(entry.getKey(), declared.isEmpty() ? entry.getValue() : declared.stream()
-                    .map(String::valueOf)
-                    .collect(Collectors.joining(", ")));
-        });
-        return tools;
-    }
 
     public final TaskProvider<Delete> cleanCleanroomSharedCache;
     public final TaskProvider<CleanroomInfo> cleanroomInfo;
@@ -68,7 +49,7 @@ public class MaintenanceTasks {
     public void configure(ProjectMode mode, Project project) {
         this.cleanroomInfo.configure(task -> {
             task.getMode().set(mode);
-            task.getTools().set(configuredTools(project));
+            task.getTools().set(ToolConfigs.configured(project));
         });
     }
 

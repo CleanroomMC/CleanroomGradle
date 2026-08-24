@@ -11,10 +11,14 @@ public enum Repository {
     CENTRAL("Maven Central", "https://repo.maven.apache.org/maven2/"),
     CLEANROOM("CleanroomMC", "https://maven.cleanroommc.com/", true, "com.cleanroommc", "top.outlands"),
     FORGE("MinecraftForge", "https://maven.minecraftforge.net/", true, "net.minecraftforge", "de.oceanlabs.mcp"),
-    MOJANG("Mojang", "https://libraries.minecraft.net/", "com.mojang", "java3d", "lzma");
+    MOJANG("Mojang", "https://libraries.minecraft.net/");
 
     public static void addTo(RepositoryHandler repos) {
         for (Repository repo : values()) {
+            if (repo == CENTRAL) {
+                repos.mavenCentral();
+                continue;
+            }
             if (repo.groups().length == 0) {
                 repo.create(repos);
                 continue;
@@ -28,16 +32,6 @@ public enum Repository {
                 });
             });
         }
-    }
-
-    private MavenArtifactRepository create(RepositoryHandler repositories) {
-        return repositories.maven(maven -> {
-            maven.setName(this.id);
-            maven.setUrl(this.url);
-            if (this.hasZips) {
-                maven.getMetadataSources().artifact();
-            }
-        });
     }
 
     private final String id;
@@ -75,6 +69,16 @@ public enum Repository {
     @Override
     public String toString() {
         return id;
+    }
+
+    private MavenArtifactRepository create(RepositoryHandler repositories) {
+        return repositories.maven(maven -> {
+            maven.setName(this.id);
+            maven.setUrl(this.url);
+            if (this.hasZips) {
+                maven.getMetadataSources().artifact();
+            }
+        });
     }
 
 }

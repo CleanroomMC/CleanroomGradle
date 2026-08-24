@@ -19,4 +19,10 @@ public abstract class LibraryArtifact {
     @PathSensitive(PathSensitivity.NONE)
     public abstract RegularFileProperty getFile();
 
+    /**
+     * Base URL of the repository that supplied the selected component.
+     */
+    @Input
+    public abstract Property<String> getRepositoryUrl();
+
 }

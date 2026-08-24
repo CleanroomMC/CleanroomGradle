@@ -10,6 +10,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.gradle.api.DefaultTask;
+import org.gradle.api.GradleException;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.MapProperty;
@@ -35,7 +36,10 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
  * Writes the two JSON documents a Cleanroom installer jar carries.
@@ -95,6 +99,9 @@ public abstract class WriteInstallProfile extends DefaultTask {
     @Input
     public abstract Property<String> getUniversalCoordinate();
 
+    @Input
+    public abstract Property<String> getUniversalUrl();
+
     @InputFile
     @PathSensitive(PathSensitivity.NONE)
     public abstract RegularFileProperty getUniversalJar();
@@ -107,9 +114,6 @@ public abstract class WriteInstallProfile extends DefaultTask {
 
     @Input
     public abstract SetProperty<String> getExcludedLibraryGroups();
-
-    @Input
-    public abstract MapProperty<String, String> getRepositoryUrls();
 
     @Input
     public abstract MapProperty<String, String> getManifestUrls();
@@ -133,14 +137,15 @@ public abstract class WriteInstallProfile extends DefaultTask {
 
     @TaskAction
     public void write() {
+        var universalCoordinate = Coordinate.parse(getUniversalCoordinate().get());
         var universal = LibraryJson.artifact(
-                Coordinate.parse(getUniversalCoordinate().get()),
+                universalCoordinate,
                 getUniversalJar().get().getAsFile().toPath(),
-                LibraryJson.artifactUrl(Coordinate.parse(getUniversalCoordinate().get()), getRepositoryUrls().get()));
+                getUniversalUrl().get());
         var excluded = getExcludedLibraryGroups().get();
-        var artifacts = LibraryJson.resolve(universal, getLibraries().get(), getRepositoryUrls().get());
+        var artifacts = LibraryJson.resolve(universal, getLibraries().get());
         artifacts.removeIf(artifact -> drop(artifact, universal, excluded));
-        var natives = LibraryJson.resolve(universal, getNativeLibraries().get(), getRepositoryUrls().get());
+        var natives = LibraryJson.resolve(universal, getNativeLibraries().get());
         natives.removeIf(artifact -> drop(artifact, universal, excluded));
 
         writeJson(getVersionJson().get().getAsFile(), versionJson(manifestUrls(artifacts), manifestUrls(natives), universal));
@@ -259,8 +264,42 @@ public abstract class WriteInstallProfile extends DefaultTask {
         profile.add("tweakers", GSON.toJsonTree(getTweakers().get()));
         profile.add("serverTweakers", GSON.toJsonTree(getServerTweakers().get()));
         profile.addProperty("serverJarPath", "libraries/" + universal.coordinate().mavenPath());
-        profile.add("repositories", GSON.toJsonTree(getRepositoryUrls().get()));
+        profile.add("repositories", GSON.toJsonTree(repositoryUrls(universal)));
         return profile;
+    }
+
+    private Map<String, String> repositoryUrls(Artifact universal) {
+        var resolved = new TreeMap<String, Set<String>>();
+        addRepository(resolved, universal.coordinate(), repositoryUrl(universal));
+        addRepositories(resolved, getLibraries().get());
+        addRepositories(resolved, getNativeLibraries().get());
+        var repositories = new TreeMap<String, String>();
+        resolved.forEach((group, urls) -> {
+            if (urls.size() == 1) {
+                repositories.put(group, urls.iterator().next());
+            }
+        });
+        return repositories;
+    }
+
+    private static void addRepositories(Map<String, Set<String>> repositories, List<LibraryArtifact> libraries) {
+        for (var library : libraries) {
+            addRepository(repositories, Coordinate.parse(library.getCoordinate().get()),
+                    library.getRepositoryUrl().get());
+        }
+    }
+
+    private static void addRepository(Map<String, Set<String>> repositories, Coordinate coordinate, String repositoryUrl) {
+        var url = LibraryJson.trailingSlash(repositoryUrl);
+        repositories.computeIfAbsent(coordinate.group(), ignored -> new TreeSet<>()).add(url);
+    }
+
+    private static String repositoryUrl(Artifact artifact) {
+        var path = artifact.coordinate().mavenPath();
+        if (!artifact.url().endsWith(path)) {
+            throw new GradleException("Artifact URL does not use Maven layout: " + artifact.url());
+        }
+        return artifact.url().substring(0, artifact.url().length() - path.length());
     }
 
     private static void writeJson(File output, JsonObject json) {

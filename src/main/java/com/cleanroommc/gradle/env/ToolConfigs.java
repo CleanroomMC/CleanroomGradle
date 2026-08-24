@@ -2,8 +2,12 @@ package com.cleanroommc.gradle.env;
 
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.Dependency;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Maven tool classpaths shared by vanilla, loader, and userdev pipelines.
@@ -35,6 +39,18 @@ public final class ToolConfigs {
 
     public static Configuration get(Project project, String name) {
         return project.getConfigurations().getByName(name);
+    }
+
+    static Map<String, String> configured(Project project) {
+        var tools = new LinkedHashMap<String, String>();
+        DEFAULTS.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry -> {
+            var configuration = project.getConfigurations().findByName(entry.getKey());
+            var declared = configuration == null ? Set.<Dependency>of() : configuration.getDependencies();
+            tools.put(entry.getKey(), declared.isEmpty() ? entry.getValue() : declared.stream()
+                    .map(String::valueOf)
+                    .collect(Collectors.joining(", ")));
+        });
+        return tools;
     }
 
     private static Configuration tool(Project project, String name, String defaultNotation) {

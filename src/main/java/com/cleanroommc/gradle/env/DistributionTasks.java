@@ -12,7 +12,7 @@ import com.cleanroommc.gradle.api.task.dist.WriteUserdevConfig;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.dist.Coordinate;
-import com.cleanroommc.gradle.api.util.dist.Repositories;
+import com.cleanroommc.gradle.api.util.dist.LibraryJson;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.task.patch.GenerateBinPatches;
@@ -22,12 +22,16 @@ import net.minecraftforge.renamer.gradle.RenameJar;
 import net.minecraftforge.renamer.gradle.RenamerExtension;
 import org.gradle.jvm.toolchain.JavaLanguageVersion;
 import net.minecraftforge.fml.relauncher.Side;
+import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.attributes.Category;
 import org.gradle.api.attributes.LibraryElements;
 import org.gradle.api.attributes.Usage;
+import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
+import org.gradle.api.provider.Provider;
+import org.gradle.api.publish.PublishingExtension;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.bundling.Jar;
@@ -39,8 +43,8 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -89,7 +93,7 @@ public final class DistributionTasks {
         var jarTask = project.getTasks().named("jar", Jar.class);
 
         var archives = Tasks.archives(project);
-        var distributionRepositories = Repositories.distribution();
+        var resolvedRepositoryUrls = repositoryUrls(project);
 
         var installerBase = Objects.config(project, "installerBase");
         installerBase.configure(config -> {
@@ -102,27 +106,12 @@ public final class DistributionTasks {
                 loader.getInstallerVersion().map(installerVersion -> "com.cleanroommc:installer:" + installerVersion));
 
         var runtimeClasspath = project.getConfigurations().named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME);
-        var mmcPackLibraries = Objects.config(project, "mmcPackLibraries");
-        mmcPackLibraries.configure(config -> {
-            config.setDescription("Runtime libraries embedded as hashed download metadata in the MMC/Prism pack.");
+        var distributionLibraries = Objects.config(project, "distributionLibraries");
+        distributionLibraries.configure(config -> {
+            config.setDescription("Resolved classpath and LWJGL native libraries shared by all Cleanroom distributions.");
             config.setCanBeConsumed(false);
             config.setCanBeResolved(true);
             config.extendsFrom(runtimeClasspath.get(), project.getConfigurations().getByName(LwjglNatives.ALL_CONFIGURATION_NAME));
-            config.attributes(attributes -> {
-                attributes.attribute(Usage.USAGE_ATTRIBUTE, project.getObjects().named(Usage.class, Usage.JAVA_RUNTIME));
-                attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.getObjects().named(Category.class, Category.LIBRARY));
-                attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, project.getObjects().named(LibraryElements.class, LibraryElements.JAR));
-            });
-        });
-        var mmcLibraryArtifacts = ResolvedLibraries.artifacts(project.getObjects(),
-                mmcPackLibraries.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts()));
-
-        var installerLibraries = Objects.config(project, "installerLibraries");
-        installerLibraries.configure(config -> {
-            config.setDescription("Classpath libraries listed in the installer's version.json.");
-            config.setCanBeConsumed(false);
-            config.setCanBeResolved(true);
-            config.extendsFrom(mmcPackLibraries.get());
             config.exclude(Map.of("group", VanillaTasks.LWJGL2_GROUP));
             config.withDependencies(dependencies -> VanillaTasks.addDistributionLibraries(
                     project.getDependencyFactory(), dependencies, minecraft.getVersionMeta().get()));
@@ -132,19 +121,24 @@ public final class DistributionTasks {
                 attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, project.getObjects().named(LibraryElements.class, LibraryElements.JAR));
             });
         });
-        var selectedInstallerVersions = providers.provider(() -> VanillaTasks.selectedVersions(installerLibraries.get()));
-        var installerNatives = Objects.config(project, "installerNatives");
-        installerNatives.configure(config -> {
-            config.setDescription("Extracted natives listed in the installer's version.json, for every platform.");
+        var distributionLibraryArtifacts = ResolvedLibraries.artifacts(project.getObjects(),
+                distributionLibraries.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts()),
+                distributionLibraries.flatMap(config -> config.getIncoming().getResolutionResult().getRootComponent()),
+                resolvedRepositoryUrls);
+
+        var selectedDistributionVersions = providers.provider(() -> VanillaTasks.selectedVersions(distributionLibraries.get()));
+        var distributionNatives = Objects.config(project, "distributionNatives");
+        distributionNatives.configure(config -> {
+            config.setDescription("Vanilla libraries extracted as natives by Cleanroom distributions, for every platform.");
             config.setCanBeConsumed(false);
             config.setCanBeResolved(true);
             config.setTransitive(false);
             config.withDependencies(dependencies -> VanillaTasks.addDistributionNatives(
                     project.getDependencyFactory(), dependencies, minecraft.getVersionMeta().get(),
-                    selectedInstallerVersions.get()));
+                    selectedDistributionVersions.get()));
         });
         var manifestUrls = minecraft.getVersionMeta().map(meta -> {
-            var urls = new LinkedHashMap<String, String>();
+            var urls = new HashMap<String, String>();
             for (var library : meta.libraries()) {
                 var downloads = library.downloads();
                 if (downloads == null) {
@@ -163,10 +157,12 @@ public final class DistributionTasks {
             }
             return urls;
         });
-        var installerLibraryArtifacts = ResolvedLibraries.artifacts(project.getObjects(),
-                installerLibraries.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts()));
-        var installerNativeArtifacts = ResolvedLibraries.artifacts(project.getObjects(),
-                installerNatives.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts()));
+        var distributionNativeArtifacts = ResolvedLibraries.artifacts(project.getObjects(),
+                distributionNatives.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts()),
+                distributionNatives.flatMap(config -> config.getIncoming().getResolutionResult().getRootComponent()),
+                resolvedRepositoryUrls);
+        var universalUrl = universalRepositoryUrl(project)
+                .map(url -> LibraryJson.trailingSlash(url) + universal.mavenPath());
 
         this.writeMcp2Srg = mappings.write(project, caches, "writeMcp2Srg", WriteMappings.Direction.MCP_TO_SRG, "mcp2srg.tsrg");
         this.writeObf2SrgTsrg = mappings.write(project, caches, "writeObf2SrgTsrg", WriteMappings.Direction.OBF_TO_SRG, "obf2srg.tsrg");
@@ -352,13 +348,12 @@ public final class DistributionTasks {
                     .map(languageVersion -> List.of(languageVersion.asInt()))
                     .orElse(List.of()));
             task.getUniversalCoordinate().set(universal.serialized());
-            task.getUniversalUrl().set(Repositories.CLEANROOM_REPO + universal.mavenPath());
+            task.getUniversalUrl().set(universalUrl);
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
-            task.getLibraries().set(mmcLibraryArtifacts);
+            task.getLibraries().set(distributionLibraryArtifacts);
             task.getInheritedLibraries().set(minecraft.getVersionMeta().map(meta -> meta.libraries().stream()
                     .map(library -> library.name())
-                    .collect(Collectors.toCollection(LinkedHashSet::new))));
-            task.getRepositoryUrls().set(distributionRepositories);
+                    .collect(Collectors.toSet())));
             // Every published pack so far is the classifier-less zip beside the jars; keep that name.
             task.getArchiveFile().set(layout.getBuildDirectory().file("libs/" + ARTIFACT_ID + "-" + version + ".zip"));
         });
@@ -379,11 +374,11 @@ public final class DistributionTasks {
                     .orElse(MINIMUM_JAVA)
             );
             task.getUniversalCoordinate().set(universal.serialized());
+            task.getUniversalUrl().set(universalUrl);
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
-            task.getLibraries().set(installerLibraryArtifacts);
-            task.getNativeLibraries().set(installerNativeArtifacts);
+            task.getLibraries().set(distributionLibraryArtifacts);
+            task.getNativeLibraries().set(distributionNativeArtifacts);
             task.getExcludedLibraryGroups().add(VanillaTasks.LWJGL2_GROUP);
-            task.getRepositoryUrls().set(distributionRepositories);
             task.getManifestUrls().set(manifestUrls);
             task.getVersionMeta().set(minecraft.getVersionMeta());
             task.getReleaseTime().set(timestampProperty);
@@ -464,6 +459,30 @@ public final class DistributionTasks {
     private static String specVersion(String version) {
         var idx = version.indexOf('+');
         return idx == -1 ? version : version.substring(0, idx);
+    }
+
+    private static Map<String, String> repositoryUrls(Project project) {
+        var repositories = new HashMap<String, String>();
+        project.getRepositories().withType(MavenArtifactRepository.class).forEach(repository ->
+                repositories.put(repository.getName(), LibraryJson.trailingSlash(repository.getUrl().toString())));
+        return Map.copyOf(repositories);
+    }
+
+    private static Provider<String> universalRepositoryUrl(Project project) {
+        return project.getProviders().provider(() -> {
+            var publishing = project.getExtensions().findByType(PublishingExtension.class);
+            if (publishing == null) {
+                throw new GradleException("Cleanroom distribution requires the maven-publish plugin");
+            }
+            var urls = publishing.getRepositories().withType(MavenArtifactRepository.class).stream()
+                    .map(repository -> LibraryJson.trailingSlash(repository.getUrl().toString()))
+                    .collect(Collectors.toSet());
+            if (urls.size() != 1) {
+                throw new GradleException("Cleanroom distribution requires exactly one Maven publication repository; found "
+                        + urls);
+            }
+            return urls.iterator().next();
+        });
     }
 
 }

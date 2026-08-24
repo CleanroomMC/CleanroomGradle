@@ -37,8 +37,8 @@ class WriteInstallProfileTest {
 
         var universal = file("cleanroom-1.0.0-universal.jar", "cleanroom");
         var guava = file("guava-33.6.0-jre.jar", "guava");
-        var lwjgl = file("lwjgl-3.3.6.jar", "lwjgl");
-        var lwjglLinux = file("lwjgl-3.3.6-natives-linux.jar", "lwjgl linux native");
+        var lwjgl = file("lwjgl-3.4.2.jar", "lwjgl");
+        var lwjglLinux = file("lwjgl-3.4.2-natives-linux.jar", "lwjgl linux native");
         var text2speech = file("text2speech-1.10.3-natives-linux.jar", "text2speech linux native");
         var text2speechWindows = file("text2speech-1.10.3-natives-windows.jar", "text2speech windows native");
         var jinputLinux = file("jinput-platform-2.0.5-natives-linux.jar", "jinput linux native");
@@ -46,9 +46,9 @@ class WriteInstallProfileTest {
         var soundsystem = file("soundsystem-20120107.jar", "soundsystem");
 
         task.getUniversalJar().fileValue(universal.toFile());
-        task.getLibraries().add(library(project, "com.google.guava:guava:33.6.0-jre", guava));
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.3.6", lwjgl));
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.3.6:natives-linux", lwjglLinux));
+        task.getLibraries().add(library(project, "com.google.guava:guava:33.6.0-jre", guava, "https://authority.example/releases/"));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", lwjgl));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-linux", lwjglLinux));
         task.getLibraries().add(library(project, "com.paulscode:soundsystem:20120107", soundsystem));
         task.getNativeLibraries().add(library(project, "com.mojang:text2speech:1.10.3:natives-linux", text2speech));
         task.getNativeLibraries().add(library(project, "com.mojang:text2speech:1.10.3:natives-windows", text2speechWindows));
@@ -72,8 +72,8 @@ class WriteInstallProfileTest {
         assertEquals(List.of("com.cleanroommc:cleanroom:1.0.0:universal",
                         "com.google.guava:guava:33.6.0-jre",
                         "com.paulscode:soundsystem:20120107",
-                        "org.lwjgl:lwjgl:3.3.6",
-                        "org.lwjgl:lwjgl:3.3.6:natives-linux",
+                        "org.lwjgl:lwjgl:3.4.2",
+                        "org.lwjgl:lwjgl:3.4.2:natives-linux",
                         "com.mojang:text2speech:1.10.3",
                         "net.java.jinput:jinput-platform:2.0.5"),
                 names);
@@ -82,10 +82,13 @@ class WriteInstallProfileTest {
         assertEquals("https://libraries.minecraft.net/com/paulscode/soundsystem/20120107/soundsystem-20120107.jar",
                 library(libraries, "com.paulscode:soundsystem:20120107")
                         .getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString());
-        // A library this build moved off Minecraft's version keeps the configured repository
-        assertEquals("https://repo.maven.apache.org/maven2/com/google/guava/guava/33.6.0-jre/guava-33.6.0-jre.jar",
+        // A library this build moved off Minecraft's version keeps its actual resolved repository
+        assertEquals("https://authority.example/releases/com/google/guava/guava/33.6.0-jre/guava-33.6.0-jre.jar",
                 library(libraries, "com.google.guava:guava:33.6.0-jre")
                         .getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString());
+        assertEquals("https://authority.example/releases/",
+                json(task.getInstallProfile().get().getAsFile().toPath())
+                        .getAsJsonObject("repositories").get("com.google.guava").getAsString());
 
         // The loader's own jar travels inside the installer
         var embedded = library(libraries, "com.cleanroommc:cleanroom:1.0.0:universal")
@@ -93,7 +96,7 @@ class WriteInstallProfileTest {
         assertEquals("", embedded.get("url").getAsString());
 
         // LWJGL 3 loads its natives off the classpath, so they stay ordinary entries
-        var lwjglNative = library(libraries, "org.lwjgl:lwjgl:3.3.6:natives-linux");
+        var lwjglNative = library(libraries, "org.lwjgl:lwjgl:3.4.2:natives-linux");
         assertFalse(lwjglNative.has("natives"));
         assertNotNull(lwjglNative.getAsJsonObject("downloads").getAsJsonObject("artifact"));
 
@@ -121,8 +124,8 @@ class WriteInstallProfileTest {
         var task = task(project);
 
         task.getUniversalJar().fileValue(file("cleanroom-1.0.0-universal.jar", "cleanroom").toFile());
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.3.6",
-                file("lwjgl-3.3.6.jar", "lwjgl3")));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2",
+                file("lwjgl-3.4.2.jar", "lwjgl3")));
         task.getLibraries().add(library(project, "org.lwjgl.lwjgl:lwjgl:2.9.4-nightly-20150209",
                 file("lwjgl-2.9.4-nightly-20150209.jar", "lwjgl2")));
         task.getNativeLibraries().add(library(project, "org.lwjgl.lwjgl:lwjgl-platform:2.9.4-nightly-20150209:natives-linux",
@@ -134,9 +137,30 @@ class WriteInstallProfileTest {
         task.write();
 
         var names = names(json(task.getVersionJson().get().getAsFile().toPath()).getAsJsonArray("libraries"));
-        assertTrue(names.contains("org.lwjgl:lwjgl:3.3.6"), names.toString());
+        assertTrue(names.contains("org.lwjgl:lwjgl:3.4.2"), names.toString());
         assertTrue(names.contains("com.mojang:text2speech:1.10.3"), names.toString());
         assertTrue(names.stream().noneMatch(name -> name.startsWith("org.lwjgl.lwjgl:")), names.toString());
+    }
+
+    @Test
+    void keepsExactArtifactUrlsWhenAGroupSpansRepositories() throws Exception {
+        var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
+        var task = task(project);
+        task.getUniversalJar().fileValue(file("cleanroom-1.0.0-universal.jar", "cleanroom").toFile());
+        task.getLibraries().add(library(project, "example.shared:first:1.0",
+                file("first-1.0.jar", "first"), "https://first.example/releases/"));
+        task.getLibraries().add(library(project, "example.shared:second:1.0",
+                file("second-1.0.jar", "second"), "https://second.example/releases/"));
+        task.getVersionMeta().set(versionMeta("--username ${auth_player_name}"));
+
+        task.write();
+
+        var versionLibraries = json(task.getVersionJson().get().getAsFile().toPath()).getAsJsonArray("libraries");
+        assertEquals("https://first.example/releases/example/shared/first/1.0/first-1.0.jar",
+                library(versionLibraries, "example.shared:first:1.0").getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString());
+        assertEquals("https://second.example/releases/example/shared/second/1.0/second-1.0.jar",
+                library(versionLibraries, "example.shared:second:1.0").getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString());
+        assertFalse(json(task.getInstallProfile().get().getAsFile().toPath()).getAsJsonObject("repositories").has("example.shared"));
     }
 
     @Test
@@ -170,8 +194,8 @@ class WriteInstallProfileTest {
         task.getMinimumJava().set(25);
         task.getRecommendedJava().set(25);
         task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0:universal");
+        task.getUniversalUrl().set("https://maven.cleanroommc.com/com/cleanroommc/cleanroom/1.0.0/cleanroom-1.0.0-universal.jar");
         task.getExcludedLibraryGroups().add("org.lwjgl.lwjgl");
-        task.getRepositoryUrls().put("*", "https://repo.maven.apache.org/maven2/");
         task.getReleaseTime().set("1970-01-01T00:00:00+0000");
         task.getInstallProfile().fileValue(directory.resolve("install_profile.json").toFile());
         task.getVersionJson().fileValue(directory.resolve("version.json").toFile());
@@ -195,9 +219,14 @@ class WriteInstallProfileTest {
     }
 
     private static LibraryArtifact library(Project project, String coordinate, Path file) {
+        return library(project, coordinate, file, "https://repo.maven.apache.org/maven2/");
+    }
+
+    private static LibraryArtifact library(Project project, String coordinate, Path file, String repositoryUrl) {
         var library = project.getObjects().newInstance(LibraryArtifact.class);
         library.getCoordinate().set(coordinate);
         library.getFile().fileValue(file.toFile());
+        library.getRepositoryUrl().set(repositoryUrl);
         return library;
     }
 
