@@ -5,6 +5,8 @@ import java.util.regex.Pattern;
 public final class Meta {
 
     public static final String CG_FOLDER = "cleanroom_gradle";
+    public static final String ONE_TRUE_MINECRAFT_VERSION = "1.12.2";
+    public static final String MINECRAFT_PACKAGE_PATH = "net/minecraft/";
 
     // Useful URLs
     public static final String RESOURCES_BASE_URL = "https://resources.download.minecraft.net/";

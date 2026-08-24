@@ -36,7 +36,7 @@ public final class CleanroomTasks {
         SourceSets.extendFromConfiguration(project, mainSourceSet, vanilla.vanillaConfig);
         var minecraftPatchDev = patches.getPatchDev().register("minecraft", env -> {
             var module = project.getLayout().getProjectDirectory().dir("module/minecraft");
-            env.getInput().set(caches.getLocalDirectory().dir("sourceSets/mcp/sources"));
+            env.getInput().fileProvider(SourceSets.source(mcp.mcpSource));
             env.getPatches().set(module.dir("patches"));
             env.getOutput().set(module.dir("src/main/java"));
             env.dependsOn(mcp.remapSrg2Mcp.getName());
@@ -68,7 +68,7 @@ public final class CleanroomTasks {
         fml.assetIndex = minecraft.getVersionMeta().map(VersionMeta::assetIndexId);
         fml.assets = caches.getDirectory().dir("assets");
         fml.natives = natives;
-        fml.launchClass = "top.outlands.foundation.boot.Foundation";
+        fml.launchClass = loader.getLaunchClass();
 
         this.runCleanroomClient = Tasks.register(project, "runCleanroomClient", RunMinecraft.class);
         this.runCleanroomServer = Tasks.register(project, "runCleanroomServer", RunMinecraft.class);
@@ -81,14 +81,14 @@ public final class CleanroomTasks {
             task.getSide().set(Side.CLIENT);
             task.getEnv().set(Environment.CLEANROOM);
             task.getMinecraftVersion().set(vanilla.minecraftVersion);
-            task.getMainClass().set("com.cleanroommc.boot.MainClient");
+            task.getMainClass().set(loader.getClientMainClass());
             task.setWorkingDir(runDir);
             task.getNatives().fileProvider(natives);
             task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitClientJar.flatMap(SplitJar::getExtraJar));
             var client = new MinecraftRuns.Fml();
             client.client = true;
-            client.target = "fmldevclient";
-            client.tweakClass = "net.minecraftforge.fml.common.launcher.FMLTweaker";
+            client.target = loader.getClientTarget();
+            client.tweakClass = loader.getClientTweakClass();
             client.launchClass = fml.launchClass;
             client.minecraftVersion = fml.minecraftVersion;
             client.mcpVersion = fml.mcpVersion;
@@ -108,14 +108,14 @@ public final class CleanroomTasks {
             task.getSide().set(Side.SERVER);
             task.getEnv().set(Environment.CLEANROOM);
             task.getMinecraftVersion().set(vanilla.minecraftVersion);
-            task.getMainClass().set("com.cleanroommc.boot.MainServer");
+            task.getMainClass().set(loader.getServerMainClass());
             task.setWorkingDir(runDir);
             task.getNatives().fileProvider(natives);
             task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitServerJar.flatMap(SplitJar::getExtraJar));
             var server = new MinecraftRuns.Fml();
             server.client = false;
-            server.target = "fmldevserver";
-            server.tweakClass = "net.minecraftforge.fml.common.launcher.FMLServerTweaker";
+            server.target = loader.getServerTarget();
+            server.tweakClass = loader.getServerTweakClass();
             server.launchClass = fml.launchClass;
             server.minecraftVersion = fml.minecraftVersion;
             server.mcpVersion = fml.mcpVersion;

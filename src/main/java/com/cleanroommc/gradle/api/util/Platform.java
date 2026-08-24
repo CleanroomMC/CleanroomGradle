@@ -1,6 +1,8 @@
 package com.cleanroommc.gradle.api.util;
 
 import java.io.File;
+import java.util.LinkedHashSet;
+import java.util.List;
 
 public final class Platform {
 
@@ -8,6 +10,20 @@ public final class Platform {
 
     public static String fixCommandLine(String cmdlineArg) {
         return CURRENT.getOperatingSystem().isWindows() ? cmdlineArg.replace("\"", "\\\"") : cmdlineArg;
+    }
+
+    /**
+     * Every distinct native classifier produced by {@link #lwjglNativesClassifier()}.
+     */
+    public static List<String> lwjglNativesClassifiers() {
+        var classifiers = new LinkedHashSet<String>();
+        for (var os : List.of(OperatingSystem.WINDOWS, OperatingSystem.LINUX,
+                OperatingSystem.MAC_OS, OperatingSystem.FREE_BSD)) {
+            for (var architecture : Architecture.values()) {
+                classifiers.add(new Platform(os, architecture).lwjglNativesClassifier());
+            }
+        }
+        return List.copyOf(classifiers);
     }
 
     /**

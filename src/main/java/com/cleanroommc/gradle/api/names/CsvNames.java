@@ -14,6 +14,10 @@ import java.util.zip.ZipEntry;
  */
 public record CsvNames(Map<String, String> fields, Map<String, String> methods, Map<String, String> params, Map<String, String> docs) {
 
+    public static final String FIELDS_FILE = "fields.csv";
+    public static final String METHODS_FILE = "methods.csv";
+    public static final String PARAMS_FILE = "params.csv";
+
     /**
      * Reads the three CSVs out of an MCP names zip.
      */
@@ -26,11 +30,11 @@ public record CsvNames(Map<String, String> fields, Map<String, String> methods, 
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
                 String name = entry.getName();
-                if (name.endsWith("fields.csv")) {
+                if (name.endsWith(FIELDS_FILE)) {
                     readRecords(zip, fields, docs);
-                } else if (name.endsWith("methods.csv")) {
+                } else if (name.endsWith(METHODS_FILE)) {
                     readRecords(zip, methods, docs);
-                } else if (name.endsWith("params.csv")) {
+                } else if (name.endsWith(PARAMS_FILE)) {
                     readRecords(zip, params, docs);
                 }
             }

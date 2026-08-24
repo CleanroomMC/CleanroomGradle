@@ -4,7 +4,6 @@ import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.source.BundledVersionMetaValueSource;
 import com.cleanroommc.gradle.api.source.VersionMetaValueSource;
 import com.cleanroommc.gradle.api.util.EnumValues;
-import com.cleanroommc.gradle.api.util.LwjglNatives;
 import org.gradle.api.Action;
 import org.gradle.api.NamedDomainObjectContainer;
 import org.gradle.api.Project;
@@ -51,7 +50,7 @@ public abstract class CleanroomExtension {
         final var providers = project.getProviders();
 
         this.caches.getDirectory().fileValue(new File(project.getGradle().getGradleUserHomeDir(), "caches/" + Meta.CG_FOLDER));
-        this.caches.getVersionDirectory().convention(this.caches.getDirectory().dir("versions/1.12.2"));
+        this.caches.getVersionDirectory().convention(this.caches.getDirectory().dir("versions/" + Meta.ONE_TRUE_MINECRAFT_VERSION));
         this.caches.getLocalDirectory().convention(project.getLayout().getBuildDirectory().dir(Meta.CG_FOLDER));
 
         this.getMode().convention(ProjectMode.USERDEV);
@@ -74,10 +73,6 @@ public abstract class CleanroomExtension {
 
         this.patches.getDevelopInitial().convention(false);
         this.patches.getPatchDev().all(env -> env.registerTasks(project, this.caches.getLocalDirectory()));
-
-        this.loader.getForgeVersion().convention("14.23.5.2864");
-        this.loader.getInstallerVersion().convention("0.1.0");
-        this.loader.getLwjglNativesClassifiers().convention(LwjglNatives.CLASSIFIERS);
 
         this.getVanilla().all(env -> env.register(project, this.caches, this.minecraft));
     }

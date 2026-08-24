@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.api.util.inject;
 
+import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.util.IO;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -27,7 +28,6 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
@@ -48,7 +48,7 @@ public final class MetadataInjector {
     private record Entry(String name, byte[] data, boolean directory) {
 
         private boolean transformable() {
-            return !this.directory && this.name.endsWith(".class") && this.name.startsWith(PROCESSED_PREFIX);
+            return !this.directory && this.name.endsWith(".class") && this.name.startsWith(Meta.MINECRAFT_PACKAGE_PATH);
         }
 
     }
@@ -56,7 +56,6 @@ public final class MetadataInjector {
     private static final String SRG_PREFIX = "func_";
     private static final char PLACEHOLDER = '☃';
     private static final String ABSTRACT_PARAMETERS = "fernflower_abstract_parameter_names.txt";
-    private static final String PROCESSED_PREFIX = "net/minecraft/";
     private static final int ABSTRACT_OR_NATIVE = Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE;
     private static final int BUFFER = 1 << 16;
 

@@ -3,6 +3,7 @@ package com.cleanroommc.gradle.env;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.Dependency;
+import org.objectweb.asm.Opcodes;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -14,8 +15,7 @@ import java.util.stream.Collectors;
  */
 public final class ToolConfigs {
 
-    // TODO: configurable
-    private static final String ASM_VERSION = "9.10.1";
+    private static final String ASM_VERSION = asmVersion();
     private static final Map<String, String> DEFAULTS = Map.of(
             "accesstransformer", "net.minecraftforge:accesstransformers:8.2.17", // Forge
             "decompiler", "com.cleanroommc:cleanflower:1.0.0", // Cleanroom
@@ -62,6 +62,14 @@ public final class ToolConfigs {
         config.defaultDependencies(deps -> deps.add(factory.create(defaultNotation)));
         config.getResolutionStrategy().force((Object[]) PINNED_ASM_MODULES);
         return config;
+    }
+
+    private static String asmVersion() {
+        var version = Opcodes.class.getPackage().getImplementationVersion();
+        if (version == null || version.isBlank()) {
+            throw new IllegalStateException("The loaded ASM library does not declare Implementation-Version");
+        }
+        return version;
     }
 
     private ToolConfigs() { }

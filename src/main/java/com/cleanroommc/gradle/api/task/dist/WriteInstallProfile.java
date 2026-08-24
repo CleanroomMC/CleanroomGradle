@@ -5,6 +5,7 @@ import com.cleanroommc.gradle.api.util.dist.Artifact;
 import com.cleanroommc.gradle.api.util.dist.Coordinate;
 import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
+import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -113,7 +114,7 @@ public abstract class WriteInstallProfile extends DefaultTask {
     public abstract ListProperty<LibraryArtifact> getNativeLibraries();
 
     @Input
-    public abstract SetProperty<String> getExcludedLibraryGroups();
+    public abstract SetProperty<String> getLibraryExcludeRules();
 
     @Input
     public abstract MapProperty<String, String> getManifestUrls();
@@ -142,7 +143,7 @@ public abstract class WriteInstallProfile extends DefaultTask {
                 universalCoordinate,
                 getUniversalJar().get().getAsFile().toPath(),
                 getUniversalUrl().get());
-        var excluded = getExcludedLibraryGroups().get();
+        var excluded = getLibraryExcludeRules().get();
         var artifacts = LibraryJson.resolve(universal, getLibraries().get());
         artifacts.removeIf(artifact -> drop(artifact, universal, excluded));
         var natives = LibraryJson.resolve(universal, getNativeLibraries().get());
@@ -153,7 +154,8 @@ public abstract class WriteInstallProfile extends DefaultTask {
     }
 
     private boolean drop(Artifact artifact, Artifact universal, Set<String> excluded) {
-        return artifact.coordinate().sameArtifact(universal.coordinate()) || excluded.contains(artifact.coordinate().group());
+        return artifact.coordinate().sameArtifact(universal.coordinate())
+                || ResolvedLibraries.isExcluded(artifact.coordinate(), excluded);
     }
 
     private List<Artifact> manifestUrls(List<Artifact> artifacts) {
@@ -238,7 +240,7 @@ public abstract class WriteInstallProfile extends DefaultTask {
         profile.addProperty("spec", SPEC);
         profile.addProperty("profile", getProfileName().get());
         profile.addProperty("version", getVersionId().get());
-        profile.addProperty("minecraft", "1.12.2");
+        profile.addProperty("minecraft", getVersionMeta().get().id());
         profile.addProperty("cleanroomVersion", getCleanroomVersion().get());
         profile.addProperty("json", "/version.json");
         profile.addProperty("path", universal.coordinate().serialized());

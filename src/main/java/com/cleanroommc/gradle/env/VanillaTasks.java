@@ -12,6 +12,7 @@ import com.cleanroommc.gradle.api.task.mc.DownloadAssets;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.IO;
+import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.Platform;
 import com.cleanroommc.gradle.api.util.lazy.Providers;
@@ -44,8 +45,6 @@ public final class VanillaTasks {
     public static final String LWJGL2_GROUP = "org.lwjgl.lwjgl";
 
     private static final String GROUP_NAME = "vanilla";
-    private static final String NATIVES_PREFIX = "natives-";
-    private static final String DEFAULT_VERSION = "1.12.2";
 
     public static void addDistributionLibraries(DependencyFactory factory, DependencySet dependencies, VersionMeta meta) {
         var nativeModules = nativeModules(meta);
@@ -73,7 +72,7 @@ public final class VanillaTasks {
                 continue;
             }
             for (var classifier : library.downloads().classifiers().keySet()) {
-                if (!classifier.startsWith(NATIVES_PREFIX)) {
+                if (!classifier.startsWith(LwjglNatives.CLASSIFIER_PREFIX)) {
                     continue;
                 }
                 var dependency = factory.create("%s:%s:%s:%s".formatted(coordinates[0], coordinates[1], coordinates[2], classifier));
@@ -176,7 +175,7 @@ public final class VanillaTasks {
     }
 
     /**
-     * {@value #DEFAULT_VERSION}, or the version requested with {@code -Pmc=<version>}.
+     * {@link Meta#ONE_TRUE_MINECRAFT_VERSION}, or the version requested with {@code -Pmc=<version>}.
      */
     public final Provider<String> minecraftVersion;
     /**
@@ -184,6 +183,7 @@ public final class VanillaTasks {
      */
     public final Provider<VersionMeta> versionMeta;
     public final Provider<Directory> versionCacheDirectory;
+    public final Provider<File> assetIndexFile, clientJar, serverJar;
     public final NamedDomainObjectProvider<Configuration> vanillaConfig, vanillaNativesConfig;
     public final TaskProvider<Download> downloadAssetIndex, downloadClientJar, downloadServerJar, downloadClientMappings;
     public final TaskProvider<DownloadAssets> downloadAssets;
@@ -204,6 +204,11 @@ public final class VanillaTasks {
         this.minecraftVersion = spec.minecraftVersion();
         this.versionMeta = spec.versionMeta();
         this.versionCacheDirectory = spec.versionCacheDirectory();
+        this.assetIndexFile = caches.getDirectory()
+                .file(this.versionMeta.map(meta -> "assets/indexes/" + meta.assetIndexId() + ".json"))
+                .map(RegularFile::getAsFile);
+        this.clientJar = this.versionCacheDirectory.map(dir -> dir.file("client.jar").getAsFile());
+        this.serverJar = this.versionCacheDirectory.map(dir -> dir.file("server.jar").getAsFile());
 
         var toolchains = project.getExtensions().getByType(JavaToolchainService.class);
         var vanillaJavaLauncher = spec.javaMajor().flatMap(major -> Providers.javaLauncher(toolchains, major));
@@ -261,18 +266,18 @@ public final class VanillaTasks {
         this.downloadAssetIndex.configure(task -> {
             task.onlyIf("VersionMeta offers an asset index", t -> assetIndex.isPresent());
             task.src(this.versionMeta.map(VersionMeta::assetIndexUrl));
-            task.dest(caches.getDirectory().file(this.versionMeta.map(meta -> "assets/indexes/" + meta.assetIndexId() + ".json")));
+            task.dest(this.assetIndexFile);
             skipWhenSha1Matches(task, this.versionMeta.map(VersionMeta::assetIndexSha1));
         });
         this.downloadClientJar.configure(task -> {
             task.src(this.versionMeta.map(VersionMeta::clientUrl));
-            task.dest(this.versionCacheDirectory.map(dir -> dir.file("client.jar")));
+            task.dest(this.clientJar);
             skipWhenSha1Matches(task, this.versionMeta.map(VersionMeta::clientSha1));
         });
         this.downloadServerJar.configure(task -> {
             task.onlyIf("VersionMeta offers a server download", t -> serverDownload.isPresent());
             task.src(serverDownload.map(VersionMeta.Download::url));
-            task.dest(this.versionCacheDirectory.map(dir -> dir.file("server.jar")));
+            task.dest(this.serverJar);
             skipWhenSha1Matches(task, serverDownload.map(VersionMeta.Download::sha1));
         });
         this.downloadClientMappings.configure(task -> {
@@ -303,7 +308,7 @@ public final class VanillaTasks {
         this.decompileVersion.configure(task -> {
             task.setDescription("Decompiles the selected vanilla client jar for source browsing, under official names when Mojang publishes mappings.");
 
-            task.getJavaLauncher().convention(Providers.javaLauncher(project, 25));
+            task.getJavaLauncher().convention(Providers.javaLauncher(project));
             task.getLogFile().convention(caches.getLocalDirectory().file(decompileName + "/decompile.log"));
             task.getCompiledJar().fileProvider(this.versionMeta.flatMap(meta -> meta.download("client_mappings") != null
                     ? this.remapClientToOfficial.flatMap(RenameJar::getOutput).map(RegularFile::getAsFile)
@@ -352,7 +357,7 @@ public final class VanillaTasks {
         var providers = project.getProviders();
         var offline = project.getGradle().getStartParameter().isOffline();
         var mcProperty = providers.gradleProperty("mc");
-        var version = mcProperty.orElse(DEFAULT_VERSION);
+        var version = mcProperty.orElse(Meta.ONE_TRUE_MINECRAFT_VERSION);
         var meta = launcherMeta(project, caches, mcProperty, offline).orElse(minecraft.getVersionMeta());
         var cache = mcProperty
                 .flatMap(selected -> caches.getDirectory().dir("versions/" + selected))

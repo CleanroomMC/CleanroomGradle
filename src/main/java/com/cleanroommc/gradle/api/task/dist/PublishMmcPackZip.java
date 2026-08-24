@@ -1,10 +1,12 @@
 package com.cleanroommc.gradle.api.task.dist;
 
+import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.dist.Artifact;
 import com.cleanroommc.gradle.api.util.dist.Coordinate;
 import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
+import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -38,6 +40,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.zip.ZipEntry;
 
 /**
@@ -46,8 +49,11 @@ import java.util.zip.ZipEntry;
  * <p>The generated patch keeps launch behavior in the OneSix subset understood by both launchers.
  *
  * <p>Non-essential Prism Java compatibility hint is ignored by old MultiMC.
- * Every artifact is referenced through a {@code downloads} object with its locally verified size and SHA-1.
- * No artifact is embedded under the instance {@code libraries/} directory.</p>
+ * Downloaded artifacts are referenced through a {@code downloads} object with their locally verified size and SHA-1.
+ * Local builds embed the universal jar under the instance {@code libraries/} directory and mark it with
+ * {@code MMC-hint=local}; {@code -Prelease} produces a download-only published pack. Minecraft modules excluded
+ * from the resolved distribution are replaced by higher-version empty local libraries so Prism can retain its
+ * stock Minecraft metadata.</p>
  */
 @CacheableTask
 public abstract class PublishMmcPackZip extends DefaultTask {
@@ -59,12 +65,19 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     private static final String FORGE_PATCH_PATH = "patches/" + FORGE_UID + ".json";
     private static final String LWJGL_PATCH_PATH = "patches/" + LWJGL_UID + ".json";
     private static final String LOCAL_LIBRARIES = "libraries/";
+    private static final String BLOCKED_LIBRARY_VERSION = "999999.0-empty";
+    private static final byte[] EMPTY_JAR = {
+            0x50, 0x4b, 0x05, 0x06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
 
     @Input
     public abstract Property<String> getInstanceName();
 
     @Input
     public abstract Property<String> getCleanroomVersion();
+
+    @Input
+    public abstract Property<String> getMinecraftVersion();
 
     @Input
     public abstract Property<String> getMainClass();
@@ -97,20 +110,26 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     @Input
     public abstract SetProperty<String> getInheritedLibraries();
 
+    @Input
+    public abstract SetProperty<String> getMinecraftExcludeRules();
+
     @OutputFile
     public abstract RegularFileProperty getArchiveFile();
 
     @Inject
     public PublishMmcPackZip(ProviderFactory providers) {
+        getMinecraftVersion().convention(Meta.ONE_TRUE_MINECRAFT_VERSION);
         getEmbedUniversalJar().convention(providers.gradleProperty("release")
                 .map(ignored -> false)
-                .orElse(getCleanroomVersion().map(version -> version.contains("+build")).orElse(false)));
+                .orElse(true));
     }
 
     @TaskAction
     public void publish() {
         var universal = universalArtifact();
         var libraries = librariesJson(universal);
+        var blockedMinecraftModules = blockedMinecraftModules();
+        addBlockedLibraries(libraries.cleanroom(), blockedMinecraftModules);
         var pack = packJson(libraries.lwjglVersion());
         var forgePatch = forgePatchJson(libraries.cleanroom(), libraries.lwjglVersion());
         var lwjglPatch = lwjglPatchJson(libraries.lwjgl(), libraries.lwjglVersion());
@@ -120,6 +139,9 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         instance.put(LWJGL_PATCH_PATH, json(lwjglPatch));
         instance.put("mmc-pack.json", json(pack));
         instance.put("instance.cfg", instanceCfg().getBytes(StandardCharsets.UTF_8));
+        for (var module : blockedMinecraftModules) {
+            instance.put(LOCAL_LIBRARIES + blockedLibraryFileName(module), EMPTY_JAR);
+        }
         if (getEmbedUniversalJar().get()) {
             instance.put(LOCAL_LIBRARIES + universal.coordinate().fileName(), read(universal.path()));
         }
@@ -138,7 +160,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     private JsonObject packJson(String lwjglVersion) {
         var minecraft = new JsonObject();
         minecraft.addProperty("uid", MINECRAFT_UID);
-        minecraft.addProperty("version", "1.12.2");
+        minecraft.addProperty("version", getMinecraftVersion().get());
         minecraft.addProperty("important", true);
 
         var lwjgl = new JsonObject();
@@ -162,7 +184,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
 
     private JsonObject forgePatchJson(JsonArray libraries, String lwjglVersion) {
         var requirements = new JsonArray();
-        requirements.add(requirement(MINECRAFT_UID, "1.12.2"));
+        requirements.add(requirement(MINECRAFT_UID, getMinecraftVersion().get()));
         requirements.add(requirement(LWJGL_UID, lwjglVersion));
 
         var tweakers = new JsonArray();
@@ -195,6 +217,40 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         patch.addProperty("version", lwjglVersion);
         patch.add("libraries", libraries);
         return patch;
+    }
+
+    private static void addBlockedLibraries(JsonArray libraries, Set<String> blockedMinecraftModules) {
+        for (var module : blockedMinecraftModules) {
+            var library = new JsonObject();
+            library.addProperty("name", module + ":" + BLOCKED_LIBRARY_VERSION);
+            library.addProperty("MMC-hint", "local");
+            libraries.add(library);
+        }
+    }
+
+    private Set<String> blockedMinecraftModules() {
+        var rules = getMinecraftExcludeRules().get();
+        var blocked = new TreeSet<String>();
+        for (var inherited : getInheritedLibraries().get()) {
+            var coordinate = Coordinate.parse(inherited);
+            if (ResolvedLibraries.isExcluded(coordinate, rules)) {
+                blocked.add(coordinate.group() + ":" + coordinate.artifact());
+            }
+        }
+        return blocked;
+    }
+
+    private static String blockedLibraryFileName(String module) {
+        validateBlockedModule(module);
+        var parts = module.split(":", -1);
+        return parts[1] + "-" + BLOCKED_LIBRARY_VERSION + ".jar";
+    }
+
+    private static void validateBlockedModule(String module) {
+        var parts = module.split(":", -1);
+        if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
+            throw new GradleException("Invalid blocked Minecraft module: " + module);
+        }
     }
 
     private ComponentLibraries librariesJson(Artifact universal) {
@@ -243,7 +299,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
 
     private String instanceCfg() {
         return "InstanceType=OneSix\n"
-                + "name=" + getInstanceName().get() + "\n"
+                + "name=" + getInstanceName().get() + " " + getCleanroomVersion().get() + "\n"
                 + "iconKey=default\n";
     }
 

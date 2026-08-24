@@ -8,7 +8,6 @@ import com.cleanroommc.gradle.api.task.mcp.SplitJar;
 import net.minecraftforge.renamer.gradle.RenameJar;
 import net.minecraftforge.renamer.gradle.RenamerExtension;
 import org.gradle.api.Project;
-import org.gradle.api.file.Directory;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Provider;
@@ -20,6 +19,12 @@ import java.util.function.Consumer;
  * Shared {@code split => merge => Notch2SRG => metadata injection} pipeline used by the loader and userdev workspaces.
  */
 public final class MinecraftJarPipeline {
+
+    static final String CLIENT_SLIM_JAR = "client-slim.jar";
+    static final String CLIENT_EXTRA_JAR = "client-extra.jar";
+    static final String SERVER_SLIM_JAR = "server-slim.jar";
+    static final String SERVER_EXTRA_JAR = "server-extra.jar";
+    static final String MERGED_JAR = "merged.jar";
 
     public static MinecraftJarPipeline register(Project project, CachesExtension caches, Spec spec) {
         return new MinecraftJarPipeline(project, caches, spec);
@@ -71,9 +76,9 @@ public final class MinecraftJarPipeline {
         });
         this.inject.configure(task -> {
             task.getSrgJar().set(this.remapNotch2Srg.flatMap(RenameJar::getOutput));
-            task.getAccessFile().set(spec.mcpConfigDir.map(dir -> dir.file("access.txt")));
-            task.getConstructorsFile().set(spec.mcpConfigDir.map(dir -> dir.file("constructors.txt")));
-            task.getExceptionsFile().set(spec.mcpConfigDir.map(dir -> dir.file("exceptions.txt")));
+            task.getAccessFile().set(spec.access);
+            task.getConstructorsFile().set(spec.constructors);
+            task.getExceptionsFile().set(spec.exceptions);
             task.getInjectedJar().set(spec.injectedJar);
         });
     }
@@ -88,7 +93,9 @@ public final class MinecraftJarPipeline {
         public Consumer<RegularFileProperty> bindClientJar;
         public Consumer<RegularFileProperty> bindServerJar;
         public Provider<? extends RegularFile> srgMapping;
-        public Provider<Directory> mcpConfigDir;
+        public Provider<? extends RegularFile> access;
+        public Provider<? extends RegularFile> constructors;
+        public Provider<? extends RegularFile> exceptions;
         public Provider<String> minecraftVersion;
         public Object libraries;
         public TaskProvider<?> extractMcpConfig;

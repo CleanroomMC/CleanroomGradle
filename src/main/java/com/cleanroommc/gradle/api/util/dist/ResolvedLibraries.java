@@ -1,6 +1,7 @@
 package com.cleanroommc.gradle.api.util.dist;
 
 import org.gradle.api.GradleException;
+import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.result.ResolvedArtifactResult;
@@ -18,11 +19,14 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Resolution-graph helpers shared by the MMC pack and the installer profile.
  */
 public final class ResolvedLibraries {
+
+    private static final String EXCLUDE_WILDCARD = "*";
 
     public static Provider<List<LibraryArtifact>> artifacts(ObjectFactory objects,
                                                              Provider<Set<ResolvedArtifactResult>> resolved,
@@ -60,6 +64,30 @@ public final class ResolvedLibraries {
             collectModules(component, coordinates, new HashSet<>());
             return List.copyOf(coordinates);
         });
+    }
+
+    public static Set<String> excludeRules(Configuration configuration) {
+        var rules = new TreeSet<String>();
+        for (var parent : configuration.getHierarchy()) {
+            for (var rule : parent.getExcludeRules()) {
+                rules.add(excludePart(rule.getGroup()) + ":" + excludePart(rule.getModule()));
+            }
+        }
+        return rules;
+    }
+
+    public static boolean isExcluded(Coordinate coordinate, Set<String> rules) {
+        for (var value : rules) {
+            var parts = value.split(":", -1);
+            if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
+                throw new GradleException("Invalid library exclude rule: " + value);
+            }
+            if ((parts[0].equals(EXCLUDE_WILDCARD) || parts[0].equals(coordinate.group()))
+                    && (parts[1].equals(EXCLUDE_WILDCARD) || parts[1].equals(coordinate.artifact()))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static List<String> mergeNatives(List<String> modules, List<String> natives) {
@@ -133,6 +161,10 @@ public final class ResolvedLibraries {
             }
         }
         return false;
+    }
+
+    private static String excludePart(String value) {
+        return value == null ? EXCLUDE_WILDCARD : value;
     }
 
     private ResolvedLibraries() { }

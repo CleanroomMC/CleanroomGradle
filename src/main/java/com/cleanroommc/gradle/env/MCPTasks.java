@@ -34,7 +34,6 @@ import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.compile.JavaCompile;
 
-import java.io.File;
 import java.util.List;
 
 public final class MCPTasks {
@@ -58,8 +57,6 @@ public final class MCPTasks {
                     VanillaTasks vanilla, McpMappings mappings, IntermediateProcessor intermediates) {
         this.initialPatches = Objects.config(project, "initialPatches", "com.cleanroommc:initial-patches:1.2.0");
 
-        var srgMapping = caches.getVersionDirectory().file("mcp_config/config/joined.tsrg");
-        var mcpConfigDir = caches.getVersionDirectory().dir("mcp_config/config");
         var mcpDir = caches.getVersionDirectory().dir("mcp");
         var offline = project.getGradle().getStartParameter().isOffline();
 
@@ -71,16 +68,18 @@ public final class MCPTasks {
         spec.injectName = "injectMetadata";
         spec.bindClientJar = property -> property.fileProvider(vanilla.downloadClientJar.map(Download::getDest));
         spec.bindServerJar = property -> property.fileProvider(vanilla.downloadServerJar.map(Download::getDest));
-        spec.srgMapping = srgMapping;
-        spec.mcpConfigDir = mcpConfigDir;
+        spec.srgMapping = mappings.joinedSrg;
+        spec.access = mappings.access;
+        spec.constructors = mappings.constructors;
+        spec.exceptions = mappings.exceptions;
         spec.minecraftVersion = vanilla.minecraftVersion;
         spec.libraries = vanilla.vanillaConfig;
         spec.extractMcpConfig = mappings.extractMcpConfig;
-        spec.clientSlim = caches.getVersionDirectory().map(d -> d.file("client-slim.jar"));
-        spec.clientExtra = caches.getVersionDirectory().map(d -> d.file("client-extra.jar"));
-        spec.serverSlim = caches.getVersionDirectory().map(d -> d.file("server-slim.jar"));
-        spec.serverExtra = caches.getVersionDirectory().map(d -> d.file("server-extra.jar"));
-        spec.mergedJar = mcpDir.map(d -> d.file("merged.jar"));
+        spec.clientSlim = caches.getVersionDirectory().map(d -> d.file(MinecraftJarPipeline.CLIENT_SLIM_JAR));
+        spec.clientExtra = caches.getVersionDirectory().map(d -> d.file(MinecraftJarPipeline.CLIENT_EXTRA_JAR));
+        spec.serverSlim = caches.getVersionDirectory().map(d -> d.file(MinecraftJarPipeline.SERVER_SLIM_JAR));
+        spec.serverExtra = caches.getVersionDirectory().map(d -> d.file(MinecraftJarPipeline.SERVER_EXTRA_JAR));
+        spec.mergedJar = mcpDir.map(d -> d.file(MinecraftJarPipeline.MERGED_JAR));
         spec.injectedJar = caches.getLocalDirectory().file("injectMetadata/injected.jar");
         this.jars = MinecraftJarPipeline.register(project, caches, spec);
         this.splitClientJar = this.jars.splitClient;
@@ -126,7 +125,7 @@ public final class MCPTasks {
 
         this.prepareMcpInjectedSources.configure(task -> {
             task.dependsOn(mappings.extractMcpConfig);
-            task.from(mcpConfigDir.map(dir -> dir.file("inject/mcp/MethodsReturnNonnullByDefault.java")), copySpec -> {
+            task.from(mappings.mcpConfigDirectory.map(dir -> dir.file("inject/mcp/MethodsReturnNonnullByDefault.java")), copySpec -> {
                 copySpec.into("mcp");
                 copySpec.rename($ -> "MethodsReturnNonnullByDefault.java");
             });
@@ -152,7 +151,7 @@ public final class MCPTasks {
                     this.splitServerJar.flatMap(SplitJar::getExtraJar));
         });
         this.decompileSrg.configure(task -> {
-            task.getJavaLauncher().convention(Providers.javaLauncher(project, 25));
+            task.getJavaLauncher().convention(Providers.javaLauncher(project));
             task.getLogFile().convention(caches.getLocalDirectory().file("decompileSrg/decompile.log"));
             task.getCompiledJar().value(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar));
             task.getLibraries().from(vanilla.vanillaConfig);
@@ -185,9 +184,9 @@ public final class MCPTasks {
         });
         this.remapSrg2Mcp.configure(task -> {
             task.getSrgSource().set(this.applyInitialDiffs.flatMap(applyDiffs -> applyDiffs.getInPlace().get() ? applyDiffs.getOriginalDirectory() : applyDiffs.getModifiedDirectory()));
-            task.getMethodMappings().from(mappings.extractMcpMappings.map(Copy::getDestinationDir).map(dir -> new File(dir, "methods.csv")));
-            task.getFieldMappings().from(mappings.extractMcpMappings.map(Copy::getDestinationDir).map(dir -> new File(dir, "fields.csv")));
-            task.getParameterMappings().from(mappings.extractMcpMappings.map(Copy::getDestinationDir).map(dir -> new File(dir, "params.csv")));
+            task.getMethodMappings().from(mappings.methodMappings);
+            task.getFieldMappings().from(mappings.fieldMappings);
+            task.getParameterMappings().from(mappings.parameterMappings);
             task.getTinyMappings().fileProvider(mappings.tinyFileWhenPresent);
             task.getNamesId().set(mappings.activeNamesId);
             task.getMcpSource().fileProvider(SourceSets.source(this.mcpSource));
@@ -196,10 +195,10 @@ public final class MCPTasks {
             task.dependsOn(mappings.extractMcpConfig);
             task.getSrgJar().set(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar));
             task.getMcpNames().from(mappings.mcpMappings);
-            task.getConstructorsFile().set(mcpConfigDir.map(dir -> dir.file("constructors.txt")));
+            task.getConstructorsFile().set(mappings.constructors);
             task.getNamesDirectoryConfigured().set(names.getNamesDirectory().map(dir -> true).orElse(false));
-            task.getTinyFile().set(names.getNamesDirectory().file("mappings.tiny")
-                    .orElse(caches.getLocalDirectory().file("names/mappings.tiny")));
+            task.getTinyFile().set(names.getNamesDirectory().file(MappingsExtension.NAMES_FILE)
+                    .orElse(caches.getLocalDirectory().file("names/" + MappingsExtension.NAMES_FILE)));
         });
         this.runMcpClient.configure(task -> {
             task.dependsOn(SourceSets.compile(this.mcpSource), vanilla.downloadAssets);
@@ -309,7 +308,7 @@ public final class MCPTasks {
 
     public void configureInitialPatches(Project project, CachesExtension caches, PatchesExtension patches,
                                         VanillaTasks vanilla, McpMappings mappings) {
-        mappings.configureInitialPatches(project, caches, patches, vanilla, this.prepareApplyInitialDiffs, this.applyInitialDiffs);
+        mappings.configureInitialPatches(project, patches, vanilla, this.prepareApplyInitialDiffs, this.applyInitialDiffs);
     }
 
 }

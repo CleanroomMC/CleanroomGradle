@@ -31,6 +31,19 @@ class WriteInstallProfileTest {
     Path directory;
 
     @Test
+    void installerProfileUsesTheVersionMetadataMinecraftId() throws Exception {
+        var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
+        var task = task(project);
+        task.getUniversalJar().fileValue(file("cleanroom-1.0.0-universal.jar", "cleanroom").toFile());
+        task.getVersionMeta().set(versionMetaWithId("1.12.2-custom", "--username ${auth_player_name}"));
+
+        task.write();
+
+        assertEquals("1.12.2-custom", json(task.getInstallProfile().get().getAsFile().toPath())
+                .get("minecraft").getAsString());
+    }
+
+    @Test
     void writesOneEntryPerModuleFromTheBuildsOwnGraph() throws Exception {
         var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
         var task = task(project);
@@ -195,7 +208,7 @@ class WriteInstallProfileTest {
         task.getRecommendedJava().set(25);
         task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0:universal");
         task.getUniversalUrl().set("https://maven.cleanroommc.com/com/cleanroommc/cleanroom/1.0.0/cleanroom-1.0.0-universal.jar");
-        task.getExcludedLibraryGroups().add("org.lwjgl.lwjgl");
+        task.getLibraryExcludeRules().add("org.lwjgl.lwjgl:*");
         task.getReleaseTime().set("1970-01-01T00:00:00+0000");
         task.getInstallProfile().fileValue(directory.resolve("install_profile.json").toFile());
         task.getVersionJson().fileValue(directory.resolve("version.json").toFile());
@@ -203,6 +216,10 @@ class WriteInstallProfileTest {
     }
 
     private static VersionMeta versionMeta(String minecraftArguments, String... libraries) {
+        return versionMetaWithId("1.12.2", minecraftArguments, libraries);
+    }
+
+    private static VersionMeta versionMetaWithId(String minecraftVersion, String minecraftArguments, String... libraries) {
         var entries = new ArrayList<VersionMeta.Library>();
         for (var name : libraries) {
             entries.add(new VersionMeta.Library(new VersionMeta.Downloads(
@@ -213,7 +230,7 @@ class WriteInstallProfileTest {
                 new VersionMeta.AssetIndex("1.12", 1, null, "sha1", 1, "https://example.invalid/1.12.json"),
                 "1.12", 0,
                 Map.of("client", new VersionMeta.Download(null, "sha1", 1, "https://example.invalid/client.jar")),
-                "1.12.2", new VersionMeta.JavaVersion("jre-legacy", 8), entries, null,
+                minecraftVersion, new VersionMeta.JavaVersion("jre-legacy", 8), entries, null,
                 "net.minecraft.client.main.Main", minecraftArguments, 18,
                 "2017-09-18T08:39:46+00:00", "2017-09-18T08:39:46+00:00", "release");
     }

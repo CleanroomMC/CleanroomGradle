@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.api.source;
 
+import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.util.IO;
 import org.gradle.api.provider.ValueSource;
@@ -9,9 +10,10 @@ public abstract class BundledVersionMetaValueSource implements ValueSource<Versi
 
     @Override
     public VersionMeta obtain() {
-        var stream = BundledVersionMetaValueSource.class.getResourceAsStream("/meta/1.12.2.json");
+        var version = Meta.ONE_TRUE_MINECRAFT_VERSION;
+        var stream = BundledVersionMetaValueSource.class.getResourceAsStream("/meta/" + version + ".json");
         if (stream == null) {
-            throw new RuntimeException("Bundled 1.12.2 version meta not found in plugin resources");
+            throw new RuntimeException("Bundled " + version + " version meta not found in plugin resources");
         }
         return IO.readJson(stream, VersionMeta.class);
     }

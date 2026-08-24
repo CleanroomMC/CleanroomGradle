@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.api.util.dist;
 
+import org.gradle.api.GradleException;
 import org.gradle.testfixtures.ProjectBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -8,8 +9,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ResolvedLibrariesTest {
 
@@ -42,6 +47,31 @@ class ResolvedLibrariesTest {
         var library = libraries.get().getFirst();
         assertEquals("example.authority:probe:2.0", library.getCoordinate().get());
         assertEquals(repository.getUrl().toString(), library.getRepositoryUrl().get());
+    }
+
+    @Test
+    void collectsExcludeRulesFromAConfigurationHierarchy() {
+        var project = ProjectBuilder.builder().withProjectDir(this.directory.toFile()).build();
+        var parent = project.getConfigurations().create("parent");
+        parent.exclude(Map.of("group", "com.mojang"));
+        var child = project.getConfigurations().create("child");
+        child.extendsFrom(parent);
+        child.exclude(Map.of("module", "icu4j-core-mojang"));
+
+        assertEquals(Set.of("com.mojang:*", "*:icu4j-core-mojang"),
+                ResolvedLibraries.excludeRules(child));
+    }
+
+    @Test
+    void appliesExactAndWildcardExcludeRulesWithSharedSemantics() {
+        var patchy = Coordinate.parse("com.mojang:patchy:1.3.9");
+
+        assertTrue(ResolvedLibraries.isExcluded(patchy, Set.of("com.mojang:patchy")));
+        assertTrue(ResolvedLibraries.isExcluded(patchy, Set.of("com.mojang:*")));
+        assertTrue(ResolvedLibraries.isExcluded(patchy, Set.of("*:patchy")));
+        assertFalse(ResolvedLibraries.isExcluded(patchy, Set.of("com.ibm.icu:*")));
+        assertThrows(GradleException.class,
+                () -> ResolvedLibraries.isExcluded(patchy, Set.of("com.mojang")));
     }
 
 }

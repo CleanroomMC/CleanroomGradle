@@ -14,7 +14,7 @@ import java.util.zip.ZipFile;
  * it back to verify that its pipeline lines up with the one the artifact was built by.
  *
  * @param spec              format version of this file, {@link #SPEC}
- * @param minecraftVersion  the Minecraft version the artifact targets (TODO: hardcode 1.12.2)
+ * @param minecraftVersion  the Minecraft version the artifact targets
  * @param cleanroomVersion  version of the loader the artifact was cut from
  * @param forgeVersion      the Forge version the loader reports at runtime
  * @param mcpConfig         dependency notation of the MCP config the SRG names come from. A consumer

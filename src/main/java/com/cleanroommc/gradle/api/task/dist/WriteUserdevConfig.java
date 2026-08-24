@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.api.task.dist;
 
+import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.google.gson.GsonBuilder;
 import org.gradle.api.DefaultTask;
@@ -24,6 +25,9 @@ public abstract class WriteUserdevConfig extends DefaultTask {
 
     @Input
     public abstract Property<String> getCleanroomVersion();
+
+    @Input
+    public abstract Property<String> getMinecraftVersion();
 
     @Input
     public abstract Property<String> getForgeVersion();
@@ -80,16 +84,7 @@ public abstract class WriteUserdevConfig extends DefaultTask {
     public abstract RegularFileProperty getOutput();
 
     public WriteUserdevConfig() {
-        // TODO
-        getClientMainClass().convention("com.cleanroommc.boot.MainClient");
-        getServerMainClass().convention("com.cleanroommc.boot.MainServer");
-        // TODO
-        getLaunchClass().convention("top.outlands.foundation.boot.Foundation");
-        getClientTweakClass().convention("net.minecraftforge.fml.common.launcher.FMLTweaker");
-        getServerTweakClass().convention("net.minecraftforge.fml.common.launcher.FMLServerTweaker");
-        // TODO
-        getClientTarget().convention("fmldevclient");
-        getServerTarget().convention("fmldevserver");
+        getMinecraftVersion().convention(Meta.ONE_TRUE_MINECRAFT_VERSION);
     }
 
     @TaskAction
@@ -99,7 +94,7 @@ public abstract class WriteUserdevConfig extends DefaultTask {
                 new UserdevConfig.Run(getServerMainClass().get(), getLaunchClass().get(), getServerTweakClass().get(), getServerTarget().get()));
         var config = new UserdevConfig(
                 UserdevConfig.SPEC,
-                "1.12.2",
+                getMinecraftVersion().get(),
                 getCleanroomVersion().get(),
                 getForgeVersion().get(),
                 getMcpConfig().get(),

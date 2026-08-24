@@ -49,6 +49,7 @@ final class PluginBuild {
                     id 'com.cleanroommc.cleanroomgradle'
                 }
                 group = 'com.example'
+                java.toolchain.languageVersion = JavaLanguageVersion.of(25)
                 """ + body);
         return this;
     }

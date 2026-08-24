@@ -1,6 +1,7 @@
 package com.cleanroommc.gradle.api.util.dist;
 
 import com.cleanroommc.gradle.api.util.IO;
+import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.gradle.api.GradleException;
@@ -23,8 +24,6 @@ import java.util.TreeMap;
  * MMC writes the overlay on top of Minecraft 1.12.2, whereas the installer list is self-contained.
  */
 public final class LibraryJson {
-
-    private static final String NATIVES_PREFIX = "natives-";
 
     public static List<Artifact> resolve(Artifact universal, List<? extends LibraryArtifact> libraries) {
         return resolve(universal, libraries, Set.of());
@@ -244,7 +243,7 @@ public final class LibraryJson {
     }
 
     public static String nativePlatform(String classifier) {
-        var platform = classifier.substring(NATIVES_PREFIX.length());
+        var platform = classifier.substring(LwjglNatives.CLASSIFIER_PREFIX.length());
         if (platform.equals("macos") || platform.equals("osx")) {
             return "osx";
         }
@@ -255,7 +254,7 @@ public final class LibraryJson {
     }
 
     public static boolean isNative(Coordinate coordinate) {
-        return coordinate.classifier() != null && coordinate.classifier().startsWith(NATIVES_PREFIX);
+        return coordinate.classifier() != null && coordinate.classifier().startsWith(LwjglNatives.CLASSIFIER_PREFIX);
     }
 
     private static void split(List<Artifact> artifacts, List<Artifact> ordinary, Map<String, List<Artifact>> natives) {

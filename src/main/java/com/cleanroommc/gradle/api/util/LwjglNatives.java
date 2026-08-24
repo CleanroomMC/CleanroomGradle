@@ -36,21 +36,9 @@ public final class LwjglNatives {
      *
      * <p>Complete as of LWJGL <b>3.3.6</b>, which is when ppc64le, riscv64 and freebsd were first published.
      */
-    public static final List<String> CLASSIFIERS = List.of(
-            "natives-windows",
-            "natives-windows-x86",
-            "natives-windows-arm64",
-            "natives-linux",
-            "natives-linux-arm32",
-            "natives-linux-arm64",
-            "natives-linux-ppc64le",
-            "natives-linux-riscv64",
-            "natives-macos",
-            "natives-macos-arm64",
-            "natives-freebsd"
-    );
+    public static final List<String> CLASSIFIERS = Platform.lwjglNativesClassifiers();
 
-    private static final String CLASSIFIER_PREFIX = "natives-";
+    public static final String CLASSIFIER_PREFIX = "natives-";
 
     public static void register(Project project, ListProperty<String> classifiers) {
         var configurations = project.getConfigurations();

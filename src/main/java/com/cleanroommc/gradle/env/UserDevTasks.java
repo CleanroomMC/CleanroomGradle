@@ -111,8 +111,6 @@ public final class UserDevTasks {
         var userdevDir = caches.getLocalDirectory().dir("userdev");
         var userdevJar = userdevDir.map(dir -> dir.file(USERDEV_JAR_NAME));
         var extractedDir = userdevDir.map(dir -> dir.dir("extracted"));
-        var mcpConfigDir = caches.getVersionDirectory().dir("mcp_config/config");
-        var srgMapping = caches.getVersionDirectory().file("mcp_config/config/joined.tsrg");
         var srg2mcp = mappings.writeSrg2Mcp.flatMap(WriteMappings::getOutput);
         var mainSourceSet = SourceSets.container(project).named(SourceSet.MAIN_SOURCE_SET_NAME);
         var jarTask = project.getTasks().named("jar", Jar.class);
@@ -131,16 +129,18 @@ public final class UserDevTasks {
         spec.injectName = "injectDevMetadata";
         spec.bindClientJar = property -> property.set(this.applyClientBinPatches.flatMap(ApplyBinPatches::getPatchedJar));
         spec.bindServerJar = property -> property.set(this.applyServerBinPatches.flatMap(ApplyBinPatches::getPatchedJar));
-        spec.srgMapping = srgMapping;
-        spec.mcpConfigDir = mcpConfigDir;
+        spec.srgMapping = mappings.joinedSrg;
+        spec.access = mappings.access;
+        spec.constructors = mappings.constructors;
+        spec.exceptions = mappings.exceptions;
         spec.minecraftVersion = vanilla.minecraftVersion;
         spec.libraries = vanilla.vanillaConfig;
         spec.extractMcpConfig = mappings.extractMcpConfig;
-        spec.clientSlim = userdevDir.map(dir -> dir.file("client-slim.jar"));
-        spec.clientExtra = userdevDir.map(dir -> dir.file("client-extra.jar"));
-        spec.serverSlim = userdevDir.map(dir -> dir.file("server-slim.jar"));
-        spec.serverExtra = userdevDir.map(dir -> dir.file("server-extra.jar"));
-        spec.mergedJar = userdevDir.map(dir -> dir.file("merged.jar"));
+        spec.clientSlim = userdevDir.map(dir -> dir.file(MinecraftJarPipeline.CLIENT_SLIM_JAR));
+        spec.clientExtra = userdevDir.map(dir -> dir.file(MinecraftJarPipeline.CLIENT_EXTRA_JAR));
+        spec.serverSlim = userdevDir.map(dir -> dir.file(MinecraftJarPipeline.SERVER_SLIM_JAR));
+        spec.serverExtra = userdevDir.map(dir -> dir.file(MinecraftJarPipeline.SERVER_EXTRA_JAR));
+        spec.mergedJar = userdevDir.map(dir -> dir.file(MinecraftJarPipeline.MERGED_JAR));
         spec.srgJar = userdevDir.map(dir -> dir.file("minecraft-srg.jar"));
         spec.injectedJar = userdevDir.map(dir -> dir.file("minecraft-injected.jar"));
         this.jars = MinecraftJarPipeline.register(project, caches, spec);
@@ -149,7 +149,8 @@ public final class UserDevTasks {
         this.remapDevSrg2Mcp = Tasks.register(project, "remapDevSrg2Mcp", RenameJar.class, renamer);
         this.remapCleanroomSrg2Mcp = Tasks.register(project, "remapCleanroomSrg2Mcp", RenameJar.class, renamer);
         this.decompileDevJar = Tasks.tool(project, caches.getLocalDirectory(), "decompileDevJar", Decompile.class, ToolConfigs.get(project, "decompiler"));
-        this.writeMcp2Srg = mappings.write(project, caches, "writeMcp2Srg", WriteMappings.Direction.MCP_TO_SRG, "mcp2srg.tsrg");
+        this.writeMcp2Srg = mappings.write(project, caches, "writeMcp2Srg", WriteMappings.Direction.MCP_TO_SRG,
+                UserdevConfig.MCP2SRG);
         this.reobfJar = Tasks.register(project, "reobfJar", RenameJar.class, renamer);
         this.setup = Tasks.register(project, "setup");
         this.runClient = Tasks.register(project, "runClient", RunMinecraft.class);
@@ -220,7 +221,7 @@ public final class UserDevTasks {
         });
         this.decompileDevJar.configure(task -> {
             task.setDescription("Decompiles the environment's Minecraft for source browsing in an IDE.");
-            task.getJavaLauncher().convention(Providers.javaLauncher(project, 25));
+            task.getJavaLauncher().convention(Providers.javaLauncher(project));
             task.getLogFile().convention(userdevDir.map(dir -> dir.file("decompile.log")));
             task.getCompiledJar().set(this.remapDevSrg2Mcp.flatMap(RenameJar::getOutput));
             task.getLibraries().from(vanilla.vanillaConfig, this.libraries);

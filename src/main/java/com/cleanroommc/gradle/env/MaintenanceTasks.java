@@ -9,6 +9,8 @@ import org.gradle.api.Project;
 import org.gradle.api.tasks.Delete;
 import org.gradle.api.tasks.TaskProvider;
 
+import java.io.File;
+
 public class MaintenanceTasks {
 
     private static final String GROUP_NAME = "cleanroom maintenance";
@@ -26,18 +28,14 @@ public class MaintenanceTasks {
             task.getOffline().set(project.getGradle().getStartParameter().isOffline());
             task.getDiscardIntermediates().set(caches.getDiscardIntermediates());
             task.getNamesSource().set(mappings.getNamesDirectory()
-                    .map(directory -> "Tiny v2 (" + directory.file("mappings.tiny").getAsFile() + ")")
+                    .map(directory -> "Tiny v2 (" + directory.file(MappingsExtension.NAMES_FILE).getAsFile() + ")")
                     .orElse("MCP CSV dependency"));
             task.getSharedCacheDirectory().set(caches.getDirectory());
             task.getVersionCacheDirectory().set(vanillaTasks.versionCacheDirectory);
             task.getLocalCacheDirectory().set(caches.getLocalDirectory());
-            task.getOfflineCacheFiles().put("client jar", vanillaTasks.versionCacheDirectory
-                    .map(directory -> directory.file("client.jar").getAsFile().getAbsolutePath()));
-            task.getOfflineCacheFiles().put("server jar", vanillaTasks.versionCacheDirectory
-                    .map(directory -> directory.file("server.jar").getAsFile().getAbsolutePath()));
-            task.getOfflineCacheFiles().put("asset index", caches.getDirectory().file(
-                            vanillaTasks.versionMeta.map(meta -> "assets/indexes/" + meta.assetIndexId() + ".json"))
-                    .map(file -> file.getAsFile().getAbsolutePath()));
+            task.getOfflineCacheFiles().put("client jar", vanillaTasks.clientJar.map(File::getAbsolutePath));
+            task.getOfflineCacheFiles().put("server jar", vanillaTasks.serverJar.map(File::getAbsolutePath));
+            task.getOfflineCacheFiles().put("asset index", vanillaTasks.assetIndexFile.map(File::getAbsolutePath));
         });
         this.cleanCleanroomSharedCache.configure(task -> {
             task.setGroup(GROUP_NAME);

@@ -11,6 +11,7 @@ import org.gradle.testfixtures.ProjectBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -20,10 +21,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -73,13 +76,13 @@ class PublishMmcPackZipTest {
                 }
                 """.formatted(escape(foundation), escape(lwjgl), escape(universal)));
 
-        var first = runner("publishFixture", "--configuration-cache").build();
+        var first = runner("publishFixture", "--configuration-cache", "-Prelease").build();
         assertEquals(TaskOutcome.SUCCESS, first.task(":publishFixture").getOutcome());
         assertTrue(Files.isRegularFile(directory.resolve("build/cleanroom-mmc.zip")));
         assertFalse(Files.exists(directory.resolve("build/cleanroom-mmc-overlay.zip")));
         assertTrue(first.getOutput().contains("Configuration cache entry stored"));
 
-        var second = runner("publishFixture", "--configuration-cache").build();
+        var second = runner("publishFixture", "--configuration-cache", "-Prelease").build();
         assertEquals(TaskOutcome.UP_TO_DATE, second.task(":publishFixture").getOutcome());
         assertTrue(second.getOutput().contains("Reusing configuration cache"));
     }
@@ -99,12 +102,14 @@ class PublishMmcPackZipTest {
 
         task.getInstanceName().set("Cleanroom");
         task.getCleanroomVersion().set("1.0.0");
+        task.getMinecraftVersion().set("1.12.2-custom");
         task.getMainClass().set("top.outlands.foundation.boot.Foundation");
         task.getTweakers().set(List.of("net.minecraftforge.fml.common.launcher.FMLTweaker"));
         task.getCompatibleJavaMajors().add(25);
         task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0:universal");
         task.getUniversalUrl().set("https://maven.cleanroommc.com/com/cleanroommc/cleanroom/1.0.0/cleanroom-1.0.0-universal.jar");
         task.getUniversalJar().fileValue(universal.toFile());
+        task.getEmbedUniversalJar().set(false);
         task.getLibraries().add(library(project, "top.outlands:foundation:1.2.3", foundation,
                 "https://packages.cleanroommc.com/releases/"));
         task.getLibraries().add(library(project, "com.google.guava:guava:21.0", inherited));
@@ -112,15 +117,21 @@ class PublishMmcPackZipTest {
         task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-windows", windows));
         task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-windows-arm64", windowsArm));
         task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-macos-arm64", macArm));
-        task.getInheritedLibraries().add("com.google.guava:guava:21.0");
+        task.getInheritedLibraries().addAll(
+                "com.google.guava:guava:21.0",
+                "com.ibm.icu:icu4j-core-mojang:51.2",
+                "com.mojang:patchy:1.3.9");
+        task.getMinecraftExcludeRules().addAll(
+                "com.ibm.icu:icu4j-core-mojang", "com.mojang:*", "example:unrelated");
         task.getArchiveFile().fileValue(directory.resolve("cleanroom-mmc.zip").toFile());
 
         task.publish();
 
         try (var zip = new ZipFile(task.getArchiveFile().get().getAsFile())) {
             assertEquals(Set.of("instance.cfg", "mmc-pack.json", "patches/org.lwjgl.json",
-                    "patches/net.minecraftforge.json"), entries(zip));
-            assertEquals("InstanceType=OneSix\nname=Cleanroom\niconKey=default\n", text(zip, "instance.cfg"));
+                    "patches/net.minecraftforge.json", "libraries/icu4j-core-mojang-999999.0-empty.jar",
+                    "libraries/patchy-999999.0-empty.jar"), entries(zip));
+            assertEquals("InstanceType=OneSix\nname=Cleanroom 1.0.0\niconKey=default\n", text(zip, "instance.cfg"));
 
             var pack = json(zip, "mmc-pack.json");
             assertEquals(Set.of("formatVersion", "components"), pack.keySet());
@@ -129,6 +140,7 @@ class PublishMmcPackZipTest {
             assertEquals(3, components.size());
             assertEquals(Set.of("uid", "version", "important"), components.get(0).getAsJsonObject().keySet());
             assertEquals("net.minecraft", components.get(0).getAsJsonObject().get("uid").getAsString());
+            assertEquals("1.12.2-custom", components.get(0).getAsJsonObject().get("version").getAsString());
             assertEquals(Set.of("uid", "version"), components.get(1).getAsJsonObject().keySet());
             assertEquals("org.lwjgl", components.get(1).getAsJsonObject().get("uid").getAsString());
             assertEquals("3.4.2", components.get(1).getAsJsonObject().get("version").getAsString());
@@ -147,13 +159,12 @@ class PublishMmcPackZipTest {
             var requirements = patch.getAsJsonArray("requires");
             assertEquals(2, requirements.size());
             assertEquals("net.minecraft", requirements.get(0).getAsJsonObject().get("uid").getAsString());
-            assertEquals("1.12.2", requirements.get(0).getAsJsonObject().get("equals").getAsString());
+            assertEquals("1.12.2-custom", requirements.get(0).getAsJsonObject().get("equals").getAsString());
             assertEquals("org.lwjgl", requirements.get(1).getAsJsonObject().get("uid").getAsString());
             assertEquals("3.4.2", requirements.get(1).getAsJsonObject().get("equals").getAsString());
 
             var libraries = patch.getAsJsonArray("libraries");
-            assertEquals(2, libraries.size(), libraries.toString());
-            assertTrue(libraries.asList().stream().noneMatch(element -> element.getAsJsonObject().has("MMC-hint")));
+            assertEquals(4, libraries.size(), libraries.toString());
             assertTrue(libraries.asList().stream().noneMatch(element ->
                     element.getAsJsonObject().get("name").getAsString().equals("com.google.guava:guava:21.0")));
             assertTrue(libraries.asList().stream().noneMatch(element ->
@@ -166,6 +177,11 @@ class PublishMmcPackZipTest {
             var foundationLibrary = library(libraries, "top.outlands:foundation:1.2.3", false);
             assertDownload(foundationLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"), foundation,
                     "https://packages.cleanroommc.com/releases/top/outlands/foundation/1.2.3/foundation-1.2.3.jar");
+
+            assertBlocked(libraries, "com.ibm.icu:icu4j-core-mojang:999999.0-empty");
+            assertBlocked(libraries, "com.mojang:patchy:999999.0-empty");
+            assertEmptyJar(bytes(zip, "libraries/icu4j-core-mojang-999999.0-empty.jar"));
+            assertEmptyJar(bytes(zip, "libraries/patchy-999999.0-empty.jar"));
 
             var lwjglPatch = json(zip, "patches/org.lwjgl.json");
             assertEquals(Set.of("formatVersion", "name", "uid", "version", "libraries"), lwjglPatch.keySet());
@@ -212,7 +228,10 @@ class PublishMmcPackZipTest {
         task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0+build.4:universal");
         task.getUniversalUrl().set("https://maven.cleanroommc.com/never/downloaded.jar");
         task.getUniversalJar().fileValue(universal.toFile());
-        task.getEmbedUniversalJar().set(true);
+        task.getInheritedLibraries().addAll(
+                "com.ibm.icu:icu4j-core-mojang:51.2", "com.mojang:patchy:1.3.9");
+        task.getMinecraftExcludeRules().addAll(
+                "com.ibm.icu:icu4j-core-mojang", "*:patchy");
         task.getLibraries().add(library(project, "top.outlands:foundation:1.2.3", foundation));
         task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", lwjgl));
         task.getArchiveFile().fileValue(directory.resolve("cleanroom-local.zip").toFile());
@@ -222,7 +241,8 @@ class PublishMmcPackZipTest {
         try (var zip = new ZipFile(task.getArchiveFile().get().getAsFile())) {
             var embedded = "libraries/cleanroom-1.0.0+build.4-universal.jar";
             assertEquals(Set.of("instance.cfg", "mmc-pack.json", "patches/org.lwjgl.json",
-                    "patches/net.minecraftforge.json", embedded), entries(zip));
+                    "patches/net.minecraftforge.json", "libraries/icu4j-core-mojang-999999.0-empty.jar",
+                    "libraries/patchy-999999.0-empty.jar", embedded), entries(zip));
             assertEquals("local cleanroom", text(zip, embedded));
 
             var libraries = json(zip, "patches/net.minecraftforge.json").getAsJsonArray("libraries");
@@ -299,8 +319,12 @@ class PublishMmcPackZipTest {
     }
 
     private static String text(ZipFile zip, String path) throws IOException {
+        return new String(bytes(zip, path), StandardCharsets.UTF_8);
+    }
+
+    private static byte[] bytes(ZipFile zip, String path) throws IOException {
         try (var stream = zip.getInputStream(zip.getEntry(path))) {
-            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            return stream.readAllBytes();
         }
     }
 
@@ -318,6 +342,19 @@ class PublishMmcPackZipTest {
         }
         assertEquals(1, matches.size(), "library " + coordinate + " (natives=" + natives + ")");
         return matches.getFirst();
+    }
+
+    private static void assertBlocked(com.google.gson.JsonArray libraries, String coordinate) {
+        var blocked = library(libraries, coordinate, false);
+        assertEquals(Set.of("name", "MMC-hint"), blocked.keySet());
+        assertEquals("local", blocked.get("MMC-hint").getAsString());
+    }
+
+    private static void assertEmptyJar(byte[] contents) throws IOException {
+        assertEquals(22, contents.length);
+        try (var jar = new ZipInputStream(new ByteArrayInputStream(contents))) {
+            assertNull(jar.getNextEntry());
+        }
     }
 
     private static void assertDownload(JsonObject download, Path file, String url) throws IOException {

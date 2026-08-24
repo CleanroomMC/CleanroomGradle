@@ -111,6 +111,118 @@ class ProjectModeTest {
     }
 
     @Test
+    void loaderLaunchConsumersUseLoaderExtensionAsTheirSingleSource() throws IOException {
+        this.project.build("""
+                import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip
+                import com.cleanroommc.gradle.api.task.dist.WriteInstallProfile
+                import com.cleanroommc.gradle.api.task.mc.RunMinecraft
+
+                group = 'com.cleanroommc'
+                version = '0.1.0'
+                cleanroom {
+                    mode = 'loader'
+                    loader {
+                        clientMainClass = 'example.ClientMain'
+                        serverMainClass = 'example.ServerMain'
+                        launchClass = 'example.Launch'
+                        clientTweakClass = 'example.ClientTweaker'
+                        serverTweakClass = 'example.ServerTweaker'
+                        clientTarget = 'exampleClient'
+                        serverTarget = 'exampleServer'
+                    }
+                }
+                gradle.projectsEvaluated {
+                    def client = tasks.named('runCleanroomClient', RunMinecraft).get()
+                    def server = tasks.named('runCleanroomServer', RunMinecraft).get()
+                    assert client.mainClass.get() == 'example.ClientMain'
+                    assert server.mainClass.get() == 'example.ServerMain'
+                    assert client.environment.get('mainClass').toString() == 'example.Launch'
+                    assert server.environment.get('mainClass').toString() == 'example.Launch'
+                    assert client.environment.get('tweakClass').toString() == 'example.ClientTweaker'
+                    assert server.environment.get('tweakClass').toString() == 'example.ServerTweaker'
+                    assert client.environment.get('target').toString() == 'exampleClient'
+                    assert server.environment.get('target').toString() == 'exampleServer'
+
+                    def pack = tasks.named('publishMmcPackZip', PublishMmcPackZip).get()
+                    assert pack.mainClass.get() == 'example.Launch'
+                    assert pack.tweakers.get() == ['example.ClientTweaker']
+                    def installer = tasks.named('writeInstallProfile', WriteInstallProfile).get()
+                    assert installer.mainClass.get() == 'example.Launch'
+                    assert installer.serverMainClass.get() == 'example.Launch'
+                    assert installer.tweakers.get() == ['example.ClientTweaker']
+                    assert installer.serverTweakers.get() == ['example.ServerTweaker']
+                }
+                """);
+
+        assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
+        PluginBuild.notScheduled(this.project.runner("runCleanroomClient", "--dry-run").build().getOutput(),
+                "writeUserdevConfig");
+    }
+
+    @Test
+    void loaderOwnsItsLaunchConventions() throws IOException {
+        this.project.build("""
+                import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip
+                import com.cleanroommc.gradle.api.task.dist.WriteInstallProfile
+                import com.cleanroommc.gradle.api.task.dist.WriteUserdevConfig
+
+                group = 'com.cleanroommc'
+                version = '0.1.0'
+                cleanroom.mode = 'loader'
+                gradle.projectsEvaluated {
+                    def loader = cleanroom.loader
+                    assert loader.clientMainClass.get() == 'com.cleanroommc.boot.MainClient'
+                    assert loader.serverMainClass.get() == 'com.cleanroommc.boot.MainServer'
+                    assert loader.launchClass.get() == 'top.outlands.foundation.boot.Foundation'
+                    assert loader.clientTweakClass.get() == 'net.minecraftforge.fml.common.launcher.FMLTweaker'
+                    assert loader.serverTweakClass.get() == 'net.minecraftforge.fml.common.launcher.FMLServerTweaker'
+                    assert loader.clientTarget.get() == 'fmldevclient'
+                    assert loader.serverTarget.get() == 'fmldevserver'
+
+                    def userdev = tasks.named('writeUserdevConfig', WriteUserdevConfig).get()
+                    assert userdev.clientMainClass.get() == loader.clientMainClass.get()
+                    assert userdev.serverMainClass.get() == loader.serverMainClass.get()
+                    assert userdev.launchClass.get() == loader.launchClass.get()
+                    assert userdev.clientTweakClass.get() == loader.clientTweakClass.get()
+                    assert userdev.serverTweakClass.get() == loader.serverTweakClass.get()
+                    assert userdev.clientTarget.get() == loader.clientTarget.get()
+                    assert userdev.serverTarget.get() == loader.serverTarget.get()
+
+                    def pack = tasks.named('publishMmcPackZip', PublishMmcPackZip).get()
+                    assert pack.mainClass.get() == loader.launchClass.get()
+                    assert pack.tweakers.get() == [loader.clientTweakClass.get()]
+                    def installer = tasks.named('writeInstallProfile', WriteInstallProfile).get()
+                    assert installer.mainClass.get() == loader.launchClass.get()
+                    assert installer.tweakers.get() == [loader.clientTweakClass.get()]
+                }
+                """);
+
+        assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
+    }
+
+    @Test
+    void loaderJavaTargetPropagatesToDistributionMetadata() throws IOException {
+        this.project.build("""
+                import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip
+                import com.cleanroommc.gradle.api.task.dist.WriteInstallProfile
+
+                group = 'com.cleanroommc'
+                version = '0.1.0'
+                java.toolchain.languageVersion = JavaLanguageVersion.of(28)
+                cleanroom.mode = 'loader'
+                gradle.projectsEvaluated {
+                    def pack = tasks.named('publishMmcPackZip', PublishMmcPackZip).get()
+                    assert pack.compatibleJavaMajors.get() == [28]
+                    def installer = tasks.named('writeInstallProfile', WriteInstallProfile).get()
+                    assert installer.minimumJava.get() == 28
+                    assert installer.recommendedJava.get() == 28
+                }
+                """);
+
+        assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
+    }
+
+    @Test
     void loaderPipelineReusesConfigurationCache() throws IOException {
         this.project.loader("");
 
