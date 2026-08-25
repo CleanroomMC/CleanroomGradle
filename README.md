@@ -1,6 +1,6 @@
 # CleanroomGradle
 
-Gradle plugin for Cleanroom Loader development and Cleanroom-targeted mod development. The current release is `0.13.1`.
+Gradle plugin for Cleanroom Loader development and Cleanroom-targeted mod development. The current release is `0.13.2`.
 
 ## Applying the plugin
 
@@ -21,7 +21,7 @@ pluginManagement {
 }
 
 plugins {
-    id 'com.cleanroommc.cleanroomgradle.settings' version '0.13.1'
+    id 'com.cleanroommc.cleanroomgradle.settings' version '0.13.2'
 }
 ```
 

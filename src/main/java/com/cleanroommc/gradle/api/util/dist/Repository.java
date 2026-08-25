@@ -9,7 +9,7 @@ import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 public enum Repository {
 
     CENTRAL("Maven Central", "https://repo.maven.apache.org/maven2/"),
-    CLEANROOM("CleanroomMC", "https://maven.cleanroommc.com/", true, "com.cleanroommc", "top.outlands"),
+    CLEANROOM("CleanroomMC", "https://maven.cleanroommc.com/", true, "com.cleanroommc", "top.outlands", "zone.rong"),
     FORGE("MinecraftForge", "https://maven.minecraftforge.net/", true, "net.minecraftforge", "de.oceanlabs.mcp"),
     MOJANG("Mojang", "https://libraries.minecraft.net/");
 
