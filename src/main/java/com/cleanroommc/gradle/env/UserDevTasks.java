@@ -10,10 +10,7 @@ import com.cleanroommc.gradle.api.task.IntermediateProcessor;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.common.Decompile;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
-import com.cleanroommc.gradle.api.task.mcp.AccessTransform;
-import com.cleanroommc.gradle.api.task.mcp.InjectMetadata;
-import com.cleanroommc.gradle.api.task.mcp.SplitJar;
-import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
+import com.cleanroommc.gradle.api.task.mcp.*;
 import com.cleanroommc.gradle.api.task.patch.ApplyBinPatches;
 import com.cleanroommc.gradle.api.task.userdev.VerifyUserdevConfig;
 import com.cleanroommc.gradle.api.util.Environment;
@@ -67,7 +64,7 @@ public final class UserDevTasks {
     public final TaskProvider<ApplyBinPatches> applyClientBinPatches, applyServerBinPatches;
     public final MinecraftJarPipeline jars;
     public final TaskProvider<AccessTransform> accessTransformDevJar;
-    public final TaskProvider<RenameJar> remapDevSrg2Mcp, remapCleanroomSrg2Mcp, reobfJar;
+    public final TaskProvider<RenameJar> remapCleanroomSrg2Notch, remapDevSrg2Mcp, remapCleanroomSrg2Mcp, reobfJar;
     public final TaskProvider<Decompile> decompileDevJar;
     public final TaskProvider<WriteMappings> writeMcp2Srg;
     public final TaskProvider<DefaultTask> setup;
@@ -146,6 +143,7 @@ public final class UserDevTasks {
         this.jars = MinecraftJarPipeline.register(project, caches, spec);
 
         this.accessTransformDevJar = Tasks.tool(project, caches.getLocalDirectory(), "accessTransformDevJar", AccessTransform.class, accessTransformerTool);
+        this.remapCleanroomSrg2Notch = Tasks.register(project, "remapCleanroomSrg2Notch", RenameJar.class, renamer);
         this.remapDevSrg2Mcp = Tasks.register(project, "remapDevSrg2Mcp", RenameJar.class, renamer);
         this.remapCleanroomSrg2Mcp = Tasks.register(project, "remapCleanroomSrg2Mcp", RenameJar.class, renamer);
         this.decompileDevJar = Tasks.tool(project, caches.getLocalDirectory(), "decompileDevJar", Decompile.class, ToolConfigs.get(project, "decompiler"));
@@ -193,8 +191,18 @@ public final class UserDevTasks {
         });
         this.jars.remapNotch2Srg.configure(task -> {
             task.setDescription("Renames the patched Minecraft from obfuscated to SRG names.");
-            task.dependsOn(this.verifyUserdevConfig);
-            task.getLibraries().from(this.userdev);
+            task.dependsOn(this.verifyUserdevConfig, this.remapCleanroomSrg2Notch);
+            task.getLibraries().from(this.remapCleanroomSrg2Notch.flatMap(RenameJar::getOutput));
+        });
+        this.remapCleanroomSrg2Notch.configure(task -> {
+            task.setDescription("Renames the loader into obfuscated names for hierarchy-aware Minecraft remapping.");
+            task.dependsOn(this.copyUserdev, mappings.extractMcpConfig);
+            task.getInput().set(userdevJar);
+            task.getMap().setFrom(mappings.joinedSrg);
+            task.getLibraries().setFrom();
+            task.getReverse().set(true);
+            task.getNaiveSrg().set(true);
+            task.getOutput().set(userdevDir.map(dir -> dir.file("cleanroom-notch.jar")));
         });
         this.accessTransformDevJar.configure(task -> {
             task.dependsOn(this.extractUserdev);
@@ -209,7 +217,7 @@ public final class UserDevTasks {
             task.setDescription("Renames the patched Minecraft into this project's MCP names.");
             task.getInput().set(this.accessTransformDevJar.flatMap(AccessTransform::getOutputJar));
             task.getMap().setFrom(srg2mcp);
-            task.getLibraries().setFrom(vanilla.vanillaConfig);
+            task.getLibraries().setFrom(vanilla.vanillaConfig, this.userdev);
             task.getOutput().set(userdevDir.map(dir -> dir.file("minecraft-mcp.jar")));
         });
         this.remapCleanroomSrg2Mcp.configure(task -> {
@@ -314,7 +322,9 @@ public final class UserDevTasks {
                 this.jars.splitClient.flatMap(SplitJar::getSlimJar),
                 this.jars.splitServer.flatMap(SplitJar::getSlimJar)
         );
-        intermediates.discardAfter(this.jars.remapNotch2Srg, this.jars.merge.flatMap(com.cleanroommc.gradle.api.task.mcp.MergeJars::getMergedJar));
+        intermediates.discardAfter(this.jars.remapNotch2Srg,
+                this.jars.merge.flatMap(MergeJars::getMergedJar),
+                this.remapCleanroomSrg2Notch.flatMap(RenameJar::getOutput));
         intermediates.discardAfter(this.jars.inject, this.jars.remapNotch2Srg.flatMap(RenameJar::getOutput));
         intermediates.discardAfterAll("discardDevInjectedJar",
                 List.of(this.accessTransformDevJar, this.remapCleanroomSrg2Mcp),

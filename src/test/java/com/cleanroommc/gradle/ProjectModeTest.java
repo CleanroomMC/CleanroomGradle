@@ -53,6 +53,10 @@ class ProjectModeTest {
                     assert tasks.findByName('runClient') != null
                     assert tasks.findByName('decompileDevJar') != null
                     assert tasks.findByName('reobfJar') != null
+                    def remapCleanroomSrg2Notch = tasks.findByName('remapCleanroomSrg2Notch')
+                    assert remapCleanroomSrg2Notch != null
+                    assert remapCleanroomSrg2Notch.reverse.get()
+                    assert remapCleanroomSrg2Notch.naiveSrg.get()
                     assert tasks.findByName('mergeJars') == null
                     assert tasks.findByName('writeMcp2Notch') == null
                     assert tasks.findByName('runSrgClient') == null
