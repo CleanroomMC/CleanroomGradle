@@ -105,6 +105,10 @@ class ProjectModeTest {
                     assert tasks.findByName('runSrgClient') != null
                     assert tasks.findByName('prepareMinecraftPatchDevEnvironment') != null
                     assert tasks.findByName('runClient') == null
+
+                    def compileJava = tasks.named('compileJava').get()
+                    def applyMinecraftDiffs = tasks.named('applyMinecraftDiffs').get()
+                    assert compileJava.mustRunAfter.getDependencies(compileJava).contains(applyMinecraftDiffs)
                 }
                 """);
 
@@ -115,6 +119,12 @@ class ProjectModeTest {
                 "applySAS", "genClientBinPatches", "genRuntimeBinPatches");
         assertTrue(output.indexOf(":prepareMinecraftPatchDevEnvironment") < output.lastIndexOf(":compileJava"));
         assertTrue(output.indexOf(":prepareMcpInjectedSources") < output.lastIndexOf(":compileJava"));
+
+        output = this.project.runner("setup", "compileJava", "test", "--parallel", "--dry-run").build().getOutput();
+        assertTrue(output.indexOf(":applyMinecraftDiffs") < output.lastIndexOf(":compileJava"), output);
+
+        output = this.project.runner("compileJava", "--dry-run").build().getOutput();
+        PluginBuild.notScheduled(output, "applyMinecraftDiffs");
     }
 
     @Test

@@ -49,9 +49,11 @@ public final class CleanroomTasks {
 
         mainSourceSet.configure(sourceSet -> {
             sourceSet.getJava().srcDir(mcp.prepareMcpInjectedSources.map(Copy::getDestinationDir));
-            project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class).configure(task ->
-                    task.dependsOn(minecraftPatchDev.map(PatchDevEnvironment::getPrepareEnvironment),
-                            mcp.prepareMcpInjectedSources));
+            project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class).configure(task -> {
+                task.dependsOn(minecraftPatchDev.map(PatchDevEnvironment::getPrepareEnvironment),
+                        mcp.prepareMcpInjectedSources);
+                task.mustRunAfter(minecraftPatchDev.map(PatchDevEnvironment::getApplyDiffs));
+            });
         });
         var runDir = project.getLayout().getProjectDirectory().dir("run").getAsFile();
         var offline = project.getGradle().getStartParameter().isOffline();
