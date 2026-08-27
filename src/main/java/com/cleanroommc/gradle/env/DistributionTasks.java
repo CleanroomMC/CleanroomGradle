@@ -309,13 +309,13 @@ public final class DistributionTasks {
             task.getCleanroomVersion().set(version);
             task.getForgeVersion().set(loader.getForgeVersion());
             task.getMcpConfig().set(mappings.mcpConfig.map(Objects::notation));
-            task.getBinpatches().set(UserdevConfig.BINPATCHES);
+            task.getBinpatches().set(UserdevConfig.meta(UserdevConfig.BINPATCHES));
             task.getClientBinpatches().set(UserdevConfig.CLIENT_BINPATCHES);
             task.getServerBinpatches().set(UserdevConfig.SERVER_BINPATCHES);
-            task.getSrg2Mcp().set(UserdevConfig.SRG2MCP);
-            task.getMcp2Srg().set(UserdevConfig.MCP2SRG);
+            task.getSrg2Mcp().set(UserdevConfig.meta(UserdevConfig.SRG2MCP));
+            task.getMcp2Srg().set(UserdevConfig.meta(UserdevConfig.MCP2SRG));
             task.getAccessTransformers().set(loader.getAccessTransformers().getElements().map(files ->
-                    files.stream().map(file -> UserdevConfig.ATS + "/" + file.getAsFile().getName()).toList()));
+                    files.stream().map(file -> UserdevConfig.meta(UserdevConfig.ATS) + "/" + file.getAsFile().getName()).toList()));
             task.getLibraries().set(ResolvedLibraries.modules(project.getConfigurations()
                     .named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME)
                     .flatMap(config -> config.getIncoming().getResolutionResult().getRootComponent()))
@@ -342,13 +342,15 @@ public final class DistributionTasks {
             // SRG-named
             task.from(archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)), spec -> spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**"));
             task.from(this.genRuntimeBinPatches.flatMap(Zip::getArchiveFile),
-                    spec -> spec.rename(name -> UserdevConfig.BINPATCHES));
-            task.from(loader.getAccessTransformers(), spec -> spec.into(UserdevConfig.ATS));
+                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.BINPATCHES));
+            task.from(loader.getAccessTransformers(),
+                    spec -> spec.into(UserdevConfig.meta(UserdevConfig.ATS)));
             task.from(mappings.writeSrg2Mcp.flatMap(WriteMappings::getOutput),
-                    spec -> spec.rename(name -> UserdevConfig.SRG2MCP));
+                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.SRG2MCP));
             task.from(this.writeMcp2Srg.flatMap(WriteMappings::getOutput),
-                    spec -> spec.rename(name -> UserdevConfig.MCP2SRG));
-            task.from(this.writeUserdevConfig.flatMap(WriteUserdevConfig::getOutput));
+                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.MCP2SRG));
+            task.from(this.writeUserdevConfig.flatMap(WriteUserdevConfig::getOutput),
+                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.FILE_NAME));
         });
         this.publishMmcPackZip.configure(task -> {
             task.setDescription("Publishes a minimal MultiMC/PrismLauncher import ZIP.");

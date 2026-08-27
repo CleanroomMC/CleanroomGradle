@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.api.task.mcp;
 
+import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.util.IO;
 import net.minecraftforge.srgutils.IMappingFile;
 import org.gradle.api.DefaultTask;
@@ -37,8 +38,13 @@ public abstract class SplitJar extends DefaultTask {
             try (var extraZos = IO.zipOut(this.getExtraJar().get().getAsFile())) {
                 try (var sourceZis = IO.zipIn(this.getSourceJar().get().getAsFile())) {
                     for (var entry = sourceZis.getNextEntry(); entry != null; entry = sourceZis.getNextEntry()) {
-                        var zos = classes.contains(entry.getName()) ? slimZos : extraZos;
-                        var newEntry = new ZipEntry(entry.getName());
+                        String name = entry.getName();
+                        int innerClass = name.indexOf('$');
+                        boolean minecraftClass = name.endsWith(".class") && (name.startsWith(Meta.MINECRAFT_PACKAGE_PATH)
+                                || classes.contains(name)
+                                || innerClass >= 0 && classes.contains(name.substring(0, innerClass) + ".class"));
+                        var zos = minecraftClass ? slimZos : extraZos;
+                        var newEntry = new ZipEntry(name);
                         newEntry.setTime(0L); // Fixed timestamp to keep stability
                         zos.putNextEntry(newEntry);
                         sourceZis.transferTo(zos);

@@ -47,6 +47,11 @@ public record UserdevConfig(
         Runs runs) {
 
     public static final int SPEC = 1;
+
+    /**
+     * Directory every file below lives under inside the userdev artifact.
+     */
+    public static final String META = "userdev";
     public static final String FILE_NAME = "config.json";
     public static final String BINPATCHES = "binpatches.zip";
     public static final String CLIENT_BINPATCHES = "binpatch/client/";
@@ -54,6 +59,13 @@ public record UserdevConfig(
     public static final String SRG2MCP = "srg2mcp.tsrg";
     public static final String MCP2SRG = "mcp2srg.tsrg";
     public static final String ATS = "ats";
+
+    /**
+     * Path of {@code name} inside the userdev artifact.
+     */
+    public static String meta(String name) {
+        return META + "/" + name;
+    }
 
     public record Runs(Run client, Run server) { }
 
@@ -77,15 +89,15 @@ public record UserdevConfig(
      */
     public static UserdevConfig readFromJar(File jar) {
         try (var zip = new ZipFile(jar)) {
-            var entry = zip.getEntry(FILE_NAME);
+            var entry = zip.getEntry(meta(FILE_NAME));
             if (entry == null) {
-                throw new IllegalStateException(jar + " is not a userdev artifact: it has no " + FILE_NAME + ".");
+                throw new IllegalStateException(jar + " is not a userdev artifact: it has no " + meta(FILE_NAME) + ".");
             }
             try (var input = zip.getInputStream(entry)) {
                 return IO.readJson(input, UserdevConfig.class);
             }
         } catch (IOException e) {
-            throw new UncheckedIOException("Failed to read " + FILE_NAME + " from " + jar, e);
+            throw new UncheckedIOException("Failed to read " + meta(FILE_NAME) + " from " + jar, e);
         }
     }
 

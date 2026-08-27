@@ -16,10 +16,6 @@ public abstract class MergeJars extends MavenJarExec {
     @PathSensitive(PathSensitivity.RELATIVE)
     public abstract RegularFileProperty getServerJar();
 
-    @InputFile
-    @PathSensitive(PathSensitivity.RELATIVE)
-    public abstract RegularFileProperty getSrgMappingFile();
-
     @Input
     public abstract Property<String> getMinecraftVersion();
 
@@ -42,7 +38,6 @@ public abstract class MergeJars extends MavenJarExec {
         this.args("--client", this.getClientJar(),
                 "--server", this.getServerJar(),
                 "--output", this.getMergedJar(),
-                "--whitelist-map", this.getSrgMappingFile(),
                 "-ann", this.getMinecraftVersion(),
                 "--inject", this.getInjectAnnotationMarkers());
     }

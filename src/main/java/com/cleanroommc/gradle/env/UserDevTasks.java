@@ -172,7 +172,7 @@ public final class UserDevTasks {
         });
         this.verifyUserdevConfig.configure(task -> {
             task.dependsOn(this.extractUserdev);
-            task.getConfigFile().set(extractedDir.map(dir -> dir.file(UserdevConfig.FILE_NAME)));
+            task.getConfigFile().set(extractedDir.map(dir -> dir.file(UserdevConfig.meta(UserdevConfig.FILE_NAME))));
             task.getMcpConfig().set(mappings.mcpConfig.map(Objects::notation));
             task.getMinecraftVersion().set(vanilla.minecraftVersion);
             task.getStamp().set(userdevDir.map(dir -> dir.file("verified.txt")));
@@ -180,27 +180,28 @@ public final class UserDevTasks {
         this.applyClientBinPatches.configure(task -> {
             task.dependsOn(this.extractUserdev);
             task.getOriginalJar().fileProvider(vanilla.downloadClientJar.map(Download::getDest));
-            task.getBinpatches().set(extractedDir.map(dir -> dir.file(UserdevConfig.BINPATCHES)));
+            task.getBinpatches().set(extractedDir.map(dir -> dir.file(UserdevConfig.meta(UserdevConfig.BINPATCHES))));
             task.getPrefix().set(UserdevConfig.CLIENT_BINPATCHES);
             task.getPatchedJar().set(userdevDir.map(dir -> dir.file("client-patched.jar")));
         });
         this.applyServerBinPatches.configure(task -> {
             task.dependsOn(this.extractUserdev);
             task.getOriginalJar().fileProvider(vanilla.downloadServerJar.map(Download::getDest));
-            task.getBinpatches().set(extractedDir.map(dir -> dir.file(UserdevConfig.BINPATCHES)));
+            task.getBinpatches().set(extractedDir.map(dir -> dir.file(UserdevConfig.meta(UserdevConfig.BINPATCHES))));
             task.getPrefix().set(UserdevConfig.SERVER_BINPATCHES);
             task.getPatchedJar().set(userdevDir.map(dir -> dir.file("server-patched.jar")));
         });
         this.jars.remapNotch2Srg.configure(task -> {
             task.setDescription("Renames the patched Minecraft from obfuscated to SRG names.");
             task.dependsOn(this.verifyUserdevConfig);
+            task.getLibraries().from(this.userdev);
         });
         this.accessTransformDevJar.configure(task -> {
             task.dependsOn(this.extractUserdev);
             task.setDescription("Applies SRG-named access transformers to Minecraft before it is remapped to MCP names.");
             task.getInputJar().set(this.jars.inject.flatMap(InjectMetadata::getInjectedJar));
             task.getAccessTransformers().from(
-                    extractedDir.map(dir -> dir.dir(UserdevConfig.ATS).getAsFileTree()),
+                    extractedDir.map(dir -> dir.dir(UserdevConfig.meta(UserdevConfig.ATS)).getAsFileTree()),
                     userdevExt.getAccessTransformers());
             task.getOutputJar().set(userdevDir.map(dir -> dir.file("minecraft-srg-at.jar")));
         });

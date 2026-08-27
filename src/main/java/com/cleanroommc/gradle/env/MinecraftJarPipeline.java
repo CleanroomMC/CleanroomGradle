@@ -62,7 +62,6 @@ public final class MinecraftJarPipeline {
         this.merge.configure(task -> {
             task.getClientJar().value(this.splitClient.flatMap(SplitJar::getSlimJar));
             task.getServerJar().value(this.splitServer.flatMap(SplitJar::getSlimJar));
-            task.getSrgMappingFile().value(spec.srgMapping);
             task.getMinecraftVersion().set(spec.minecraftVersion);
             task.getMergedJar().set(spec.mergedJar);
         });

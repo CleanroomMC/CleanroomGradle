@@ -15,6 +15,7 @@ import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class BinPatchTest {
@@ -68,6 +69,41 @@ class BinPatchTest {
             assertNull(zip.getEntry("b/B.class"));
             assertEquals("added", readEntry(zip, "c/C.class"));
             assertEquals("resource", readEntry(zip, "resource.txt"));
+        }
+    }
+
+    @Test
+    void splitKeepsAddedMinecraftClassesInSlimJar() throws IOException {
+        writeArchive(this.projectDir.resolve("patched.jar"), List.of(
+                new ArchiveEntry("ain.class", "mapped"),
+                new ArchiveEntry("ain$22.class", "added inner"),
+                new ArchiveEntry("net/minecraft/NewClass.class", "added class"),
+                new ArchiveEntry("library/Helper.class", "library")));
+        Files.writeString(this.projectDir.resolve("joined.tsrg"), "ain net/minecraft/MappedClass\n");
+
+        this.project.vanilla("""
+                import com.cleanroommc.gradle.api.task.mcp.SplitJar
+
+                tasks.register('splitPatchedJar', SplitJar) {
+                    sourceJar = layout.projectDirectory.file('patched.jar')
+                    srgMappingFile = layout.projectDirectory.file('joined.tsrg')
+                    slimJar = layout.buildDirectory.file('slim.jar')
+                    extraJar = layout.buildDirectory.file('extra.jar')
+                }
+                """);
+
+        var result = this.project.runner("splitPatchedJar").build();
+        assertEquals(TaskOutcome.SUCCESS, result.task(":splitPatchedJar").getOutcome());
+        try (var slim = new ZipFile(this.projectDir.resolve("build/slim.jar").toFile());
+             var extra = new ZipFile(this.projectDir.resolve("build/extra.jar").toFile())) {
+            assertNotNull(slim.getEntry("ain.class"));
+            assertNotNull(slim.getEntry("ain$22.class"));
+            assertNotNull(slim.getEntry("net/minecraft/NewClass.class"));
+            assertNull(slim.getEntry("library/Helper.class"));
+            assertNull(extra.getEntry("ain.class"));
+            assertNull(extra.getEntry("ain$22.class"));
+            assertNull(extra.getEntry("net/minecraft/NewClass.class"));
+            assertNotNull(extra.getEntry("library/Helper.class"));
         }
     }
 

@@ -54,7 +54,6 @@ class CustomToolTest {
 
                     clientJar = layout.projectDirectory.file('build.gradle')
                     serverJar = layout.projectDirectory.file('build.gradle')
-                    srgMappingFile = layout.projectDirectory.file('build.gradle')
                     minecraftVersion = 'replacement'
                     mergedJar = customOutput
                 }
