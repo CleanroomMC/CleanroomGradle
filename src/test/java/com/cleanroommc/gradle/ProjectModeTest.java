@@ -57,6 +57,8 @@ class ProjectModeTest {
                     assert remapCleanroomSrg2Notch != null
                     assert remapCleanroomSrg2Notch.reverse.get()
                     assert remapCleanroomSrg2Notch.naiveSrg.get()
+                    assert tasks.findByName('stripClientDevMinecraftJar').targetSide.get().name() == 'CLIENT'
+                    assert tasks.findByName('stripServerDevMinecraftJar').targetSide.get().name() == 'SERVER'
                     assert tasks.findByName('mergeJars') == null
                     assert tasks.findByName('writeMcp2Notch') == null
                     assert tasks.findByName('runSrgClient') == null

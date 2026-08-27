@@ -12,6 +12,7 @@ import com.cleanroommc.gradle.api.task.common.Decompile;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.task.mcp.*;
 import com.cleanroommc.gradle.api.task.patch.ApplyBinPatches;
+import com.cleanroommc.gradle.api.task.sas.StripSideOnlyJar;
 import com.cleanroommc.gradle.api.task.userdev.VerifyUserdevConfig;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
@@ -64,6 +65,7 @@ public final class UserDevTasks {
     public final TaskProvider<ApplyBinPatches> applyClientBinPatches, applyServerBinPatches;
     public final MinecraftJarPipeline jars;
     public final TaskProvider<AccessTransform> accessTransformDevJar;
+    public final TaskProvider<StripSideOnlyJar> stripClientDevMinecraftJar, stripServerDevMinecraftJar;
     public final TaskProvider<RenameJar> remapCleanroomSrg2Notch, remapDevSrg2Mcp, remapCleanroomSrg2Mcp, reobfJar;
     public final TaskProvider<Decompile> decompileDevJar;
     public final TaskProvider<WriteMappings> writeMcp2Srg;
@@ -143,6 +145,8 @@ public final class UserDevTasks {
         this.jars = MinecraftJarPipeline.register(project, caches, spec);
 
         this.accessTransformDevJar = Tasks.tool(project, caches.getLocalDirectory(), "accessTransformDevJar", AccessTransform.class, accessTransformerTool);
+        this.stripClientDevMinecraftJar = Tasks.register(project, "stripClientDevMinecraftJar", StripSideOnlyJar.class);
+        this.stripServerDevMinecraftJar = Tasks.register(project, "stripServerDevMinecraftJar", StripSideOnlyJar.class);
         this.remapCleanroomSrg2Notch = Tasks.register(project, "remapCleanroomSrg2Notch", RenameJar.class, renamer);
         this.remapDevSrg2Mcp = Tasks.register(project, "remapDevSrg2Mcp", RenameJar.class, renamer);
         this.remapCleanroomSrg2Mcp = Tasks.register(project, "remapCleanroomSrg2Mcp", RenameJar.class, renamer);
@@ -220,6 +224,16 @@ public final class UserDevTasks {
             task.getLibraries().setFrom(vanilla.vanillaConfig, this.userdev);
             task.getOutput().set(userdevDir.map(dir -> dir.file("minecraft-mcp.jar")));
         });
+        this.stripClientDevMinecraftJar.configure(task -> {
+            task.getInputJar().set(this.remapDevSrg2Mcp.flatMap(RenameJar::getOutput));
+            task.getTargetSide().set(Side.CLIENT);
+            task.getOutputJar().set(userdevDir.map(dir -> dir.file("minecraft-client-mcp.jar")));
+        });
+        this.stripServerDevMinecraftJar.configure(task -> {
+            task.getInputJar().set(this.remapDevSrg2Mcp.flatMap(RenameJar::getOutput));
+            task.getTargetSide().set(Side.SERVER);
+            task.getOutputJar().set(userdevDir.map(dir -> dir.file("minecraft-server-mcp.jar")));
+        });
         this.remapCleanroomSrg2Mcp.configure(task -> {
             task.setDescription("Renames the loader into this project's MCP names.");
             task.dependsOn(this.copyUserdev);
@@ -250,6 +264,11 @@ public final class UserDevTasks {
             task.dependsOn(this.remapDevSrg2Mcp, this.remapCleanroomSrg2Mcp);
         });
 
+        var objects = project.getObjects();
+        var mainRuntimeClasspath = objects.fileCollection().from(mainSourceSet.map(SourceSet::getRuntimeClasspath));
+        var minecraftMcpClasspath = objects.fileCollection().from(this.remapDevSrg2Mcp.flatMap(RenameJar::getOutput));
+        var clientExtraClasspath = objects.fileCollection().from(this.jars.splitClient.flatMap(SplitJar::getExtraJar));
+        var commonRunClasspath = mainRuntimeClasspath.minus(minecraftMcpClasspath);
         var runDir = project.getLayout().getProjectDirectory().dir("run").getAsFile();
         var natives = vanilla.extractNatives.map(Copy::getDestinationDir);
         var client = userdevConfig.map(config -> config.runs().client());
@@ -266,7 +285,8 @@ public final class UserDevTasks {
         fml.natives = natives;
 
         this.runClient.configure(task -> {
-            task.dependsOn(this.setup, mainSourceSet.map(SourceSet::getClassesTaskName), vanilla.downloadAssets);
+            task.dependsOn(this.setup, this.stripClientDevMinecraftJar,
+                    mainSourceSet.map(SourceSet::getClassesTaskName), vanilla.downloadAssets);
             MinecraftRuns.caches(task, caches, minecraft.getVersionMeta(), offline);
             task.getSide().set(Side.CLIENT);
             task.getEnv().set(Environment.CLEANROOM);
@@ -274,7 +294,7 @@ public final class UserDevTasks {
             task.getMainClass().set(client.map(UserdevConfig.Run::mainClass));
             task.setWorkingDir(runDir);
             task.getNatives().fileProvider(natives);
-            task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath));
+            task.classpath(commonRunClasspath, this.stripClientDevMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar));
             fml.client = true;
             fml.target = client.map(UserdevConfig.Run::target);
             fml.tweakClass = client.map(UserdevConfig.Run::tweakClass);
@@ -282,7 +302,7 @@ public final class UserDevTasks {
             MinecraftRuns.fmlEnvironment(task, fml);
         });
         this.runServer.configure(task -> {
-            task.dependsOn(this.setup, mainSourceSet.map(SourceSet::getClassesTaskName));
+            task.dependsOn(this.setup, this.stripServerDevMinecraftJar, mainSourceSet.map(SourceSet::getClassesTaskName));
             MinecraftRuns.caches(task, caches, minecraft.getVersionMeta(), offline);
             task.getSide().set(Side.SERVER);
             task.getEnv().set(Environment.CLEANROOM);
@@ -290,7 +310,8 @@ public final class UserDevTasks {
             task.getMainClass().set(server.map(UserdevConfig.Run::mainClass));
             task.setWorkingDir(runDir);
             task.getNatives().fileProvider(natives);
-            task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath),
+            task.classpath(commonRunClasspath.minus(clientExtraClasspath),
+                    this.stripServerDevMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar),
                     this.jars.splitServer.flatMap(SplitJar::getExtraJar));
             var serverEnv = new MinecraftRuns.Fml();
             serverEnv.client = false;
@@ -309,7 +330,6 @@ public final class UserDevTasks {
         SourceSets.extendFromConfiguration(project, mainSourceSet, vanilla.vanillaConfig);
         SourceSets.extendFromConfiguration(project, mainSourceSet, this.libraries);
 
-        var objects = project.getObjects();
         project.getDependencies().add(JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME, objects.fileCollection().from(
                 this.remapDevSrg2Mcp.flatMap(RenameJar::getOutput),
                 this.remapCleanroomSrg2Mcp.flatMap(RenameJar::getOutput)));
