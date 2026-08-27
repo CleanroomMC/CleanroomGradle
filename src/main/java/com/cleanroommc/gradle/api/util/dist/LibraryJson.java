@@ -98,7 +98,7 @@ public final class LibraryJson {
 
     /**
      * The Mojang dialect used by {@code version.json} for classpath libraries:
-     * One flat entry per artifact, classifiers in the name, including LWJGL 3 native jars.
+     * One flat entry per artifact, classifiers in the name, including side-less native jars such as Netty's.
      */
     public static JsonArray mojangLibraries(List<Artifact> artifacts) {
         var sorted = new ArrayList<>(artifacts);
@@ -111,6 +111,7 @@ public final class LibraryJson {
             var library = new JsonObject();
             library.addProperty("name", artifact.coordinate().serialized());
             library.add("downloads", downloads);
+            addPlatformRule(library, artifact.coordinate().classifier());
             output.add(library);
         }
         return output;
@@ -118,23 +119,79 @@ public final class LibraryJson {
 
     /**
      * The Mojang dialect for natives:
-     * One entry per module, its classifiers under a {@code natives} platform map, extracted rather than classpathed.
+     * One entry per classifier with a platform rule, extracted rather than classpathed.
+     * Separate entries are required because the published classifier names do not share a usable {@code ${arch}}
+     * template.
      */
     public static JsonArray mojangNativeLibraries(List<Artifact> artifacts) {
-        var natives = new TreeMap<String, List<Artifact>>();
+        var natives = new ArrayList<Artifact>();
         for (var artifact : artifacts) {
             if (!isNative(artifact.coordinate())) {
                 throw new GradleException("Not a natives library: " + artifact.coordinate().serialized());
             }
-            natives.computeIfAbsent(artifact.coordinate().module(), ignored -> new ArrayList<>()).add(artifact);
+            natives.add(artifact);
         }
+        natives.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
         var output = new JsonArray();
-        for (var nativeArtifacts : natives.values()) {
-            nativeArtifacts.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
-            output.add(nativeLibrary(nativeArtifacts.getFirst().coordinate().withoutClassifier(), nativeArtifacts));
+        for (var artifact : natives) {
+            var classifier = artifact.coordinate().classifier();
+            var library = nativeLibrary(artifact.coordinate().withoutClassifier(), new ArrayList<>(List.of(artifact)));
+            var platform = classifierPlatform(classifier);
+            if (platform != null) {
+                var nativeMap = new JsonObject();
+                nativeMap.addProperty(platform.os(), classifier);
+                library.add("natives", nativeMap);
+            }
+            library.addProperty("side", "client");
+            addPlatformRule(library, classifier);
+            output.add(library);
         }
         return output;
     }
+
+    private static void addPlatformRule(JsonObject library, String classifier) {
+        var platform = classifierPlatform(classifier);
+        if (platform == null) {
+            return;
+        }
+        var os = new JsonObject();
+        os.addProperty("name", platform.os());
+        os.addProperty("arch", platform.arch());
+        var rule = new JsonObject();
+        rule.addProperty("action", "allow");
+        rule.add("os", os);
+        var rules = new JsonArray();
+        rules.add(rule);
+        library.add("rules", rules);
+    }
+
+    private static NativePlatform classifierPlatform(String classifier) {
+        if (classifier == null) {
+            return null;
+        }
+        var platform = classifier.startsWith(LwjglNatives.CLASSIFIER_PREFIX)
+                ? classifier.substring(LwjglNatives.CLASSIFIER_PREFIX.length())
+                : classifier;
+        var separator = platform.indexOf('-');
+        var os = separator == -1 ? platform : platform.substring(0, separator);
+        var arch = separator == -1 ? null : platform.substring(separator + 1);
+        if (os.equals("macos")) {
+            os = "osx";
+        }
+        if (!os.equals("windows") && !os.equals("osx") && !os.equals("linux") && !os.equals("freebsd")) {
+            return null;
+        }
+        if (arch == null) {
+            arch = "x64";
+        } else if (arch.equals("aarch_64")) {
+            arch = "arm64";
+        } else if (arch.equals("x86_64")) {
+            arch = "x64";
+        }
+        return new NativePlatform(os, arch);
+    }
+
+    private record NativePlatform(String os, String arch) { }
 
     /**
      * A library entry whose file the installer embeds rather than downloads.

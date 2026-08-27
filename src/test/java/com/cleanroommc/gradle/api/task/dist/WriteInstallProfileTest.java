@@ -15,7 +15,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,7 +43,7 @@ class WriteInstallProfileTest {
     }
 
     @Test
-    void writesOneEntryPerModuleFromTheBuildsOwnGraph() throws Exception {
+    void writesResolvedGraphWithPlatformNativeMetadata() throws Exception {
         var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
         var task = task(project);
 
@@ -52,6 +51,10 @@ class WriteInstallProfileTest {
         var guava = file("guava-33.6.0-jre.jar", "guava");
         var lwjgl = file("lwjgl-3.4.2.jar", "lwjgl");
         var lwjglLinux = file("lwjgl-3.4.2-natives-linux.jar", "lwjgl linux native");
+        var lwjglLinuxArm = file("lwjgl-3.4.2-natives-linux-arm64.jar", "lwjgl linux arm native");
+        var lwjglWindows = file("lwjgl-3.4.2-natives-windows.jar", "lwjgl windows native");
+        var nettyLinux = file("netty-transport-native-epoll-4.2.16.Final-linux-x86_64.jar", "netty linux native");
+        var nettyArm = file("netty-transport-native-epoll-4.2.16.Final-linux-aarch_64.jar", "netty arm native");
         var text2speech = file("text2speech-1.10.3-natives-linux.jar", "text2speech linux native");
         var text2speechWindows = file("text2speech-1.10.3-natives-windows.jar", "text2speech windows native");
         var jinputLinux = file("jinput-platform-2.0.5-natives-linux.jar", "jinput linux native");
@@ -62,6 +65,10 @@ class WriteInstallProfileTest {
         task.getLibraries().add(library(project, "com.google.guava:guava:33.6.0-jre", guava, "https://authority.example/releases/"));
         task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", lwjgl));
         task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-linux", lwjglLinux));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-linux-arm64", lwjglLinuxArm));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-windows", lwjglWindows));
+        task.getLibraries().add(library(project, "io.netty:netty-transport-native-epoll:4.2.16.Final:linux-x86_64", nettyLinux));
+        task.getLibraries().add(library(project, "io.netty:netty-transport-native-epoll:4.2.16.Final:linux-aarch_64", nettyArm));
         task.getLibraries().add(library(project, "com.paulscode:soundsystem:20120107", soundsystem));
         task.getNativeLibraries().add(library(project, "com.mojang:text2speech:1.10.3:natives-linux", text2speech));
         task.getNativeLibraries().add(library(project, "com.mojang:text2speech:1.10.3:natives-windows", text2speechWindows));
@@ -79,16 +86,23 @@ class WriteInstallProfileTest {
         var version = json(task.getVersionJson().get().getAsFile().toPath());
         var libraries = version.getAsJsonArray("libraries");
         var names = names(libraries);
-        assertEquals(names.size(), new HashSet<>(names).size(), names.toString());
         assertFalse(names.contains("com.google.guava:guava:21.0"), names.toString());
         assertFalse(names.contains("com.mojang:patchy:1.3.9"), names.toString());
+        assertTrue(names.stream().noneMatch(name -> name.startsWith("org.lwjgl:") && name.contains(":natives-")),
+                names.toString());
         assertEquals(List.of("com.cleanroommc:cleanroom:1.0.0:universal",
                         "com.google.guava:guava:33.6.0-jre",
                         "com.paulscode:soundsystem:20120107",
+                        "io.netty:netty-transport-native-epoll:4.2.16.Final:linux-aarch_64",
+                        "io.netty:netty-transport-native-epoll:4.2.16.Final:linux-x86_64",
                         "org.lwjgl:lwjgl:3.4.2",
-                        "org.lwjgl:lwjgl:3.4.2:natives-linux",
                         "com.mojang:text2speech:1.10.3",
-                        "net.java.jinput:jinput-platform:2.0.5"),
+                        "com.mojang:text2speech:1.10.3",
+                        "net.java.jinput:jinput-platform:2.0.5",
+                        "net.java.jinput:jinput-platform:2.0.5",
+                        "org.lwjgl:lwjgl:3.4.2",
+                        "org.lwjgl:lwjgl:3.4.2",
+                        "org.lwjgl:lwjgl:3.4.2"),
                 names);
 
         // Mojang hosts libraries no public Maven carries, so the manifest's url wins for what it names
@@ -108,26 +122,36 @@ class WriteInstallProfileTest {
                 .getAsJsonObject("downloads").getAsJsonObject("artifact");
         assertEquals("", embedded.get("url").getAsString());
 
-        // LWJGL 3 loads its natives off the classpath, so they stay ordinary entries
-        var lwjglNative = library(libraries, "org.lwjgl:lwjgl:3.4.2:natives-linux");
-        assertFalse(lwjglNative.has("natives"));
-        assertNotNull(lwjglNative.getAsJsonObject("downloads").getAsJsonObject("artifact"));
+        // LWJGL natives are extracted by launchers and are therefore recognizable as client-only by installers
+        var lwjglNative = library(libraries, "org.lwjgl:lwjgl:3.4.2", true, "linux", "x64");
+        assertEquals("client", lwjglNative.get("side").getAsString());
+        assertEquals("natives-linux", lwjglNative.getAsJsonObject("natives").get("linux").getAsString());
+        assertFalse(lwjglNative.getAsJsonObject("downloads").has("artifact"));
+        assertEquals(Set.of("natives-linux"),
+                lwjglNative.getAsJsonObject("downloads").getAsJsonObject("classifiers").keySet());
+        var lwjglArmNative = library(libraries, "org.lwjgl:lwjgl:3.4.2", true, "linux", "arm64");
+        assertEquals("natives-linux-arm64", lwjglArmNative.getAsJsonObject("natives").get("linux").getAsString());
+        library(libraries, "org.lwjgl:lwjgl:3.4.2", true, "windows", "x64");
+
+        // Netty classifiers contain Java classes, so they remain on the classpath behind exact platform rules
+        var nettyNative = library(libraries,
+                "io.netty:netty-transport-native-epoll:4.2.16.Final:linux-aarch_64", false, "linux", "arm64");
+        assertNotNull(nettyNative.getAsJsonObject("downloads").getAsJsonObject("artifact"));
 
         // Minecraft's own natives are extracted instead, which needs the classifier/platform shape
-        var narrator = library(libraries, "com.mojang:text2speech:1.10.3");
+        var narrator = library(libraries, "com.mojang:text2speech:1.10.3", true, "linux", "x64");
         assertEquals("natives-linux", narrator.getAsJsonObject("natives").get("linux").getAsString());
-        assertEquals("natives-windows", narrator.getAsJsonObject("natives").get("windows").getAsString());
         var narratorClassifiers = narrator.getAsJsonObject("downloads").getAsJsonObject("classifiers");
-        assertEquals(Set.of("natives-linux", "natives-windows"), narratorClassifiers.keySet());
+        assertEquals(Set.of("natives-linux"), narratorClassifiers.keySet());
         assertEquals("https://libraries.minecraft.net/com/mojang/text2speech/1.10.3/text2speech-1.10.3-natives-linux.jar",
                 narratorClassifiers.getAsJsonObject("natives-linux").get("url").getAsString());
         assertEquals(List.of("META-INF/"), narrator.getAsJsonObject("extract").getAsJsonArray("exclude")
                 .asList().stream().map(element -> element.getAsString()).toList());
 
-        var jinput = library(libraries, "net.java.jinput:jinput-platform:2.0.5");
-        assertEquals(Set.of("linux", "windows"), jinput.getAsJsonObject("natives").keySet());
+        var jinput = library(libraries, "net.java.jinput:jinput-platform:2.0.5", true, "windows", "x64");
+        assertEquals(Set.of("windows"), jinput.getAsJsonObject("natives").keySet());
         assertFalse(jinput.getAsJsonObject("downloads").has("artifact"));
-        assertEquals(Set.of("natives-linux", "natives-windows"),
+        assertEquals(Set.of("natives-windows"),
                 jinput.getAsJsonObject("downloads").getAsJsonObject("classifiers").keySet());
     }
 
@@ -254,6 +278,20 @@ class WriteInstallProfileTest {
             }
         }
         throw new AssertionError("No library named " + name + " in " + libraries);
+    }
+
+    private static JsonObject library(JsonArray libraries, String name, boolean natives, String os, String arch) {
+        for (var element : libraries) {
+            var library = element.getAsJsonObject();
+            if (!library.get("name").getAsString().equals(name) || library.has("natives") != natives) {
+                continue;
+            }
+            var ruleOs = library.getAsJsonArray("rules").get(0).getAsJsonObject().getAsJsonObject("os");
+            if (ruleOs.get("name").getAsString().equals(os) && ruleOs.get("arch").getAsString().equals(arch)) {
+                return library;
+            }
+        }
+        throw new AssertionError("No library named " + name + " for " + os + "/" + arch + " in " + libraries);
     }
 
     private static List<String> names(JsonArray libraries) {

@@ -50,7 +50,8 @@ import java.util.TreeSet;
  * which some are replaced (e.g. LWJGL 2).
  *
  * <p>The library list is the resolved graph: Cleanroom's runtime, every-platform LWJGL 3 natives,
- * and every-platform vanilla jars and extracted natives. LWJGL 2 is omitted because Cleanroom ships LWJGL 3.
+ * and every-platform vanilla jars and extracted natives. Native jars carry launcher platform metadata.
+ * LWJGL 2 is omitted because Cleanroom ships LWJGL 3.
  * The version manifest is used only for Mojang-hosted download URLs and launch metadata.
  *
  * <p>{@code install_profile.json} keeps the empty {@code processors} and {@code data} blocks Forge's format defines.
@@ -170,6 +171,15 @@ public abstract class WriteInstallProfile extends DefaultTask {
 
     private JsonObject versionJson(List<Artifact> artifacts, List<Artifact> natives, Artifact universal) {
         var meta = getVersionMeta().get();
+        var classpath = new ArrayList<>(artifacts);
+        var launcherNatives = new ArrayList<>(natives);
+        classpath.removeIf(artifact -> {
+            if (!LibraryJson.isNative(artifact.coordinate())) {
+                return false;
+            }
+            launcherNatives.add(artifact);
+            return true;
+        });
         var version = new JsonObject();
         version.addProperty("id", getVersionId().get());
         version.addProperty("time", getReleaseTime().get());
@@ -189,8 +199,8 @@ public abstract class WriteInstallProfile extends DefaultTask {
 
         var libraries = new JsonArray();
         libraries.add(LibraryJson.embeddedLibrary(universal));
-        libraries.addAll(LibraryJson.mojangLibraries(artifacts));
-        libraries.addAll(LibraryJson.mojangNativeLibraries(natives));
+        libraries.addAll(LibraryJson.mojangLibraries(classpath));
+        libraries.addAll(LibraryJson.mojangNativeLibraries(launcherNatives));
         version.add("libraries", libraries);
         return version;
     }
