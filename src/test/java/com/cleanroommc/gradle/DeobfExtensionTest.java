@@ -142,14 +142,31 @@ class DeobfExtensionTest {
     @Test
     void loaderModeAllowsTestConfigurations() throws IOException {
         var build = new PluginBuild(this.projectDir).settings();
+        var cache = this.projectDir.resolve("cg-cache");
+        build.seedLauncherMeta(cache, "1.12.2", """
+                {
+                  "id": "1.12.2",
+                  "libraries": []
+                }
+                """);
         build.loader("""
+                cleanroom.caches.directory = layout.projectDirectory.dir('cg-cache')
                 repositories { %s }
                 dependencies {
                     testImplementation deobf('net.test:mod:1.0.0')
                 }
-                """.formatted(fixture()) + RESOLVE_TASK);
+                tasks.register('checkDeobf') {
+                    def compile = configurations.compileClasspath.incoming.dependencies*.name
+                    def testCompile = configurations.testCompileClasspath.incoming.dependencies*.name
+                    doLast {
+                        assert !compile.contains('mod')
+                        assert testCompile.contains('mod')
+                    }
+                }
+                """.formatted(fixture()));
 
-        assertTrue(build.runner("resolveDeobf", "--offline").build().getOutput().contains("BUILD SUCCESSFUL"));
+        var result = build.runner("checkDeobf", "--offline").build();
+        assertTrue(result.getOutput().contains("BUILD SUCCESSFUL"), result.getOutput());
     }
 
     @Test
