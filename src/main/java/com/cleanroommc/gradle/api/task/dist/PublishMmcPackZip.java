@@ -37,6 +37,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -49,11 +50,14 @@ import java.util.zip.ZipEntry;
  * <p>The generated patch keeps launch behavior in the OneSix subset understood by both launchers.
  *
  * <p>Non-essential Prism Java compatibility hint is ignored by old MultiMC.
- * Downloaded artifacts are referenced through a {@code downloads} object with their locally verified size and SHA-1.
- * Local builds embed the universal jar under the instance {@code libraries/} directory and mark it with
- * {@code MMC-hint=local}; {@code -Prelease} produces a download-only published pack. Minecraft modules excluded
- * from the resolved distribution are replaced by higher-version empty local libraries so Prism can retain its
- * stock Minecraft metadata.</p>
+ *
+ * <p>Downloaded artifacts are referenced through a {@code downloads} object with their locally verified size and SHA-1.
+ * Local builds embed the universal jar and artifacts resolved from local Maven repositories under the
+ * {@code libraries/} directory will be marked with {@code MMC-hint=local}.
+ *
+ * <p>{@code -Prelease} keeps the universal jar download-only.
+ * Minecraft modules excluded from the resolved distribution are replaced by higher-version empty
+ * local libraries so Prism can retain its stock Minecraft metadata.
  */
 @CacheableTask
 public abstract class PublishMmcPackZip extends DefaultTask {
@@ -142,8 +146,8 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         for (var module : blockedMinecraftModules) {
             instance.put(LOCAL_LIBRARIES + blockedLibraryFileName(module), EMPTY_JAR);
         }
-        if (getEmbedUniversalJar().get()) {
-            instance.put(LOCAL_LIBRARIES + universal.coordinate().fileName(), read(universal.path()));
+        for (var artifact : libraries.local()) {
+            instance.put(LOCAL_LIBRARIES + artifact.coordinate().fileName(), read(artifact.path()));
         }
 
         writeZip(getArchiveFile().get().getAsFile(), instance);
@@ -273,10 +277,14 @@ public abstract class PublishMmcPackZip extends DefaultTask {
 
         var cleanroom = LibraryJson.resolve(universal, cleanroomInputs, getInheritedLibraries().get());
         var lwjgl = LibraryJson.resolve(lwjglInputs, Set.of());
+        var local = new ArrayList<Artifact>();
+        cleanroom.stream().filter(LibraryJson::isLocal).forEach(local::add);
+        lwjgl.stream().filter(LibraryJson::isLocal).forEach(local::add);
         return new ComponentLibraries(
                 lwjglVersions.iterator().next(),
                 LibraryJson.mmcLibraries(cleanroom),
-                LibraryJson.mmcLibraries(lwjgl)
+                LibraryJson.mmcLibraries(lwjgl),
+                local
         );
     }
 
@@ -287,7 +295,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         return requirement;
     }
 
-    private record ComponentLibraries(String lwjglVersion, JsonArray cleanroom, JsonArray lwjgl) { }
+    private record ComponentLibraries(String lwjglVersion, JsonArray cleanroom, JsonArray lwjgl, List<Artifact> local) { }
 
     private static byte[] read(Path path) {
         try {

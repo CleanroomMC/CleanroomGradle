@@ -220,6 +220,7 @@ class PublishMmcPackZipTest {
 
         var universal = file("cleanroom-1.0.0+build.4-universal.jar", "local cleanroom");
         var foundation = file("foundation-1.2.3.jar", "foundation");
+        var mcttf = file("mcttf-0.1.0-beta+local.0.jar", "local mcttf");
         var lwjgl = file("lwjgl-3.4.2.jar", "lwjgl");
 
         task.getInstanceName().set("Cleanroom");
@@ -233,6 +234,8 @@ class PublishMmcPackZipTest {
         task.getMinecraftExcludeRules().addAll(
                 "com.ibm.icu:icu4j-core-mojang", "*:patchy");
         task.getLibraries().add(library(project, "top.outlands:foundation:1.2.3", foundation));
+        task.getLibraries().add(library(project, "com.cleanroommc:mcttf:0.1.0-beta+local.0", mcttf,
+                directory.resolve("m2").toUri().toString()));
         task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", lwjgl));
         task.getArchiveFile().fileValue(directory.resolve("cleanroom-local.zip").toFile());
 
@@ -240,10 +243,12 @@ class PublishMmcPackZipTest {
 
         try (var zip = new ZipFile(task.getArchiveFile().get().getAsFile())) {
             var embedded = "libraries/cleanroom-1.0.0+build.4-universal.jar";
+            var localDependency = "libraries/mcttf-0.1.0-beta+local.0.jar";
             assertEquals(Set.of("instance.cfg", "mmc-pack.json", "patches/org.lwjgl.json",
                     "patches/net.minecraftforge.json", "libraries/icu4j-core-mojang-999999.0-empty.jar",
-                    "libraries/patchy-999999.0-empty.jar", embedded), entries(zip));
+                    "libraries/patchy-999999.0-empty.jar", embedded, localDependency), entries(zip));
             assertEquals("local cleanroom", text(zip, embedded));
+            assertEquals("local mcttf", text(zip, localDependency));
 
             var libraries = json(zip, "patches/net.minecraftforge.json").getAsJsonArray("libraries");
             var universalLibrary = library(libraries, "com.cleanroommc:cleanroom:1.0.0+build.4:universal", false);
@@ -254,6 +259,11 @@ class PublishMmcPackZipTest {
                     download.get("path").getAsString());
             assertEquals(DigestUtils.sha1Hex(Files.readAllBytes(universal)), download.get("sha1").getAsString());
             assertEquals(Files.size(universal), download.get("size").getAsLong());
+
+            var mcttfLibrary = library(libraries, "com.cleanroommc:mcttf:0.1.0-beta+local.0", false);
+            assertEquals("local", mcttfLibrary.get("MMC-hint").getAsString());
+            assertEquals(Set.of("path", "sha1", "size"), mcttfLibrary.getAsJsonObject("downloads")
+                    .getAsJsonObject("artifact").keySet());
 
             var foundationLibrary = library(libraries, "top.outlands:foundation:1.2.3", false);
             assertFalse(foundationLibrary.has("MMC-hint"));

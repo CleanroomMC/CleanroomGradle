@@ -12,6 +12,8 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
+import org.gradle.api.file.DirectoryProperty;
+import org.gradle.api.file.FileSystemOperations;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.MapProperty;
@@ -24,18 +26,23 @@ import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.Optional;
+import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
+
+import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,6 +70,9 @@ public abstract class WriteInstallProfile extends DefaultTask {
     public static final int SPEC = 1;
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
+
+    @Inject
+    public abstract FileSystemOperations getFileSystemOperations();
 
     @Input
     public abstract Property<String> getProfileName();
@@ -137,6 +147,9 @@ public abstract class WriteInstallProfile extends DefaultTask {
     @OutputFile
     public abstract RegularFileProperty getVersionJson();
 
+    @OutputDirectory
+    public abstract DirectoryProperty getEmbeddedLibraries();
+
     @TaskAction
     public void write() {
         var universalCoordinate = Coordinate.parse(getUniversalCoordinate().get());
@@ -149,9 +162,13 @@ public abstract class WriteInstallProfile extends DefaultTask {
         artifacts.removeIf(artifact -> drop(artifact, universal, excluded));
         var natives = LibraryJson.resolve(universal, getNativeLibraries().get());
         natives.removeIf(artifact -> drop(artifact, universal, excluded));
+        var localArtifacts = new ArrayList<Artifact>();
+        artifacts.stream().filter(LibraryJson::isLocal).forEach(localArtifacts::add);
+        natives.stream().filter(LibraryJson::isLocal).forEach(localArtifacts::add);
 
         writeJson(getVersionJson().get().getAsFile(), versionJson(manifestUrls(artifacts), manifestUrls(natives), universal));
-        writeJson(getInstallProfile().get().getAsFile(), installProfile(universal));
+        writeJson(getInstallProfile().get().getAsFile(), installProfile(universal, localArtifacts));
+        writeEmbeddedLibraries(localArtifacts);
     }
 
     private boolean drop(Artifact artifact, Artifact universal, Set<String> excluded) {
@@ -163,6 +180,9 @@ public abstract class WriteInstallProfile extends DefaultTask {
         var urls = getManifestUrls().get();
         return artifacts.stream()
                 .map(artifact -> {
+                    if (LibraryJson.isLocal(artifact)) {
+                        return artifact;
+                    }
                     var url = urls.get(artifact.coordinate().serialized());
                     return url == null ? artifact : new Artifact(artifact.coordinate(), artifact.path(), url);
                 })
@@ -245,7 +265,7 @@ public abstract class WriteInstallProfile extends DefaultTask {
         arguments.add(value);
     }
 
-    private JsonObject installProfile(Artifact universal) {
+    private JsonObject installProfile(Artifact universal, List<Artifact> localArtifacts) {
         var profile = new JsonObject();
         profile.addProperty("spec", SPEC);
         profile.addProperty("profile", getProfileName().get());
@@ -260,6 +280,10 @@ public abstract class WriteInstallProfile extends DefaultTask {
 
         var libraries = new JsonArray();
         libraries.add(LibraryJson.embeddedLibrary(universal));
+        localArtifacts.stream()
+                .sorted(Comparator.comparing(artifact -> artifact.coordinate().serialized()))
+                .map(LibraryJson::embeddedLibrary)
+                .forEach(libraries::add);
         profile.add("libraries", libraries);
         profile.add("processors", new JsonArray());
         profile.add("data", new JsonObject());
@@ -296,8 +320,26 @@ public abstract class WriteInstallProfile extends DefaultTask {
 
     private static void addRepositories(Map<String, Set<String>> repositories, List<LibraryArtifact> libraries) {
         for (var library : libraries) {
+            if (LibraryJson.isLocalRepository(library.getRepositoryUrl().get())) {
+                continue;
+            }
             addRepository(repositories, Coordinate.parse(library.getCoordinate().get()),
                     library.getRepositoryUrl().get());
+        }
+    }
+
+    private void writeEmbeddedLibraries(List<Artifact> artifacts) {
+        var output = getEmbeddedLibraries().get().getAsFile().toPath();
+        getFileSystemOperations().delete(spec -> spec.delete(output));
+        try {
+            Files.createDirectories(output);
+            for (var artifact : artifacts) {
+                var target = output.resolve(artifact.coordinate().mavenPath());
+                Files.createDirectories(target.getParent());
+                Files.copy(artifact.path(), target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to embed local Maven libraries in " + output, e);
         }
     }
 

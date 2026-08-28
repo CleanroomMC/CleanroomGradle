@@ -201,6 +201,35 @@ class WriteInstallProfileTest {
     }
 
     @Test
+    void embedsLibrariesResolvedFromMavenLocal() throws Exception {
+        var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
+        var task = task(project);
+        task.getUniversalJar().fileValue(file("cleanroom-1.0.0-universal.jar", "cleanroom").toFile());
+        var mcttf = file("mcttf-0.1.0-beta+local.0.jar", "local mcttf");
+        var coordinate = "example.local:mcttf:0.1.0-beta+local.0";
+        task.getLibraries().add(library(project, coordinate, mcttf,
+                directory.resolve("m2").toUri().toString()));
+        task.getManifestUrls().put(coordinate, "https://example.invalid/mcttf.jar");
+        task.getVersionMeta().set(versionMeta("--username ${auth_player_name}"));
+
+        task.write();
+
+        var versionLibraries = json(task.getVersionJson().get().getAsFile().toPath()).getAsJsonArray("libraries");
+        var versionDownload = library(versionLibraries, coordinate)
+                .getAsJsonObject("downloads").getAsJsonObject("artifact");
+        assertEquals("", versionDownload.get("url").getAsString());
+        assertEquals("example/local/mcttf/0.1.0-beta+local.0/mcttf-0.1.0-beta+local.0.jar",
+                versionDownload.get("path").getAsString());
+
+        var profile = json(task.getInstallProfile().get().getAsFile().toPath());
+        assertEquals("", library(profile.getAsJsonArray("libraries"), coordinate)
+                .getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString());
+        assertFalse(profile.getAsJsonObject("repositories").has("example.local"));
+        assertEquals("local mcttf", Files.readString(task.getEmbeddedLibraries().get().getAsFile().toPath()
+                .resolve("example/local/mcttf/0.1.0-beta+local.0/mcttf-0.1.0-beta+local.0.jar")));
+    }
+
+    @Test
     void namesEveryArgumentOnce() throws Exception {
         var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
         var task = task(project);
@@ -236,6 +265,7 @@ class WriteInstallProfileTest {
         task.getReleaseTime().set("1970-01-01T00:00:00+0000");
         task.getInstallProfile().fileValue(directory.resolve("install_profile.json").toFile());
         task.getVersionJson().fileValue(directory.resolve("version.json").toFile());
+        task.getEmbeddedLibraries().set(directory.resolve("maven-local").toFile());
         return task;
     }
 

@@ -8,6 +8,7 @@ import org.gradle.api.GradleException;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -61,7 +62,10 @@ public final class LibraryJson {
                 continue;
             }
             var path = input.getFile().get().getAsFile().toPath();
-            var url = trailingSlash(input.getRepositoryUrl().get()) + coordinate.mavenPath();
+            var repositoryUrl = input.getRepositoryUrl().get();
+            var url = isLocalRepository(repositoryUrl)
+                    ? ""
+                    : trailingSlash(repositoryUrl) + coordinate.mavenPath();
             var artifact = artifact(coordinate, path, url);
             var previous = artifacts.put(coordinate.serialized(), artifact);
             if (previous != null && !previous.path().equals(path)) {
@@ -85,13 +89,13 @@ public final class LibraryJson {
             output.add(ordinaryLibrary(artifact));
             var nativeArtifacts = natives.remove(artifact.coordinate().module());
             if (nativeArtifacts != null) {
-                output.add(nativeLibrary(artifact.coordinate().withoutClassifier(), nativeArtifacts));
+                output.add(nativeLibrary(artifact.coordinate().withoutClassifier(), nativeArtifacts, true));
             }
         }
         // A classifier-only dependency is legal even when its base artifact was not selected
         for (var nativeArtifacts : natives.values()) {
             nativeArtifacts.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
-            output.add(nativeLibrary(nativeArtifacts.getFirst().coordinate().withoutClassifier(), nativeArtifacts));
+            output.add(nativeLibrary(nativeArtifacts.getFirst().coordinate().withoutClassifier(), nativeArtifacts, true));
         }
         return output;
     }
@@ -135,7 +139,8 @@ public final class LibraryJson {
         var output = new JsonArray();
         for (var artifact : natives) {
             var classifier = artifact.coordinate().classifier();
-            var library = nativeLibrary(artifact.coordinate().withoutClassifier(), new ArrayList<>(List.of(artifact)));
+            var library = nativeLibrary(artifact.coordinate().withoutClassifier(),
+                    new ArrayList<>(List.of(artifact)), false);
             var platform = classifierPlatform(classifier);
             if (platform != null) {
                 var nativeMap = new JsonObject();
@@ -253,13 +258,21 @@ public final class LibraryJson {
         return artifact.url() == null || artifact.url().isBlank();
     }
 
-    public static JsonObject nativeLibrary(Coordinate base, List<Artifact> artifacts) {
+    public static boolean isLocalRepository(String url) {
+        return "file".equalsIgnoreCase(URI.create(url).getScheme());
+    }
+
+    private static JsonObject nativeLibrary(Coordinate base, List<Artifact> artifacts, boolean mmc) {
         artifacts.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
         var classifiers = new JsonObject();
         var nativeMap = new JsonObject();
         for (var artifact : artifacts) {
             var classifier = artifact.coordinate().classifier();
-            classifiers.add(classifier, download(artifact, false));
+            var download = download(artifact, false);
+            if (mmc && isLocal(artifact)) {
+                download.remove("url");
+            }
+            classifiers.add(classifier, download);
             nativeMap.addProperty(nativePlatform(classifier), classifier);
         }
 
@@ -272,6 +285,9 @@ public final class LibraryJson {
 
         var library = new JsonObject();
         library.addProperty("name", base.serialized());
+        if (mmc && artifacts.stream().allMatch(LibraryJson::isLocal)) {
+            library.addProperty("MMC-hint", "local");
+        }
         library.add("downloads", downloads);
         library.add("natives", nativeMap);
         library.add("extract", extract);
@@ -286,7 +302,7 @@ public final class LibraryJson {
         if (withPath) {
             download.addProperty("path", artifact.coordinate().mavenPath());
         }
-        download.addProperty("url", artifact.url());
+        download.addProperty("url", isLocal(artifact) ? "" : artifact.url());
         download.addProperty("sha1", IO.sha1(artifact.path()));
         download.addProperty("size", size(artifact.path()));
         return download;

@@ -407,6 +407,7 @@ public final class DistributionTasks {
             task.getReleaseTime().set(timestampProperty);
             task.getInstallProfile().set(caches.getLocalDirectory().map(dir -> dir.file("dist/install_profile.json")));
             task.getVersionJson().set(caches.getLocalDirectory().map(dir -> dir.file("dist/version.json")));
+            task.getEmbeddedLibraries().set(caches.getLocalDirectory().dir("dist/maven-local"));
         });
 
         this.installerJar.configure(task -> {
@@ -431,6 +432,8 @@ public final class DistributionTasks {
                     "META-INF/MANIFEST.MF", "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA"));
             task.from(this.writeInstallProfile.flatMap(WriteInstallProfile::getInstallProfile));
             task.from(this.writeInstallProfile.flatMap(WriteInstallProfile::getVersionJson));
+            task.from(this.writeInstallProfile.flatMap(WriteInstallProfile::getEmbeddedLibraries),
+                    spec -> spec.into("maven"));
             task.from(this.universalJar.flatMap(Jar::getArchiveFile), spec -> {
                 spec.into("maven/" + group.replace('.', '/') + "/" + ARTIFACT_ID + "/" + version);
                 spec.rename(_ -> universal.fileName());
