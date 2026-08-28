@@ -1,5 +1,7 @@
 package com.cleanroommc.gradle.api.util.dist;
 
+import com.cleanroommc.gradle.api.util.Property;
+import org.gradle.api.Project;
 import org.gradle.api.artifacts.dsl.RepositoryHandler;
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 
@@ -13,7 +15,9 @@ public enum Repository {
     FORGE("MinecraftForge", "https://maven.minecraftforge.net/", true, "net.minecraftforge", "de.oceanlabs.mcp"),
     MOJANG("Mojang", "https://libraries.minecraft.net/");
 
-    public static void addTo(RepositoryHandler repos) {
+    public static void addTo(Project project) {
+        RepositoryHandler repos = project.getRepositories();
+        boolean local = Property.ENABLE_EXCLUSIVE_LOCAL_MAVENS.bool(project.getProviders());
         for (Repository repo : values()) {
             if (repo == CENTRAL) {
                 repos.mavenCentral();
@@ -24,6 +28,9 @@ public enum Repository {
                 continue;
             }
             repos.exclusiveContent(exclusive -> {
+                if (local) {
+                    exclusive.forRepository(repos::mavenLocal);
+                }
                 exclusive.forRepository(() -> repo.create(repos));
                 exclusive.filter(content -> {
                     for (var group : repo.groups()) {

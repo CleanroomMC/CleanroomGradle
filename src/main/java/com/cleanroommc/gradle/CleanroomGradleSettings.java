@@ -24,7 +24,7 @@ public class CleanroomGradleSettings implements Plugin<Settings> {
         // Foojay
         settings.getPluginManager().apply(FoojayToolchainsConventionPlugin.class);
         // Adding our repository set
-        settings.getGradle().getLifecycle().beforeProject(project -> Repository.addTo(project.getRepositories()));
+        settings.getGradle().getLifecycle().beforeProject(Repository::addTo);
     }
 
 }
