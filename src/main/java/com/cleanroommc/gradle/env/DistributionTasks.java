@@ -63,7 +63,7 @@ public final class DistributionTasks {
 
     public final TaskProvider<WriteMappings> writeMcp2Srg, writeObf2SrgTsrg, writeMcp2Notch;
     public final TaskProvider<RenameJar> reobfJar, reobfMinecraftJar;
-    public final TaskProvider<Jar> minecraftClassesJar, universalJar, userdevJar, javadocJar;
+    public final TaskProvider<Jar> minecraftClassesJar, deobfLibraryJar, universalJar, userdevJar, javadocJar;
     public final TaskProvider<StripSideOnlyJar> stripClientMinecraftJar, stripServerMinecraftJar;
     public final TaskProvider<GenerateBinPatches> genClientBinPatches, genServerBinPatches;
     public final TaskProvider<Zip> genRuntimeBinPatches;
@@ -172,6 +172,7 @@ public final class DistributionTasks {
         this.writeMcp2Notch = mappings.write(project, caches, "writeMcp2Notch", WriteMappings.Direction.MCP_TO_NOTCH, "mcp2notch.tsrg");
         this.reobfJar = Tasks.register(project, "reobfJar", RenameJar.class, project.getExtensions().getByType(RenamerExtension.class));
         this.minecraftClassesJar = Tasks.register(project, "minecraftClassesJar", Jar.class);
+        this.deobfLibraryJar = Tasks.register(project, "deobfLibraryJar", Jar.class);
         this.reobfMinecraftJar = Tasks.register(project, "reobfMinecraftJar", RenameJar.class, project.getExtensions().getByType(RenamerExtension.class));
         this.stripClientMinecraftJar = Tasks.register(project, "stripClientMinecraftJar", StripSideOnlyJar.class);
         this.stripServerMinecraftJar = Tasks.register(project, "stripServerMinecraftJar", StripSideOnlyJar.class);
@@ -208,6 +209,16 @@ public final class DistributionTasks {
             task.from(archives.zipTree(jarTask.flatMap(Jar::getArchiveFile)), spec -> spec.include(Meta.MINECRAFT_PACKAGE_PATH + "**"));
             task.getDestinationDirectory().set(caches.getLocalDirectory().dir("dist/reobf"));
             task.getArchiveFileName().set("minecraft-mcp.jar");
+        });
+        this.deobfLibraryJar.configure(task -> {
+            task.setDescription("Packages the SRG Minecraft hierarchy used to deobfuscate mod dependencies.");
+            task.setPreserveFileTimestamps(false);
+            task.setReproducibleFileOrder(true);
+
+            task.from(archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)),
+                    spec -> spec.include(Meta.MINECRAFT_PACKAGE_PATH + "**"));
+            task.getDestinationDirectory().set(caches.getLocalDirectory().dir("dist/reobf"));
+            task.getArchiveFileName().set(UserdevConfig.DEOBF_LIBRARY);
         });
         this.reobfMinecraftJar.configure(task -> {
             task.getInput().set(this.minecraftClassesJar.flatMap(Jar::getArchiveFile));
@@ -348,6 +359,8 @@ public final class DistributionTasks {
                     spec -> spec.into(UserdevConfig.meta(UserdevConfig.ATS)));
             task.from(mappings.writeSrg2Mcp.flatMap(WriteMappings::getOutput),
                     spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.SRG2MCP));
+            task.from(this.deobfLibraryJar.flatMap(Jar::getArchiveFile),
+                    spec -> spec.into(UserdevConfig.META));
             task.from(this.writeMcp2Srg.flatMap(WriteMappings::getOutput),
                     spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.MCP2SRG));
             task.from(this.writeUserdevConfig.flatMap(WriteUserdevConfig::getOutput),

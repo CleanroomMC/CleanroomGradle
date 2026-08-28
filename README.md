@@ -1,6 +1,6 @@
 # CleanroomGradle
 
-Gradle plugin for Cleanroom Loader development and Cleanroom-targeted mod development. The current release is `0.13.7`.
+Gradle plugin for Cleanroom Loader development and Cleanroom-targeted mod development. The current release is `0.14.0`.
 
 ## Applying the plugin
 
@@ -21,7 +21,7 @@ pluginManagement {
 }
 
 plugins {
-    id 'com.cleanroommc.cleanroomgradle.settings' version '0.13.7'
+    id 'com.cleanroommc.cleanroomgradle.settings' version '0.14.0'
 }
 ```
 
@@ -99,9 +99,10 @@ cleanroom {
 }
 ```
 
-Use `-Pmc=<version>` to select another Minecraft version through Mojang's launcher manifest. Use `-Pcleanroom.vanillaJava=<major>` to override the Java launcher selected for vanilla Minecraft.
-
-The `mc` property remains a shortcut for selecting the version used by the original unsuffixed tasks. Named vanilla environments are available in every project mode, including the default `USERDEV` mode. For several versions in one project, declare them together:
+- The unsuffixed vanilla tasks always target Minecraft 1.12.2 and resolve that version through Mojang's launcher manifest into the shared cache.
+- Named vanilla environments are the way to work with other Minecraft versions.
+  - Available in every project mode. Override the Java launcher for a named environment with `javaVersion`.
+- For several versions in one project, declare them together:
 
 ```groovy
 cleanroom {
@@ -165,7 +166,7 @@ Run `./gradlew tasks --all` for the complete pipeline.
 The report shows the effective mode, Minecraft version, names source, cache paths, configured/default tool versions, intermediate policy, and whether the client JAR, server JAR, and asset index are ready for offline use.
 It does not resolve or download tool artifacts.
 
-Before using `--offline`, run the relevant setup or client task online once.
+Before using `--offline`, run the relevant setup or client task online once so the shared cache contains `version_manifest_v2.json` and the selected version's `meta.json`.
 `downloadAssets --offline` validates all indexed objects and reports missing/corrupt assets together with a repair command.
 Configuration and task validation failures use Gradle's Problems API where Gradle exposes it, so IDEs and the generated `build/reports/problems/problems-report.html` receive structured problem IDs, details, locations, and suggested fixes.
 
@@ -179,6 +180,25 @@ Expensive deterministic transforms including: decompilation, mappings, access tr
 - `cleanroom.discardIntermediates=true` (or `caches.discardIntermediates`) deletes consumed project-local pipeline artifacts - cacheable tasks can restore them later.
 
 For shared CI reuse, configure a Gradle local or remote build cache in the consuming build's `settings.gradle`; CleanroomGradle does not choose credentials or a cache server for you.
+
+## Deobfuscation
+
+Wrap a SRG-named dependency in `deobf(...)` to have it deobfuscated before reaching the classpath:
+
+```groovy
+dependencies {
+    implementation deobf('net.test:other-artifact:1.0.0')
+}
+```
+
+In `loader` mode `deobf(...)` cannot be declared on the main compile classpath, that is `implementation`,`compileOnly` or `api`.
+
+Renaming there needs the SRG-named Cleanroom jar, which is built from the main compile classpath, and that would be a cycle.
+Use a runtime or test configuration instead.
+
+Kotlin DSL cannot see `deobf` as a bare function inside a `dependencies` block. Use `cleanroom.deobf(...)` there instead.
+
+`sources = true` is reserved for decompiling the renamed jar and is not implemented yet.
 
 ## Replacing Tools
 

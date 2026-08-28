@@ -1,12 +1,15 @@
 package com.cleanroommc.gradle.api.ext;
 
 import com.cleanroommc.gradle.api.Meta;
+import com.cleanroommc.gradle.api.deobf.DeobfHandler;
+import com.cleanroommc.gradle.api.deobf.DeobfSpec;
 import com.cleanroommc.gradle.api.source.BundledVersionMetaValueSource;
 import com.cleanroommc.gradle.api.source.VersionMetaValueSource;
 import com.cleanroommc.gradle.api.util.EnumValues;
 import org.gradle.api.Action;
 import org.gradle.api.NamedDomainObjectContainer;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Property;
 
@@ -19,6 +22,7 @@ public abstract class CleanroomExtension {
         return project.getExtensions().getByType(CleanroomExtension.class);
     }
 
+    private final Project project;
     private final CachesExtension caches;
     private final MinecraftExtension minecraft;
     private final MappingsExtension mappings;
@@ -39,6 +43,7 @@ public abstract class CleanroomExtension {
 
     @Inject
     public CleanroomExtension(Project project, ObjectFactory objects) {
+        this.project = project;
         this.caches = objects.newInstance(CachesExtension.class);
         this.minecraft = objects.newInstance(MinecraftExtension.class);
         this.mappings = objects.newInstance(MappingsExtension.class);
@@ -72,6 +77,18 @@ public abstract class CleanroomExtension {
         this.patches.getPatchDev().all(env -> env.registerTasks(project, this.caches.getLocalDirectory()));
 
         this.getVanilla().all(env -> env.register(project, this.caches, this.minecraft));
+    }
+
+    /**
+     * Kotlin DSL cannot see the {@code deobf} extension as a bare function inside a dependencies block,
+     * so it reaches the same handler through {@code cleanroom.deobf(...)}.
+     */
+    public Dependency deobf(Object notation) {
+        return deobfHandler().call(notation);
+    }
+
+    public Dependency deobf(Object notation, Action<? super DeobfSpec> action) {
+        return deobfHandler().call(notation, action);
     }
 
     public CachesExtension getCaches() {
@@ -120,6 +137,10 @@ public abstract class CleanroomExtension {
 
     public void userdev(Action<UserdevExtension> action) {
         action.execute(userdev);
+    }
+
+    private DeobfHandler deobfHandler() {
+        return this.project.getDependencies().getExtensions().getByType(DeobfHandler.class);
     }
 
 }

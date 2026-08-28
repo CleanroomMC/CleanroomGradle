@@ -58,6 +58,7 @@ public record UserdevConfig(
     public static final String SERVER_BINPATCHES = "binpatch/server/";
     public static final String SRG2MCP = "srg2mcp.tsrg";
     public static final String MCP2SRG = "mcp2srg.tsrg";
+    public static final String DEOBF_LIBRARY = "deobf-library.jar";
     public static final String ATS = "ats";
 
     /**

@@ -90,12 +90,13 @@ public final class UserDevTasks {
                 }
             });
         });
-        var userdevVersion = userdevExt.getVersion().orElse(this.userdev.map(configuration ->
-                configuration.getDependencies().iterator().next().getVersion()));
-
         this.libraries = Objects.config(project, LIBRARIES_CONFIGURATION_NAME);
         var userdevConfig = project.getProviders().of(UserdevConfigValueSource.class, spec ->
                 spec.getParameters().getUserdevJar().fileProvider(this.userdev.map(Configuration::getSingleFile)));
+        var dependencyVersion = this.userdev.map(configuration ->
+                configuration.getDependencies().iterator().next().getVersion());
+        var userdevVersion = userdevExt.getVersion().orElse(dependencyVersion)
+                .orElse(userdevConfig.map(UserdevConfig::cleanroomVersion));
         this.libraries.configure(configuration -> {
             configuration.setDescription("Libraries the Cleanroom itself needs, taken from the userdev artifact.");
             configuration.defaultDependencies(dependencies -> {

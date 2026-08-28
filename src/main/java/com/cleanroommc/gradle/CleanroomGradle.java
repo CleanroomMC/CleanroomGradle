@@ -1,7 +1,9 @@
 package com.cleanroommc.gradle;
 
+import com.cleanroommc.gradle.api.ext.DeobfExtension;
 import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.cleanroommc.gradle.api.task.IntermediateProcessor;
+import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.util.CleanroomProblems;
 import com.cleanroommc.gradle.api.util.CloseHttpClientFlowAction;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
@@ -14,6 +16,7 @@ import com.cleanroommc.gradle.env.McpMappings;
 import com.cleanroommc.gradle.env.ToolConfigs;
 import com.cleanroommc.gradle.env.UserDevTasks;
 import com.cleanroommc.gradle.env.VanillaTasks;
+import net.minecraftforge.renamer.gradle.RenameJar;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -42,6 +45,7 @@ public abstract class CleanroomGradle implements Plugin<Project> {
 
         final var ext = Objects.extension(project, "cleanroom", CleanroomExtension.class);
         ToolConfigs.register(project);
+        final var deobfExt = Objects.extension(project, "deobf", DeobfExtension.class);
 
         var intermediates = new IntermediateProcessor(project.getTasks(), ext.getCaches().getDiscardIntermediates());
         project.getExtensions().add(IntermediateProcessor.class, IntermediateProcessor.EXTENSION_NAME, intermediates);
@@ -67,8 +71,11 @@ public abstract class CleanroomGradle implements Plugin<Project> {
                     mcpTasks.configureInitialPatches(evaluatedProject, ext.getCaches(), ext.getPatches(), vanillaTasks, mappings);
                     new CleanroomTasks(evaluatedProject, ext.getCaches(), ext.getMinecraft(), ext.getLoader(),
                             ext.getPatches(), vanillaTasks, mcpTasks, mappings);
-                    new DistributionTasks(evaluatedProject, ext.getCaches(), ext.getMinecraft(), ext.getLoader(),
+                    var distributionTasks = new DistributionTasks(evaluatedProject, ext.getCaches(), ext.getMinecraft(), ext.getLoader(),
                             vanillaTasks, mappings, intermediates);
+                    DeobfExtension.rejectOnCompileClasspath(evaluatedProject, getProblems());
+                    deobfExt.getMappings().from(mappings.writeSrg2Mcp.flatMap(WriteMappings::getOutput));
+                    deobfExt.getSrgLibraries().from(distributionTasks.reobfJar.flatMap(RenameJar::getOutput), vanillaTasks.vanillaConfig);
                 }
                 case USERDEV -> {
                     if (!UserDevTasks.requested(evaluatedProject, ext.getUserdev())) {
@@ -79,11 +86,14 @@ public abstract class CleanroomGradle implements Plugin<Project> {
                     }
                     var mappings = new McpMappings(evaluatedProject, ext.getCaches(), ext.getMappings());
                     mappings.configurePatchMappings(ext.getPatches());
-                    new UserDevTasks(evaluatedProject, ext.getCaches(), ext.getMinecraft(), ext.getUserdev(),
+                    var userDevTasks = new UserDevTasks(evaluatedProject, ext.getCaches(), ext.getMinecraft(), ext.getUserdev(),
                             vanillaTasks, mappings, intermediates);
+                    deobfExt.useUserdev(userDevTasks.userdev.get());
+                    deobfExt.getSrgLibraries().from(vanillaTasks.vanillaConfig, userDevTasks.userdev);
                 }
                 case VANILLA -> { }
             }
+            deobfExt.wireTransformOrdering(evaluatedProject);
 
             maintenanceTasks.configure(mode, evaluatedProject);
         });

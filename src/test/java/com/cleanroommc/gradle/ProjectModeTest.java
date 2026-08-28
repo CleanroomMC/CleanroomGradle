@@ -135,7 +135,7 @@ class ProjectModeTest {
 
         var output = this.project.runner("userdevJar", "runCleanroomClient", "genClientBinPatches", "--dry-run").build().getOutput();
         PluginBuild.scheduled(output,
-                "userdevJar", "writeMcp2Srg", "writeMcp2Notch", "remapSrg2Mcp", "mergeJars",
+                "userdevJar", "deobfLibraryJar", "writeMcp2Srg", "writeMcp2Notch", "remapSrg2Mcp", "mergeJars",
                 "decompileSrg", "prepareMinecraftPatchDevEnvironment", "initializeMinecraftPatchDevSources",
                 "applySAS", "genClientBinPatches", "genRuntimeBinPatches");
         assertTrue(output.indexOf(":prepareMinecraftPatchDevEnvironment") < output.lastIndexOf(":compileJava"));

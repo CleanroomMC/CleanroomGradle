@@ -88,6 +88,7 @@ jar {
 test {
     useJUnitPlatform()
     systemProperty 'plugin.project.dir', rootDir.absolutePath
+    systemProperty 'test.gradle.home', gradle.gradleHomeDir
     // includeBuild of this project has to resolve versioning
     systemProperty 'testkit.gradle.user.home', gradle.gradleUserHomeDir.absolutePath
 }
