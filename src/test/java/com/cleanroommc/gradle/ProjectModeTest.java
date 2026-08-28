@@ -57,6 +57,7 @@ class ProjectModeTest {
                     assert remapCleanroomSrg2Notch != null
                     assert remapCleanroomSrg2Notch.reverse.get()
                     assert remapCleanroomSrg2Notch.naiveSrg.get()
+                    assert tasks.findByName('remapCleanroomSrg2Mcp').output.get().asFile.name == 'cleanroom-0.4.5.jar'
                     assert tasks.findByName('stripClientDevMinecraftJar').targetSide.get().name() == 'CLIENT'
                     assert tasks.findByName('stripServerDevMinecraftJar').targetSide.get().name() == 'SERVER'
                     assert tasks.findByName('mergeJars') == null
@@ -71,6 +72,20 @@ class ProjectModeTest {
         assertEquals(TaskOutcome.SUCCESS, info.task(":cleanroomInfo").getOutcome());
         assertTrue(info.getOutput().contains("mode: userdev"));
         assertTrue(info.getOutput().contains("discard intermediates: true"));
+    }
+
+    @Test
+    void userdevJarNameUsesDependencyVersion() throws IOException {
+        this.project.build("""
+                dependencies {
+                    cleanroomUserdev 'com.cleanroommc:cleanroom:0.4.6:userdev@jar'
+                }
+                gradle.projectsEvaluated {
+                    assert tasks.findByName('remapCleanroomSrg2Mcp').output.get().asFile.name == 'cleanroom-0.4.6.jar'
+                }
+                """);
+
+        assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
     }
 
     @Test

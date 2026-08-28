@@ -90,6 +90,8 @@ public final class UserDevTasks {
                 }
             });
         });
+        var userdevVersion = userdevExt.getVersion().orElse(this.userdev.map(configuration ->
+                configuration.getDependencies().iterator().next().getVersion()));
 
         this.libraries = Objects.config(project, LIBRARIES_CONFIGURATION_NAME);
         var userdevConfig = project.getProviders().of(UserdevConfigValueSource.class, spec ->
@@ -240,7 +242,8 @@ public final class UserDevTasks {
             task.getInput().set(userdevJar);
             task.getMap().setFrom(srg2mcp);
             task.getLibraries().setFrom(this.jars.inject.flatMap(InjectMetadata::getInjectedJar), vanilla.vanillaConfig);
-            task.getOutput().set(userdevDir.map(dir -> dir.file("cleanroom-mcp.jar")));
+            task.getOutput().set(userdevDir.zip(userdevVersion,
+                    (dir, version) -> dir.file("cleanroom-" + version + ".jar")));
         });
         this.decompileDevJar.configure(task -> {
             task.setDescription("Decompiles the environment's Minecraft for source browsing in an IDE.");
