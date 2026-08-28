@@ -54,10 +54,7 @@ public abstract class CleanroomExtension {
         this.caches.getLocalDirectory().convention(project.getLayout().getBuildDirectory().dir(Meta.CG_FOLDER));
 
         this.getMode().convention(ProjectMode.USERDEV);
-        this.caches.getDiscardIntermediates().convention(
-                providers.gradleProperty("cleanroom.discardIntermediates")
-                        .map(Boolean::parseBoolean)
-                        .orElse(this.getMode().map(mode -> mode != ProjectMode.LOADER)));
+        this.caches.getDiscardIntermediates().convention(this.getMode().map(mode -> mode != ProjectMode.LOADER));
 
         var versionMetaCacheFile = this.caches.getVersionDirectory().file("meta.json");
         var offline = project.getGradle().getStartParameter().isOffline();
@@ -68,7 +65,7 @@ public abstract class CleanroomExtension {
                             spec.getParameters().getVersionMetaUrl().set(url);
                             spec.getParameters().getOffline().set(offline);
                         }))
-                        .orElse(providers.of(BundledVersionMetaValueSource.class, spec -> {}))
+                        .orElse(providers.of(BundledVersionMetaValueSource.class, _ -> {}))
         );
 
         this.patches.getDevelopInitial().convention(false);

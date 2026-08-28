@@ -17,7 +17,7 @@ public enum Repository {
 
     public static void addTo(Project project) {
         RepositoryHandler repos = project.getRepositories();
-        boolean local = Property.ENABLE_EXCLUSIVE_LOCAL_MAVENS.bool(project.getProviders());
+        boolean local = Property.ENABLE_EXCLUSIVE_LOCAL_MAVENS.bool(project.getProviders()).getOrElse(Boolean.FALSE);
         for (Repository repo : values()) {
             if (repo == CENTRAL) {
                 repos.mavenCentral();

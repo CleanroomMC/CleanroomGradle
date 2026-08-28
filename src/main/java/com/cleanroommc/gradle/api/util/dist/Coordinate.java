@@ -63,6 +63,19 @@ public record Coordinate(String group, String artifact, String version, String c
                 && extension.equals(other.extension);
     }
 
+    public boolean hasLocalComponent() {
+        var plus = version.indexOf('+');
+        if (plus < 0) {
+            return false;
+        }
+        for (var component : version.substring(plus + 1).split("\\.", -1)) {
+            if (component.equals("local")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public String mavenPath() {
         return group.replace('.', '/') + "/" + artifact + "/" + version + "/" + fileName();
     }

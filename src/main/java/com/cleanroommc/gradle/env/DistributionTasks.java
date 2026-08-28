@@ -13,6 +13,7 @@ import com.cleanroommc.gradle.api.task.dist.WriteInstallProfile;
 import com.cleanroommc.gradle.api.task.dist.WriteUserdevConfig;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
+import com.cleanroommc.gradle.api.util.Property;
 import com.cleanroommc.gradle.api.util.dist.Coordinate;
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
@@ -80,8 +81,8 @@ public final class DistributionTasks {
         var version = String.valueOf(project.getVersion());
         var minecraftVersion = vanilla.minecraftVersion;
         var universal = new Coordinate(group, ARTIFACT_ID, version, "universal", "jar");
-        var titleProperty = providers.gradleProperty("title").orElse("Cleanroom");
-        var vendorProperty = providers.gradleProperty("vendor").orElse("CleanroomMC");
+        var titleProperty = "Cleanroom";
+        var vendorProperty = "CleanroomMC";
         var timestampProperty = providers.environmentVariable("SOURCE_DATE_EPOCH")
                 .map(Long::parseLong)
                 .map(epoch ->
@@ -287,12 +288,12 @@ public final class DistributionTasks {
                 jar.getManifest().attributes(main);
 
                 Map<String, Object> forgeSection = new LinkedHashMap<>();
-                forgeSection.put("Specification-Title", titleProperty.get());
-                forgeSection.put("Specification-Vendor", vendorProperty.get());
+                forgeSection.put("Specification-Title", titleProperty);
+                forgeSection.put("Specification-Vendor", vendorProperty);
                 forgeSection.put("Specification-Version", specVersion(version));
                 forgeSection.put("Implementation-Title", group);
                 forgeSection.put("Implementation-Version", forgeVersion.get());
-                forgeSection.put("Implementation-Vendor", vendorProperty.get());
+                forgeSection.put("Implementation-Vendor", vendorProperty);
                 jar.getManifest().attributes(forgeSection, "net/minecraftforge/common/"); // Don't ask... FIXME
             });
         });
@@ -388,7 +389,7 @@ public final class DistributionTasks {
 
             task.getProfileName().set(titleProperty);
             task.getCleanroomVersion().set(version);
-            task.getVersionId().set(titleProperty.map(title -> title + "-" + version));
+            task.getVersionId().set(titleProperty + "-" + version);
             task.getMainClass().set(launchClass);
             task.getServerMainClass().set(launchClass);
             task.getTweakers().set(clientTweakClass.map(List::of));

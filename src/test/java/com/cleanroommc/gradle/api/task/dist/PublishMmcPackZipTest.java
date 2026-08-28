@@ -44,23 +44,23 @@ class PublishMmcPackZipTest {
         Files.writeString(directory.resolve("build.gradle"), """
                 import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip
                 import com.cleanroommc.gradle.api.util.dist.LibraryArtifact
-
+                
                 plugins {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
                 }
                 cleanroom.mode = 'vanilla'
-
+                
                 def foundation = objects.newInstance(LibraryArtifact)
                 foundation.coordinate = 'top.outlands:foundation:2.0.0'
                 foundation.file = file('%s')
                 foundation.repositoryUrl = 'https://repo.maven.apache.org/maven2/'
-
+                
                 def lwjgl = objects.newInstance(LibraryArtifact)
                 lwjgl.coordinate = 'org.lwjgl:lwjgl:3.4.2'
                 lwjgl.file = file('%s')
                 lwjgl.repositoryUrl = 'https://repo.maven.apache.org/maven2/'
-
+                
                 tasks.register('publishFixture', PublishMmcPackZip) {
                     instanceName = 'Cleanroom'
                     cleanroomVersion = '2.0.0'
@@ -76,13 +76,13 @@ class PublishMmcPackZipTest {
                 }
                 """.formatted(escape(foundation), escape(lwjgl), escape(universal)));
 
-        var first = runner("publishFixture", "--configuration-cache", "-Prelease").build();
+        var first = runner("publishFixture", "--configuration-cache").build();
         assertEquals(TaskOutcome.SUCCESS, first.task(":publishFixture").getOutcome());
         assertTrue(Files.isRegularFile(directory.resolve("build/cleanroom-mmc.zip")));
         assertFalse(Files.exists(directory.resolve("build/cleanroom-mmc-overlay.zip")));
         assertTrue(first.getOutput().contains("Configuration cache entry stored"));
 
-        var second = runner("publishFixture", "--configuration-cache", "-Prelease").build();
+        var second = runner("publishFixture", "--configuration-cache").build();
         assertEquals(TaskOutcome.UP_TO_DATE, second.task(":publishFixture").getOutcome());
         assertTrue(second.getOutput().contains("Reusing configuration cache"));
     }
@@ -109,7 +109,6 @@ class PublishMmcPackZipTest {
         task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0:universal");
         task.getUniversalUrl().set("https://maven.cleanroommc.com/com/cleanroommc/cleanroom/1.0.0/cleanroom-1.0.0-universal.jar");
         task.getUniversalJar().fileValue(universal.toFile());
-        task.getEmbedUniversalJar().set(false);
         task.getLibraries().add(library(project, "top.outlands:foundation:1.2.3", foundation,
                 "https://packages.cleanroommc.com/releases/"));
         task.getLibraries().add(library(project, "com.google.guava:guava:21.0", inherited));
@@ -218,15 +217,15 @@ class PublishMmcPackZipTest {
         var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
         var task = project.getTasks().create("publishMmcPackZip", PublishMmcPackZip.class);
 
-        var universal = file("cleanroom-1.0.0+build.4-universal.jar", "local cleanroom");
+        var universal = file("cleanroom-1.0.0+local.4-universal.jar", "local cleanroom");
         var foundation = file("foundation-1.2.3.jar", "foundation");
         var mcttf = file("mcttf-0.1.0-beta+local.0.jar", "local mcttf");
         var lwjgl = file("lwjgl-3.4.2.jar", "lwjgl");
 
         task.getInstanceName().set("Cleanroom");
-        task.getCleanroomVersion().set("1.0.0+build.4");
+        task.getCleanroomVersion().set("1.0.0+local.4");
         task.getMainClass().set("top.outlands.foundation.boot.Foundation");
-        task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0+build.4:universal");
+        task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0+local.4:universal");
         task.getUniversalUrl().set("https://maven.cleanroommc.com/never/downloaded.jar");
         task.getUniversalJar().fileValue(universal.toFile());
         task.getInheritedLibraries().addAll(
@@ -242,7 +241,7 @@ class PublishMmcPackZipTest {
         task.publish();
 
         try (var zip = new ZipFile(task.getArchiveFile().get().getAsFile())) {
-            var embedded = "libraries/cleanroom-1.0.0+build.4-universal.jar";
+            var embedded = "libraries/cleanroom-1.0.0+local.4-universal.jar";
             var localDependency = "libraries/mcttf-0.1.0-beta+local.0.jar";
             assertEquals(Set.of("instance.cfg", "mmc-pack.json", "patches/org.lwjgl.json",
                     "patches/net.minecraftforge.json", "libraries/icu4j-core-mojang-999999.0-empty.jar",
@@ -251,11 +250,11 @@ class PublishMmcPackZipTest {
             assertEquals("local mcttf", text(zip, localDependency));
 
             var libraries = json(zip, "patches/net.minecraftforge.json").getAsJsonArray("libraries");
-            var universalLibrary = library(libraries, "com.cleanroommc:cleanroom:1.0.0+build.4:universal", false);
+            var universalLibrary = library(libraries, "com.cleanroommc:cleanroom:1.0.0+local.4:universal", false);
             assertEquals("local", universalLibrary.get("MMC-hint").getAsString());
             var download = universalLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact");
             assertEquals(Set.of("path", "sha1", "size"), download.keySet());
-            assertEquals("com/cleanroommc/cleanroom/1.0.0+build.4/cleanroom-1.0.0+build.4-universal.jar",
+            assertEquals("com/cleanroommc/cleanroom/1.0.0+local.4/cleanroom-1.0.0+local.4-universal.jar",
                     download.get("path").getAsString());
             assertEquals(DigestUtils.sha1Hex(Files.readAllBytes(universal)), download.get("sha1").getAsString());
             assertEquals(Files.size(universal), download.get("size").getAsLong());

@@ -13,6 +13,7 @@ import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.task.mcp.SplitJar;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.util.Environment;
+import com.cleanroommc.gradle.api.util.Property;
 import net.minecraftforge.fml.relauncher.Side;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
@@ -130,8 +131,8 @@ public final class CleanroomTasks {
 
         this.runCleanroomNsightClient.configure(task -> {
             task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), vanilla.downloadAssets, vanilla.extractNatives, mappings.writeSrg2Mcp);
-            task.getActivity().set(project.getProviders().gradleProperty("nsight_activity"));
-            task.getNgfxPath().set(project.getProviders().gradleProperty("nsight_ngfx_path"));
+            task.getActivity().set(Property.NSIGHT_ACTIVITY.value(project.getProviders()));
+            task.getNgfxPath().set(Property.NSIGHT_NGFX_PATH.value(project.getProviders()));
             task.getRunTaskName().set(this.runCleanroomClient.getName());
             task.getGradleWrapperJar().set(project.getLayout().getProjectDirectory().file("gradle/wrapper/gradle-wrapper.jar"));
             task.getJavaExecutable().set(this.runCleanroomClient.flatMap(RunMinecraft::getJavaLauncher)

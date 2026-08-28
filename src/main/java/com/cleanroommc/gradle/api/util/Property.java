@@ -5,7 +5,9 @@ import org.gradle.api.provider.ProviderFactory;
 
 public enum Property {
 
-    ENABLE_EXCLUSIVE_LOCAL_MAVENS("cg.repos.enableLocal");
+    ENABLE_EXCLUSIVE_LOCAL_MAVENS("cg.repos.enableLocal"),
+    NSIGHT_ACTIVITY("cg.run.nsight_activity"),
+    NSIGHT_NGFX_PATH("cg.run.nsight_ngfx_path");
 
     private final String property;
 
@@ -17,8 +19,8 @@ public enum Property {
         return providerFactory.gradleProperty(property);
     }
 
-    public boolean bool(ProviderFactory providerFactory) {
-        return Boolean.parseBoolean(value(providerFactory).getOrElse("false"));
+    public Provider<Boolean> bool(ProviderFactory providerFactory) {
+        return value(providerFactory).map(Boolean::parseBoolean);
     }
 
 }

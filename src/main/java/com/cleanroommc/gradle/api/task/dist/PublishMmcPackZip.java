@@ -16,7 +16,6 @@ import org.gradle.api.GradleException;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
-import org.gradle.api.provider.ProviderFactory;
 import org.gradle.api.provider.SetProperty;
 import org.gradle.api.tasks.CacheableTask;
 import org.gradle.api.tasks.Input;
@@ -52,11 +51,11 @@ import java.util.zip.ZipEntry;
  * <p>Non-essential Prism Java compatibility hint is ignored by old MultiMC.
  *
  * <p>Downloaded artifacts are referenced through a {@code downloads} object with their locally verified size and SHA-1.
- * Local builds embed the universal jar and artifacts resolved from local Maven repositories under the
- * {@code libraries/} directory will be marked with {@code MMC-hint=local}.
+ * A universal coordinate whose version has a {@code +local} SemVer build component embeds that jar under
+ * {@code libraries/} with {@code MMC-hint=local}. Artifacts resolved from local Maven repositories are packed
+ * the same way.
  *
- * <p>{@code -Prelease} keeps the universal jar download-only.
- * Minecraft modules excluded from the resolved distribution are replaced by higher-version empty
+ * <p>Minecraft modules excluded from the resolved distribution are replaced by higher-version empty
  * local libraries so Prism can retain its stock Minecraft metadata.
  */
 @CacheableTask
@@ -121,11 +120,10 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     public abstract RegularFileProperty getArchiveFile();
 
     @Inject
-    public PublishMmcPackZip(ProviderFactory providers) {
+    public PublishMmcPackZip() {
         getMinecraftVersion().convention(Meta.ONE_TRUE_MINECRAFT_VERSION);
-        getEmbedUniversalJar().convention(providers.gradleProperty("release")
-                .map(ignored -> false)
-                .orElse(true));
+        getEmbedUniversalJar().convention(getUniversalCoordinate()
+                .map(coordinate -> Coordinate.parse(coordinate).hasLocalComponent()));
     }
 
     @TaskAction
@@ -295,7 +293,8 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         return requirement;
     }
 
-    private record ComponentLibraries(String lwjglVersion, JsonArray cleanroom, JsonArray lwjgl, List<Artifact> local) { }
+    private record ComponentLibraries(String lwjglVersion, JsonArray cleanroom, JsonArray lwjgl, List<Artifact> local) {
+    }
 
     private static byte[] read(Path path) {
         try {

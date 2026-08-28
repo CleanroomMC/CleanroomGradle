@@ -354,18 +354,10 @@ public final class VanillaTasks {
     }
 
     private static Spec primarySpec(Project project, CachesExtension caches, MinecraftExtension minecraft) {
-        var providers = project.getProviders();
         var offline = project.getGradle().getStartParameter().isOffline();
-        var mcProperty = providers.gradleProperty("mc");
-        var version = mcProperty.orElse(Meta.ONE_TRUE_MINECRAFT_VERSION);
-        var meta = launcherMeta(project, caches, mcProperty, offline).orElse(minecraft.getVersionMeta());
-        var cache = mcProperty
-                .flatMap(selected -> caches.getDirectory().dir("versions/" + selected))
-                .orElse(caches.getVersionDirectory());
-        var javaMajor = providers.gradleProperty("cleanroom.vanillaJava")
-                .map(Integer::parseInt)
-                .orElse(meta.map(VersionMeta::javaMajor));
-        return new Spec(true, "", "vanilla", version, meta, cache, javaMajor);
+        var version = project.provider(() -> Meta.ONE_TRUE_MINECRAFT_VERSION);
+        var meta = launcherMeta(project, caches, version, offline).orElse(minecraft.getVersionMeta());
+        return new Spec(true, "", "vanilla", version, meta, caches.getVersionDirectory(), meta.map(VersionMeta::javaMajor));
     }
 
     private static Spec namedSpec(Project project, CachesExtension caches, VanillaEnvironment environment) {
@@ -377,8 +369,7 @@ public final class VanillaTasks {
         return new Spec(false, taskSuffix(environment.getName()), environment.getName(), version, meta, cache, javaMajor);
     }
 
-    private static Provider<VersionMeta> launcherMeta(Project project, CachesExtension caches,
-                                                       Provider<String> version, boolean offline) {
+    private static Provider<VersionMeta> launcherMeta(Project project, CachesExtension caches, Provider<String> version, boolean offline) {
         var providers = project.getProviders();
         var cacheDirectory = caches.getDirectory();
         return version.flatMap(selected -> providers.of(LauncherVersionMetaValueSource.class, value -> {
