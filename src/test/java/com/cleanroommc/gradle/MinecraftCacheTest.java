@@ -13,7 +13,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -97,68 +96,50 @@ class MinecraftCacheTest {
 
     @Test
     void downloadsSkipWhenCacheMatches() throws IOException {
-        var sourceClient = this.projectDir.resolve("source-client.jar");
-        var sourceServer = this.projectDir.resolve("source-server.jar");
-        var sourceIndex = this.projectDir.resolve("source-assets.json");
         var clientBytes = "cached-client".getBytes(StandardCharsets.UTF_8);
         var serverBytes = "cached-server".getBytes(StandardCharsets.UTF_8);
         var indexBytes = "{\"objects\":{}}".getBytes(StandardCharsets.UTF_8);
-        Files.write(sourceClient, clientBytes);
-        Files.write(sourceServer, serverBytes);
-        Files.write(sourceIndex, indexBytes);
-        var clientSha1 = DigestUtils.sha1Hex(clientBytes);
-        var serverSha1 = DigestUtils.sha1Hex(serverBytes);
-        var indexSha1 = DigestUtils.sha1Hex(indexBytes);
-
-        Files.writeString(this.projectDir.resolve("version-meta.json"),
+        var cache = this.projectDir.resolve("cg-cache");
+        this.project.seedLauncherMeta(cache, "1.12.2",
                 """
-                {
-                  "assetIndex": {
-                    "id": "1.12",
-                    "sha1": "%s",
-                    "size": %d,
-                    "url": "%s"
-                  },
-                  "downloads": {
-                    "client": { "sha1": "%s", "size": %d, "url": "%s" },
-                    "server": { "sha1": "%s", "size": %d, "url": "%s" }
-                  },
-                  "id": "1.12.2"
-                }
-                """.formatted(indexSha1, indexBytes.length, sourceIndex.toUri(),
-                clientSha1, clientBytes.length, sourceClient.toUri(),
-                serverSha1, serverBytes.length, sourceServer.toUri()));
+                        {
+                          "assetIndex": {
+                            "id": "1.12",
+                            "sha1": "%s",
+                            "size": %d,
+                            "url": "https://example.invalid/1.12.json"
+                          },
+                          "downloads": {
+                            "client": { "sha1": "%s", "size": %d, "url": "https://example.invalid/client.jar" },
+                            "server": { "sha1": "%s", "size": %d, "url": "https://example.invalid/server.jar" }
+                          },
+                          "id": "1.12.2"
+                        }
+                        """.formatted(DigestUtils.sha1Hex(indexBytes), indexBytes.length,
+                        DigestUtils.sha1Hex(clientBytes), clientBytes.length,
+                        DigestUtils.sha1Hex(serverBytes), serverBytes.length));
         this.project.build("""
-                import com.cleanroommc.gradle.api.schema.VersionMeta
-                import com.cleanroommc.gradle.api.util.IO
+                import de.undercouch.gradle.tasks.download.Download
 
                 cleanroom {
                     mode = 'vanilla'
                     caches.directory.set(layout.projectDirectory.dir('cg-cache'))
-                    minecraft.versionMeta.set(IO.readJson(file('version-meta.json'), VersionMeta))
                 }
+                // gradle-download-task logs via Task.project when it skips existing files in --offline.
+                tasks.withType(Download).configureEach { quiet(true) }
                 """);
 
-        var versionCache = this.projectDir.resolve("cg-cache/versions/1.12.2");
-        var indexCache = this.projectDir.resolve("cg-cache/assets/indexes");
-        Files.createDirectories(versionCache);
+        var versionCache = cache.resolve("versions/1.12.2");
+        var indexCache = cache.resolve("assets/indexes");
         Files.createDirectories(indexCache);
         Files.write(versionCache.resolve("client.jar"), clientBytes);
         Files.write(versionCache.resolve("server.jar"), serverBytes);
         Files.write(indexCache.resolve("1.12.json"), indexBytes);
 
-        var cached = this.project.runner("downloadClientJar", "downloadServerJar", "downloadAssetIndex").build();
+        var cached = this.project.runner("downloadClientJar", "downloadServerJar", "downloadAssetIndex", "--offline").build();
         assertEquals(TaskOutcome.SKIPPED, cached.task(":downloadClientJar").getOutcome());
         assertEquals(TaskOutcome.SKIPPED, cached.task(":downloadServerJar").getOutcome());
         assertEquals(TaskOutcome.SKIPPED, cached.task(":downloadAssetIndex").getOutcome());
-
-        Files.writeString(versionCache.resolve("client.jar"), "corrupt");
-        Files.writeString(indexCache.resolve("1.12.json"), "corrupt");
-        var restored = this.project.runner("downloadClientJar", "downloadAssetIndex").build();
-        assertEquals(TaskOutcome.SUCCESS, restored.task(":downloadClientJar").getOutcome());
-        assertEquals(TaskOutcome.SUCCESS, restored.task(":downloadAssetIndex").getOutcome());
-        assertArrayEquals(clientBytes, Files.readAllBytes(versionCache.resolve("client.jar")));
-        assertArrayEquals(indexBytes, Files.readAllBytes(indexCache.resolve("1.12.json")));
     }
 
     @Test

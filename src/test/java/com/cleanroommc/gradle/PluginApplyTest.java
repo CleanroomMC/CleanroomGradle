@@ -29,7 +29,7 @@ class PluginApplyTest {
     void appliesLazily() throws IOException {
         this.project.vanilla("");
 
-        var quiet = this.project.runner("help", "-Pmc=missing-version-for-lazy-configuration", "--offline").build();
+        var quiet = this.project.runner("help", "--offline").build();
         assertEquals(TaskOutcome.SUCCESS, quiet.task(":help").getOutcome());
         assertFalse(quiet.getOutput().contains("Applying CleanroomGradle"));
 
@@ -137,9 +137,23 @@ class PluginApplyTest {
                     decompiler 'example:replacement-decompiler:1.0'
                 }
                 """);
-        var clientJar = this.projectDir.resolve("shared-cache/versions/1.12.2/client.jar");
-        Files.createDirectories(clientJar.getParent());
-        Files.writeString(clientJar, "cached");
+        var cache = this.projectDir.resolve("shared-cache");
+        this.project.seedLauncherMeta(cache, "1.12.2", """
+                {
+                  "assetIndex": {
+                    "id": "1.12",
+                    "sha1": "0",
+                    "size": 0,
+                    "url": "https://example.invalid/1.12.json"
+                  },
+                  "downloads": {
+                    "client": { "sha1": "0", "size": 0, "url": "https://example.invalid/client.jar" },
+                    "server": { "sha1": "0", "size": 0, "url": "https://example.invalid/server.jar" }
+                  },
+                  "id": "1.12.2"
+                }
+                """);
+        Files.writeString(cache.resolve("versions/1.12.2/client.jar"), "cached");
 
         var first = this.project.runner("cleanroomInfo", "--offline").build();
         assertEquals(TaskOutcome.SUCCESS, first.task(":cleanroomInfo").getOutcome());
@@ -158,12 +172,16 @@ class PluginApplyTest {
         this.project.vanilla("""
                 cleanroom {
                     caches.directory = layout.projectDirectory.dir('empty-cache')
-                    minecraft.versionMetaUrl = 'https://example.invalid/version-meta.json'
                 }
+                """);
+        var cache = this.projectDir.resolve("empty-cache");
+        Files.createDirectories(cache);
+        Files.writeString(cache.resolve("version_manifest_v2.json"), """
+                {"versions":[{"id":"1.12.2","url":"https://example.invalid/version-meta.json","sha1":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}
                 """);
 
         var output = this.project.runner("cleanroomInfo", "--offline").buildAndFail().getOutput();
-        assertTrue(output.contains("Gradle is offline and no cached version metadata exists at"));
+        assertTrue(output.contains("Gradle is offline and cached metadata for Minecraft 1.12.2 is missing or corrupt at"));
         assertTrue(output.contains("https://example.invalid/version-meta.json"));
         assertTrue(output.contains("Run the requested task once without --offline"));
     }

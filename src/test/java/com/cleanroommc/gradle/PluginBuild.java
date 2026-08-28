@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle;
 
+import com.cleanroommc.gradle.api.util.IO;
 import org.gradle.testkit.runner.GradleRunner;
 
 import java.io.File;
@@ -61,6 +62,16 @@ final class PluginBuild {
                     patches.developInitial = false
                 }
                 """ + extra);
+    }
+
+    void seedLauncherMeta(Path cacheDirectory, String version, String metaJson) throws IOException {
+        var metaFile = cacheDirectory.resolve("versions").resolve(version).resolve("meta.json");
+        Files.createDirectories(metaFile.getParent());
+        Files.writeString(metaFile, metaJson);
+        Files.writeString(cacheDirectory.resolve("version_manifest_v2.json"),
+                """
+                        {"versions":[{"id":"%s","url":"https://example.invalid/%s.json","sha1":"%s"}]}
+                        """.formatted(version, version, IO.sha1(metaFile)));
     }
 
     PluginBuild loader(String extra) throws IOException {

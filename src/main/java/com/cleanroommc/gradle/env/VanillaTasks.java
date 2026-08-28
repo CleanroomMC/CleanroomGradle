@@ -175,11 +175,11 @@ public final class VanillaTasks {
     }
 
     /**
-     * {@link Meta#ONE_TRUE_MINECRAFT_VERSION}, or the version requested with {@code -Pmc=<version>}.
+     * Always {@link Meta#ONE_TRUE_MINECRAFT_VERSION} for the unsuffixed vanilla tasks.
      */
     public final Provider<String> minecraftVersion;
     /**
-     * Metadata of {@link #minecraftVersion}: the extension's meta by default, launcher-manifest-resolved under {@code -Pmc}.
+     * Launcher-manifest metadata for {@link #minecraftVersion}.
      */
     public final Provider<VersionMeta> versionMeta;
     public final Provider<Directory> versionCacheDirectory;
