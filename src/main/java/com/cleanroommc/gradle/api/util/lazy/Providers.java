@@ -6,8 +6,6 @@ import org.gradle.api.provider.Provider;
 import org.gradle.jvm.toolchain.JavaLanguageVersion;
 import org.gradle.jvm.toolchain.JavaLauncher;
 import org.gradle.jvm.toolchain.JavaToolchainService;
-import org.gradle.jvm.toolchain.JvmImplementation;
-import org.gradle.jvm.toolchain.JvmVendorSpec;
 
 public final class Providers {
 
@@ -24,20 +22,12 @@ public final class Providers {
     }
 
     public static Provider<JavaLauncher> javaLauncher(JavaToolchainService toolchains, int api) {
-        return toolchains.launcherFor(spec -> {
-            spec.getLanguageVersion().set(JavaLanguageVersion.of(api));
-            spec.getVendor().set(JvmVendorSpec.ADOPTIUM);
-            spec.getImplementation().set(JvmImplementation.VENDOR_SPECIFIC);
-        });
+        return toolchains.launcherFor(spec -> spec.getLanguageVersion().set(JavaLanguageVersion.of(api)));
     }
 
     public static Provider<JavaLauncher> javaLauncher(JavaToolchainService toolchains,
                                                       Provider<JavaLanguageVersion> api) {
-        return toolchains.launcherFor(spec -> {
-            spec.getLanguageVersion().set(api);
-            spec.getVendor().set(JvmVendorSpec.ADOPTIUM);
-            spec.getImplementation().set(JvmImplementation.VENDOR_SPECIFIC);
-        });
+        return toolchains.launcherFor(spec -> spec.getLanguageVersion().set(api));
     }
 
     private Providers() { }

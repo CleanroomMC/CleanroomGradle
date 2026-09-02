@@ -36,9 +36,6 @@ dependencies {
     implementation 'de.undercouch.download:de.undercouch.download.gradle.plugin:5.6.0'
     implementation 'de.siegmar:fastcsv:3.0.0'
 
-    // CleanroomGradleSettings
-    implementation 'org.gradle.toolchains:foojay-resolver:1.0.0'
-
     // Forge Toolchain
     implementation 'net.minecraftforge:srgutils:0.5.3'
     implementation 'net.minecraftforge:renamer-gradle:1.1.5'
@@ -68,7 +65,7 @@ gradlePlugin {
             id = "${group}.cleanroomgradle.settings"
             implementationClass = "${group}.gradle.CleanroomGradleSettings"
             displayName = 'CleanroomGradle Settings'
-            description = 'Settings plugin that injects Cleanroom dependency repositories and the Foojay toolchain resolver'
+            description = 'Settings plugin that injects Cleanroom dependency repositories'
             tags.set(['minecraft', 'cleanroom', 'settings'])
             compatibility {
                 features {

@@ -3,7 +3,6 @@ package com.cleanroommc.gradle;
 import com.cleanroommc.gradle.api.util.dist.Repository;
 import org.gradle.api.Plugin;
 import org.gradle.api.initialization.Settings;
-import org.gradle.toolchains.foojay.FoojayToolchainsConventionPlugin;
 
 /**
  * To inject the dependency repositories a Cleanroom workspace needs, for the consuming
@@ -21,9 +20,6 @@ public class CleanroomGradleSettings implements Plugin<Settings> {
 
     @Override
     public void apply(Settings settings) {
-        // Foojay
-        settings.getPluginManager().apply(FoojayToolchainsConventionPlugin.class);
-        // Adding our repository set
         settings.getGradle().getLifecycle().beforeProject(Repository::addTo);
     }
 

@@ -9,9 +9,6 @@ The settings plugin adds the following maven repositories:
   - CleanroomMC (proxies MinecraftForge's maven)
   - Mojang Libraries
 
-As well as configuring the Foojay toolchain resolution.
-
-
 The project plugin registers the main toolchain and development tasks.
 
 ```groovy file="settings.gradle"
@@ -26,6 +23,7 @@ pluginManagement {
 
 plugins {
     id 'com.cleanroommc.cleanroomgradle.settings' version '0.15.0'
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0' // If auto-provisioning is needed
 }
 ```
 
