@@ -67,9 +67,15 @@ public abstract class ApplyBinPatches extends DefaultTask {
     public void apply() {
         Path original = getOriginalJar().getAsFile().get().toPath();
         Path output = getPatchedJar().getAsFile().get().toPath();
+        var result = apply(original, getBinpatches().getAsFile().get().toPath(), getPrefix().get(), output);
+        getLogger().lifecycle("Binpatches: {} patched, {} added, {} removed -> {}",
+                result.patched(), result.added(), result.removed(), output.getFileName());
+    }
+
+    public static Result apply(Path original, Path binpatches, String prefix, Path output) {
         Path temporary = output.resolveSibling(output.getFileName() + ".tmp");
         try {
-            var patches = readPatches();
+            var patches = readPatches(binpatches, prefix);
             Path parent = output.getParent();
             if (parent != null) {
                 Files.createDirectories(parent);
@@ -117,9 +123,8 @@ public abstract class ApplyBinPatches extends DefaultTask {
                     IO.writeEntry(archive, name, data);
                 }
             }
-            getLogger().lifecycle("Binpatches: {} patched, {} added, {} removed -> {}",
-                    patched, patches.added().size(), removed, output.getFileName());
             IO.move(temporary, output);
+            return new Result(patched, patches.added().size(), removed);
         } catch (IOException e) {
             try {
                 Files.deleteIfExists(temporary);
@@ -130,12 +135,11 @@ public abstract class ApplyBinPatches extends DefaultTask {
         }
     }
 
-    private Patches readPatches() throws IOException {
-        String prefix = getPrefix().get();
+    private static Patches readPatches(Path binpatches, String prefix) throws IOException {
         Map<String, byte[]> deltas = new TreeMap<>();
         Map<String, byte[]> added = new TreeMap<>();
         Set<String> removed = new HashSet<>();
-        try (var zip = new ZipFile(getBinpatches().getAsFile().get())) {
+        try (var zip = new ZipFile(binpatches.toFile())) {
             var entries = zip.entries();
             while (entries.hasMoreElements()) {
                 ZipEntry entry = entries.nextElement();
@@ -177,5 +181,7 @@ public abstract class ApplyBinPatches extends DefaultTask {
     }
 
     private record Patches(Map<String, byte[]> deltas, Map<String, byte[]> added, Set<String> removed) { }
+
+    public record Result(int patched, int added, int removed) { }
 
 }

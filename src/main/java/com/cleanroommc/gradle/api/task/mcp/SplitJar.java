@@ -30,13 +30,18 @@ public abstract class SplitJar extends DefaultTask {
 
     @TaskAction
     public void splitJar() throws IOException {
-        var classes = IMappingFile.load(this.getSrgMappingFile().get().getAsFile()).getClasses().stream()
+        split(this.getSourceJar().get().getAsFile(), this.getSrgMappingFile().get().getAsFile(),
+                this.getSlimJar().get().getAsFile(), this.getExtraJar().get().getAsFile());
+    }
+
+    public static void split(java.io.File source, java.io.File mappings, java.io.File slim, java.io.File extra) throws IOException {
+        var classes = IMappingFile.load(mappings).getClasses().stream()
                 .map(clazz -> clazz.getOriginal() + ".class")
                 .collect(Collectors.toSet());
 
-        try (var slimZos = IO.zipOut(this.getSlimJar().get().getAsFile())) {
-            try (var extraZos = IO.zipOut(this.getExtraJar().get().getAsFile())) {
-                try (var sourceZis = IO.zipIn(this.getSourceJar().get().getAsFile())) {
+        try (var slimZos = IO.zipOut(slim)) {
+            try (var extraZos = IO.zipOut(extra)) {
+                try (var sourceZis = IO.zipIn(source)) {
                     for (var entry = sourceZis.getNextEntry(); entry != null; entry = sourceZis.getNextEntry()) {
                         String name = entry.getName();
                         int innerClass = name.indexOf('$');

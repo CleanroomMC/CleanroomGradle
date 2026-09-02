@@ -4,6 +4,7 @@ import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.binpatch.BinDelta;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
+import org.gradle.api.provider.Property;
 import org.gradle.api.provider.SetProperty;
 import org.gradle.api.tasks.CacheableTask;
 import org.gradle.api.tasks.Input;
@@ -27,21 +28,38 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
 /**
- * Creates a deterministic archive containing class deltas between two jars at the same naming level.
- * Both jars must come out of the same compiler pipeline to ensure the most compact patches are generated.
+ * Creates one deterministic archive containing the client and server class deltas between two jars at the
+ * same naming level. Both jars of a side must come out of the same compiler pipeline to ensure the most
+ * compact patches are generated. Each side's entries are written under its own prefix, which is what
+ * {@link ApplyBinPatches} reads back.
  */
 @CacheableTask
 public abstract class GenerateBinPatches extends DefaultTask {
 
     @InputFile
     @PathSensitive(PathSensitivity.NONE)
-    public abstract RegularFileProperty getOriginalJar();
+    public abstract RegularFileProperty getClientOriginalJar();
 
     @InputFile
     @PathSensitive(PathSensitivity.NONE)
-    public abstract RegularFileProperty getModifiedJar();
+    public abstract RegularFileProperty getClientModifiedJar();
+
+    @InputFile
+    @PathSensitive(PathSensitivity.NONE)
+    public abstract RegularFileProperty getServerOriginalJar();
+
+    @InputFile
+    @PathSensitive(PathSensitivity.NONE)
+    public abstract RegularFileProperty getServerModifiedJar();
+
+    @Input
+    public abstract Property<String> getClientPrefix();
+
+    @Input
+    public abstract Property<String> getServerPrefix();
 
     @Input
     public abstract SetProperty<String> getIncludedPrefixes();
@@ -69,32 +87,11 @@ public abstract class GenerateBinPatches extends DefaultTask {
             if (parent != null) {
                 Files.createDirectories(parent);
             }
-            int changed = 0;
-            int added = 0;
-            try (var originalZip = new ZipFile(getOriginalJar().getAsFile().get());
-                 var modifiedZip = new ZipFile(getModifiedJar().getAsFile().get());
-                 var archive = IO.zipOut(temporary.toFile())) {
-                var original = indexClasses(originalZip, prefixes);
-                var modified = indexClasses(modifiedZip, prefixes);
-                for (var entry : modified.entrySet()) {
-                    String name = entry.getKey();
-                    byte[] revised = IO.readEntry(modifiedZip, entry.getValue());
-                    var originalEntry = original.get(name);
-                    if (originalEntry == null) {
-                        IO.writeEntry(archive, name + ".add", revised);
-                        added++;
-                    } else {
-                        byte[] base = IO.readEntry(originalZip, originalEntry);
-                        if (!Arrays.equals(base, revised)) {
-                            IO.writeEntry(archive, name + ".binpatch", concatenate(IO.sha256(base), BinDelta.encode(base, revised)));
-                            changed++;
-                        }
-                    }
-                }
-                var removed = new TreeSet<>(original.keySet());
-                removed.removeAll(modified.keySet());
-                IO.writeEntry(archive, "META-INF/binpatch-removed.txt", String.join("\n", removed).getBytes(StandardCharsets.UTF_8));
-                getLogger().lifecycle("Binpatches: {} changed, {} added, {} removed -> {}", changed, added, removed.size(), output.getFileName());
+            try (var archive = IO.zipOut(temporary.toFile())) {
+                generateSide(archive, getClientOriginalJar().getAsFile().get(), getClientModifiedJar().getAsFile().get(),
+                        getClientPrefix().get(), prefixes);
+                generateSide(archive, getServerOriginalJar().getAsFile().get(), getServerModifiedJar().getAsFile().get(),
+                        getServerPrefix().get(), prefixes);
             }
             IO.move(temporary, output);
         } catch (IOException e) {
@@ -104,6 +101,37 @@ public abstract class GenerateBinPatches extends DefaultTask {
                 e.addSuppressed(suppressed);
             }
             throw new UncheckedIOException("Failed to generate binpatches", e);
+        }
+    }
+
+    private void generateSide(ZipOutputStream archive, File originalJar, File modifiedJar, String prefix,
+                              Set<String> prefixes) throws IOException {
+        int changed = 0;
+        int added = 0;
+        try (var originalZip = new ZipFile(originalJar); var modifiedZip = new ZipFile(modifiedJar)) {
+            var original = indexClasses(originalZip, prefixes);
+            var modified = indexClasses(modifiedZip, prefixes);
+            for (var entry : modified.entrySet()) {
+                String name = entry.getKey();
+                byte[] revised = IO.readEntry(modifiedZip, entry.getValue());
+                var originalEntry = original.get(name);
+                if (originalEntry == null) {
+                    IO.writeEntry(archive, prefix + name + ".add", revised);
+                    added++;
+                } else {
+                    byte[] base = IO.readEntry(originalZip, originalEntry);
+                    if (!Arrays.equals(base, revised)) {
+                        IO.writeEntry(archive, prefix + name + ".binpatch",
+                                concatenate(IO.sha256(base), BinDelta.encode(base, revised)));
+                        changed++;
+                    }
+                }
+            }
+            var removed = new TreeSet<>(original.keySet());
+            removed.removeAll(modified.keySet());
+            IO.writeEntry(archive, prefix + "META-INF/binpatch-removed.txt",
+                    String.join("\n", removed).getBytes(StandardCharsets.UTF_8));
+            getLogger().lifecycle("Binpatches {}: {} changed, {} added, {} removed", prefix, changed, added, removed.size());
         }
     }
 

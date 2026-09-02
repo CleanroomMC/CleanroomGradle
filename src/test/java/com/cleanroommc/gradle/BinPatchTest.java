@@ -41,6 +41,10 @@ class BinPatchTest {
         writeArchive(modified, List.of(
                 new ArchiveEntry("a/A.class", "new class contents"),
                 new ArchiveEntry("c/C.class", "added")));
+        var serverModified = this.projectDir.resolve("server-modified.jar");
+        writeArchive(serverModified, List.of(
+                new ArchiveEntry("a/A.class", "new server class contents"),
+                new ArchiveEntry("b/B.class", "removed")));
 
         this.project.vanilla("""
                 import com.cleanroommc.gradle.api.task.patch.ApplyBinPatches
@@ -48,8 +52,12 @@ class BinPatchTest {
 
                 def patches = layout.buildDirectory.file('test.binpatches')
                 def generate = tasks.register('generateTestBinPatches', GenerateBinPatches) {
-                    originalJar = layout.projectDirectory.file('original.jar')
-                    modifiedJar = layout.projectDirectory.file('modified.jar')
+                    clientOriginalJar = layout.projectDirectory.file('original.jar')
+                    clientModifiedJar = layout.projectDirectory.file('modified.jar')
+                    clientPrefix = 'binpatch/client/'
+                    serverOriginalJar = layout.projectDirectory.file('original.jar')
+                    serverModifiedJar = layout.projectDirectory.file('server-modified.jar')
+                    serverPrefix = 'binpatch/server/'
                     includedPrefixes = []
                     binpatches = patches
                 }
@@ -57,11 +65,19 @@ class BinPatchTest {
                     dependsOn generate
                     originalJar = layout.projectDirectory.file('original.jar')
                     binpatches = patches
+                    prefix = 'binpatch/client/'
                     patchedJar = layout.buildDirectory.file('patched.jar')
+                }
+                tasks.register('applyTestServerBinPatches', ApplyBinPatches) {
+                    dependsOn generate
+                    originalJar = layout.projectDirectory.file('original.jar')
+                    binpatches = patches
+                    prefix = 'binpatch/server/'
+                    patchedJar = layout.buildDirectory.file('server-patched.jar')
                 }
                 """);
 
-        var result = this.project.runner("applyTestBinPatches").build();
+        var result = this.project.runner("applyTestBinPatches", "applyTestServerBinPatches").build();
         assertEquals(TaskOutcome.SUCCESS, result.task(":generateTestBinPatches").getOutcome());
         assertEquals(TaskOutcome.SUCCESS, result.task(":applyTestBinPatches").getOutcome());
         try (var zip = new ZipFile(this.projectDir.resolve("build/patched.jar").toFile())) {
@@ -69,6 +85,12 @@ class BinPatchTest {
             assertNull(zip.getEntry("b/B.class"));
             assertEquals("added", readEntry(zip, "c/C.class"));
             assertEquals("resource", readEntry(zip, "resource.txt"));
+        }
+        // The server side of the same archive has to round-trip independently of the client side
+        try (var zip = new ZipFile(this.projectDir.resolve("build/server-patched.jar").toFile())) {
+            assertEquals("new server class contents", readEntry(zip, "a/A.class"));
+            assertEquals("removed", readEntry(zip, "b/B.class"));
+            assertNull(zip.getEntry("c/C.class"));
         }
     }
 
