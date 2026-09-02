@@ -1,83 +1,69 @@
 # CleanroomGradle
 
-Gradle plugin for Cleanroom Loader development and Cleanroom-targeted mod development. The current release is `0.14.0`.
+Gradle plugin for Cleanroom Loader development and Cleanroom-targeted mod development. The current release is `0.15.0`.
 
-## Applying the plugin
+## Usage
 
-The settings plugin adds the Cleanroom, Forge, Mojang, and Maven Central dependency repositories and configures Foojay toolchain resolution. The project plugin registers the Minecraft toolchain and development tasks.
+The settings plugin adds the following maven repositories:
+  - Maven Central
+  - CleanroomMC (proxies MinecraftForge's maven)
+  - Mojang Libraries
 
-```groovy
-// settings.gradle
+As well as configuring the Foojay toolchain resolution.
+
+
+The project plugin registers the main toolchain and development tasks.
+
+```groovy file="settings.gradle"
 pluginManagement {
     repositories {
         maven {
             url = 'https://maven.cleanroommc.com'
-        }
-        maven {
-            url = 'https://maven.minecraftforge.net/'
         }
         gradlePluginPortal()
     }
 }
 
 plugins {
-    id 'com.cleanroommc.cleanroomgradle.settings' version '0.14.0'
+    id 'com.cleanroommc.cleanroomgradle.settings' version '0.15.0'
 }
 ```
 
-```groovy
-// build.gradle
+```groovy file="build.gradle"
 plugins {
     id 'java'
     id 'com.cleanroommc.cleanroomgradle'
 }
 ```
 
-## Project Mode
+## Modes
 
-Choose the pipeline explicitly for predictable task registration:
+The plugin stays inert until an environment is registered.
 
-```groovy
-cleanroom {
-    mode = 'userdev' // 'vanilla', 'loader', or default: 'userdev'
-    userdev {
-        version = '0.7.0-alpha'
-    }
-}
-```
+Loader and standalone vanilla development still use
+`cleanroom.mode = 'loader'` and `cleanroom.mode = 'vanilla'`.
 
-| Mode      | Purpose                                                                            |
-|-----------|------------------------------------------------------------------------------------|
-| `VANILLA` | Vanilla download, run, and decompile only                                          |
-| `LOADER`  | Cleanroom loader sources, SAS/AT processing, run tasks, and distribution artifacts |
-| `USERDEV` | Mod workspace backed by `cleanroom.userdev.version` or a `cleanroomUserdev` dependency |
-
-The default is `USERDEV`, since mod development is the primary use case. Loader development and standalone vanilla tooling must select `LOADER` or `VANILLA` explicitly. Each mode registers only the tasks it needs.
-
-`USERDEV` requires one of:
+Whereas a mod workspace (userdev) is activated by its dependency:
 
 ```groovy
-cleanroom {
-    userdev {
-        version = '0.7.0-alpha'
-    }
-}
-
-// or
 dependencies {
-    cleanroomUserdev 'com.cleanroommc:cleanroom:0.7.0:userdev@jar'
+    // Selects Cleanroom version 0.7.0
+    implementation cleanroom.userdev('0.7.0') {
+        accessTransformers.from('src/main/resources/META-INF/modid_at.cfg') // Optional
+    }
 }
 ```
 
-## Useful Configuration
+## Configuration
 
 ```groovy
 cleanroom {
     caches {
-        // Optional cache overrides, shared downloads use Gradle user home by default
+        // Global cache
         directory = layout.projectDirectory.dir('.gradle/cleanroom-shared')
+        // 1.12.2 toolchain cache
         versionDirectory = layout.projectDirectory.dir('.gradle/cleanroom-shared/versions/1.12.2')
-        // Project-local generated/intermediate data
+        // Project local generated/intermediate data
         localDirectory = layout.buildDirectory.dir('cleanroom_gradle')
         // Loader defaults false; other modes default true
         discardIntermediates = true
@@ -88,13 +74,10 @@ cleanroom {
         namesDirectory = layout.projectDirectory.dir('mappings')
     }
 
-    userdev {
-        accessTransformers.from('src/main/resources/META-INF/accesstransformer.cfg')
-    }
-
     loader {
         accessTransformers.from('src/main/resources/META-INF/accesstransformer.cfg')
         sideAnnotationStrippers.from('src/main/resources/META-INF/side_annotation_stripper.cfg')
+        intermediateRuns = true
     }
 }
 ```
@@ -117,15 +100,12 @@ cleanroom {
             }
         }
         "26.1" {
-            javaVersion = 25 // optional - defaults to launcher metadata
+            javaVersion = 25 // Defaults to launcher metadata otherwise
         }
     }
 }
 ```
 
-An environment name defaults to its Minecraft version and becomes part of its task names: 
-The example creates `run1.4.7Client`, `run1.4.7Server`, `decompile1.4.7`, `run26.1Client`, and their version-specific download tasks.
-Dots are valid in Gradle task names, so quoted version strings are kept exactly.
 Letters, numbers, dots, underscores, and hyphens are accepted in environment names.
 
 An alias can target a different version:
@@ -140,46 +120,10 @@ cleanroom {
 }
 ```
 
-That creates `runLegacyClient` while caching the Minecraft data under version `1.4.7`.
+That creates `runLegacyClient` while targeting Minecraft `1.4.7`.
+
 Named environments share downloaded assets and per-version metadata/JARs, but use isolated dependency configurations, extracted natives, and run directories.
 Launcher metadata supplies each vanilla client's main class and arguments.
-Compatibility is still ultimately constrained by the launch protocol and Java requirements of the selected Minecraft version.
-
-## Entry-point tasks
-
-| Area        | Tasks                                                                                                                                    |
-|-------------|------------------------------------------------------------------------------------------------------------------------------------------|
-| Diagnostics | `cleanroomInfo`                                                                                                                          |
-| Vanilla     | `decompileVersion`, `runVanillaClient`, `runVanillaServer`, plus `decompile<name>` and `run<name>Client`/`Server` for named environments |
-| MCP/loader  | `runSrgClient`, `runSrgServer`, `runMcpClient`, `runMcpServer`, `importMcpNames`                                                         |
-| Loader      | `setup`, `runCleanroomClient`, `runCleanroomServer`, `universalJar`, `userdevJar`, `javadocJar`, `publishMmcPackZip`                     |
-| Userdev     | `setup`, `runClient`, `runServer`, `decompileDevJar`, `reobfJar`                                                                         |
-
-Run `./gradlew tasks --all` for the complete pipeline.
-
-## Diagnostics and Offline Use
-
-```shell
-./gradlew cleanroomInfo
-```
-
-The report shows the effective mode, Minecraft version, names source, cache paths, configured/default tool versions, intermediate policy, and whether the client JAR, server JAR, and asset index are ready for offline use.
-It does not resolve or download tool artifacts.
-
-Before using `--offline`, run the relevant setup or client task online once so the shared cache contains `version_manifest_v2.json` and the selected version's `meta.json`.
-`downloadAssets --offline` validates all indexed objects and reports missing/corrupt assets together with a repair command.
-Configuration and task validation failures use Gradle's Problems API where Gradle exposes it, so IDEs and the generated `build/reports/problems/problems-report.html` receive structured problem IDs, details, locations, and suggested fixes.
-
-## Cache Behavior
-
-Gradle build-cache and configuration-cache support are enabled by this project's defaults.
-Expensive deterministic transforms including: decompilation, mappings, access transformation, SAS, and binpatch work declare cacheable inputs and outputs.
-
-- `clean` deletes the build directory and `caches.localDirectory`; it preserves shared Minecraft downloads.
-- `cleanCleanroomSharedCache` explicitly deletes the configured shared `caches.directory`.
-- `cleanroom.discardIntermediates=true` (or `caches.discardIntermediates`) deletes consumed project-local pipeline artifacts - cacheable tasks can restore them later.
-
-For shared CI reuse, configure a Gradle local or remote build cache in the consuming build's `settings.gradle`; CleanroomGradle does not choose credentials or a cache server for you.
 
 ## Deobfuscation
 
@@ -194,13 +138,27 @@ dependencies {
 In `loader` mode `deobf(...)` cannot be declared on the main compile classpath, that is `implementation`,`compileOnly` or `api`.
 
 Renaming there needs the SRG-named Cleanroom jar, which is built from the main compile classpath, and that would be a cycle.
-Use a runtime or test configuration instead.
+Use a runtime or test configuration instead, such as `runtimeOnly`.
 
-Kotlin DSL cannot see `deobf` as a bare function inside a `dependencies` block. Use `cleanroom.deobf(...)` there instead.
+Kotlin DSL cannot see `deobf(...)` as a bare function inside a `dependencies` block. Use `cleanroom.deobf(...)` there instead.
 
 `sources = true` is reserved for decompiling the renamed jar and is not implemented yet.
 
-## Replacing Tools
+
+## Toolchain
+
+| Area        | Tasks                                                                                                                                                                   |
+|-------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Diagnostics | `cleanroomInfo`                                                                                                                                                         |
+| Vanilla     | `runVanillaClient`, `runVanillaServer` (`decompile<name>` and `run<name>Client`/`Server` for named environments)                                                        |
+| MCP         | `importMcpNames`                                                                                                                                                        |
+| Stage Runs  | `runSrgClient`, `runSrgServer`, `runReobfSrgClient`, `runReobfSrgServer`, `runMcpClient`, `runMcpServer` enabled via `loader.intermediateRuns`                          |
+| Loader      | `setup`, `runCleanroomClient`, `runCleanroomServer`, `universalJar`, `userdevJar`, `userdevSourcesJar`, `sourcesJar`, `javadocJar`, `installerJar`, `publishMmcPackZip` |
+| Userdev     | `runClient`, `runServer`, `reobfJar`                                                                                                                                    |
+
+- Run `./gradlew tasks --all` for the complete pipeline.
+
+## Modifying Tooling
 
 Tool configurations use defaults only while empty. Add a dependency to replace a tool without changing task wiring:
 
@@ -214,3 +172,49 @@ dependencies {
 ```
 
 If the replacement has a different command line, configure the corresponding `MavenJarExec` task with `useDefaultToolArguments = false`, `mainClass`, and `args`.
+These overrides apply while producing the loader and distributions. A published userdev artifact records its exact source-producing tool coordinates, and consuming workspaces resolve those coordinates from spec 1.
+
+
+## Diagnostics
+
+```shell
+./gradlew cleanroomInfo
+```
+
+The report shows the effective mode, Minecraft version, names source, cache paths, configured/default tool versions, intermediate policy, and whether the client JAR, server JAR, and asset index are ready for offline use.
+
+It does not resolve or download tool artifacts.
+
+## Offline Usage
+
+Before using userdev with `--offline`, resolve the userdev dependency online once.
+
+For loader and vanilla work, run the relevant `setup`, download, or client task online once so the shared cache contains `version_manifest_v2.json` and the selected version's `meta.json`. `downloadAssets --offline` validates all indexed objects and reports missing/corrupt assets together with a repair command.
+
+Configuration and task validation failures use Gradle's Problems API.
+IDEs and the generated `build/reports/problems/problems-report.html` receive structured problem IDs, details, locations, and suggested fixes.
+
+## Cache Behavior
+
+Gradle build-cache and configuration-cache support are enabled by this project's defaults.
+
+Expensive deterministic transforms including: decompilation, mappings, access transformation, SAS, and binpatch work declare cacheable inputs and outputs.
+
+- `clean` deletes the build directory and `caches.localDirectory`, but preserves shared Minecraft downloads.
+- `cleanCleanroomSharedCache` explicitly deletes the configured shared `caches.directory`.
+- `caches.discardIntermediates` when set to `true` deletes consumed project-local pipeline artifact, cacheable tasks can restore them later.
+  - A file is deleted after the consumers that ran in this build have finished.
+
+For shared CI reuse, configure a Gradle local or remote build cache in the consuming build's `settings.gradle`; CleanroomGradle does not choose credentials or a cache server for you.
+
+## Sources in Userdev
+
+The dependency exposes one normal combined module. Cacheable artifact transforms remap and combine patched
+Minecraft with Cleanroom, rebuild the matching patched sources, and select client or server extra resources.
+Gradle module metadata carries ordinary compile, runtime, and platform dependencies. `userdev/config.json`
+spec 1 carries only artifact-owned pipeline inputs, paths, identities, hashes, tools, and launch metadata.
+
+IDE import resolves the combined jar on its first sync. No generated local Maven repository, synthetic
+module version, module-copy task, or `setup` invocation is involved. Extra access transformers are transform
+inputs, so changing one invalidates the combined artifact in Gradle's transform cache. IDE source lookup uses
+the published `-sources.jar`, while Gradle consumers can still request the attributed sources variant directly.
