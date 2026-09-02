@@ -27,10 +27,6 @@ class VanillaEnvironmentTest {
                 import com.cleanroommc.gradle.api.task.mc.RunMinecraft
 
                 cleanroom {
-                    mode = 'userdev'
-                    userdev {
-                        version = 'test-version'
-                    }
                     vanilla {
                         "1.12" {
                             client {

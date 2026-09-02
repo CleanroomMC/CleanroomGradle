@@ -89,11 +89,12 @@ public abstract class DeobfExtension {
     public void wireTransformOrdering(Project project) {
         var ordering = project.getDependencyFactory()
                 .create(project.files().builtBy(getMappings(), getSrgLibraries(), getRenamerClasspath()));
-        project.getConfigurations().configureEach(configuration -> configuration.getDependencies().all(dependency -> {
-            if (dependency instanceof ExternalModuleDependency module
-                    && DeobfAttributes.MCP.equals(module.getAttributes().getAttribute(DeobfAttributes.DEOBFUSCATED))
-                    && !configuration.getDependencies().contains(ordering)) {
-                configuration.getDependencies().add(ordering);
+        // Added from withDependencies rather than in reaction to each addition
+        project.getConfigurations().configureEach(configuration -> configuration.withDependencies(dependencies -> {
+            var deobfDeclared = dependencies.stream().anyMatch(dependency -> dependency instanceof ExternalModuleDependency module
+                    && DeobfAttributes.MCP.equals(module.getAttributes().getAttribute(DeobfAttributes.DEOBFUSCATED)));
+            if (deobfDeclared && !dependencies.contains(ordering)) {
+                dependencies.add(ordering);
             }
         }));
     }

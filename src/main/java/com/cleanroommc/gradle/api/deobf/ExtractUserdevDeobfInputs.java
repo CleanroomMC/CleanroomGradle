@@ -31,19 +31,20 @@ public abstract class ExtractUserdevDeobfInputs implements TransformAction<Trans
     @Override
     public void transform(TransformOutputs outputs) {
         var input = getInputArtifact().get().getAsFile();
+        var layout = UserdevConfig.readFromJar(input).layout();
         var output = outputs.dir("userdev-deobf-inputs");
         try (var zip = new ZipFile(input)) {
-            extract(zip, input, UserdevConfig.SRG2MCP, output);
-            extract(zip, input, UserdevConfig.DEOBF_LIBRARY, output);
+            extract(zip, input, layout.srgToMcp(), UserdevConfig.SRG2MCP, output);
+            extract(zip, input, layout.deobfLibrary(), UserdevConfig.DEOBF_LIBRARY, output);
         } catch (IOException e) {
             throw new UncheckedIOException("Could not extract deobf inputs from " + input, e);
         }
     }
 
-    private static void extract(ZipFile zip, File input, String name, File output) throws IOException {
-        var entry = zip.getEntry(UserdevConfig.meta(name));
+    private static void extract(ZipFile zip, File input, String entryName, String name, File output) throws IOException {
+        var entry = zip.getEntry(entryName);
         if (entry == null) {
-            throw new InvalidUserDataException(input + " does not contain " + UserdevConfig.meta(name)
+            throw new InvalidUserDataException(input + " does not contain " + entryName
                     + ". Use a userdev artifact produced by a CleanroomGradle version that supports native deobf().");
         }
         try (var stream = zip.getInputStream(entry)) {

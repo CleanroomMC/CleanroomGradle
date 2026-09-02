@@ -83,11 +83,50 @@ final class PluginBuild {
                 """ + extra);
     }
 
+    /**
+     * A userdev artifact carrying just enough metadata for a workspace to configure against. The pipeline
+     * inputs a workspace resolves come out of this file, so any test in userdev mode needs one.
+     */
+    static void writeUserdevJar(Path jar, String version) throws IOException {
+        UserdevFixture.writeArtifact(jar, version, new UserdevFixture.Spec(), "client", "server");
+    }
+
+    /** The spec 1 document the artifact carries, which every consumer reads its layout from. */
+    static String userdevConfigJson(String version) {
+        return UserdevFixture.config(version, "client", "server");
+    }
+
+    void seedUserdevModule(String version) throws IOException {
+        UserdevFixture.seed(this.projectDir, version);
+    }
+
+    /**
+     * Serves the artifact as a module, for the paths that resolve it by coordinate instead of by file.
+     * {@code com.cleanroommc} is bound to the Cleanroom maven with {@code exclusiveContent}, so a repository
+     * declared by the buildscript is never consulted for it: the local maven the plugin can be told to add
+     * to that same exclusive content is the only way in. Returns the arguments that switch it on.
+     */
+    String[] userdevModuleArgs(String version, String... args) throws IOException {
+        seedUserdevModule(version);
+        var all = new ArrayList<>(Arrays.asList(args));
+        all.add("-Pcg.repos.enableLocal=true");
+        all.add("-Dmaven.repo.local=" + this.projectDir.resolve("local-maven"));
+        return all.toArray(String[]::new);
+    }
+
     GradleRunner runner(String... args) {
         var allArgs = new ArrayList<>(Arrays.asList(args));
-        allArgs.add("--console=plain");
         allArgs.add("--configuration-cache");
         allArgs.add("--configuration-cache-problems=fail");
+        return plainRunner(allArgs.toArray(String[]::new));
+    }
+
+    /**
+     * A runner without the configuration cache, for a build Gradle itself cannot cache.
+     */
+    GradleRunner plainRunner(String... args) {
+        var allArgs = new ArrayList<>(Arrays.asList(args));
+        allArgs.add("--console=plain");
         var runner = GradleRunner.create().withProjectDir(this.projectDir.toFile()).withArguments(allArgs);
         var testKitHome = System.getProperty("testkit.gradle.user.home");
         if (testKitHome != null) {

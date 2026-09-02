@@ -6,15 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,60 +25,60 @@ class ProjectModeTest {
     }
 
     @Test
-    void defaultUserdevRequiresAnArtifact() throws IOException {
-        this.project.build("");
+    void pluginIsInertUntilAnEnvironmentIsRegistered() throws IOException {
+        this.project.build("""
+                gradle.projectsEvaluated {
+                    assert tasks.findByName('runClient') == null
+                    assert tasks.findByName('runVanillaClient') == null
+                    assert tasks.findByName('setup') == null
+                    assert configurations.findByName('cleanroomUserdev') == null
+                }
+                """);
 
-        var missing = this.project.runner("help").buildAndFail();
-        assertTrue(missing.getOutput().contains("USERDEV mode requires cleanroom.userdev.version"));
-        this.project.assertProblem("missing-userdev");
+        assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
     }
 
     @Test
     void userdevRegistersModWorkspaceTasks() throws IOException {
         this.project.build("""
-                cleanroom {
-                    userdev {
-                        version = '0.4.5'
+                dependencies {
+                    implementation cleanroom.userdev('0.4.5') {
+                        accessTransformers.from('src/main/resources/META-INF/accesstransformer.cfg')
                     }
                 }
                 gradle.projectsEvaluated {
-                    assert tasks.findByName('setup') != null
+                    assert cleanroom.mode.get().name() == 'USERDEV'
+                    assert tasks.findByName('setup') == null
                     assert tasks.findByName('runClient') != null
-                    assert tasks.findByName('decompileDevJar') != null
+                    assert tasks.findByName('runServer') != null
                     assert tasks.findByName('reobfJar') != null
-                    def remapCleanroomSrg2Notch = tasks.findByName('remapCleanroomSrg2Notch')
-                    assert remapCleanroomSrg2Notch != null
-                    assert remapCleanroomSrg2Notch.reverse.get()
-                    assert remapCleanroomSrg2Notch.naiveSrg.get()
-                    assert tasks.findByName('remapCleanroomSrg2Mcp').output.get().asFile.name == 'cleanroom-0.4.5.jar'
-                    assert tasks.findByName('stripClientDevMinecraftJar').targetSide.get().name() == 'CLIENT'
-                    assert tasks.findByName('stripServerDevMinecraftJar').targetSide.get().name() == 'SERVER'
-                    assert tasks.findByName('mergeJars') == null
-                    assert tasks.findByName('writeMcp2Notch') == null
-                    assert tasks.findByName('runSrgClient') == null
-                    assert tasks.findByName('accessTransformDevMcpJar') == null
-                    assert tasks.findByName('decompileSrg') == null
+                    assert tasks.findByName('extractUserdevMcpToSrg') != null
+                    assert configurations.findByName('cleanroomUserdev') == null
+                    def dependency = configurations.implementation.dependencies.iterator().next()
+                    assert dependency.group == 'com.cleanroommc'
+                    assert dependency.name == 'cleanroom-userdev'
+                    assert dependency.version == '0.4.5'
                 }
                 """);
 
-        var info = this.project.runner("cleanroomInfo").build();
-        assertEquals(TaskOutcome.SUCCESS, info.task(":cleanroomInfo").getOutcome());
-        assertTrue(info.getOutput().contains("mode: userdev"));
-        assertTrue(info.getOutput().contains("discard intermediates: true"));
+        assertEquals(TaskOutcome.SUCCESS,
+                this.project.runner(this.project.userdevModuleArgs("0.4.5", "help")).build().task(":help").getOutcome());
     }
 
     @Test
-    void userdevJarNameUsesDependencyVersion() throws IOException {
+    void userdevDependencyCarriesTheRequestedVersion() throws IOException {
         this.project.build("""
                 dependencies {
-                    cleanroomUserdev 'com.cleanroommc:cleanroom:0.4.6:userdev@jar'
+                    implementation cleanroom.userdev('0.4.6')
                 }
                 gradle.projectsEvaluated {
-                    assert tasks.findByName('remapCleanroomSrg2Mcp').output.get().asFile.name == 'cleanroom-0.4.6.jar'
+                    def dependency = configurations.implementation.dependencies.iterator().next()
+                    assert dependency.toString() == 'com.cleanroommc:cleanroom-userdev:0.4.6'
                 }
                 """);
 
-        assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
+        assertEquals(TaskOutcome.SUCCESS,
+                this.project.runner(this.project.userdevModuleArgs("0.4.6", "help")).build().task(":help").getOutcome());
     }
 
     @Test
@@ -123,7 +116,8 @@ class ProjectModeTest {
                     assert tasks.findByName('mergeJars') != null
                     assert tasks.findByName('userdevJar') != null
                     assert tasks.findByName('runCleanroomClient') != null
-                    assert tasks.findByName('runSrgClient') != null
+                    assert tasks.findByName('runSrgClient') == null
+                    assert tasks.findByName('compileSrgSourceJava') == null
                     assert tasks.findByName('prepareMinecraftPatchDevEnvironment') != null
                     assert tasks.findByName('runClient') == null
 
@@ -133,11 +127,12 @@ class ProjectModeTest {
                 }
                 """);
 
-        var output = this.project.runner("userdevJar", "runCleanroomClient", "genClientBinPatches", "--dry-run").build().getOutput();
+        var output = this.project.runner("userdevJar", "runCleanroomClient", "genBinPatches", "--dry-run").build().getOutput();
         PluginBuild.scheduled(output,
                 "userdevJar", "deobfLibraryJar", "writeMcp2Srg", "writeMcp2Notch", "remapSrg2Mcp", "mergeJars",
                 "decompileSrg", "prepareMinecraftPatchDevEnvironment", "initializeMinecraftPatchDevSources",
-                "applySAS", "genClientBinPatches", "genRuntimeBinPatches");
+                "applySAS", "genBinPatches");
+        PluginBuild.notScheduled(output, "minecraftClassesJar", "genClientBinPatches", "genRuntimeBinPatches");
         assertTrue(output.indexOf(":prepareMinecraftPatchDevEnvironment") < output.lastIndexOf(":compileJava"));
         assertTrue(output.indexOf(":prepareMcpInjectedSources") < output.lastIndexOf(":compileJava"));
 
@@ -180,12 +175,16 @@ class ProjectModeTest {
                     assert server.environment.get('tweakClass').toString() == 'example.ServerTweaker'
                     assert client.environment.get('target').toString() == 'exampleClient'
                     assert server.environment.get('target').toString() == 'exampleServer'
+                    // GradleStart renames SRG-named mods into MCP, so MCP_TO_SRG carries a srg-to-mcp file
+                    assert client.environment.get('MCP_TO_SRG').toString().endsWith('srg2mcp.tsrg')
+                    assert client.environment.get('MCP_VERSION').toString() == '20201025.185735'
+                    assert client.environment.get('MCP_MAPPINGS').toString() == 'stable_39'
 
                     def pack = tasks.named('publishMmcPackZip', PublishMmcPackZip).get()
                     assert pack.mainClass.get() == 'example.Launch'
                     assert pack.tweakers.get() == ['example.ClientTweaker']
-                    def embeddedPack = tasks.named('packageInstallerMmcPackZip', Zip).get()
-                    assert embeddedPack.archiveFileName.get() == 'mmc-installer.zip'
+                    assert pack.installerArchiveFile.get().asFile.name == 'mmc-installer.zip'
+                    assert tasks.findByName('packageInstallerMmcPackZip') == null
                     def installer = tasks.named('writeInstallProfile', WriteInstallProfile).get()
                     assert installer.mainClass.get() == 'example.Launch'
                     assert installer.serverMainClass.get() == 'example.Launch'
@@ -197,45 +196,6 @@ class ProjectModeTest {
         assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
         PluginBuild.notScheduled(this.project.runner("runCleanroomClient", "--dry-run").build().getOutput(),
                 "writeUserdevConfig");
-    }
-
-    @Test
-    void installerMmcPackReusesMetadataWithoutTheUniversalPayload() throws IOException {
-        this.project.build("""
-                apply plugin: 'maven-publish'
-                group = 'com.cleanroommc'
-                version = '0.1.0'
-                cleanroom.mode = 'loader'
-                publishing.repositories.maven {
-                    url = layout.buildDirectory.dir('fixture-repository')
-                }
-                gradle.projectsEvaluated {
-                    tasks.named('packageInstallerMmcPackZip', Zip) {
-                        destinationDirectory = layout.buildDirectory.dir('fixture')
-                        archiveFileName = 'thin.zip'
-                    }
-                }
-                """);
-        Path source = this.projectDir.resolve("build/libs/cleanroom-0.1.0.zip");
-        Files.createDirectories(source.getParent());
-        try (var zip = new ZipOutputStream(Files.newOutputStream(source))) {
-            write(zip, "instance.cfg", "instance");
-            write(zip, "patches/net.minecraftforge.json", "metadata");
-            write(zip, "libraries/patchy-999999.0-empty.jar", "empty");
-            write(zip, "libraries/cleanroom-0.1.0-universal.jar", "universal");
-        }
-
-        var result = this.project.runner("packageInstallerMmcPackZip", "-x", "publishMmcPackZip").build();
-
-        assertEquals(TaskOutcome.SUCCESS, result.task(":packageInstallerMmcPackZip").getOutcome());
-        try (var zip = new ZipFile(this.projectDir.resolve("build/fixture/thin.zip").toFile())) {
-            Set<String> entries = zip.stream()
-                    .filter(entry -> !entry.isDirectory())
-                    .map(ZipEntry::getName)
-                    .collect(Collectors.toSet());
-            assertEquals(Set.of("instance.cfg", "patches/net.minecraftforge.json",
-                    "libraries/patchy-999999.0-empty.jar"), entries);
-        }
     }
 
     @Test
@@ -277,12 +237,6 @@ class ProjectModeTest {
                 """);
 
         assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
-    }
-
-    private static void write(ZipOutputStream zip, String name, String contents) throws IOException {
-        zip.putNextEntry(new ZipEntry(name));
-        zip.write(contents.getBytes(StandardCharsets.UTF_8));
-        zip.closeEntry();
     }
 
     @Test
@@ -331,7 +285,7 @@ class ProjectModeTest {
                 """);
 
         var first = this.project.runner("userdevJar", "--dry-run").build();
-        PluginBuild.scheduled(first.getOutput(), "userdevJar", "reobfJar", "writeUserdevConfig", "genRuntimeBinPatches");
+        PluginBuild.scheduled(first.getOutput(), "userdevJar", "reobfJar", "writeUserdevConfig", "genBinPatches");
         assertTrue(first.getOutput().contains("Configuration cache entry stored"));
 
         PluginBuild.reused(this.project.runner("userdevJar", "--dry-run").build().getOutput());
@@ -360,11 +314,11 @@ class ProjectModeTest {
     void runMinecraftTasksIgnoreProcessExit() throws IOException {
         this.project.vanilla("""
                 import com.cleanroommc.gradle.api.task.mc.RunMinecraft
-                tasks.named('runVanillaClient', RunMinecraft) {
-                    side = 'server'
-                    env = 'mcp'
-                }
                 gradle.projectsEvaluated {
+                    tasks.named('runVanillaClient', RunMinecraft) {
+                        side = 'server'
+                        env = 'mcp'
+                    }
                     assert !tasks.withType(RunMinecraft).empty
                     assert tasks.withType(RunMinecraft).every { it.ignoreExitValue }
                     def run = tasks.named('runVanillaClient', RunMinecraft).get()
@@ -376,8 +330,66 @@ class ProjectModeTest {
     }
 
     @Test
-    void runTasksPrepareAssetsForClientsNotServers() throws IOException {
+    void intermediateRunsRegisterOnlyWhenAskedFor() throws IOException {
+        this.project.loader("cleanroom.loader.intermediateRuns = true");
+
+        var output = this.project.runner("runMcpClient", "--dry-run").build().getOutput();
+        PluginBuild.scheduled(output, "runMcpClient", "compileMcpSourceJava", "remapSrg2Mcp");
+
         this.project.loader("");
+        this.project.runner("help").build();
+        var missing = this.project.runner("runMcpClient", "--dry-run").buildAndFail().getOutput();
+        assertTrue(missing.contains("Task 'runMcpClient' not found"), missing);
+    }
+
+    /**
+     * The loader pipeline is registered where the mode is picked, so the buildscript body reaches its tasks
+     * by name, its own configuration runs after the plugin's, and the coordinates it sets afterwards are
+     * still the ones the distribution is built under.
+     */
+    @Test
+    void loaderTasksAreConfigurableFromTheBuildscriptBody() throws IOException {
+        this.project.build("""
+                cleanroom.mode = 'loader'
+                tasks.named('runCleanroomClient') {
+                    description = 'set from the body'
+                }
+                tasks.named('universalJar') {
+                    description = 'also from the body'
+                }
+                // Realizing this task used to freeze 'unspecified' into its embedded path and manifest.
+                tasks.named('installerJar').get()
+                group = 'com.cleanroommc'
+                version = '0.1.0'
+                afterEvaluate {
+                    assert tasks.named('runCleanroomClient').get().description == 'set from the body'
+                    def universal = tasks.named('universalJar').get()
+                    assert universal.description == 'also from the body'
+                    assert universal.archiveVersion.get() == '0.1.0'
+                    assert tasks.named('installerJar').get().archiveVersion.get() == '0.1.0'
+                }
+                """);
+
+        this.project.plainRunner("help", "--offline").build();
+    }
+
+    @Test
+    void selectingTwoDifferentEnvironmentsFailsDirectly() throws IOException {
+        this.project.build("""
+                cleanroom.mode = 'loader'
+                dependencies {
+                    implementation cleanroom.userdev('0.7.0')
+                }
+                """);
+
+        var output = this.project.plainRunner("help").buildAndFail().getOutput();
+        assertTrue(output.contains("environment 'loader' is already registered"), output);
+        assertTrue(output.contains("only one Cleanroom environment"), output);
+    }
+
+    @Test
+    void runTasksPrepareAssetsForClientsNotServers() throws IOException {
+        this.project.loader("cleanroom.loader.intermediateRuns = true");
         for (var task : List.of("runVanillaClient", "runSrgClient", "runReobfSrgClient", "runMcpClient")) {
             var output = this.project.runner(task, "--dry-run").build().getOutput();
             PluginBuild.scheduled(output, "downloadAssets", "extractNatives");
