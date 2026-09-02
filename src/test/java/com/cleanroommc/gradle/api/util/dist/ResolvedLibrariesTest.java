@@ -41,7 +41,7 @@ class ResolvedLibrariesTest {
         var libraries = ResolvedLibraries.artifacts(project.getObjects(),
                 configuration.getIncoming().getArtifacts().getResolvedArtifacts(),
                 configuration.getIncoming().getResolutionResult().getRootComponent(),
-                Map.of(repository.getName(), repository.getUrl().toString()));
+                project.provider(() -> Map.of(repository.getName(), repository.getUrl().toString())));
 
         assertEquals(1, libraries.get().size());
         var library = libraries.get().getFirst();

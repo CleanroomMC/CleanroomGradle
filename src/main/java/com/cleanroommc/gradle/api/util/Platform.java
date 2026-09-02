@@ -1,7 +1,10 @@
 package com.cleanroommc.gradle.api.util;
 
+import org.gradle.nativeplatform.MachineArchitecture;
+import org.gradle.nativeplatform.OperatingSystemFamily;
+
 import java.io.File;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 public final class Platform {
@@ -16,14 +19,19 @@ public final class Platform {
      * Every distinct native classifier produced by {@link #lwjglNativesClassifier()}.
      */
     public static List<String> lwjglNativesClassifiers() {
-        var classifiers = new LinkedHashSet<String>();
+        return nativePlatforms().stream().map(Platform::lwjglNativesClassifier).toList();
+    }
+
+    public static List<Platform> nativePlatforms() {
+        var platforms = new LinkedHashMap<String, Platform>();
         for (var os : List.of(OperatingSystem.WINDOWS, OperatingSystem.LINUX,
                 OperatingSystem.MAC_OS, OperatingSystem.FREE_BSD)) {
             for (var architecture : Architecture.values()) {
-                classifiers.add(new Platform(os, architecture).lwjglNativesClassifier());
+                var platform = new Platform(os, architecture);
+                platforms.putIfAbsent(platform.lwjglNativesClassifier(), platform);
             }
         }
-        return List.copyOf(classifiers);
+        return List.copyOf(platforms.values());
     }
 
     /**
@@ -56,6 +64,34 @@ public final class Platform {
 
     public Architecture getArchitecture() {
         return architecture;
+    }
+
+    public Platform canonicalNativePlatform() {
+        var classifier = lwjglNativesClassifier();
+        return nativePlatforms().stream()
+                .filter(platform -> platform.lwjglNativesClassifier().equals(classifier))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    public String operatingSystemFamily() {
+        return switch (this.operatingSystem) {
+            case WINDOWS -> OperatingSystemFamily.WINDOWS;
+            case MAC_OS -> OperatingSystemFamily.MACOS;
+            case LINUX -> OperatingSystemFamily.LINUX;
+            case FREE_BSD -> "freebsd";
+        };
+    }
+
+    public String machineArchitecture() {
+        return switch (this.architecture) {
+            case X64 -> MachineArchitecture.X86_64;
+            case X86 -> MachineArchitecture.X86;
+            case ARM64 -> MachineArchitecture.ARM64;
+            case ARM32 -> "arm32";
+            case PPC64LE -> "ppc64le";
+            case RISCV64 -> "riscv64";
+        };
     }
 
     public String lwjglNativesClassifier() {

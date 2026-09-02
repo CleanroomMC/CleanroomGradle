@@ -29,7 +29,11 @@ public enum Repository {
             }
             repos.exclusiveContent(exclusive -> {
                 if (local) {
-                    exclusive.forRepository(repos::mavenLocal);
+                    exclusive.forRepository(() -> repos.mavenLocal(maven -> {
+                        maven.getMetadataSources().gradleMetadata(); // Userdev
+                        maven.getMetadataSources().mavenPom();
+                        maven.getMetadataSources().artifact();
+                    }));
                 }
                 exclusive.forRepository(() -> repo.create(repos));
                 exclusive.filter(content -> {

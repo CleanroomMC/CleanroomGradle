@@ -31,12 +31,12 @@ public final class ResolvedLibraries {
     public static Provider<List<LibraryArtifact>> artifacts(ObjectFactory objects,
                                                              Provider<Set<ResolvedArtifactResult>> resolved,
                                                              Provider<ResolvedComponentResult> root,
-                                                             Map<String, String> repositoryUrls) {
-        return resolved.zip(root, (artifacts, component) -> {
+                                                             Provider<Map<String, String>> repositoryUrls) {
+        return repositoryUrls.flatMap(urls -> resolved.zip(root, (artifacts, component) -> {
             var origins = new HashMap<ComponentIdentifier, String>();
-            collectRepositoryUrls(component, repositoryUrls, origins, new HashSet<>());
+            collectRepositoryUrls(component, urls, origins, new HashSet<>());
             return artifactInputs(objects, artifacts, origins);
-        });
+        }));
     }
 
     private static List<LibraryArtifact> artifactInputs(ObjectFactory objects, Set<ResolvedArtifactResult> artifacts,

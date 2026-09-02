@@ -1,13 +1,15 @@
 package com.cleanroommc.gradle.env;
 
+import com.cleanroommc.gradle.api.util.Objects;
+import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
-import org.gradle.api.artifacts.Dependency;
+import org.gradle.api.provider.Provider;
 import org.objectweb.asm.Opcodes;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -23,6 +25,10 @@ public final class ToolConfigs {
             "mergetool", "net.minecraftforge:mergetool:1.2.2" // Forge
     );
     /**
+     * Tools whose output decides what the decompiled Minecraft tree looks like.
+     */
+    public static final List<String> SOURCE_TOOLS = List.of("accesstransformer", "decompiler", "mergetool");
+    /**
      * Pinned ASM modules for tools that may depend on older ASM versions
      */
     private static final String[] PINNED_ASM_MODULES = new String[] {
@@ -37,31 +43,50 @@ public final class ToolConfigs {
         DEFAULTS.forEach((name, notation) -> tool(project, name, notation));
     }
 
-    public static Configuration get(Project project, String name) {
-        return project.getConfigurations().getByName(name);
+    public static NamedDomainObjectProvider<Configuration> get(Project project, String name) {
+        return project.getConfigurations().named(name);
     }
 
-    static Map<String, String> configured(Project project) {
-        var tools = new LinkedHashMap<String, String>();
-        DEFAULTS.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry -> {
-            var configuration = project.getConfigurations().findByName(entry.getKey());
-            var declared = configuration == null ? Set.<Dependency>of() : configuration.getDependencies();
-            tools.put(entry.getKey(), declared.isEmpty() ? entry.getValue() : declared.stream()
+    public static Provider<Map<String, String>> sourceToolNotations(Project project) {
+        var configurations = project.getConfigurations();
+        Provider<Map<String, String>> notations = project.getProviders().provider(LinkedHashMap::new);
+        for (var name : SOURCE_TOOLS) {
+            var tool = configurations.named(name).map(Objects::fullNotation);
+            notations = notations.zip(tool, (resolved, notation) -> {
+                var merged = new LinkedHashMap<>(resolved);
+                merged.put(name, notation);
+                return merged;
+            });
+        }
+        return notations;
+    }
+
+    static Provider<Map<String, String>> configured(Project project) {
+        var configurations = project.getConfigurations();
+        Provider<Map<String, String>> tools = project.getProviders().provider(LinkedHashMap::new);
+        for (var name : DEFAULTS.keySet().stream().sorted().toList()) {
+            var fallback = DEFAULTS.get(name);
+            var declared = configurations.named(name).map(configuration -> configuration.getDependencies().stream()
                     .map(String::valueOf)
                     .collect(Collectors.joining(", ")));
-        });
+            tools = tools.zip(declared, (resolved, value) -> {
+                var merged = new LinkedHashMap<>(resolved);
+                merged.put(name, value.isEmpty() ? fallback : value);
+                return merged;
+            });
+        }
         return tools;
     }
 
-    private static Configuration tool(Project project, String name, String defaultNotation) {
-        var config = project.getConfigurations().maybeCreate(name);
-        config.setCanBeConsumed(false);
-        config.setCanBeResolved(true);
-        config.setDescription("Classpath for the " + name + " tool");
+    private static void tool(Project project, String name, String defaultNotation) {
         var factory = project.getDependencyFactory();
-        config.defaultDependencies(deps -> deps.add(factory.create(defaultNotation)));
-        config.getResolutionStrategy().force((Object[]) PINNED_ASM_MODULES);
-        return config;
+        project.getConfigurations().register(name, config -> {
+            config.setCanBeConsumed(false);
+            config.setCanBeResolved(true);
+            config.setDescription("Classpath for the " + name + " tool");
+            config.defaultDependencies(deps -> deps.add(factory.create(defaultNotation)));
+            config.getResolutionStrategy().force((Object[]) PINNED_ASM_MODULES);
+        });
     }
 
     private static String asmVersion() {

@@ -73,6 +73,7 @@ class PublishMmcPackZipTest {
                     libraries.add(foundation)
                     libraries.add(lwjgl)
                     archiveFile = layout.buildDirectory.file('cleanroom-mmc.zip')
+                    installerArchiveFile = layout.buildDirectory.file('cleanroom-mmc-installer.zip')
                 }
                 """.formatted(escape(foundation), escape(lwjgl), escape(universal)));
 
@@ -123,6 +124,7 @@ class PublishMmcPackZipTest {
         task.getMinecraftExcludeRules().addAll(
                 "com.ibm.icu:icu4j-core-mojang", "com.mojang:*", "example:unrelated");
         task.getArchiveFile().fileValue(directory.resolve("cleanroom-mmc.zip").toFile());
+        task.getInstallerArchiveFile().fileValue(directory.resolve("cleanroom-mmc-installer.zip").toFile());
 
         task.publish();
 
@@ -237,6 +239,7 @@ class PublishMmcPackZipTest {
                 directory.resolve("m2").toUri().toString()));
         task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", lwjgl));
         task.getArchiveFile().fileValue(directory.resolve("cleanroom-local.zip").toFile());
+        task.getInstallerArchiveFile().fileValue(directory.resolve("cleanroom-local-installer.zip").toFile());
 
         task.publish();
 
@@ -269,6 +272,14 @@ class PublishMmcPackZipTest {
             assertDownload(foundationLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"), foundation,
                     "https://repo.maven.apache.org/maven2/top/outlands/foundation/1.2.3/foundation-1.2.3.jar");
         }
+
+        // The installer ships the universal jar in its own maven layout, so its copy of the pack drops it
+        try (var zip = new ZipFile(task.getInstallerArchiveFile().get().getAsFile())) {
+            assertEquals(Set.of("instance.cfg", "mmc-pack.json", "patches/org.lwjgl.json",
+                    "patches/net.minecraftforge.json", "libraries/icu4j-core-mojang-999999.0-empty.jar",
+                    "libraries/patchy-999999.0-empty.jar", "libraries/mcttf-0.1.0-beta+local.0.jar"), entries(zip));
+            assertEquals("local mcttf", text(zip, "libraries/mcttf-0.1.0-beta+local.0.jar"));
+        }
     }
 
     @Test
@@ -288,6 +299,7 @@ class PublishMmcPackZipTest {
         task.getLibraries().add(library(project, "org.lwjgl:lwjgl-stb:3.4.0",
                 file("lwjgl-stb-3.4.0.jar", "stb")));
         task.getArchiveFile().fileValue(directory.resolve("cleanroom-mmc.zip").toFile());
+        task.getInstallerArchiveFile().fileValue(directory.resolve("cleanroom-mmc-installer.zip").toFile());
 
         var failure = assertThrows(GradleException.class, task::publish);
         assertTrue(failure.getMessage().contains("requires exactly one LWJGL version"));

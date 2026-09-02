@@ -24,6 +24,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.DependencySet;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.dsl.DependencyFactory;
@@ -36,9 +37,11 @@ import org.gradle.jvm.toolchain.JavaLauncher;
 import org.gradle.jvm.toolchain.JavaToolchainService;
 
 import java.io.File;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 public final class VanillaTasks {
 
@@ -46,18 +49,8 @@ public final class VanillaTasks {
 
     private static final String GROUP_NAME = "vanilla";
 
-    public static void addDistributionLibraries(DependencyFactory factory, DependencySet dependencies, VersionMeta meta) {
-        var nativeModules = nativeModules(meta);
-        for (var library : meta.libraries()) {
-            if (library.artifact() == null || isLwjgl2(library.name())) {
-                continue;
-            }
-            var dependency = factory.create(library.name());
-            for (var module : nativeModules) {
-                dependency.exclude(module);
-            }
-            dependencies.add(dependency);
-        }
+    public static void addDistributionLibraries(DependencyFactory factory, Collection<Dependency> dependencies, VersionMeta meta) {
+        addLibraries(factory, dependencies, meta, library -> !isLwjgl2(library.name()));
     }
 
     static void addDistributionNatives(DependencyFactory factory, DependencySet dependencies, VersionMeta meta,
@@ -125,10 +118,11 @@ public final class VanillaTasks {
         return selectedVersion != null && !selectedVersion.equals(coordinates[2]);
     }
 
-    private static void addLibraries(DependencyFactory factory, DependencySet dependencies, VersionMeta meta) {
+    private static void addLibraries(DependencyFactory factory, Collection<Dependency> dependencies, VersionMeta meta,
+                                     Predicate<VersionMeta.Library> accept) {
         var nativeModules = nativeModules(meta);
         for (var library : meta.libraries()) {
-            if (!library.isValidForOS(Platform.CURRENT) || library.artifact() == null) {
+            if (library.artifact() == null || !accept.test(library)) {
                 continue;
             }
             var dependency = factory.create(library.name());
@@ -141,15 +135,23 @@ public final class VanillaTasks {
 
     static void addNatives(DependencyFactory factory, DependencySet dependencies, VersionMeta meta,
                            Map<String, String> selectedVersions) {
+        addNativesFor(factory, dependencies, meta, selectedVersions, Platform.CURRENT);
+    }
+
+    /**
+     * The vanilla libraries extracted as natives on one platform, for a published per-platform variant.
+     */
+    public static void addNativesFor(DependencyFactory factory, Collection<Dependency> dependencies, VersionMeta meta,
+                                     Map<String, String> selectedVersions, Platform platform) {
         for (var library : meta.libraries()) {
-            if (!library.isValidForOS(Platform.CURRENT) || !library.hasNativesForOS(Platform.CURRENT)) {
+            if (!library.isValidForOS(platform) || !library.hasNativesForOS(platform)) {
                 continue;
             }
             var coordinates = library.name().split(":");
             if (ordinaryArtifactWasReplaced(library, coordinates, selectedVersions)) {
                 continue;
             }
-            var classifier = library.classifierForOS(Platform.CURRENT);
+            var classifier = library.classifierForOS(platform);
             if (classifier == null) {
                 continue;
             }
@@ -218,10 +220,13 @@ public final class VanillaTasks {
         var assetIndex = this.versionMeta.map(VersionMeta::assetIndex);
 
         var factory = project.getDependencyFactory();
-        this.vanillaConfig = Objects.config(project, configurationName(spec, "vanilla", ""));
-        this.vanillaNativesConfig = Objects.config(project, configurationName(spec, "vanillaNatives", "Natives"));
+        this.vanillaConfig = Objects.config(project, configurationName(spec, "vanilla", ""),
+                "Minecraft libraries for the " + spec.cacheName() + " environment, from its launcher metadata.");
+        this.vanillaNativesConfig = Objects.config(project, configurationName(spec, "vanillaNatives", "Natives"),
+                "Minecraft platform natives for the " + spec.cacheName() + " environment.");
         this.vanillaConfig.configure(config -> config.withDependencies(dependencies ->
-                addLibraries(factory, dependencies, this.versionMeta.get())));
+                addLibraries(factory, dependencies, this.versionMeta.get(),
+                        library -> library.isValidForOS(Platform.CURRENT))));
         var selectedVanillaVersions = project.provider(() -> selectedVersions(this.vanillaConfig.get()));
         this.vanillaNativesConfig.configure(config -> config.withDependencies(dependencies ->
                 addNatives(factory, dependencies, this.versionMeta.get(), selectedVanillaVersions.get())));
@@ -295,7 +300,7 @@ public final class VanillaTasks {
             task.exclude("META-INF/**"); // TODO: Consider exclude block in version meta?
         });
         this.remapClientToOfficial.configure(task -> {
-            task.onlyIf("VersionMeta offers client_mappings", t -> clientMappings.isPresent());
+            task.onlyIf("VersionMeta offers client_mappings", _ -> clientMappings.isPresent());
             task.setDescription("Remaps the client jar from obfuscated to Mojang's official names.");
 
             task.getInput().fileProvider(this.downloadClientJar.map(Download::getDest));

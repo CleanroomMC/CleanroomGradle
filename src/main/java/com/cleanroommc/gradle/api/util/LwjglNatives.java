@@ -2,12 +2,14 @@ package com.cleanroommc.gradle.api.util;
 
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.DependencySet;
 import org.gradle.api.artifacts.dsl.DependencyFactory;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Provider;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -22,7 +24,8 @@ import java.util.List;
  *
  * <p>LWJGL ships one native jar per platform. But the published metadata has to serve every distribution.
  * Runtime classpath takes {@link Platform#lwjglNativesClassifier()}.
- * While publications take every classifier in {@code cleanroom.loader.lwjglNativesClassifiers}.
+ * While publications take every classifier in {@code cleanroom.loader.lwjglNativesClassifiers}, one
+ * OS and architecture specific variant each, so a consumer resolves only its own.
  */
 public final class LwjglNatives {
 
@@ -60,10 +63,15 @@ public final class LwjglNatives {
             config.setCanBeConsumed(false);
             config.withDependencies(dependencies -> create(factory, dependencies, declared.get(), classifiers.get()));
         });
-        project.getPlugins().withType(JavaPlugin.class, $ -> {
-            configurations.named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME).configure(config -> config.extendsFrom(current.get()));
-            configurations.named(JavaPlugin.RUNTIME_ELEMENTS_CONFIGURATION_NAME).configure(config -> config.extendsFrom(all.get()));
-        });
+        // runtimeElements deliberately stays free of natives
+        project.getPlugins().withType(JavaPlugin.class, $ -> configurations
+                .named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME)
+                .configure(config -> config.extendsFrom(current.get())));
+    }
+
+    public static void addFor(Project project, Collection<Dependency> target, String classifier) {
+        create(project.getDependencyFactory(), target,
+                project.getConfigurations().getByName(CONFIGURATION_NAME), List.of(classifier));
     }
 
     public static Provider<List<String>> publishedCoordinates(Project project, ListProperty<String> classifiers) {
@@ -84,7 +92,7 @@ public final class LwjglNatives {
         return !classifier.startsWith(CLASSIFIER_PREFIX) || classifier.equals(Platform.CURRENT.lwjglNativesClassifier());
     }
 
-    private static void create(DependencyFactory factory, DependencySet target, Configuration declared, List<String> classifiers) {
+    private static void create(DependencyFactory factory, Collection<Dependency> target, Configuration declared, List<String> classifiers) {
         for (var dependency : declared.getAllDependencies()) {
             var version = dependency.getVersion() == null ? "" : dependency.getVersion();
             for (var classifier : classifiers) {

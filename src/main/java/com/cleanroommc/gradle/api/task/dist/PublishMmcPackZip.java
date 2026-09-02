@@ -119,6 +119,9 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     @OutputFile
     public abstract RegularFileProperty getArchiveFile();
 
+    @OutputFile
+    public abstract RegularFileProperty getInstallerArchiveFile();
+
     @Inject
     public PublishMmcPackZip() {
         getMinecraftVersion().convention(Meta.ONE_TRUE_MINECRAFT_VERSION);
@@ -149,6 +152,10 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         }
 
         writeZip(getArchiveFile().get().getAsFile(), instance);
+
+        var installer = new TreeMap<>(instance);
+        installer.remove(LOCAL_LIBRARIES + Coordinate.parse(getUniversalCoordinate().get()).fileName());
+        writeZip(getInstallerArchiveFile().get().getAsFile(), installer);
     }
 
     private Artifact universalArtifact() {
