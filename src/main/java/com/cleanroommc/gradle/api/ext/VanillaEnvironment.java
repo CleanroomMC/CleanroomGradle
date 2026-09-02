@@ -70,7 +70,7 @@ public abstract class VanillaEnvironment implements Named {
                     "Use letters, numbers, dots, underscores, or hyphens, starting with a letter or number.");
         }
         var runTask = "run" + VanillaTasks.taskSuffix(this.name) + "Client";
-        if (project.getTasks().findByName(runTask) != null) {
+        if (project.getTasks().getNames().contains(runTask)) {
             var message = "Vanilla environment '" + this.name + "' would create the existing task '" + runTask + "'.";
             throw CleanroomProblems.throwing(getProblems(), new InvalidUserDataException(message),
                     CleanroomProblems.INVALID_VANILLA_ENVIRONMENT, message, "Choose a different vanilla environment name.");

@@ -15,6 +15,7 @@ import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
+import org.gradle.api.tasks.bundling.Zip;
 import org.gradle.api.tasks.TaskProvider;
 
 import javax.inject.Inject;
@@ -92,13 +93,24 @@ public abstract class PatchDevEnvironment implements Named {
         SourceSets.linkSource(this.sourceSet, output);
 
         this.initializeEnvironment = Tasks.register(project, "initialize" + capitalizedName + "PatchDevEnvironment");
-        this.prepareSources = Tasks.copy(project, "prepare" + capitalizedName + "Sources", input, sourcesDir);
+        this.prepareSources = Tasks.register(project, "prepare" + capitalizedName + "Sources", Copy.class);
+        this.prepareSources.configure(task -> {
+            task.from(input);
+            task.into(sourcesDir);
+        });
         this.prepareEnvironment = Tasks.register(project, "prepare" + capitalizedName + "PatchDevEnvironment");
         var applyTaskName = name.equals("initial") ? "applyInitialPatchDevDiffs" : "apply" + capitalizedName + "Diffs";
         this.applyDiffs = Tasks.register(project, applyTaskName, ApplyDiffs.class);
         this.initializeDiffs = Tasks.register(project, "initialize" + capitalizedName + "PatchDevSources", ApplyDiffs.class);
         this.generateDiffs = Tasks.register(project, "generate" + capitalizedName + "Diffs", GenerateDiffs.class);
-        var zipPatches = Tasks.zip(project, "zip" + capitalizedName + "Patches", this.generateDiffs.flatMap(GenerateDiffs::getPatchesDirectory), patchesZip);
+        var zipPatches = Tasks.register(project, "zip" + capitalizedName + "Patches", Zip.class);
+        zipPatches.configure(task -> {
+            task.setPreserveFileTimestamps(false);
+            task.setReproducibleFileOrder(true);
+            task.from(this.generateDiffs.flatMap(GenerateDiffs::getPatchesDirectory));
+            task.getDestinationDirectory().fileProvider(patchesZip.map(File::getParentFile));
+            task.getArchiveFileName().set(patchesZip.map(File::getName));
+        });
         Tasks.group(groupName, this.prepareEnvironment, this.applyDiffs, this.generateDiffs, zipPatches);
 
         this.initializeEnvironment.configure(task -> {

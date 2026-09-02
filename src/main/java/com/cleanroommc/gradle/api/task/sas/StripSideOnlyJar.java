@@ -24,6 +24,7 @@ import java.io.IOException;
 @CacheableTask
 public abstract class StripSideOnlyJar extends DefaultTask {
 
+    // Held by hand: Gradle will not generate a managed property alongside a setter of another type
     private final Property<Side> targetSide;
 
     @InputFile

@@ -12,9 +12,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MinecraftCacheTest {
@@ -84,14 +86,154 @@ class MinecraftCacheTest {
 
         var result = this.project.runner("readMid").build();
         assertEquals(TaskOutcome.SUCCESS, result.task(":readMid").getOutcome());
+        assertEquals(discard ? TaskOutcome.SUCCESS : TaskOutcome.SKIPPED,
+                result.task(":discardReadMidIntermediates").getOutcome());
         var intermediate = this.projectDir.resolve("build/cleanroom_gradle/mid.txt");
         if (discard) {
-            assertEquals(TaskOutcome.SUCCESS, result.task(":readMidIntermediates").getOutcome());
             assertFalse(Files.exists(intermediate), "intermediate file was left behind");
         } else {
-            assertEquals(TaskOutcome.SKIPPED, result.task(":readMidIntermediates").getOutcome());
             assertEquals("mid", Files.readString(intermediate));
         }
+    }
+
+    @Test
+    void sharedIntermediatesSurviveUntilEveryConsumerHasRun() throws IOException {
+        this.project.build("""
+                import com.cleanroommc.gradle.api.task.IntermediateProcessor
+
+                cleanroom {
+                    mode = 'vanilla'
+                    caches {
+                        discardIntermediates = true
+                        localDirectory.set(layout.buildDirectory.dir('cleanroom_gradle'))
+                    }
+                }
+                def shared = layout.buildDirectory.file('cleanroom_gradle/shared.txt')
+                def writeShared = tasks.register('writeShared') {
+                    outputs.file(shared)
+                    doLast { shared.get().asFile.text = 'shared' }
+                }
+                def first = tasks.register('firstConsumer') {
+                    dependsOn writeShared
+                    doLast { assert shared.get().asFile.file }
+                }
+                def second = tasks.register('secondConsumer') {
+                    dependsOn writeShared
+                    mustRunAfter first
+                    doLast { assert shared.get().asFile.file }
+                }
+                IntermediateProcessor.of(project).discardAfterAll([first, second], shared)
+                """);
+
+        var intermediate = this.projectDir.resolve("build/cleanroom_gradle/shared.txt");
+
+        // A build that never touches the pipeline must not delete anything
+        this.project.runner("help").build();
+        assertFalse(Files.exists(intermediate));
+
+        this.project.runner("writeShared").build();
+        assertEquals("shared", Files.readString(intermediate));
+        this.project.runner("help").build();
+        assertEquals("shared", Files.readString(intermediate), "an untouched intermediate was deleted");
+
+        var one = this.project.runner("firstConsumer").build();
+        assertEquals(TaskOutcome.SUCCESS, one.task(":firstConsumer").getOutcome());
+        assertNull(one.task(":secondConsumer"), "the other consumer was pulled into the graph");
+        assertFalse(Files.exists(intermediate), "intermediate survived a requested consumer");
+
+        this.project.runner("firstConsumer", "secondConsumer").build();
+        assertFalse(Files.exists(intermediate), "intermediate survived its last consumer");
+    }
+
+    @Test
+    void upToDateConsumerStillDiscards() throws IOException {
+        this.project.build("""
+                import com.cleanroommc.gradle.api.task.IntermediateProcessor
+
+                cleanroom {
+                    mode = 'vanilla'
+                    caches {
+                        discardIntermediates = providers.gradleProperty('discardIntermediates')
+                                .map { it.toBoolean() }
+                                .orElse(false)
+                        localDirectory.set(layout.buildDirectory.dir('cleanroom_gradle'))
+                    }
+                }
+                def mid = layout.buildDirectory.file('cleanroom_gradle/mid.txt')
+                def out = layout.buildDirectory.file('out.txt')
+                def writeMid = tasks.register('writeMid') {
+                    outputs.file(mid)
+                    doLast { mid.get().asFile.text = 'mid' }
+                }
+                def readMid = tasks.register('readMid') {
+                    inputs.file(mid)
+                    outputs.file(out)
+                    dependsOn writeMid
+                    doLast {
+                        assert mid.get().asFile.file
+                        out.get().asFile.text = 'ok'
+                    }
+                }
+                IntermediateProcessor.of(project).discardAfter(readMid, mid)
+                """);
+
+        var intermediate = this.projectDir.resolve("build/cleanroom_gradle/mid.txt");
+        var first = this.project.runner("readMid", "-PdiscardIntermediates=false").build();
+        assertEquals(TaskOutcome.SUCCESS, first.task(":readMid").getOutcome());
+        assertEquals("mid", Files.readString(intermediate));
+
+        var second = this.project.runner("readMid", "-PdiscardIntermediates=true").build();
+        assertEquals(TaskOutcome.UP_TO_DATE, second.task(":writeMid").getOutcome());
+        assertEquals(TaskOutcome.UP_TO_DATE, second.task(":readMid").getOutcome());
+        assertFalse(Files.exists(intermediate), "up-to-date consumer left the intermediate behind");
+    }
+
+    @Test
+    void discardIntermediatesIsDecidedPerProject() throws IOException {
+        this.project.vanilla("");
+        Files.writeString(this.projectDir.resolve("settings.gradle"), "\ninclude 'keep', 'drop'\n",
+                StandardOpenOption.APPEND);
+        subproject("keep", false);
+        subproject("drop", true);
+
+        var result = this.project.runner(":keep:readMid", ":drop:readMid").build();
+        assertEquals(TaskOutcome.SUCCESS, result.task(":keep:readMid").getOutcome());
+        assertEquals(TaskOutcome.SUCCESS, result.task(":drop:readMid").getOutcome());
+        assertEquals("mid", Files.readString(this.projectDir.resolve("keep/build/cleanroom_gradle/mid.txt")),
+                "a project that keeps its intermediates followed another project's setting");
+        assertFalse(Files.exists(this.projectDir.resolve("drop/build/cleanroom_gradle/mid.txt")),
+                "a project that discards its intermediates followed another project's setting");
+    }
+
+    private void subproject(String name, boolean discard) throws IOException {
+        var directory = this.projectDir.resolve(name);
+        Files.createDirectories(directory);
+        Files.writeString(directory.resolve("build.gradle"), """
+                plugins {
+                    id 'java'
+                    id 'com.cleanroommc.cleanroomgradle'
+                }
+                import com.cleanroommc.gradle.api.task.IntermediateProcessor
+
+                cleanroom {
+                    mode = 'vanilla'
+                    caches {
+                        discardIntermediates = %s
+                        localDirectory.set(layout.buildDirectory.dir('cleanroom_gradle'))
+                    }
+                }
+                def mid = layout.buildDirectory.file('cleanroom_gradle/mid.txt')
+                def writeMid = tasks.register('writeMid') {
+                    outputs.file(mid)
+                    doLast { mid.get().asFile.text = 'mid' }
+                }
+                def readMid = tasks.register('readMid') {
+                    inputs.file(mid)
+                    dependsOn writeMid
+                    doLast { assert mid.get().asFile.file }
+                }
+                IntermediateProcessor.of(project).discardAfter(readMid, mid)
+                """.formatted(discard));
     }
 
     @Test
@@ -156,12 +298,14 @@ class MinecraftCacheTest {
 
         this.project.vanilla("""
                 def expected = file('%s')
-                tasks.named('downloadAssets') {
-                    assetIndexFile = layout.projectDirectory.file('asset-index.json')
-                    objects = layout.projectDirectory.dir('objects')
-                    doFirst { task ->
-                        logger.lifecycle('ASSET_TASK_EXECUTED')
-                        assert task.outputs.files.files == [expected] as Set
+                gradle.projectsEvaluated {
+                    tasks.named('downloadAssets') {
+                        assetIndexFile = layout.projectDirectory.file('asset-index.json')
+                        objects = layout.projectDirectory.dir('objects')
+                        doFirst { task ->
+                            logger.lifecycle('ASSET_TASK_EXECUTED')
+                            assert task.outputs.files.files == [expected] as Set
+                        }
                     }
                 }
                 """.formatted(assetPath));
@@ -190,9 +334,11 @@ class MinecraftCacheTest {
         Files.createDirectories(corruptAsset.getParent());
         Files.writeString(corruptAsset, "corrupt");
         this.project.vanilla("""
-                tasks.named('downloadAssets') {
-                    assetIndexFile = layout.projectDirectory.file('asset-index.json')
-                    objects = layout.projectDirectory.dir('objects')
+                gradle.projectsEvaluated {
+                    tasks.named('downloadAssets') {
+                        assetIndexFile = layout.projectDirectory.file('asset-index.json')
+                        objects = layout.projectDirectory.dir('objects')
+                    }
                 }
                 """);
 

@@ -9,11 +9,8 @@ import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.TaskProvider;
-import org.gradle.api.tasks.bundling.Zip;
 
 import javax.inject.Inject;
-import java.io.File;
-import java.nio.file.Path;
 
 public final class Tasks {
 
@@ -30,7 +27,7 @@ public final class Tasks {
     }
 
     public static <T extends MavenJarExec> TaskProvider<T> tool(Project project, DirectoryProperty localCache,
-                                                                String name, Class<T> type, Configuration classpath) {
+                                                                String name, Class<T> type, Provider<Configuration> classpath) {
         var task = register(project, name, type);
         task.configure(exec -> {
             exec.getToolClasspath().from(classpath);
@@ -44,15 +41,6 @@ public final class Tasks {
         for (var task : tasks) {
             task.configure(value -> value.setGroup(group));
         }
-    }
-
-    public static TaskProvider<Copy> copy(Project project, String name, Object from, Object to) {
-        var provider = project.getTasks().register(name, Copy.class);
-        provider.configure(task -> {
-            task.from(from);
-            task.into(to);
-        });
-        return provider;
     }
 
     /**
@@ -74,34 +62,6 @@ public final class Tasks {
             task.into(to);
         });
         return provider;
-    }
-
-    public static TaskProvider<Zip> zip(Project project, String name, Object from, Object to) {
-        var provider = project.getTasks().register(name, Zip.class);
-        provider.configure(task -> {
-            task.setPreserveFileTimestamps(false);
-            task.setReproducibleFileOrder(true);
-            task.from(from);
-            if (to instanceof Provider<?> destination) {
-                task.getDestinationDirectory().fileProvider(destination.map(value -> file(value).getParentFile()));
-                task.getArchiveFileName().set(destination.map(value -> file(value).getName()));
-            } else {
-                var file = project.file(to);
-                task.getDestinationDirectory().set(file.getParentFile());
-                task.getArchiveFileName().set(file.getName());
-            }
-        });
-        return provider;
-    }
-
-    private static File file(Object value) {
-        if (value instanceof File file) {
-            return file;
-        }
-        if (value instanceof Path path) {
-            return path.toFile();
-        }
-        return new File(value.toString());
     }
 
     private Tasks() { }

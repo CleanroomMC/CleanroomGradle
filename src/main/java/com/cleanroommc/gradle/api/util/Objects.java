@@ -8,6 +8,7 @@ import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.Dependency;
+import org.gradle.api.artifacts.ModuleDependency;
 import org.gradle.api.file.FileSystemLocation;
 import org.gradle.api.provider.Provider;
 
@@ -34,25 +35,24 @@ public final class Objects {
         return project.getExtensions().create(name, extensionClass, args);
     }
 
-    public static NamedDomainObjectProvider<Configuration> config(Project project, String name) {
-        return project.getConfigurations().register(name);
-    }
-
-    public static NamedDomainObjectProvider<Configuration> config(Project project, String name, String defaultNotation) {
+    public static NamedDomainObjectProvider<Configuration> config(Project project, String name, String description) {
         var provider = project.getConfigurations().register(name);
-        var factory = project.getDependencyFactory();
-        provider.configure(config -> config.defaultDependencies(deps -> deps.add(factory.create(defaultNotation))));
+        provider.configure(config -> {
+            config.setDescription(description);
+            config.setCanBeConsumed(false);
+            config.setCanBeResolved(true);
+        });
         return provider;
     }
 
-    public static Configuration toolConfig(Project project, String name, String defaultNotation) {
-        var config = project.getConfigurations().maybeCreate(name);
-        config.setCanBeConsumed(false);
-        config.setCanBeResolved(true);
-        config.setDescription("Classpath for the " + name + " tool");
+    public static NamedDomainObjectProvider<Configuration> archive(Project project, String name, String description, String defaultNotation) {
+        var provider = config(project, name, description);
         var factory = project.getDependencyFactory();
-        config.defaultDependencies(deps -> deps.add(factory.create(defaultNotation)));
-        return config;
+        provider.configure(config -> {
+            config.setTransitive(false);
+            config.defaultDependencies(deps -> deps.add(factory.create(defaultNotation)));
+        });
+        return provider;
     }
 
     public static Dependency firstDependency(Configuration configuration) {
@@ -74,6 +74,22 @@ public final class Objects {
             throw new IllegalStateException("Dependency '" + dependency + "' of configuration '" + configuration.getName() + "' has no version.");
         }
         return dependency.getGroup() + ":" + dependency.getName() + ":" + version;
+    }
+
+    /**
+     * Like {@link #notation(Configuration)}, but keeps the classifier and extension the dependency declares.
+     * A coordinate such as {@code de.oceanlabs.mcp:mcp_stable:39-1.12@zip} resolves to a different file
+     * without them, so anything republished for another build to resolve has to carry them.
+     */
+    public static String fullNotation(Configuration configuration) {
+        var notation = notation(configuration);
+        if (!(firstDependency(configuration) instanceof ModuleDependency module) || module.getArtifacts().isEmpty()) {
+            return notation;
+        }
+        var artifact = module.getArtifacts().iterator().next();
+        var classifier = artifact.getClassifier() == null ? "" : ":" + artifact.getClassifier();
+        var extension = artifact.getExtension() == null ? "" : "@" + artifact.getExtension();
+        return notation + classifier + extension;
     }
 
     public static Object unravel(Object object) {

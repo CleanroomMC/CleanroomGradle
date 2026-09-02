@@ -45,6 +45,7 @@ public abstract class WriteMappings extends DefaultTask {
         }
     }
 
+    // Held by hand: Gradle will not generate a managed property alongside a setter of another type
     private final Property<Direction> direction;
     private final Property<IMappingFile.Format> format;
 

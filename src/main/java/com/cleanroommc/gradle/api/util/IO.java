@@ -94,6 +94,10 @@ public final class IO {
         return sha1(path.toPath());
     }
 
+    public static String sha1(String value) {
+        return DigestUtils.sha1Hex(value);
+    }
+
     public static boolean sha1Match(Path path, String expectedHash) {
         if (Files.exists(path)) {
             return sha1(path).equalsIgnoreCase(expectedHash);
@@ -153,6 +157,14 @@ public final class IO {
         output.putNextEntry(entry);
         output.write(data);
         output.closeEntry();
+    }
+
+    public static void writeString(Path path, String content) throws IOException {
+        var parent = path.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        Files.writeString(path, content, StandardCharsets.UTF_8);
     }
 
     public static void move(Path source, Path target) throws IOException {

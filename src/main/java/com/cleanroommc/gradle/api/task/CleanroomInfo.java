@@ -18,6 +18,7 @@ import java.io.File;
 @DisableCachingByDefault(because = "Prints build diagnostics")
 public abstract class CleanroomInfo extends DefaultTask {
 
+    // Held by hand: Gradle will not generate a managed property alongside a setter of another type
     private final Property<ProjectMode> mode;
 
     @Input
