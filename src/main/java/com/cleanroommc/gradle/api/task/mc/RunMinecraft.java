@@ -26,11 +26,25 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.function.Supplier;
 
 @UntrackedTask(because = "Launches the game")
 @DisableCachingByDefault(because = "Launches the game")
 public abstract class RunMinecraft extends LazilyConstructedJavaExec {
+
+    /**
+     * Codes are filtered here so every time we quit, gradle doesn't report the task as errored.
+     *
+     * <p>The following is reported as a (reasonably) normal exit.
+     * <ul>
+     *     <li>0: Normal exit</li>
+     *     <li>130: 128 (JVM) + 2 (SIGINT)</li>
+     *     <li>143: 128 (JVM) + 15 (SIGTERM)</li>
+     *     <li>-1073741510: (0xC000013A) STATUS_CONTROL_C_EXIT</li>
+     * </ul>
+     */
+    private static final Set<Integer> STOPPED_EXITS = Set.of(0, 130, 143, -1073741510);
 
     private static boolean consoleInput() throws IOException {
         var scanner = new Scanner(System.in);
@@ -173,13 +187,9 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     @Override
     protected void afterExec() {
         var result = this.getExecutionResult().getOrNull();
-        if (result != null && isCrashExit(result.getExitValue())) {
+        if (result != null && !STOPPED_EXITS.contains(result.getExitValue())) {
             throw new GradleException("Minecraft crashed (exit code " + result.getExitValue() + "). See the log above and the crash-reports directory.");
         }
-    }
-
-    private static boolean isCrashExit(int exitValue) {
-        return exitValue == -1 || exitValue == -2 || exitValue == 254 || exitValue == 255;
     }
 
     @Override
