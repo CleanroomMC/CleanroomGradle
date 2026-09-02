@@ -50,7 +50,6 @@ class PluginApplyTest {
                     def urls = repositories.findAll { it.hasProperty('url') }.collect { it.url.toString() }
                     assert urls.contains('https://repo.maven.apache.org/maven2/')
                     assert urls.contains('https://libraries.minecraft.net/')
-                    assert urls.contains('https://maven.minecraftforge.net/')
                     assert urls.contains('https://maven.cleanroommc.com/')
                     assert urls.contains('https://example.invalid/repository/')
                 }
@@ -73,7 +72,7 @@ class PluginApplyTest {
                         }
                     }
                 }
-                repositories.named('MinecraftForge') {
+                repositories.named('CleanroomMC') {
                     url = layout.projectDirectory.dir('empty-repository')
                 }
                 configurations {
@@ -200,7 +199,7 @@ class PluginApplyTest {
                 repositories {
                 %s
                 }
-                repositories.named('MinecraftForge') {
+                repositories.named('CleanroomMC') {
                     url = layout.projectDirectory.dir('consumer-repository')
                 }
                 configurations {
@@ -218,7 +217,7 @@ class PluginApplyTest {
                     }
                 }
                 afterEvaluate {
-                    assert repositories.findAll { it.name in ['MinecraftForge', 'Consumer Forge'] }
+                    assert repositories.findAll { it.name in ['CleanroomMC', 'Consumer Forge'] }
                             .collect { it.url }.toSet().size() == 1
                 }
                 """.formatted(consumerRepository.indent(4)));

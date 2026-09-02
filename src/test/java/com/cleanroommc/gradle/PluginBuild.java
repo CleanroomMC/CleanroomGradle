@@ -29,9 +29,10 @@ final class PluginBuild {
                     includeBuild '%s'
                     repositories {
                         maven {
-                            name = 'MinecraftForge'
-                            url = 'https://maven.minecraftforge.net/'
+                            name = 'CleanroomMC'
+                            url = 'https://maven.cleanroommc.com/'
                         }
+                        mavenCentral()
                         gradlePluginPortal()
                     }
                 }
