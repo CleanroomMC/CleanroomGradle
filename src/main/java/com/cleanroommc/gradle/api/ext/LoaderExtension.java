@@ -38,6 +38,8 @@ public abstract class LoaderExtension {
 
     public abstract ListProperty<String> getLwjglNativesClassifiers();
 
+    public abstract Property<Boolean> getIntermediateRuns();
+
     public LoaderExtension() {
         getForgeVersion().convention("14.23.5.2864");
         getInstallerVersion().convention("0.1.2");
@@ -50,6 +52,7 @@ public abstract class LoaderExtension {
         getServerTarget().convention("fmldevserver");
         getInstallerJvmArgs().convention(List.of());
         getLwjglNativesClassifiers().convention(LwjglNatives.CLASSIFIERS);
+        getIntermediateRuns().convention(false);
     }
 
 }

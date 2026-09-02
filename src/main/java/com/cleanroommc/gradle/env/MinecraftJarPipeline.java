@@ -39,21 +39,19 @@ public final class MinecraftJarPipeline {
         var mergetool = ToolConfigs.get(project, "mergetool");
         var renamer = project.getExtensions().getByType(RenamerExtension.class);
 
-        this.splitClient = Tasks.register(project, spec.splitClientName, SplitJar.class);
-        this.splitServer = Tasks.register(project, spec.splitServerName, SplitJar.class);
-        this.merge = Tasks.tool(project, caches.getLocalDirectory(), spec.mergeName, MergeJars.class, mergetool);
-        this.remapNotch2Srg = Tasks.register(project, spec.remapName, RenameJar.class, renamer);
-        this.inject = Tasks.register(project, spec.injectName, InjectMetadata.class);
+        this.splitClient = Tasks.register(project, "split" + spec.infix + "ClientJar", SplitJar.class);
+        this.splitServer = Tasks.register(project, "split" + spec.infix + "ServerJar", SplitJar.class);
+        this.merge = Tasks.tool(project, caches.getLocalDirectory(), "merge" + spec.infix + "Jars", MergeJars.class, mergetool);
+        this.remapNotch2Srg = Tasks.register(project, "remap" + spec.infix + "Notch2Srg", RenameJar.class, renamer);
+        this.inject = Tasks.register(project, "inject" + spec.infix + "Metadata", InjectMetadata.class);
 
         this.splitClient.configure(task -> {
-            task.dependsOn(spec.extractMcpConfig);
             spec.bindClientJar.accept(task.getSourceJar());
             task.getSrgMappingFile().value(spec.srgMapping);
             task.getSlimJar().set(spec.clientSlim);
             task.getExtraJar().set(spec.clientExtra);
         });
         this.splitServer.configure(task -> {
-            task.dependsOn(spec.extractMcpConfig);
             spec.bindServerJar.accept(task.getSourceJar());
             task.getSrgMappingFile().value(spec.srgMapping);
             task.getSlimJar().set(spec.serverSlim);
@@ -84,11 +82,7 @@ public final class MinecraftJarPipeline {
 
     public static final class Spec {
 
-        public String splitClientName;
-        public String splitServerName;
-        public String mergeName;
-        public String remapName;
-        public String injectName;
+        public String infix = "";
         public Consumer<RegularFileProperty> bindClientJar;
         public Consumer<RegularFileProperty> bindServerJar;
         public Provider<? extends RegularFile> srgMapping;
@@ -97,7 +91,6 @@ public final class MinecraftJarPipeline {
         public Provider<? extends RegularFile> exceptions;
         public Provider<String> minecraftVersion;
         public Object libraries;
-        public TaskProvider<?> extractMcpConfig;
         public Provider<? extends RegularFile> clientSlim;
         public Provider<? extends RegularFile> clientExtra;
         public Provider<? extends RegularFile> serverSlim;
