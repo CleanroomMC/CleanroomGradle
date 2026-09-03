@@ -7,6 +7,7 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Property;
+import org.gradle.api.provider.SetProperty;
 import org.gradle.api.tasks.CacheableTask;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
@@ -43,6 +44,9 @@ public abstract class StripSideOnlyJar extends DefaultTask {
     @Input
     public abstract Property<Boolean> getValidateReferences();
 
+    @Input
+    public abstract SetProperty<String> getValidatedPrefixes();
+
     @OutputFile
     public abstract RegularFileProperty getOutputJar();
 
@@ -59,7 +63,8 @@ public abstract class StripSideOnlyJar extends DefaultTask {
                 this.getInputJar().get().getAsFile().toPath(),
                 this.getOutputJar().get().getAsFile().toPath(),
                 side,
-                this.getValidateReferences().get());
+                this.getValidateReferences().get(),
+                this.getValidatedPrefixes().get());
         this.getLogger().lifecycle(
                 "Built {} jar: removed {} classes, {} fields, {} methods. Cleared {} @SideOnly annotations",
                 side.name().toLowerCase(), result.classesRemoved(), result.fieldsRemoved(),

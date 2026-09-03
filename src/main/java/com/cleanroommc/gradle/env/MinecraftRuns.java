@@ -34,6 +34,7 @@ public final class MinecraftRuns {
         task.environment("MCP_VERSION", env.mcpVersion);
         task.environment("MCP_MAPPINGS", env.mcpMappings);
         task.environment("MCP_TO_SRG", env.srgToMcp);
+        task.dependsOn(env.srgToMcp);
         task.environment("FORGE_GROUP", env.forgeGroup);
         task.environment("FORGE_VERSION", env.forgeVersion);
         if (env.client) {

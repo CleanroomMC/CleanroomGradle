@@ -240,11 +240,13 @@ public final class DistributionTasks {
         this.stripClientMinecraftJar.configure(task -> {
             task.getInputJar().set(this.reobfMinecraftJar.flatMap(RenameJar::getOutput));
             task.getTargetSide().set(Side.CLIENT);
+            task.getValidatedPrefixes().add(Meta.MINECRAFT_PACKAGE_PATH);
             task.getOutputJar().set(caches.getLocalDirectory().file("dist/reobf/minecraft-client.jar"));
         });
         this.stripServerMinecraftJar.configure(task -> {
             task.getInputJar().set(this.reobfMinecraftJar.flatMap(RenameJar::getOutput));
             task.getTargetSide().set(Side.SERVER);
+            task.getValidatedPrefixes().add(Meta.MINECRAFT_PACKAGE_PATH);
             task.getOutputJar().set(caches.getLocalDirectory().file("dist/reobf/minecraft-server.jar"));
         });
         this.genBinPatches.configure(task -> {

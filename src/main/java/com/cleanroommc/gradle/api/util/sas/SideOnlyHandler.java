@@ -196,6 +196,11 @@ public final class SideOnlyHandler {
     }
 
     public static TransformResult strip(Path input, Path output, Side targetSide, boolean validateReferences) throws IOException {
+        return strip(input, output, targetSide, validateReferences, Set.of());
+    }
+
+    public static TransformResult strip(Path input, Path output, Side targetSide, boolean validateReferences,
+            Collection<String> validatedPrefixes) throws IOException {
         var entries = readArchive(input);
         var classes = new TreeMap<String, ClassNode>();
         for (var entry : entries.entrySet()) {
@@ -279,7 +284,7 @@ public final class SideOnlyHandler {
         }
 
         if (validateReferences) {
-            validateNoRemovedReferences(entries, removedClasses, removedFields, removedMethods, targetSide);
+            validateNoRemovedReferences(entries, removedClasses, removedFields, removedMethods, targetSide, validatedPrefixes);
         }
         writeArchive(output, entries);
         return new TransformResult(removedClasses.size(), fieldsRemoved, methodsRemoved, annotationsRemoved);
@@ -513,10 +518,11 @@ public final class SideOnlyHandler {
     }
 
     private static void validateNoRemovedReferences(Map<String, byte[]> entries, Set<String> removedClasses,
-            Set<FieldKey> removedFields, Set<MethodKey> removedMethods, Side targetSide) {
+            Set<FieldKey> removedFields, Set<MethodKey> removedMethods, Side targetSide,
+            Collection<String> validatedPrefixes) {
         var errors = new TreeSet<String>();
         for (var entry : entries.entrySet()) {
-            if (!entry.getKey().endsWith(".class")) {
+            if (!entry.getKey().endsWith(".class") || !isValidated(entry.getKey(), validatedPrefixes)) {
                 continue;
             }
             var node = readClass(entry.getValue());
@@ -579,6 +585,18 @@ public final class SideOnlyHandler {
                     + " jar: retained bytecode references classes removed by @SideOnly:\n  "
                     + String.join("\n  ", shown) + suffix);
         }
+    }
+
+    private static boolean isValidated(String entryName, Collection<String> validatedPrefixes) {
+        if (validatedPrefixes.isEmpty()) {
+            return true;
+        }
+        for (var prefix : validatedPrefixes) {
+            if (entryName.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void checkFrame(String location, List<Object> values, Set<String> removed, Set<String> errors) {

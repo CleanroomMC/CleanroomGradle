@@ -1,9 +1,9 @@
 package com.cleanroommc.gradle.api.util;
 
+import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.Dependency;
-import org.gradle.api.artifacts.DependencySet;
 import org.gradle.api.artifacts.dsl.DependencyFactory;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.provider.ListProperty;
@@ -74,27 +74,14 @@ public final class LwjglNatives {
                 project.getConfigurations().getByName(CONFIGURATION_NAME), List.of(classifier));
     }
 
-    public static Provider<List<String>> publishedCoordinates(Project project, ListProperty<String> classifiers) {
-        return project.getConfigurations().named(CONFIGURATION_NAME).map(config -> config.getAllDependencies().stream()
-                .filter(dependency -> dependency.getGroup() != null)
-                .flatMap(dependency -> classifiers.get().stream()
-                        .map(classifier -> dependency.getGroup() + ":" + dependency.getName() + ":" + classifier))
-                .toList()
-        );
-    }
-
-    public static boolean isForCurrentPlatform(String notation) {
-        var parts = notation.split(":");
-        if (parts.length < 4) {
-            return true;
-        }
-        var classifier = parts[3];
-        return !classifier.startsWith(CLASSIFIER_PREFIX) || classifier.equals(Platform.CURRENT.lwjglNativesClassifier());
-    }
-
     private static void create(DependencyFactory factory, Collection<Dependency> target, Configuration declared, List<String> classifiers) {
         for (var dependency : declared.getAllDependencies()) {
-            var version = dependency.getVersion() == null ? "" : dependency.getVersion();
+            if (dependency.getVersion() == null || dependency.getVersion().isBlank()) {
+                throw new InvalidUserDataException(dependency.getGroup() + ":" + dependency.getName()
+                        + " is declared in " + CONFIGURATION_NAME + " without a version. Native classifiers are"
+                        + " published one variant each, and a platform does not travel with them.");
+            }
+            var version = dependency.getVersion();
             for (var classifier : classifiers) {
                 var notation = "%s:%s:%s:%s".formatted(dependency.getGroup(), dependency.getName(), version, classifier);
                 var created = factory.create(notation);
