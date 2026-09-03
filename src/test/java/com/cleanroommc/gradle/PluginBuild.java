@@ -2,9 +2,13 @@ package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.api.util.IO;
 import org.gradle.testkit.runner.GradleRunner;
+import org.gradle.tooling.GradleConnector;
+import org.gradle.tooling.model.idea.IdeaProject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -136,6 +140,25 @@ final class PluginBuild {
         return runner;
     }
 
+    IdeaModel ideaModel(String... args) {
+        var allArgs = new ArrayList<>(Arrays.asList(args));
+        allArgs.add("--configuration-cache");
+        allArgs.add("--configuration-cache-problems=fail");
+        var output = new ByteArrayOutputStream();
+        try (var connection = GradleConnector.newConnector()
+                .useInstallation(new File(System.getProperty("test.gradle.home")))
+                .useGradleUserHomeDir(new File(System.getProperty("testkit.gradle.user.home")))
+                .forProjectDirectory(this.projectDir.toFile())
+                .connect()) {
+            var model = connection.model(IdeaProject.class)
+                    .withArguments(allArgs.toArray(String[]::new))
+                    .setStandardOutput(output)
+                    .setStandardError(output)
+                    .get();
+            return new IdeaModel(model, output.toString(StandardCharsets.UTF_8));
+        }
+    }
+
     void assertProblem(String problemId) throws IOException {
         var report = this.projectDir.resolve("build/reports/problems/problems-report.html");
         assertTrue(Files.isRegularFile(report), "Gradle Problems report was not generated");
@@ -159,5 +182,7 @@ final class PluginBuild {
         assertTrue(output.contains("Reusing configuration cache"),
                 () -> "configuration cache was not reused:\n" + output);
     }
+
+    record IdeaModel(IdeaProject value, String output) { }
 
 }

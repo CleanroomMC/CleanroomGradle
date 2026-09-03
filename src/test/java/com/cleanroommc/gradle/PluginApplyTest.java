@@ -1,29 +1,16 @@
 package com.cleanroommc.gradle;
 
 import org.gradle.testkit.runner.TaskOutcome;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class PluginApplyTest {
-
-    @TempDir
-    Path projectDir;
-
-    private PluginBuild project;
-
-    @BeforeEach
-    void setup() throws IOException {
-        this.project = new PluginBuild(this.projectDir).settings();
-    }
+class PluginApplyTest extends BaseFunctionalTest {
 
     @Test
     void appliesLazily() throws IOException {

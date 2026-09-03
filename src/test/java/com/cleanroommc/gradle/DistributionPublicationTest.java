@@ -3,13 +3,10 @@ package com.cleanroommc.gradle;
 import com.cleanroommc.gradle.api.util.Platform;
 import org.apache.commons.lang3.StringUtils;
 import org.gradle.testkit.runner.TaskOutcome;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
@@ -20,17 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The installer and the MMC pack have to travel with the rest of the distribution, and a userdev workspace
  * has to be able to ask the published module for {@code :userdev} and {@code :sources}.
  */
-class DistributionPublicationTest {
-
-    @TempDir
-    Path projectDir;
-
-    private PluginBuild project;
-
-    @BeforeEach
-    void setup() throws IOException {
-        this.project = new PluginBuild(this.projectDir).settings();
-    }
+class DistributionPublicationTest extends BaseFunctionalTest {
 
     @Test
     void userdevIsPublishedAsItsOwnModule() throws IOException {
@@ -144,6 +131,29 @@ class DistributionPublicationTest {
 
         var output = this.project.plainRunner("help", "--offline").build().getOutput();
         assertTrue(output.contains("BUILD SUCCESSFUL"), output);
+    }
+
+    /**
+     * A platform on the compile classpath cannot version the natives variants, and a consumer that
+     * resolves a coordinate without one gets an unresolvable dependency rather than a build failure here.
+     */
+    @Test
+    void nativesWithoutAVersionAreRejected() throws IOException {
+        this.project.loader("""
+                group = 'com.cleanroommc'
+                version = '0.1.0'
+                dependencies {
+                    lwjglNative 'org.lwjgl:lwjgl'
+                }
+                // The natives sets are built on demand, the same way publishing realizes them
+                tasks.register('realizeNatives') {
+                    def natives = configurations.cleanroomUserdevNativesLinuxElements
+                    doLast { natives.allDependencies.toList() }
+                }
+                """);
+
+        var output = this.project.plainRunner("realizeNatives", "--offline").buildAndFail().getOutput();
+        assertTrue(output.contains("org.lwjgl:lwjgl is declared in lwjglNative without a version"), output);
     }
 
     private static String capitalized(String classifier) {

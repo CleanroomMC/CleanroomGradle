@@ -74,4 +74,13 @@ class ResolvedLibrariesTest {
                 () -> ResolvedLibraries.isExcluded(patchy, Set.of("com.mojang")));
     }
 
+    @Test
+    void mergeNativesPinsPlatformVariantsToSelectedVersions() {
+        var merged = ResolvedLibraries.mergeNatives(
+                java.util.List.of("com.mojang:patchy:1.3.9", "net.java.jinput:jinput:2.0.5"),
+                java.util.List.of("com.mojang:patchy:natives-linux", "unknown:lib:natives-linux"));
+        assertEquals(java.util.List.of("com.mojang:patchy:1.3.9", "net.java.jinput:jinput:2.0.5",
+                "com.mojang:patchy:1.3.9:natives-linux"), merged);
+    }
+
 }

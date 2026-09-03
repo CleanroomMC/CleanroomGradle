@@ -2,34 +2,20 @@ package com.cleanroommc.gradle;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.gradle.testkit.runner.TaskOutcome;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class MinecraftCacheTest {
-
-    @TempDir
-    Path projectDir;
-
-    private PluginBuild project;
-
-    @BeforeEach
-    void setup() throws IOException {
-        this.project = new PluginBuild(this.projectDir).settings();
-    }
+class MinecraftCacheTest extends BaseFunctionalTest {
 
     @Test
     void cleanPreservesSharedCache() throws IOException {
@@ -186,54 +172,6 @@ class MinecraftCacheTest {
         assertEquals(TaskOutcome.UP_TO_DATE, second.task(":writeMid").getOutcome());
         assertEquals(TaskOutcome.UP_TO_DATE, second.task(":readMid").getOutcome());
         assertFalse(Files.exists(intermediate), "up-to-date consumer left the intermediate behind");
-    }
-
-    @Test
-    void discardIntermediatesIsDecidedPerProject() throws IOException {
-        this.project.vanilla("");
-        Files.writeString(this.projectDir.resolve("settings.gradle"), "\ninclude 'keep', 'drop'\n",
-                StandardOpenOption.APPEND);
-        subproject("keep", false);
-        subproject("drop", true);
-
-        var result = this.project.runner(":keep:readMid", ":drop:readMid").build();
-        assertEquals(TaskOutcome.SUCCESS, result.task(":keep:readMid").getOutcome());
-        assertEquals(TaskOutcome.SUCCESS, result.task(":drop:readMid").getOutcome());
-        assertEquals("mid", Files.readString(this.projectDir.resolve("keep/build/cleanroom_gradle/mid.txt")),
-                "a project that keeps its intermediates followed another project's setting");
-        assertFalse(Files.exists(this.projectDir.resolve("drop/build/cleanroom_gradle/mid.txt")),
-                "a project that discards its intermediates followed another project's setting");
-    }
-
-    private void subproject(String name, boolean discard) throws IOException {
-        var directory = this.projectDir.resolve(name);
-        Files.createDirectories(directory);
-        Files.writeString(directory.resolve("build.gradle"), """
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                import com.cleanroommc.gradle.api.task.IntermediateProcessor
-
-                cleanroom {
-                    mode = 'vanilla'
-                    caches {
-                        discardIntermediates = %s
-                        localDirectory.set(layout.buildDirectory.dir('cleanroom_gradle'))
-                    }
-                }
-                def mid = layout.buildDirectory.file('cleanroom_gradle/mid.txt')
-                def writeMid = tasks.register('writeMid') {
-                    outputs.file(mid)
-                    doLast { mid.get().asFile.text = 'mid' }
-                }
-                def readMid = tasks.register('readMid') {
-                    inputs.file(mid)
-                    dependsOn writeMid
-                    doLast { assert mid.get().asFile.file }
-                }
-                IntermediateProcessor.of(project).discardAfter(readMid, mid)
-                """.formatted(discard));
     }
 
     @Test

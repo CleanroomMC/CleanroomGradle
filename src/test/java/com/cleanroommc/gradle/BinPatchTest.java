@@ -1,9 +1,7 @@
 package com.cleanroommc.gradle;
 
 import org.gradle.testkit.runner.TaskOutcome;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -18,17 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-class BinPatchTest {
-
-    @TempDir
-    Path projectDir;
-
-    private PluginBuild project;
-
-    @BeforeEach
-    void setup() throws IOException {
-        this.project = new PluginBuild(this.projectDir).settings();
-    }
+class BinPatchTest extends BaseFunctionalTest {
 
     @Test
     void roundTripPreservesJarContents() throws IOException {

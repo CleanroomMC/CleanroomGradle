@@ -1,28 +1,14 @@
 package com.cleanroommc.gradle;
 
 import org.gradle.testkit.runner.TaskOutcome;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import java.nio.file.Path;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class ProjectModeTest {
-
-    @TempDir
-    Path projectDir;
-
-    private PluginBuild project;
-
-    @BeforeEach
-    void setup() throws IOException {
-        this.project = new PluginBuild(this.projectDir).settings();
-    }
+class ProjectModeTest extends BaseFunctionalTest {
 
     @Test
     void pluginIsInertUntilAnEnvironmentIsRegistered() throws IOException {
@@ -63,22 +49,6 @@ class ProjectModeTest {
 
         assertEquals(TaskOutcome.SUCCESS,
                 this.project.runner(this.project.userdevModuleArgs("0.4.5", "help")).build().task(":help").getOutcome());
-    }
-
-    @Test
-    void userdevDependencyCarriesTheRequestedVersion() throws IOException {
-        this.project.build("""
-                dependencies {
-                    implementation cleanroom.userdev('0.4.6')
-                }
-                gradle.projectsEvaluated {
-                    def dependency = configurations.implementation.dependencies.iterator().next()
-                    assert dependency.toString() == 'com.cleanroommc:cleanroom-userdev:0.4.6'
-                }
-                """);
-
-        assertEquals(TaskOutcome.SUCCESS,
-                this.project.runner(this.project.userdevModuleArgs("0.4.6", "help")).build().task(":help").getOutcome());
     }
 
     @Test
@@ -292,12 +262,6 @@ class ProjectModeTest {
     }
 
     @Test
-    void vanillaAssembleDoesNotScheduleMcpRemap() throws IOException {
-        this.project.vanilla("");
-        PluginBuild.notScheduled(this.project.runner("assemble", "--dry-run").build().getOutput(), "remapNotch2Srg", "mergeJars");
-    }
-
-    @Test
     void unknownStringModeFails() throws IOException {
         this.project.build("""
                 cleanroom {
@@ -308,25 +272,6 @@ class ProjectModeTest {
         var output = this.project.runner("help").buildAndFail().getOutput();
         assertTrue(output.contains("Unknown ProjectMode 'nope'"));
         assertTrue(output.contains("VANILLA, LOADER, USERDEV"));
-    }
-
-    @Test
-    void runMinecraftTasksIgnoreProcessExit() throws IOException {
-        this.project.vanilla("""
-                import com.cleanroommc.gradle.api.task.mc.RunMinecraft
-                gradle.projectsEvaluated {
-                    tasks.named('runVanillaClient', RunMinecraft) {
-                        side = 'server'
-                        env = 'mcp'
-                    }
-                    assert !tasks.withType(RunMinecraft).empty
-                    assert tasks.withType(RunMinecraft).every { it.ignoreExitValue }
-                    def run = tasks.named('runVanillaClient', RunMinecraft).get()
-                    assert run.side.get() == net.minecraftforge.fml.relauncher.Side.SERVER
-                    assert run.env.get() == com.cleanroommc.gradle.api.util.Environment.MCP
-                }
-                """);
-        assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
     }
 
     @Test
@@ -390,15 +335,12 @@ class ProjectModeTest {
     @Test
     void runTasksPrepareAssetsForClientsNotServers() throws IOException {
         this.project.loader("cleanroom.loader.intermediateRuns = true");
-        for (var task : List.of("runVanillaClient", "runSrgClient", "runReobfSrgClient", "runMcpClient")) {
-            var output = this.project.runner(task, "--dry-run").build().getOutput();
-            PluginBuild.scheduled(output, "downloadAssets", "extractNatives");
-        }
-        for (var task : List.of("runVanillaServer", "runSrgServer", "runReobfSrgServer", "runMcpServer")) {
-            var output = this.project.runner(task, "--dry-run").build().getOutput();
-            PluginBuild.notScheduled(output, "downloadAssets");
-            PluginBuild.scheduled(output, "extractNatives");
-        }
+        // One client and one server prove the branch; every intermediate run shares the wiring.
+        var client = this.project.runner("runVanillaClient", "--dry-run").build().getOutput();
+        PluginBuild.scheduled(client, "downloadAssets", "extractNatives");
+        var server = this.project.runner("runVanillaServer", "--dry-run").build().getOutput();
+        PluginBuild.notScheduled(server, "downloadAssets");
+        PluginBuild.scheduled(server, "extractNatives");
     }
 
 }

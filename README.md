@@ -170,7 +170,9 @@ dependencies {
 ```
 
 If the replacement has a different command line, configure the corresponding `MavenJarExec` task with `useDefaultToolArguments = false`, `mainClass`, and `args`.
-These overrides apply while producing the loader and distributions. A published userdev artifact records its exact source-producing tool coordinates, and consuming workspaces resolve those coordinates from spec 1.
+These overrides apply in every mode.
+
+A published userdev artifact records its exact source-producing tool coordinates.
 
 
 ## Diagnostics

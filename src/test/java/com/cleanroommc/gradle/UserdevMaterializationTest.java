@@ -2,9 +2,7 @@ package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import org.gradle.testkit.runner.GradleRunner;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -28,17 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Everything between them, binpatching, splitting, metadata injection and archive assembly, is the real
  * pipeline, so this is what proves a published artifact is enough to rebuild a workspace from.
  */
-class UserdevMaterializationTest {
-
-    @TempDir
-    Path projectDir;
-
-    private PluginBuild project;
-
-    @BeforeEach
-    void setup() throws IOException {
-        this.project = new PluginBuild(this.projectDir).settings();
-    }
+class UserdevMaterializationTest extends BaseFunctionalTest {
 
     @Test
     void materializesClassesSourcesAndExtras() throws IOException {

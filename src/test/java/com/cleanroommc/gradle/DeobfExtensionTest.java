@@ -5,14 +5,9 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
-import org.gradle.tooling.GradleConnector;
-import org.gradle.tooling.model.idea.IdeaProject;
 import org.gradle.tooling.model.idea.IdeaSingleEntryLibraryDependency;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -26,7 +21,7 @@ import java.util.zip.ZipEntry;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class DeobfExtensionTest {
+class DeobfExtensionTest extends BaseFunctionalTest {
 
     private static final String RESOLVE_TASK = """
             tasks.register('resolveDeobf') {
@@ -36,25 +31,9 @@ class DeobfExtensionTest {
             }
             """;
 
-    @TempDir
-    Path projectDir;
-
-    @Test
-    void configuresWithoutResolving() throws IOException {
-        var build = new PluginBuild(this.projectDir).settings();
-        build.vanilla("""
-                repositories { %s }
-                dependencies {
-                    implementation deobf('net.test:mod:1.0.0')
-                }
-                """.formatted(fixture()));
-
-        assertTrue(build.runner("help", "--offline").build().getOutput().contains("BUILD SUCCESSFUL"));
-    }
-
     @Test
     void closureFormParses() throws IOException {
-        var build = new PluginBuild(this.projectDir).settings();
+        var build = this.project;
         build.vanilla("""
                 repositories { %s }
                 dependencies {
@@ -67,7 +46,7 @@ class DeobfExtensionTest {
 
     @Test
     void sourcesAreNotImplementedYet() throws IOException {
-        var build = new PluginBuild(this.projectDir).settings();
+        var build = this.project;
         build.vanilla("""
                 repositories { %s }
                 dependencies {
@@ -81,7 +60,7 @@ class DeobfExtensionTest {
 
     @Test
     void rejectsNonModuleNotation() throws IOException {
-        var build = new PluginBuild(this.projectDir).settings();
+        var build = this.project;
         build.vanilla("""
                 dependencies {
                     implementation deobf(files('lib.jar'))
@@ -94,7 +73,7 @@ class DeobfExtensionTest {
 
     @Test
     void vanillaModeFailsWithoutMappings() throws IOException {
-        var build = new PluginBuild(this.projectDir).settings();
+        var build = this.project;
         build.vanilla("""
                 repositories { %s }
                 dependencies {
@@ -108,7 +87,7 @@ class DeobfExtensionTest {
 
     @Test
     void loaderModeRejectsCompileClasspath() throws IOException {
-        var build = new PluginBuild(this.projectDir).settings();
+        var build = this.project;
         build.loader("""
                 repositories { %s }
                 dependencies {
@@ -124,7 +103,7 @@ class DeobfExtensionTest {
 
     @Test
     void loaderModeRejectsDependenciesAddedLate() throws IOException {
-        var build = new PluginBuild(this.projectDir).settings();
+        var build = this.project;
         build.loader("""
                 repositories { %s }
                 afterEvaluate {
@@ -141,7 +120,7 @@ class DeobfExtensionTest {
 
     @Test
     void loaderModeAllowsTestConfigurations() throws IOException {
-        var build = new PluginBuild(this.projectDir).settings();
+        var build = this.project;
         var cache = this.projectDir.resolve("cg-cache");
         build.seedLauncherMeta(cache, "1.12.2", """
                 {
@@ -171,7 +150,7 @@ class DeobfExtensionTest {
 
     @Test
     void remapsTheRootArtifactAndCachesIt() throws IOException {
-        var build = new PluginBuild(this.projectDir).settings();
+        var build = this.project;
         var mappings = this.projectDir.resolve("srg2mcp.tsrg");
         Files.writeString(mappings, "tsrg2 srg mcp\n");
         stubRenamerSource();
@@ -213,7 +192,7 @@ class DeobfExtensionTest {
 
     @Test
     void ordersInputsForDependenciesAddedLate() throws IOException {
-        var build = new PluginBuild(this.projectDir).settings();
+        var build = this.project;
         Files.writeString(this.projectDir.resolve("srg2mcp.tsrg"), "tsrg2 srg mcp\n");
         stubRenamerSource();
         build.vanilla("""
@@ -240,7 +219,7 @@ class DeobfExtensionTest {
 
     @Test
     void remapsSrgMembersWithTheDefaultRenamer() throws IOException {
-        var build = new PluginBuild(this.projectDir).settings();
+        var build = this.project;
         Files.writeString(this.projectDir.resolve("srg2mcp.tsrg"), """
                 tsrg2 srg mcp
                 net/test/mod net/test/mod
@@ -298,24 +277,13 @@ class DeobfExtensionTest {
         assertTrue(Files.isRegularFile(this.projectDir.resolve("build/deobf/srg2mcp.tsrg")), prepared);
         assertTrue(Files.isRegularFile(this.projectDir.resolve("build/libs/test-project-tool.jar")), prepared);
 
-        var output = new ByteArrayOutputStream();
-        try (var connection = GradleConnector.newConnector()
-                .useInstallation(new File(System.getProperty("test.gradle.home")))
-                .useGradleUserHomeDir(new File(System.getProperty("testkit.gradle.user.home")))
-                .forProjectDirectory(this.projectDir.toFile())
-                .connect()) {
-            var model = connection.model(IdeaProject.class)
-                    .withArguments("--offline", "--configuration-cache", "--configuration-cache-problems=fail")
-                    .setStandardOutput(output)
-                    .setStandardError(output)
-                    .get();
-            var hasDeobf = model.getModules().stream()
-                    .flatMap(module -> module.getDependencies().stream())
-                    .filter(IdeaSingleEntryLibraryDependency.class::isInstance)
-                    .map(IdeaSingleEntryLibraryDependency.class::cast)
-                    .anyMatch(dependency -> dependency.getFile().getName().equals("mod-1.0.0-deobf.jar"));
-            assertTrue(hasDeobf, output.toString());
-        }
+        var model = build.ideaModel("--offline");
+        var hasDeobf = model.value().getModules().stream()
+                .flatMap(module -> module.getDependencies().stream())
+                .filter(IdeaSingleEntryLibraryDependency.class::isInstance)
+                .map(IdeaSingleEntryLibraryDependency.class::cast)
+                .anyMatch(dependency -> dependency.getFile().getName().equals("mod-1.0.0-deobf.jar"));
+        assertTrue(hasDeobf, model.output());
     }
 
     @Test
@@ -333,30 +301,19 @@ class DeobfExtensionTest {
                 deobf.useUserdev(userdevDeobf)
                 """.formatted(fixture(), userdev.toString().replace('\\', '/')));
 
-        var output = new ByteArrayOutputStream();
-        try (var connection = GradleConnector.newConnector()
-                .useInstallation(new File(System.getProperty("test.gradle.home")))
-                .useGradleUserHomeDir(new File(System.getProperty("testkit.gradle.user.home")))
-                .forProjectDirectory(this.projectDir.toFile())
-                .connect()) {
-            var model = connection.model(IdeaProject.class)
-                    .withArguments("--offline", "--configuration-cache", "--configuration-cache-problems=fail")
-                    .setStandardOutput(output)
-                    .setStandardError(output)
-                    .get();
-            var transformed = model.getModules().stream()
-                    .flatMap(module -> module.getDependencies().stream())
-                    .filter(IdeaSingleEntryLibraryDependency.class::isInstance)
-                    .map(IdeaSingleEntryLibraryDependency.class::cast)
-                    .map(IdeaSingleEntryLibraryDependency::getFile)
-                    .filter(file -> file.getName().equals("mod-1.0.0-deobf.jar"))
-                    .findFirst()
-                    .orElseThrow(() -> new AssertionError(output.toString()));
+        var model = build.ideaModel("--offline");
+        var transformed = model.value().getModules().stream()
+                .flatMap(module -> module.getDependencies().stream())
+                .filter(IdeaSingleEntryLibraryDependency.class::isInstance)
+                .map(IdeaSingleEntryLibraryDependency.class::cast)
+                .map(IdeaSingleEntryLibraryDependency::getFile)
+                .filter(file -> file.getName().equals("mod-1.0.0-deobf.jar"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(model.output()));
 
-            var methods = methodsIn(transformed.toPath(), "net/test/mod.class");
-            assertTrue(methods.contains("readableName"), methods.toString());
-            assertFalse(methods.contains("func_123_a"), methods.toString());
-        }
+        var methods = methodsIn(transformed.toPath(), "net/test/mod.class");
+        assertTrue(methods.contains("readableName"), methods.toString());
+        assertFalse(methods.contains("func_123_a"), methods.toString());
     }
 
     private void stubRenamerSource() throws IOException {

@@ -20,12 +20,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
@@ -91,6 +93,37 @@ class SideOnlyHandlerTest {
         var entries = readJar(output);
         assertTrue(entries.containsKey("demo/Host.class"));
         assertTrue(entries.containsKey("demo/Host$1.class"));
+    }
+
+    @Test
+    void stripValidatesOnlyTheEntriesItIsPointedAt() throws Exception {
+        var input = directory.resolve("in.jar");
+        writeJar(input, Map.of(
+                "loader/Host.class", hostWithSideOnlyFactory("loader/Host", "demo/Client", null),
+                "demo/Client.class", sideOnlyClass("demo/Client", null, null, Side.CLIENT)
+        ));
+
+        assertThrows(IllegalStateException.class,
+                () -> SideOnlyHandler.strip(input, directory.resolve("all.jar"), Side.SERVER, true));
+
+        var output = directory.resolve("scoped.jar");
+        SideOnlyHandler.strip(input, output, Side.SERVER, true, List.of("net/minecraft/"));
+
+        var entries = readJar(output);
+        assertTrue(entries.containsKey("loader/Host.class"));
+        assertFalse(entries.containsKey("demo/Client.class"));
+    }
+
+    @Test
+    void stripStillValidatesEntriesInsideThePrefix() throws Exception {
+        var input = directory.resolve("in.jar");
+        writeJar(input, Map.of(
+                "net/minecraft/Host.class", hostWithSideOnlyFactory("net/minecraft/Host", "demo/Client", null),
+                "demo/Client.class", sideOnlyClass("demo/Client", null, null, Side.CLIENT)
+        ));
+
+        assertThrows(IllegalStateException.class, () -> SideOnlyHandler.strip(
+                input, directory.resolve("out.jar"), Side.SERVER, true, List.of("net/minecraft/")));
     }
 
     private static byte[] outerWithNest(String owner, String inner) {

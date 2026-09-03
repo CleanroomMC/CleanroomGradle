@@ -4,27 +4,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
-import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Quitting the game has to leave the build green, crashing has to fail it.
  */
-class RunMinecraftTest {
-
-    @TempDir
-    Path projectDir;
-
-    private PluginBuild project;
+class RunMinecraftTest extends BaseFunctionalTest {
 
     @BeforeEach
-    void setup() throws IOException {
-        this.project = new PluginBuild(this.projectDir).settings();
+    void setupExiter() throws IOException {
         var source = this.projectDir.resolve("src/exiter/java/exiter");
         Files.createDirectories(source);
         Files.writeString(source.resolve("Exiter.java"), """
@@ -63,16 +57,10 @@ class RunMinecraftTest {
                 """.formatted(name, exitCode));
     }
 
-    @Test
-    void quittingSucceeds() throws IOException {
-        runTask("runExit", 0);
-        this.project.runner("runExit").build();
-    }
-
-    @Test
-    void beingStoppedBySignalSucceeds() throws IOException {
-        // 128 + SIGINT, what a user pressing stop leaves behind
-        runTask("runExit", 130);
+    @ParameterizedTest
+    @ValueSource(ints = {0, 130, 143})
+    void normalAndSignalledStopsSucceed(int exitCode) throws IOException {
+        runTask("runExit", exitCode);
         this.project.runner("runExit").build();
     }
 
@@ -84,19 +72,12 @@ class RunMinecraftTest {
         this.project.runner("runExit").build();
     }
 
-    @Test
-    void beingKilledFails() throws IOException {
-        // 128 + SIGKILL, what an out-of-memory killer leaves behind
-        runTask("runExit", 137);
+    @ParameterizedTest
+    @ValueSource(ints = {1, 137})
+    void crashesAndForcedKillsFail(int exitCode) throws IOException {
+        runTask("runExit", exitCode);
         var failure = this.project.runner("runExit").buildAndFail().getOutput();
-        assertTrue(failure.contains("Minecraft crashed (exit code 137)"), failure);
-    }
-
-    @Test
-    void crashingFails() throws IOException {
-        runTask("runExit", 1);
-        var failure = this.project.runner("runExit").buildAndFail().getOutput();
-        assertTrue(failure.contains("Minecraft crashed (exit code 1)"), failure);
+        assertTrue(failure.contains("Minecraft crashed (exit code " + exitCode + ")"), failure);
     }
 
 }
