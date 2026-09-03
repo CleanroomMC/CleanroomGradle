@@ -1,5 +1,6 @@
 package com.cleanroommc.gradle.env;
 
+import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.cleanroommc.gradle.api.util.Objects;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
@@ -84,9 +85,17 @@ public final class ToolConfigs {
             config.setCanBeConsumed(false);
             config.setCanBeResolved(true);
             config.setDescription("Classpath for the " + name + " tool");
-            config.defaultDependencies(deps -> deps.add(factory.create(defaultNotation)));
+            config.defaultDependencies(deps -> deps.add(factory.create(notation(project, name, defaultNotation))));
             config.getResolutionStrategy().force((Object[]) PINNED_ASM_MODULES);
         });
+    }
+
+    private static String notation(Project project, String name, String defaultNotation) {
+        var userdev = CleanroomExtension.get(project).getRegisteredUserdev();
+        if (!SOURCE_TOOLS.contains(name) || !userdev.isPresent()) {
+            return defaultNotation;
+        }
+        return userdev.get().getConfig().get().inputs().tools().get(name);
     }
 
     private static String asmVersion() {

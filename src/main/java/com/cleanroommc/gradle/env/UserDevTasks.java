@@ -226,9 +226,9 @@ public final class UserDevTasks {
         dependencies.getArtifactTypes().named(ArtifactTypeDefinition.JAR_TYPE, type ->
                 type.getAttributes().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW));
         var deobf = project.getExtensions().getByType(DeobfExtension.class);
-        var accessTransformer = artifactTool(project, userdev, "accesstransformer");
-        var mergeTool = artifactTool(project, userdev, "mergetool");
-        var decompiler = artifactTool(project, userdev, "decompiler");
+        var accessTransformer = ToolConfigs.get(project, "accesstransformer");
+        var mergeTool = ToolConfigs.get(project, "mergetool");
+        var decompiler = ToolConfigs.get(project, "decompiler");
         dependencies.registerTransform(MaterializeUserdevClasses.class, transform -> {
             transform.getFrom().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW)
                     .attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES)
@@ -265,19 +265,6 @@ public final class UserDevTasks {
                 transform.getParameters().getSide().set(side);
             });
         }
-    }
-
-    private static Configuration artifactTool(Project project, UserdevDependency userdev, String name) {
-        var configuration = Objects.config(project, "_cleanroomUserdevTool" + Character.toUpperCase(name.charAt(0))
-                + name.substring(1), "Internal artifact-owned " + name + " tool classpath.");
-        project.getDependencies().addProvider(configuration.getName(), userdev.getConfig().map(config -> {
-            var notation = config.inputs().tools().get(name);
-            if (notation == null || notation.isBlank()) {
-                throw new IllegalStateException("Cleanroom userdev spec 1 is missing inputs.tools." + name + ".");
-            }
-            return notation;
-        }));
-        return configuration.get();
     }
 
 }
