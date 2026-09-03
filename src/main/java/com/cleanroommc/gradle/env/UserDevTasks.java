@@ -15,6 +15,7 @@ import com.cleanroommc.gradle.api.userdev.UserdevDependency;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.Platform;
+import org.apache.commons.lang3.StringUtils;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.renamer.gradle.RenameJar;
 import net.minecraftforge.renamer.gradle.RenamerExtension;
@@ -150,8 +151,8 @@ public final class UserDevTasks {
     private static NamedDomainObjectProvider<Configuration> sideConfiguration(Project project,
                                                                                UserdevDependency userdev,
                                                                                String role) {
-        var configuration = Objects.config(project, "_cleanroomUserdev" + Character.toUpperCase(role.charAt(0))
-                + role.substring(1).replace("-", ""), "Internal " + role + " userdev resources.");
+        var configuration = Objects.config(project, "_cleanroomUserdev" + capitalized(role),
+                "Internal " + role + " userdev resources.");
         configuration.configure(value -> value.attributes(attributes -> {
             attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED);
             attributes.attribute(UserdevAttributes.ROLE, role);
@@ -218,6 +219,14 @@ public final class UserDevTasks {
             attributes.attribute(UserdevAttributes.ROLE, role);
         });
         return dependency;
+    }
+
+    private static String capitalized(String role) {
+        var name = new StringBuilder();
+        for (var part : role.split("-")) {
+            name.append(StringUtils.capitalize(part));
+        }
+        return name.toString();
     }
 
     public static void registerTransforms(Project project, UserdevDependency userdev, CachesExtension caches,
