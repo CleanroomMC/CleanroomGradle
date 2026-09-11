@@ -81,6 +81,12 @@ public abstract class CleanroomExtension {
 
     public abstract NamedDomainObjectContainer<VanillaEnvironment> getVanilla();
 
+    public abstract NamedDomainObjectContainer<RunConfiguration> getRuns();
+
+    public void runs(Action<? super NamedDomainObjectContainer<RunConfiguration>> action) {
+        action.execute(getRuns());
+    }
+
     @Inject
     public CleanroomExtension(Project project, ObjectFactory objects) {
         this.project = project;

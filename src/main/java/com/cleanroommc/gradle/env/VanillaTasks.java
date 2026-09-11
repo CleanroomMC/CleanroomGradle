@@ -264,9 +264,9 @@ public final class VanillaTasks {
                 this.versionCacheDirectory.map(dir -> dir.dir("natives/" + spec.cacheName())));
         this.remapClientToOfficial = Tasks.register(project, remapClientName, RenameJar.class, project.getExtensions().getByType(RenamerExtension.class));
         this.decompileVersion = Tasks.tool(project, caches.getLocalDirectory(), decompileName, Decompile.class, decompiler);
-        this.runVanillaClient = Tasks.register(project, runClientName, RunMinecraft.class);
-        this.runVanillaServer = Tasks.register(project, runServerName, RunMinecraft.class);
-        Tasks.group(GROUP_NAME, this.decompileVersion, this.runVanillaClient, this.runVanillaServer);
+        this.runVanillaClient = RunRegistry.register(project, runClientName, RunMinecraft.class);
+        this.runVanillaServer = RunRegistry.register(project, runServerName, RunMinecraft.class);
+        Tasks.group(GROUP_NAME, this.decompileVersion);
 
         configureTasks(project, caches, spec, vanillaJavaLauncher, clientMappings, serverDownload, assetIndex,
                 decompileName, offline);
@@ -331,7 +331,8 @@ public final class VanillaTasks {
             task.getLibraries().from(this.vanillaConfig);
             task.getDecompiledJar().fileProvider(this.versionCacheDirectory.zip(this.minecraftVersion, (dir, version) -> dir.file(version + "-sources.jar").getAsFile()));
         });
-        this.runVanillaClient.configure(task -> {
+        RunRegistry.configure(project, this.runVanillaClient, task -> {
+            task.setGroup(GROUP_NAME);
             task.dependsOn(this.downloadAssets);
             MinecraftRuns.caches(task, caches, this.versionMeta, offline);
 
@@ -345,7 +346,8 @@ public final class VanillaTasks {
             task.getAssetIndexVersion().set(this.versionMeta.map(VersionMeta::assetIndexId));
             task.classpath(this.downloadClientJar.map(Download::getDest), this.vanillaConfig);
         });
-        this.runVanillaServer.configure(task -> {
+        RunRegistry.configure(project, this.runVanillaServer, task -> {
+            task.setGroup(GROUP_NAME);
             MinecraftRuns.caches(task, caches, this.versionMeta, offline);
 
             task.getSide().set(Side.SERVER);
@@ -357,9 +359,9 @@ public final class VanillaTasks {
             task.classpath(this.downloadServerJar.map(Download::getDest), this.vanillaConfig);
         });
         if (!spec.primary()) {
-            this.runVanillaClient.configure(task -> task.setWorkingDir(
+            RunRegistry.configure(project, this.runVanillaClient, task -> task.setWorkingDir(
                     project.getLayout().getProjectDirectory().dir("run/" + spec.cacheName() + "/vanilla/client")));
-            this.runVanillaServer.configure(task -> task.setWorkingDir(
+            RunRegistry.configure(project, this.runVanillaServer, task -> task.setWorkingDir(
                     project.getLayout().getProjectDirectory().dir("run/" + spec.cacheName() + "/vanilla/server")));
         }
     }

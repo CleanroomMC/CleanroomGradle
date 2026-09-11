@@ -163,6 +163,8 @@ public final class MCPTasks {
         registerIntermediateRuns(project, caches, minecraft, vanilla,
                 project.getGradle().getStartParameter().isOffline());
         intermediates.after(this.discardInjectedJar, this.runSrgClient, this.runSrgServer);
+        RunRegistry.derived(project, this.runSrgClient, run -> intermediates.after(this.discardInjectedJar, run));
+        RunRegistry.derived(project, this.runSrgServer, run -> intermediates.after(this.discardInjectedJar, run));
         intermediates.after(this.discardUniversalSrg,
                 stripForSrgRun(project, caches, vanilla, intermediates, this.applySAS,
                         this.runSrgClient, Side.CLIENT, this.splitClientJar),
@@ -196,26 +198,26 @@ public final class MCPTasks {
         var runMcpClient = stageRun(project, "runMcpClient", Side.CLIENT, Environment.MCP, caches, minecraft, vanilla, offline);
         var runMcpServer = stageRun(project, "runMcpServer", Side.SERVER, Environment.MCP, caches, minecraft, vanilla, offline);
 
-        this.runSrgClient.configure(task -> task.classpath(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar),
+        RunRegistry.configure(project, this.runSrgClient, task -> task.classpath(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar),
                 vanilla.vanillaConfig, this.splitClientJar.flatMap(SplitJar::getExtraJar)));
-        this.runSrgServer.configure(task -> task.classpath(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar),
+        RunRegistry.configure(project, this.runSrgServer, task -> task.classpath(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar),
                 vanilla.vanillaConfig, this.splitServerJar.flatMap(SplitJar::getExtraJar)));
-        runReobfSrgClient.configure(task -> {
+        RunRegistry.configure(project, runReobfSrgClient, task -> {
             task.dependsOn(SourceSets.compile(srgSource));
             task.classpath(SourceSets.classes(srgSource), vanilla.vanillaConfig,
                     this.splitClientJar.flatMap(SplitJar::getExtraJar));
         });
-        runReobfSrgServer.configure(task -> {
+        RunRegistry.configure(project, runReobfSrgServer, task -> {
             task.dependsOn(SourceSets.compile(srgSource));
             task.classpath(SourceSets.classes(srgSource), vanilla.vanillaConfig,
                     this.splitServerJar.flatMap(SplitJar::getExtraJar));
         });
-        runMcpClient.configure(task -> {
+        RunRegistry.configure(project, runMcpClient, task -> {
             task.dependsOn(SourceSets.compile(mcpSource));
             task.classpath(SourceSets.classes(mcpSource), vanilla.vanillaConfig,
                     this.splitClientJar.flatMap(SplitJar::getExtraJar));
         });
-        runMcpServer.configure(task -> {
+        RunRegistry.configure(project, runMcpServer, task -> {
             task.dependsOn(SourceSets.compile(mcpSource));
             task.classpath(SourceSets.classes(mcpSource), vanilla.vanillaConfig,
                     this.splitServerJar.flatMap(SplitJar::getExtraJar));
@@ -225,8 +227,8 @@ public final class MCPTasks {
     private TaskProvider<RunMinecraft> stageRun(Project project, String name, Side side, Environment environment,
                                                 CachesExtension caches, MinecraftExtension minecraft,
                                                 VanillaTasks vanilla, boolean offline) {
-        var run = Tasks.register(project, name, RunMinecraft.class);
-        run.configure(task -> {
+        var run = RunRegistry.register(project, name, RunMinecraft.class);
+        RunRegistry.configure(project, run, task -> {
             task.setGroup(GROUP_NAME);
             if (side.isClient()) {
                 task.dependsOn(vanilla.downloadAssets);
@@ -299,11 +301,12 @@ public final class MCPTasks {
             task.getOutputJar().set(caches.getLocalDirectory().file("sas/" + sideName + "-srg.jar"));
         });
         var objects = project.getObjects();
-        run.configure(task -> task.setClasspath(objects.fileCollection().from(
+        RunRegistry.configure(project, run, task -> task.setClasspath(objects.fileCollection().from(
                 strip.flatMap(StripSideOnlyJar::getOutputJar),
                 vanilla.vanillaConfig,
                 split.flatMap(SplitJar::getExtraJar))));
-        intermediates.discardAfter(run, strip.flatMap(StripSideOnlyJar::getOutputJar));
+        var discard = intermediates.discardAfter(run, strip.flatMap(StripSideOnlyJar::getOutputJar));
+        RunRegistry.derived(project, run, derived -> intermediates.after(discard, derived));
         return strip;
     }
 

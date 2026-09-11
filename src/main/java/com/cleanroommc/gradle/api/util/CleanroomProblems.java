@@ -27,6 +27,7 @@ public final class CleanroomProblems {
 
     public static final ProblemId MISSING_USERDEV = id("missing-userdev", "Missing Cleanroom userdev artifact");
     public static final ProblemId INVALID_VANILLA_ENVIRONMENT = id("invalid-vanilla-environment", "Invalid vanilla environment");
+    public static final ProblemId INVALID_RUN = id("invalid-run", "Invalid run configuration");
     public static final ProblemId OFFLINE_ASSETS = id("offline-assets", "Minecraft assets unavailable offline");
     public static final ProblemId USERDEV_PIPELINE_OVERRIDE = id("userdev-pipeline-override", "Userdev pipeline input set by the buildscript");
     public static final ProblemId DEOBF_ON_COMPILE_CLASSPATH = id("deobf-on-compile-classpath", "Deobfuscated dependency on a compile classpath");

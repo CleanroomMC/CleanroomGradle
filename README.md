@@ -123,6 +123,62 @@ That creates `runLegacyClient` while targeting Minecraft `1.4.7`.
 Named environments share downloaded assets and per-version metadata/JARs, but use isolated dependency configurations, extracted natives, and run directories.
 Launcher metadata supplies each vanilla client's main class and arguments.
 
+## Runs
+
+Use `cleanroom.runs` to configure existing runs and create custom runs.
+Each short name maps to `run` followed by the name with its first letter capitalized.
+
+```groovy
+cleanroom {
+    runs {
+        client { // Configures existing "runClient"
+            configure {
+                username = 'Developer'
+                jvmArgs '-Dmixin.debug.export=true'
+            }
+        }
+        custom { // Creates new "runCustom"
+            configure {
+                username = 'Tester'
+                maxHeapSize = '3G'
+                args '--demo'
+            }
+            inherit = 'client'
+        }
+    }
+}
+```
+
+- `inherit` can appear anywhere in the outer block and can reference a run declared later.
+- The parent supplies its built-in launch setup and its `configure` blocks before the child's `configure` blocks execute.
+- Inheritance can follow a chain of runs. Each block configures the destination task; `name` refers to that task.
+
+| Runs                                                                                   | Availability                                      |
+|----------------------------------------------------------------------------------------|---------------------------------------------------|
+| `client`, `server`                                                                     | Userdev mode                                      |
+| `vanillaClient`, `vanillaServer`                                                       | Any selected project mode                         |
+| `cleanroomClient`, `cleanroomServer`, `cleanroomNsightClient`                          | Loader mode                                       |
+| `srgClient`, `srgServer`, `reobfSrgClient`, `reobfSrgServer`, `mcpClient`, `mcpServer` | Loader mode with `loader.intermediateRuns = true` |
+| `<name>Client`, `<name>Server`                                                         | A declared named vanilla environment              |
+
+Kotlin DSL can use the typed `configure` overload to access the full task API.
+
+```kotlin
+import com.cleanroommc.gradle.api.task.mc.RunMinecraft
+
+cleanroom {
+    runs {
+        register("custom") {
+            inherit.set("client")
+            configure(RunMinecraft::class.java) {
+                username.set("Tester")
+                jvmArgs("-Dexample=true")
+            }
+        }
+    }
+}
+```
+
 ## Deobfuscation
 
 Wrap a SRG-named dependency in `deobf(...)` to have it deobfuscated before reaching the classpath:

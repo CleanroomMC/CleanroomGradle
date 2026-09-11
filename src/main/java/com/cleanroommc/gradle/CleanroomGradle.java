@@ -24,6 +24,7 @@ import com.cleanroommc.gradle.env.DistributionTasks;
 import com.cleanroommc.gradle.env.MCPTasks;
 import com.cleanroommc.gradle.env.MaintenanceTasks;
 import com.cleanroommc.gradle.env.McpMappings;
+import com.cleanroommc.gradle.env.RunRegistry;
 import com.cleanroommc.gradle.env.ToolConfigs;
 import com.cleanroommc.gradle.env.UserDevTasks;
 import com.cleanroommc.gradle.env.VanillaTasks;
@@ -62,6 +63,7 @@ public abstract class CleanroomGradle implements Plugin<Project> {
         getFlowScope().always(CloseHttpClientFlowAction.class, spec -> {});
 
         final var ext = Objects.extension(project, "cleanroom", CleanroomExtension.class);
+        var runs = project.getExtensions().create("cleanroomRuns", RunRegistry.class, project, ext.getRuns());
         project.getDependencies().getAttributesSchema().attribute(UserdevAttributes.ROLE,
                 strategy -> strategy.getDisambiguationRules().add(UserdevAttributes.PreferClasses.class));
         project.getDependencies().getExtensions().add("cleanroomUserdev", new RemovedUserdevDependency());
@@ -129,6 +131,7 @@ public abstract class CleanroomGradle implements Plugin<Project> {
             for (var action : deferred) {
                 action.execute(evaluatedProject);
             }
+            runs.configureRuns();
             deobfExt.wireTransformOrdering(evaluatedProject);
         });
     }

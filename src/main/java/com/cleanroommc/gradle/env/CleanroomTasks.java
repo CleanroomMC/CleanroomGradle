@@ -37,7 +37,7 @@ import org.gradle.api.tasks.compile.JavaCompile;
 public final class CleanroomTasks {
 
     private static final String GROUP_NAME = "cleanroom";
-    private static final String RUNS_GROUP = "cleanroom runs";
+    private static final String RUNS_GROUP_NAME = "cleanroom runs";
 
     public final TaskProvider<DefaultTask> setup;
     public final TaskProvider<RunMinecraft> runCleanroomClient, runCleanroomServer;
@@ -86,13 +86,13 @@ public final class CleanroomTasks {
         fml.natives = natives;
         fml.launchClass = loader.getLaunchClass();
 
-        this.runCleanroomClient = Tasks.register(project, "runCleanroomClient", RunMinecraft.class);
-        this.runCleanroomServer = Tasks.register(project, "runCleanroomServer", RunMinecraft.class);
-        this.runCleanroomNsightClient = Tasks.register(project, "runCleanroomNsightClient", NsightExec.class);
+        this.runCleanroomClient = RunRegistry.register(project, "runCleanroomClient", RunMinecraft.class);
+        this.runCleanroomServer = RunRegistry.register(project, "runCleanroomServer", RunMinecraft.class);
+        this.runCleanroomNsightClient = RunRegistry.register(project, "runCleanroomNsightClient", NsightExec.class);
         Tasks.group(GROUP_NAME, this.setup);
+        Tasks.group(RUNS_GROUP_NAME, this.runCleanroomClient, this.runCleanroomServer, this.runCleanroomNsightClient);
 
-        this.runCleanroomClient.configure(task -> {
-            task.setGroup(RUNS_GROUP);
+        RunRegistry.configure(project, this.runCleanroomClient, task -> {
             task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), vanilla.downloadAssets, mappings.writeSrg2Mcp);
             MinecraftRuns.caches(task, caches, minecraft.getVersionMeta(), offline);
             task.getSide().set(Side.CLIENT);
@@ -106,8 +106,7 @@ public final class CleanroomTasks {
                     loader.getClientTweakClass(), fml.launchClass));
         });
 
-        this.runCleanroomServer.configure(task -> {
-            task.setGroup(RUNS_GROUP);
+        RunRegistry.configure(project, this.runCleanroomServer, task -> {
             task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), mappings.writeSrg2Mcp);
             MinecraftRuns.caches(task, caches, minecraft.getVersionMeta(), offline);
             task.getSide().set(Side.SERVER);
@@ -121,8 +120,7 @@ public final class CleanroomTasks {
                     loader.getServerTweakClass(), fml.launchClass));
         });
 
-        this.runCleanroomNsightClient.configure(task -> {
-            task.setGroup(RUNS_GROUP);
+        RunRegistry.configure(project, this.runCleanroomNsightClient, task -> {
             task.dependsOn(mainSourceSet.map(SourceSet::getClassesTaskName), vanilla.downloadAssets, vanilla.extractNatives, mappings.writeSrg2Mcp);
             task.getActivity().set(Property.NSIGHT_ACTIVITY.value(project.getProviders()));
             task.getNgfxPath().set(Property.NSIGHT_NGFX_PATH.value(project.getProviders()));

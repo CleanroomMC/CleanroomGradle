@@ -105,9 +105,8 @@ public final class UserDevTasks {
         });
         project.getTasks().named("assemble").configure(task -> task.dependsOn(this.reobfJar));
 
-        this.runClient = Tasks.register(project, "runClient", RunMinecraft.class);
-        this.runServer = Tasks.register(project, "runServer", RunMinecraft.class);
-        Tasks.group(RUNS_GROUP, this.runClient, this.runServer);
+        this.runClient = RunRegistry.register(project, "runClient", RunMinecraft.class);
+        this.runServer = RunRegistry.register(project, "runServer", RunMinecraft.class);
 
         var offline = project.getGradle().getStartParameter().isOffline();
         var runDirectory = project.getLayout().getProjectDirectory().dir("run").getAsFile();
@@ -126,14 +125,16 @@ public final class UserDevTasks {
         fml.assets = caches.getDirectory().dir("assets");
         fml.natives = natives;
 
-        this.runClient.configure(task -> {
+        RunRegistry.configure(project, this.runClient, task -> {
+            task.setGroup(RUNS_GROUP);
             task.dependsOn(main.map(SourceSet::getClassesTaskName), vanilla.downloadAssets);
             configureRun(task, Side.CLIENT, client, userdev, caches, minecraft, offline, runDirectory, natives);
             task.classpath(runtimeClasspath, this.clientExtra, this.natives);
             MinecraftRuns.fmlEnvironment(task, fml.forSide(true, client.map(UserdevConfig.Run::target),
                     client.map(UserdevConfig.Run::tweakClass), client.map(UserdevConfig.Run::launchClass)));
         });
-        this.runServer.configure(task -> {
+        RunRegistry.configure(project, this.runServer, task -> {
+            task.setGroup(RUNS_GROUP);
             task.dependsOn(main.map(SourceSet::getClassesTaskName));
             configureRun(task, Side.SERVER, server, userdev, caches, minecraft, offline, runDirectory, natives);
             task.classpath(runtimeClasspath, this.serverExtra, this.natives);
