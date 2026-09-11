@@ -15,7 +15,12 @@ import com.cleanroommc.gradle.api.util.IO;
 import net.minecraftforge.srgutils.IMappingFile;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
-import org.gradle.api.tasks.*;
+import org.gradle.api.tasks.CacheableTask;
+import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.OutputFile;
+import org.gradle.api.tasks.PathSensitive;
+import org.gradle.api.tasks.PathSensitivity;
+import org.gradle.api.tasks.TaskAction;
 
 import java.io.IOException;
 import java.util.stream.Collectors;
@@ -40,14 +45,16 @@ public abstract class SplitJar extends DefaultTask {
 
     @TaskAction
     public void splitJar() throws IOException {
-        split(this.getSourceJar().get().getAsFile(), this.getSrgMappingFile().get().getAsFile(),
-                this.getSlimJar().get().getAsFile(), this.getExtraJar().get().getAsFile());
+        split(
+                this.getSourceJar().get().getAsFile(),
+                this.getSrgMappingFile().get().getAsFile(),
+                this.getSlimJar().get().getAsFile(),
+                this.getExtraJar().get().getAsFile()
+        );
     }
 
     public static void split(java.io.File source, java.io.File mappings, java.io.File slim, java.io.File extra) throws IOException {
-        var classes = IMappingFile.load(mappings).getClasses().stream()
-                .map(clazz -> clazz.getOriginal() + ".class")
-                .collect(Collectors.toSet());
+        var classes = IMappingFile.load(mappings).getClasses().stream().map(clazz -> clazz.getOriginal() + ".class").collect(Collectors.toSet());
 
         try (var slimZos = IO.zipOut(slim)) {
             try (var extraZos = IO.zipOut(extra)) {
@@ -55,9 +62,10 @@ public abstract class SplitJar extends DefaultTask {
                     for (var entry = sourceZis.getNextEntry(); entry != null; entry = sourceZis.getNextEntry()) {
                         String name = entry.getName();
                         int innerClass = name.indexOf('$');
-                        boolean minecraftClass = name.endsWith(".class") && (name.startsWith(Meta.MINECRAFT_PACKAGE_PATH)
-                                || classes.contains(name)
-                                || innerClass >= 0 && classes.contains(name.substring(0, innerClass) + ".class"));
+                        boolean minecraftClass = name.endsWith(".class") &&
+                                (name.startsWith(Meta.MINECRAFT_PACKAGE_PATH) ||
+                                        classes.contains(name) ||
+                                        innerClass >= 0 && classes.contains(name.substring(0, innerClass) + ".class"));
                         var zos = minecraftClass ? slimZos : extraZos;
                         var newEntry = new ZipEntry(name);
                         newEntry.setTime(0L); // Fixed timestamp to keep stability

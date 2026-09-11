@@ -19,7 +19,7 @@ import java.nio.file.Path;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class IOTest {
 
@@ -34,7 +34,7 @@ class IOTest {
         IO.normalizeZip(first);
         IO.normalizeZip(second);
 
-        assertArrayEquals(Files.readAllBytes(first), Files.readAllBytes(second));
+        assertThat(Files.readAllBytes(second)).isEqualTo(Files.readAllBytes(first));
     }
 
     private static void writeZip(Path path, long timestamp) throws Exception {

@@ -21,7 +21,14 @@ import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Property;
-import org.gradle.api.tasks.*;
+import org.gradle.api.tasks.CacheableTask;
+import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.Optional;
+import org.gradle.api.tasks.OutputFile;
+import org.gradle.api.tasks.PathSensitive;
+import org.gradle.api.tasks.PathSensitivity;
+import org.gradle.api.tasks.TaskAction;
 
 import javax.inject.Inject;
 import java.io.File;
@@ -41,7 +48,7 @@ public abstract class WriteMappings extends DefaultTask {
         OBF_TO_SRG,
         SRG_TO_MCP,
         MCP_TO_SRG,
-        MCP_TO_NOTCH;
+        MCP_TO_NOTCH
 
     }
 
@@ -142,6 +149,7 @@ public abstract class WriteMappings extends DefaultTask {
             }
 
             var notchToMcp = base.rename(new IRenamer() {
+
                 @Override
                 public String rename(IMappingFile.IField field) {
                     return names.getOrDefault(field.getMapped(), field.getMapped());
@@ -151,6 +159,7 @@ public abstract class WriteMappings extends DefaultTask {
                 public String rename(IMappingFile.IMethod method) {
                     return names.getOrDefault(method.getMapped(), method.getMapped());
                 }
+
             });
 
             result = switch (direction) {

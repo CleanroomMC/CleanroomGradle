@@ -15,7 +15,14 @@ import com.cleanroommc.gradle.api.util.IO;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
-import org.gradle.api.tasks.*;
+import org.gradle.api.tasks.CacheableTask;
+import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.InputFiles;
+import org.gradle.api.tasks.Optional;
+import org.gradle.api.tasks.OutputFile;
+import org.gradle.api.tasks.PathSensitive;
+import org.gradle.api.tasks.PathSensitivity;
+import org.gradle.api.tasks.SkipWhenEmpty;
 
 import java.io.File;
 
@@ -43,9 +50,14 @@ public abstract class AccessTransform extends MavenJarExec {
     @Override
     protected void beforeExec() {
         if (this.getUseDefaultToolArguments().get()) {
-            this.args("--inJar", this.getInputJar(),
-                    "--outJar", this.getOutputJar(),
-                    "--logFile", this.getLogFile().map(RegularFile::getAsFile).map(File::getName));
+            this.args(
+                    "--inJar",
+                    this.getInputJar(),
+                    "--outJar",
+                    this.getOutputJar(),
+                    "--logFile",
+                    this.getLogFile().map(RegularFile::getAsFile).map(File::getName)
+            );
             for (var accessTransformer : this.getAccessTransformers()) {
                 this.args("--atFile", accessTransformer.getAbsolutePath());
             }
@@ -58,4 +70,5 @@ public abstract class AccessTransform extends MavenJarExec {
         IO.normalizeZip(this.getOutputJar().get().getAsFile().toPath());
         super.afterExec();
     }
+
 }

@@ -13,7 +13,12 @@ package com.cleanroommc.gradle.api.task.mcp;
 import com.cleanroommc.gradle.api.task.MavenJarExec;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
-import org.gradle.api.tasks.*;
+import org.gradle.api.tasks.CacheableTask;
+import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.OutputFile;
+import org.gradle.api.tasks.PathSensitive;
+import org.gradle.api.tasks.PathSensitivity;
 
 @CacheableTask
 public abstract class MergeJars extends MavenJarExec {
@@ -45,11 +50,18 @@ public abstract class MergeJars extends MavenJarExec {
         if (!this.getUseDefaultToolArguments().get()) {
             return;
         }
-        this.args("--client", this.getClientJar(),
-                "--server", this.getServerJar(),
-                "--output", this.getMergedJar(),
-                "-ann", this.getMinecraftVersion(),
-                "--inject", this.getInjectAnnotationMarkers());
+        this.args(
+                "--client",
+                this.getClientJar(),
+                "--server",
+                this.getServerJar(),
+                "--output",
+                this.getMergedJar(),
+                "-ann",
+                this.getMinecraftVersion(),
+                "--inject",
+                this.getInjectAnnotationMarkers()
+        );
     }
 
 }

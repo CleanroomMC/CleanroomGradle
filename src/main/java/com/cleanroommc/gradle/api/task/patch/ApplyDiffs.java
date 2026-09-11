@@ -22,7 +22,14 @@ import org.gradle.api.file.FileSystemOperations;
 import org.gradle.api.file.FileTree;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Property;
-import org.gradle.api.tasks.*;
+import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.InputDirectory;
+import org.gradle.api.tasks.Internal;
+import org.gradle.api.tasks.Optional;
+import org.gradle.api.tasks.OutputDirectory;
+import org.gradle.api.tasks.PathSensitive;
+import org.gradle.api.tasks.PathSensitivity;
+import org.gradle.api.tasks.TaskAction;
 import org.gradle.work.DisableCachingByDefault;
 
 import javax.inject.Inject;
@@ -121,7 +128,13 @@ public abstract class ApplyDiffs extends DefaultTask {
                 File targetFile = inPlace ? originalFile : new File(modifiedDir, relativePath);
 
                 if (!targetFile.exists()) {
-                    this.getLogger().lifecycle("Skipping {} as original file is not found. {}/{} patches applied.", relativePath, counter.incrementAndGet(), totalPatches);
+                    this.getLogger()
+                            .lifecycle(
+                                    "Skipping {} as original file is not found. {}/{} patches applied.",
+                                    relativePath,
+                                    counter.incrementAndGet(),
+                                    totalPatches
+                            );
                 } else {
                     try {
                         var patch = UnifiedDiffUtils.parseUnifiedDiff(FileUtils.readLines(patchFile, StandardCharsets.UTF_8));
@@ -182,8 +195,9 @@ public abstract class ApplyDiffs extends DefaultTask {
         }
         try {
             var originalLines = FileUtils.readLines(originalFile, StandardCharsets.UTF_8);
-            var expectedLines = patchFile == null ? originalLines : DiffUtils.patch(originalLines,
-                    UnifiedDiffUtils.parseUnifiedDiff(FileUtils.readLines(patchFile, StandardCharsets.UTF_8)));
+            var expectedLines = patchFile == null
+                    ? originalLines
+                    : DiffUtils.patch(originalLines, UnifiedDiffUtils.parseUnifiedDiff(FileUtils.readLines(patchFile, StandardCharsets.UTF_8)));
             return !expectedLines.equals(FileUtils.readLines(modifiedFile, StandardCharsets.UTF_8));
         } catch (Throwable t) {
             return true;
@@ -228,21 +242,26 @@ public abstract class ApplyDiffs extends DefaultTask {
         var activeId = this.getMappingsId().get();
         var stamp = new File(this.getPatchesDirectory().get().getAsFile(), ".mappings.json");
         if (!stamp.isFile()) {
-            this.getLogger().warn(
-                    "Patch set {} has no .mappings.json (legacy patch set); applying against names '{}' without verification.",
-                    this.getPatchesDirectory().get().getAsFile(), activeId);
+            this.getLogger()
+                    .warn(
+                            "Patch set {} has no .mappings.json (legacy patch set); applying against names '{}' without verification.",
+                            this.getPatchesDirectory().get().getAsFile(),
+                            activeId
+                    );
             return;
         }
         var json = IO.readJson(stamp, JsonObject.class);
         var patchId = json.has("names") ? json.get("names").getAsString() : null;
         if (patchId == null || !patchId.equals(activeId)) {
             throw new InvalidUserDataException(
-                    ("Mapping identity mismatch for patch set %s:%n"
-                            + "  patches were generated in names: %s%n"
-                            + "  the active names source is:       %s%n"
-                            + "Regenerate the patches (generate*Diffs) against the active names, "
-                            + "or switch the names source back (cleanroom.namesDirectory) to match.")
-                            .formatted(this.getPatchesDirectory().get().getAsFile(), patchId, activeId));
+                    ("Mapping identity mismatch for patch set %s:%n" + "  patches were generated in names: %s%n" +
+                            "  the active names source is:       %s%n" + "Regenerate the patches (generate*Diffs) against the active names, " +
+                            "or switch the names source back (cleanroom.namesDirectory) to match.").formatted(
+                            this.getPatchesDirectory().get().getAsFile(),
+                            patchId,
+                            activeId
+                    )
+            );
         }
     }
 

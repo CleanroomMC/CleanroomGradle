@@ -91,10 +91,18 @@ public final class DistributionTasks {
     private static final String GROUP_NAME = "cleanroom distribution";
     private static final String ARTIFACT_ID = "cleanroom";
 
-    public final TaskProvider<WriteMappings> writeMcp2Srg, writeObf2SrgTsrg, writeMcp2Notch;
-    public final TaskProvider<RenameJar> reobfJar, reobfMinecraftJar;
-    public final TaskProvider<Jar> deobfLibraryJar, universalJar, userdevJar, sourcesJar, javadocJar;
-    public final TaskProvider<StripSideOnlyJar> stripClientMinecraftJar, stripServerMinecraftJar;
+    public final TaskProvider<WriteMappings> writeMcp2Srg;
+    public final TaskProvider<WriteMappings> writeObf2SrgTsrg;
+    public final TaskProvider<WriteMappings> writeMcp2Notch;
+    public final TaskProvider<RenameJar> reobfJar;
+    public final TaskProvider<RenameJar> reobfMinecraftJar;
+    public final TaskProvider<Jar> deobfLibraryJar;
+    public final TaskProvider<Jar> universalJar;
+    public final TaskProvider<Jar> userdevJar;
+    public final TaskProvider<Jar> sourcesJar;
+    public final TaskProvider<Jar> javadocJar;
+    public final TaskProvider<StripSideOnlyJar> stripClientMinecraftJar;
+    public final TaskProvider<StripSideOnlyJar> stripServerMinecraftJar;
     public final TaskProvider<GenerateBinPatches> genBinPatches;
     public final TaskProvider<WriteUserdevConfig> writeUserdevConfig;
     public final TaskProvider<MaterializeUserdevSourcesJar> userdevSourcesJar;
@@ -105,10 +113,19 @@ public final class DistributionTasks {
     private final Provider<List<String>> runtimeModules;
     private final SoftwareComponent userdevComponent;
 
-    public DistributionTasks(Project project, ProjectCoordinates coordinates, CachesExtension caches,
-                             MinecraftExtension minecraft, LoaderExtension loader, PatchesExtension patches,
-                             VanillaTasks vanilla, McpMappings mappings, MCPTasks mcp,
-                             IntermediateProcessor intermediates, SoftwareComponentFactory components) {
+    public DistributionTasks(
+            Project project,
+            ProjectCoordinates coordinates,
+            CachesExtension caches,
+            MinecraftExtension minecraft,
+            LoaderExtension loader,
+            PatchesExtension patches,
+            VanillaTasks vanilla,
+            McpMappings mappings,
+            MCPTasks mcp,
+            IntermediateProcessor intermediates,
+            SoftwareComponentFactory components
+    ) {
         var layout = project.getLayout();
         var providers = project.getProviders();
         var group = coordinates.getGroup();
@@ -119,9 +136,8 @@ public final class DistributionTasks {
         var vendorProperty = "CleanroomMC";
         var timestampProperty = providers.environmentVariable("SOURCE_DATE_EPOCH")
                 .map(Long::parseLong)
-                .map(epoch ->
-                        OffsetDateTime.ofInstant(Instant.ofEpochSecond(epoch), ZoneOffset.UTC)
-                                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ")))
+                .map(epoch -> OffsetDateTime.ofInstant(Instant.ofEpochSecond(epoch), ZoneOffset.UTC)
+                        .format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ")))
                 .orElse("1970-01-01T00:00:00+0000");
 
         var javaExtension = project.getExtensions().getByType(JavaPluginExtension.class);
@@ -134,39 +150,52 @@ public final class DistributionTasks {
         // Registered by CleanroomTasks: the source patch set a mod workspace rebuilds Minecraft's sources from
         var minecraftPatches = patches.getPatchDev().named("minecraft").flatMap(PatchDevEnvironment::getPatches);
 
-        var installerBase = Objects.config(project, "installerBase",
-                "The Cleanroom Installer runtime that installerJar re-packages.");
+        var installerBase = Objects.config(project, "installerBase", "The Cleanroom Installer runtime that installerJar re-packages.");
         installerBase.configure(config -> config.setTransitive(false));
-        project.getDependencies().addProvider(installerBase.getName(),
-                loader.getInstallerVersion().map(installerVersion -> "com.cleanroommc:installer:" + installerVersion));
+        project.getDependencies()
+                .addProvider(installerBase.getName(), loader.getInstallerVersion().map(installerVersion -> "com.cleanroommc:installer:" + installerVersion));
 
         var runtimeClasspath = project.getConfigurations().named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME);
-        var distributionLibraries = Objects.config(project, "distributionLibraries",
-                "Resolved classpath and LWJGL native libraries shared by all Cleanroom distributions.");
+        var distributionLibraries = Objects.config(
+                project,
+                "distributionLibraries",
+                "Resolved classpath and LWJGL native libraries shared by all Cleanroom distributions."
+        );
         distributionLibraries.configure(config -> {
             config.extendsFrom(runtimeClasspath.get(), project.getConfigurations().getByName(LwjglNatives.ALL_CONFIGURATION_NAME));
             config.exclude(Map.of("group", VanillaTasks.LWJGL2_GROUP));
             config.withDependencies(dependencies -> VanillaTasks.addDistributionLibraries(
-                    project.getDependencyFactory(), dependencies, minecraft.getVersionMeta().get()));
+                    project.getDependencyFactory(),
+                    dependencies,
+                    minecraft.getVersionMeta().get()
+            ));
             config.attributes(attributes -> {
                 attributes.attribute(Usage.USAGE_ATTRIBUTE, project.getObjects().named(Usage.class, Usage.JAVA_RUNTIME));
                 attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.getObjects().named(Category.class, Category.LIBRARY));
                 attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, project.getObjects().named(LibraryElements.class, LibraryElements.JAR));
             });
         });
-        var distributionLibraryArtifacts = ResolvedLibraries.artifacts(project.getObjects(),
+        var distributionLibraryArtifacts = ResolvedLibraries.artifacts(
+                project.getObjects(),
                 distributionLibraries.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts()),
                 distributionLibraries.flatMap(config -> config.getIncoming().getResolutionResult().getRootComponent()),
-                resolvedRepositoryUrls);
+                resolvedRepositoryUrls
+        );
 
         var selectedDistributionVersions = providers.provider(() -> VanillaTasks.selectedVersions(distributionLibraries.get()));
-        var distributionNatives = Objects.config(project, "distributionNatives",
-                "Vanilla libraries extracted as natives by Cleanroom distributions, for every platform.");
+        var distributionNatives = Objects.config(
+                project,
+                "distributionNatives",
+                "Vanilla libraries extracted as natives by Cleanroom distributions, for every platform."
+        );
         distributionNatives.configure(config -> {
             config.setTransitive(false);
             config.withDependencies(dependencies -> VanillaTasks.addDistributionNatives(
-                    project.getDependencyFactory(), dependencies, minecraft.getVersionMeta().get(),
-                    selectedDistributionVersions.get()));
+                    project.getDependencyFactory(),
+                    dependencies,
+                    minecraft.getVersionMeta().get(),
+                    selectedDistributionVersions.get()
+            ));
         });
         var manifestUrls = minecraft.getVersionMeta().map(meta -> {
             var urls = new HashMap<String, String>();
@@ -188,12 +217,13 @@ public final class DistributionTasks {
             }
             return urls;
         });
-        var distributionNativeArtifacts = ResolvedLibraries.artifacts(project.getObjects(),
+        var distributionNativeArtifacts = ResolvedLibraries.artifacts(
+                project.getObjects(),
                 distributionNatives.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts()),
                 distributionNatives.flatMap(config -> config.getIncoming().getResolutionResult().getRootComponent()),
-                resolvedRepositoryUrls);
-        var universalUrl = universalRepositoryUrl(project)
-                .zip(universal, (url, coordinate) -> LibraryJson.trailingSlash(url) + coordinate.mavenPath());
+                resolvedRepositoryUrls
+        );
+        var universalUrl = universalRepositoryUrl(project).zip(universal, (url, coordinate) -> LibraryJson.trailingSlash(url) + coordinate.mavenPath());
 
         this.writeMcp2Srg = mappings.write(project, caches, "writeMcp2Srg", WriteMappings.Direction.MCP_TO_SRG, UserdevConfig.MCP2SRG);
         this.writeObf2SrgTsrg = mappings.write(project, caches, "writeObf2SrgTsrg", WriteMappings.Direction.OBF_TO_SRG, "obf2srg.tsrg");
@@ -217,11 +247,27 @@ public final class DistributionTasks {
         var serverTweakClass = loader.getServerTweakClass();
         var launchClass = loader.getLaunchClass();
         Tasks.group("build", this.reobfJar);
-        Tasks.group(GROUP_NAME, this.universalJar, this.userdevJar, this.userdevSourcesJar, this.sourcesJar, this.javadocJar,
-                this.publishMmcPackZip, this.installerJar);
-        project.getTasks().named("assemble").configure(task -> task.dependsOn(this.universalJar, this.userdevJar,
+        Tasks.group(
+                GROUP_NAME,
+                this.universalJar,
+                this.userdevJar,
                 this.userdevSourcesJar,
-                this.sourcesJar, this.javadocJar, this.publishMmcPackZip, this.installerJar));
+                this.sourcesJar,
+                this.javadocJar,
+                this.publishMmcPackZip,
+                this.installerJar
+        );
+        project.getTasks()
+                .named("assemble")
+                .configure(task -> task.dependsOn(
+                        this.universalJar,
+                        this.userdevJar,
+                        this.userdevSourcesJar,
+                        this.sourcesJar,
+                        this.javadocJar,
+                        this.publishMmcPackZip,
+                        this.installerJar
+                ));
 
         this.reobfJar.configure(task -> {
             task.getInput().set(jarTask.flatMap(Jar::getArchiveFile));
@@ -234,8 +280,7 @@ public final class DistributionTasks {
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);
 
-            task.from(archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)),
-                    spec -> spec.include(Meta.MINECRAFT_PACKAGE_PATH + "**"));
+            task.from(archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)), spec -> spec.include(Meta.MINECRAFT_PACKAGE_PATH + "**"));
             task.getDestinationDirectory().set(caches.getLocalDirectory().dir("dist/reobf"));
             task.getArchiveFileName().set(UserdevConfig.DEOBF_LIBRARY);
         });
@@ -283,16 +328,8 @@ public final class DistributionTasks {
             task.getInputs().property("manifestTimestamp", timestampProperty);
 
             task.from(archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)), spec -> spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**"));
-            task.from(layout.getProjectDirectory(), spec -> spec.include(
-                    "CREDITS.txt",
-                    "LICENSE.txt",
-                    "LICENSE",
-                    "CHANGELOG.md",
-                    "LICENSE-Paulscode IBXM Library.txt",
-                    "LICENSE-Paulscode SoundSystem CodecIBXM.txt"
-            ));
-            task.from(this.writeObf2SrgTsrg.flatMap(WriteMappings::getOutput),
-                    spec -> spec.rename(name -> "deobf_data-" + minecraftVersion.get() + ".tsrg"));
+            task.from(layout.getProjectDirectory(), spec -> spec.include("CREDITS.txt", "LICENSE.txt", "LICENSE", "CHANGELOG.md", "LICENSE-Paulscode IBXM Library.txt", "LICENSE-Paulscode SoundSystem CodecIBXM.txt"));
+            task.from(this.writeObf2SrgTsrg.flatMap(WriteMappings::getOutput), spec -> spec.rename(name -> "deobf_data-" + minecraftVersion.get() + ".tsrg"));
             task.from(this.genBinPatches.flatMap(GenerateBinPatches::getBinpatches));
 
             var forgeVersion = loader.getForgeVersion();
@@ -338,8 +375,9 @@ public final class DistributionTasks {
             task.getServerBinpatches().set(UserdevConfig.SERVER_BINPATCHES);
             task.getSrg2Mcp().set(UserdevConfig.meta(UserdevConfig.SRG2MCP));
             task.getMcp2Srg().set(UserdevConfig.meta(UserdevConfig.MCP2SRG));
-            task.getAccessTransformers().set(loader.getAccessTransformers().getElements().map(files ->
-                    files.stream().map(file -> UserdevConfig.meta(UserdevConfig.ATS) + "/" + file.getAsFile().getName()).toList()));
+            task.getAccessTransformers().set(loader.getAccessTransformers().getElements().map(files -> files.stream().map(file -> UserdevConfig.meta(
+                            UserdevConfig.ATS
+                    ) + "/" + file.getAsFile().getName()).toList()));
             task.getSideAnnotationStrippers().set(UserdevConfig.meta(UserdevConfig.SAS));
             task.getPatches().set(UserdevConfig.meta(UserdevConfig.PATCHES));
             task.getClientUrl().set(minecraft.getVersionMeta().map(VersionMeta::clientUrl));
@@ -366,55 +404,36 @@ public final class DistributionTasks {
 
             // SRG-named
             task.from(archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)), spec -> spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**"));
-            task.from(this.genBinPatches.flatMap(GenerateBinPatches::getBinpatches),
-                    spec -> spec.into(UserdevConfig.META));
-            task.from(loader.getAccessTransformers(),
-                    spec -> spec.into(UserdevConfig.meta(UserdevConfig.ATS)));
-            task.from(mcp.checkSAS.flatMap(CheckSAS::getOutput),
-                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.SAS));
+            task.from(this.genBinPatches.flatMap(GenerateBinPatches::getBinpatches), spec -> spec.into(UserdevConfig.META));
+            task.from(loader.getAccessTransformers(), spec -> spec.into(UserdevConfig.meta(UserdevConfig.ATS)));
+            task.from(mcp.checkSAS.flatMap(CheckSAS::getOutput), spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.SAS));
             task.from(minecraftPatches, spec -> spec.into(UserdevConfig.meta(UserdevConfig.PATCHES)));
-            task.from(mappings.writeSrg2Mcp.flatMap(WriteMappings::getOutput),
-                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.SRG2MCP));
-            task.from(this.writeObf2SrgTsrg.flatMap(WriteMappings::getOutput),
-                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.OBF2SRG));
-            task.from(mappings.access,
-                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.ACCESS));
-            task.from(mappings.constructors,
-                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.CONSTRUCTORS));
-            task.from(mappings.exceptions,
-                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.EXCEPTIONS));
-            task.from(mappings.methodMappings,
-                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.METHODS));
-            task.from(mappings.fieldMappings,
-                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.FIELDS));
-            task.from(mappings.parameterMappings,
-                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.PARAMS));
-            task.from(mcp.extractInitialPatches.map(Copy::getDestinationDir),
-                    spec -> spec.into(UserdevConfig.meta(UserdevConfig.INITIAL_PATCHES)));
+            task.from(mappings.writeSrg2Mcp.flatMap(WriteMappings::getOutput), spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.SRG2MCP));
+            task.from(this.writeObf2SrgTsrg.flatMap(WriteMappings::getOutput), spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.OBF2SRG));
+            task.from(mappings.access, spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.ACCESS));
+            task.from(mappings.constructors, spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.CONSTRUCTORS));
+            task.from(mappings.exceptions, spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.EXCEPTIONS));
+            task.from(mappings.methodMappings, spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.METHODS));
+            task.from(mappings.fieldMappings, spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.FIELDS));
+            task.from(mappings.parameterMappings, spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.PARAMS));
+            task.from(mcp.extractInitialPatches.map(Copy::getDestinationDir), spec -> spec.into(UserdevConfig.meta(UserdevConfig.INITIAL_PATCHES)));
             task.from(mainSourceSet.map(SourceSet::getAllJava), spec -> {
                 spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**");
                 spec.into(UserdevConfig.meta(UserdevConfig.LOADER_SOURCES));
             });
-            task.from(archives.zipTree(mcp.splitClientJar.flatMap(com.cleanroommc.gradle.api.task.mcp.SplitJar::getExtraJar)),
-                    spec -> spec.into(UserdevConfig.meta("client-extra")));
-            task.from(archives.zipTree(mcp.splitServerJar.flatMap(com.cleanroommc.gradle.api.task.mcp.SplitJar::getExtraJar)),
-                    spec -> spec.into(UserdevConfig.meta("server-extra")));
-            task.from(this.deobfLibraryJar.flatMap(Jar::getArchiveFile),
-                    spec -> spec.into(UserdevConfig.META));
-            task.from(mcp.decompileSrg.flatMap(com.cleanroommc.gradle.api.task.common.Decompile::getCompiledJar),
-                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.SOURCE_INPUT));
-            task.from(this.writeMcp2Srg.flatMap(WriteMappings::getOutput),
-                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.MCP2SRG));
-            task.from(this.writeUserdevConfig.flatMap(WriteUserdevConfig::getOutput),
-                    spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.FILE_NAME));
+            task.from(archives.zipTree(mcp.splitClientJar.flatMap(com.cleanroommc.gradle.api.task.mcp.SplitJar::getExtraJar)), spec -> spec.into(UserdevConfig.meta("client-extra")));
+            task.from(archives.zipTree(mcp.splitServerJar.flatMap(com.cleanroommc.gradle.api.task.mcp.SplitJar::getExtraJar)), spec -> spec.into(UserdevConfig.meta("server-extra")));
+            task.from(this.deobfLibraryJar.flatMap(Jar::getArchiveFile), spec -> spec.into(UserdevConfig.META));
+            task.from(mcp.decompileSrg.flatMap(com.cleanroommc.gradle.api.task.common.Decompile::getCompiledJar), spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.SOURCE_INPUT));
+            task.from(this.writeMcp2Srg.flatMap(WriteMappings::getOutput), spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.MCP2SRG));
+            task.from(this.writeUserdevConfig.flatMap(WriteUserdevConfig::getOutput), spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.FILE_NAME));
         });
         this.userdevSourcesJar.configure(task -> {
             task.setDescription("Builds the conventional sources artifact IDEs request for cleanroom-userdev.");
             task.getUserdevArtifact().set(this.userdevJar.flatMap(Jar::getArchiveFile));
             task.getLibraries().from(vanilla.vanillaConfig);
             task.getDecompilerClasspath().from(ToolConfigs.get(project, "decompiler"));
-            task.getOutput().set(layout.getBuildDirectory().file(version.map(number ->
-                    "libs/cleanroom-userdev-" + number + "-sources.jar")));
+            task.getOutput().set(layout.getBuildDirectory().file(version.map(number -> "libs/cleanroom-userdev-" + number + "-sources.jar")));
         });
         this.publishMmcPackZip.configure(task -> {
             task.setDescription("Publishes a minimal MultiMC/PrismLauncher import ZIP.");
@@ -428,15 +447,9 @@ public final class DistributionTasks {
             task.getUniversalUrl().set(universalUrl);
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
             task.getLibraries().set(distributionLibraryArtifacts);
-            task.getInheritedLibraries().set(minecraft.getVersionMeta()
-                    .map(meta -> meta.libraries().stream()
-                            .map(VersionMeta.Library::name)
-                            .collect(Collectors.toSet())
-                    )
-            );
+            task.getInheritedLibraries().set(minecraft.getVersionMeta().map(meta -> meta.libraries().stream().map(VersionMeta.Library::name).collect(Collectors.toSet())));
             task.getMinecraftExcludeRules().set(distributionLibraries.map(ResolvedLibraries::excludeRules));
-            task.getArchiveFile().set(layout.getBuildDirectory().file(
-                    version.map(number -> "libs/" + ARTIFACT_ID + "-" + number + ".zip")));
+            task.getArchiveFile().set(layout.getBuildDirectory().file(version.map(number -> "libs/" + ARTIFACT_ID + "-" + number + ".zip")));
             task.getInstallerArchiveFile().set(caches.getLocalDirectory().file("dist/mmc-installer.zip"));
         });
         this.writeInstallProfile.configure(task -> {
@@ -475,40 +488,30 @@ public final class DistributionTasks {
             task.getArchiveVersion().set(version);
             task.getArchiveClassifier().set("installer");
 
-            var installerRuntime = installerBase.flatMap(config ->
-                    config.getIncoming().getArtifacts().getResolvedArtifacts().map(artifacts -> {
-                        if (artifacts.size() != 1) {
-                            throw new IllegalStateException("Expected exactly one installer runtime jar on the "
-                                    + "installerBase configuration, resolved " + artifacts.size()
-                                    + ". Set cleanroom.loader.installerVersion to a published com.cleanroommc:installer release.");
-                        }
-                        return artifacts.iterator().next().getFile();
-                    }));
-            task.from(archives.zipTree(installerRuntime), spec -> spec.exclude(
-                    "META-INF/MANIFEST.MF", "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA"));
+            var installerRuntime = installerBase.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts().map(artifacts -> {
+                if (artifacts.size() != 1) {
+                    throw new IllegalStateException("Expected exactly one installer runtime jar on the " + "installerBase configuration, resolved " +
+                            artifacts.size() + ". Set cleanroom.loader.installerVersion to a published com.cleanroommc:installer release.");
+                }
+                return artifacts.iterator().next().getFile();
+            }));
+            task.from(archives.zipTree(installerRuntime), spec -> spec.exclude("META-INF/MANIFEST.MF", "META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA"));
             task.from(this.writeInstallProfile.flatMap(WriteInstallProfile::getInstallProfile));
             task.from(this.writeInstallProfile.flatMap(WriteInstallProfile::getVersionJson));
-            task.from(this.writeInstallProfile.flatMap(WriteInstallProfile::getEmbeddedLibraries),
-                    spec -> spec.into("maven"));
+            task.from(this.writeInstallProfile.flatMap(WriteInstallProfile::getEmbeddedLibraries), spec -> spec.into("maven"));
             task.from(this.universalJar.flatMap(Jar::getArchiveFile), spec -> {
-                spec.into(group.zip(version, (groupId, number) ->
-                        "maven/" + groupId.replace('.', '/') + "/" + ARTIFACT_ID + "/" + number));
+                spec.into(group.zip(version, (groupId, number) -> "maven/" + groupId.replace('.', '/') + "/" + ARTIFACT_ID + "/" + number));
                 spec.rename(_ -> universal.get().fileName());
             });
             task.from(this.publishMmcPackZip.flatMap(PublishMmcPackZip::getInstallerArchiveFile), spec -> {
                 spec.into("mmc");
                 spec.rename(_ -> "pack.zip");
             });
-            task.doFirst("configureManifest", _ -> task.getManifest().attributes(Map.of(
-                    "Main-Class", "com.cleanroommc.installer.Main",
-                    "Implementation-Version", version.get(),
-                    "Cleanroom-Version", version.get())
-            ));
+            task.doFirst("configureManifest", _ -> task.getManifest().attributes(Map.of("Main-Class", "com.cleanroommc.installer.Main", "Implementation-Version", version.get(), "Cleanroom-Version", version.get())));
         });
 
         this.sourcesJar.configure(task -> {
-            task.setDescription("Packages the loader's own sources. Minecraft is left out, since a userdev "
-                    + "workspace decompiles it under its own MCP names.");
+            task.setDescription("Packages the loader's own sources. Minecraft is left out, since a userdev " + "workspace decompiles it under its own MCP names.");
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);
 
@@ -531,22 +534,20 @@ public final class DistributionTasks {
             task.from(javadocTask.map(Javadoc::getDestinationDir));
         });
 
-        this.runtimeModules = ResolvedLibraries.modules(runtimeClasspath
-                .flatMap(config -> config.getIncoming().getResolutionResult().getRootComponent()));
+        this.runtimeModules = ResolvedLibraries.modules(runtimeClasspath.flatMap(config -> config.getIncoming().getResolutionResult().getRootComponent()));
         this.userdevComponent = registerVariants(project, minecraft, components, targetJavaMajor);
 
-        intermediates.discardAfterAll(
-                List.of(this.universalJar, this.userdevJar),
-                this.reobfJar.flatMap(RenameJar::getOutput)
-        );
+        intermediates.discardAfterAll(List.of(this.universalJar, this.userdevJar), this.reobfJar.flatMap(RenameJar::getOutput));
         intermediates.after(mcp.discardCheckSAS, this.userdevJar);
         intermediates.discardAfterAll(
                 List.of(this.stripClientMinecraftJar, this.stripServerMinecraftJar),
                 this.reobfMinecraftJar.flatMap(RenameJar::getOutput)
         );
-        intermediates.discardAfter(this.genBinPatches,
+        intermediates.discardAfter(
+                this.genBinPatches,
                 this.stripClientMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar),
-                this.stripServerMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar));
+                this.stripServerMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar)
+        );
     }
 
     public void registerPublications(Project project, ProjectCoordinates coordinates) {
@@ -556,8 +557,7 @@ public final class DistributionTasks {
         publishing.getPublications().register("cleanroom", MavenPublication.class, publication -> {
             publication.setArtifactId(ARTIFACT_ID);
             publication.setVersion(version.get());
-            publication.artifact(this.publishMmcPackZip.flatMap(PublishMmcPackZip::getArchiveFile),
-                    artifact -> artifact.setExtension("zip"));
+            publication.artifact(this.publishMmcPackZip.flatMap(PublishMmcPackZip::getArchiveFile), artifact -> artifact.setExtension("zip"));
             publication.artifact(this.universalJar);
             publication.artifact(this.sourcesJar);
             publication.artifact(this.javadocJar);
@@ -587,9 +587,12 @@ public final class DistributionTasks {
         });
     }
 
-    private SoftwareComponent registerVariants(Project project, MinecraftExtension minecraft,
-                                               SoftwareComponentFactory components,
-                                               Provider<Integer> targetJavaMajor) {
+    private SoftwareComponent registerVariants(
+            Project project,
+            MinecraftExtension minecraft,
+            SoftwareComponentFactory components,
+            Provider<Integer> targetJavaMajor
+    ) {
         var configurations = project.getConfigurations();
         var javaApiElements = configurations.named(JavaPlugin.API_ELEMENTS_CONFIGURATION_NAME);
         var javaRuntimeElements = configurations.named(JavaPlugin.RUNTIME_ELEMENTS_CONFIGURATION_NAME);
@@ -598,36 +601,36 @@ public final class DistributionTasks {
             configuration.setCanBeConsumed(false);
             configuration.setCanBeResolved(false);
             configuration.setDescription("Vanilla libraries the published userdev module depends on.");
-            configuration.getDependencies().addAllLater(minecraft.getVersionMeta().map(meta -> {
-                var dependencies = new ArrayList<Dependency>();
-                VanillaTasks.addDistributionLibraries(project.getDependencyFactory(), dependencies, meta);
-                return dependencies;
-            }));
+            configuration.getDependencies().addAllLater(
+                    minecraft.getVersionMeta().map(meta -> {
+                        var dependencies = new ArrayList<Dependency>();
+                        VanillaTasks.addDistributionLibraries(project.getDependencyFactory(), dependencies, meta);
+                        return dependencies;
+                    })
+            );
         });
 
         var apiElements = configurations.register("cleanroomUserdevApiElements", configuration -> {
-            userdevVariant(project, configuration, Usage.JAVA_API, Category.LIBRARY, UserdevAttributes.CLASSES,
-                    targetJavaMajor);
+            userdevVariant(project, configuration, Usage.JAVA_API, Category.LIBRARY, UserdevAttributes.CLASSES, targetJavaMajor);
             configuration.extendsFrom(javaApiElements.get(), minecraftLibraries.get());
         });
         var runtimeElements = configurations.register("cleanroomUserdevRuntimeElements", configuration -> {
-            userdevVariant(project, configuration, Usage.JAVA_RUNTIME, Category.LIBRARY, UserdevAttributes.CLASSES,
-                    targetJavaMajor);
+            userdevVariant(project, configuration, Usage.JAVA_RUNTIME, Category.LIBRARY, UserdevAttributes.CLASSES, targetJavaMajor);
             configuration.extendsFrom(javaRuntimeElements.get(), minecraftLibraries.get());
         });
         var sourcesElements = configurations.register("cleanroomUserdevSourcesElements", configuration -> {
-            userdevVariant(project, configuration, Usage.JAVA_RUNTIME, Category.DOCUMENTATION,
-                    UserdevAttributes.SOURCES, targetJavaMajor);
-            configuration.getAttributes().attribute(DocsType.DOCS_TYPE_ATTRIBUTE,
-                    project.getObjects().named(DocsType.class, DocsType.SOURCES));
+            userdevVariant(project, configuration, Usage.JAVA_RUNTIME, Category.DOCUMENTATION, UserdevAttributes.SOURCES, targetJavaMajor);
+            configuration.getAttributes().attribute(DocsType.DOCS_TYPE_ATTRIBUTE, project.getObjects().named(DocsType.class, DocsType.SOURCES));
             configuration.extendsFrom(minecraftLibraries.get());
         });
-        var clientExtraElements = configurations.register("cleanroomUserdevClientExtraElements", configuration ->
-                userdevVariant(project, configuration, Usage.JAVA_RUNTIME, Category.LIBRARY,
-                        UserdevAttributes.CLIENT_EXTRA, targetJavaMajor));
-        var serverExtraElements = configurations.register("cleanroomUserdevServerExtraElements", configuration ->
-                userdevVariant(project, configuration, Usage.JAVA_RUNTIME, Category.LIBRARY,
-                        UserdevAttributes.SERVER_EXTRA, targetJavaMajor));
+        var clientExtraElements = configurations.register(
+                "cleanroomUserdevClientExtraElements",
+                configuration -> userdevVariant(project, configuration, Usage.JAVA_RUNTIME, Category.LIBRARY, UserdevAttributes.CLIENT_EXTRA, targetJavaMajor)
+        );
+        var serverExtraElements = configurations.register(
+                "cleanroomUserdevServerExtraElements",
+                configuration -> userdevVariant(project, configuration, Usage.JAVA_RUNTIME, Category.LIBRARY, UserdevAttributes.SERVER_EXTRA, targetJavaMajor)
+        );
 
         var rawArtifact = project.getArtifacts().add(apiElements.getName(), this.userdevJar);
         for (var elements : List.of(runtimeElements, sourcesElements, clientExtraElements, serverExtraElements)) {
@@ -642,53 +645,55 @@ public final class DistributionTasks {
         userdev.addVariantsFromConfiguration(clientExtraElements.get(), details -> details.mapToOptional());
         userdev.addVariantsFromConfiguration(serverExtraElements.get(), details -> details.mapToOptional());
         for (var platform : Platform.nativePlatforms()) {
-            userdev.addVariantsFromConfiguration(nativesVariant(project, minecraft, targetJavaMajor, platform).get(),
-                    details -> details.mapToOptional());
+            userdev.addVariantsFromConfiguration(nativesVariant(project, minecraft, targetJavaMajor, platform).get(), details -> details.mapToOptional());
         }
         return userdev;
     }
 
     private static NamedDomainObjectProvider<Configuration> nativesVariant(
-            Project project, MinecraftExtension minecraft, Provider<Integer> targetJavaMajor, Platform platform) {
+            Project project,
+            MinecraftExtension minecraft,
+            Provider<Integer> targetJavaMajor,
+            Platform platform
+    ) {
         var classifier = platform.lwjglNativesClassifier();
-        var suffix = Arrays.stream(classifier.split("-"))
-                .map(StringUtils::capitalize)
-                .collect(Collectors.joining());
+        var suffix = Arrays.stream(classifier.split("-")).map(StringUtils::capitalize).collect(Collectors.joining());
         var natives = project.getConfigurations().register("cleanroomUserdev" + suffix, configuration -> {
             configuration.setCanBeConsumed(false);
             configuration.setCanBeResolved(false);
             configuration.setDescription("Native libraries a userdev workspace on " + classifier + " resolves.");
-            configuration.getDependencies().addAllLater(minecraft.getVersionMeta().map(meta -> {
-                var dependencies = new ArrayList<Dependency>();
-                LwjglNatives.addFor(project, dependencies, classifier);
-                VanillaTasks.addNativesFor(project.getDependencyFactory(), dependencies, meta, Map.of(), platform);
-                return dependencies;
-            }));
+            configuration.getDependencies().addAllLater(
+                    minecraft.getVersionMeta().map(meta -> {
+                        var dependencies = new ArrayList<Dependency>();
+                        LwjglNatives.addFor(project, dependencies, classifier);
+                        VanillaTasks.addNativesFor(project.getDependencyFactory(), dependencies, meta, Map.of(), platform);
+                        return dependencies;
+                    })
+            );
         });
         return project.getConfigurations().register("cleanroomUserdev" + suffix + "Elements", configuration -> {
-            userdevVariant(project, configuration, Usage.JAVA_RUNTIME, Category.LIBRARY,
-                    UserdevAttributes.NATIVES, targetJavaMajor);
-            configuration.getAttributes().attribute(OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
-                    project.getObjects().named(OperatingSystemFamily.class, platform.operatingSystemFamily()));
-            configuration.getAttributes().attribute(MachineArchitecture.ARCHITECTURE_ATTRIBUTE,
-                    project.getObjects().named(MachineArchitecture.class, platform.machineArchitecture()));
+            userdevVariant(project, configuration, Usage.JAVA_RUNTIME, Category.LIBRARY, UserdevAttributes.NATIVES, targetJavaMajor);
+            configuration.getAttributes().attribute(OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE, project.getObjects().named(OperatingSystemFamily.class, platform.operatingSystemFamily()));
+            configuration.getAttributes().attribute(MachineArchitecture.ARCHITECTURE_ATTRIBUTE, project.getObjects().named(MachineArchitecture.class, platform.machineArchitecture()));
             configuration.extendsFrom(natives.get());
         });
     }
 
-    private static void userdevVariant(Project project, org.gradle.api.artifacts.Configuration configuration,
-                                       String usage, String category, String role,
-                                       Provider<Integer> targetJavaMajor) {
+    private static void userdevVariant(
+            Project project,
+            org.gradle.api.artifacts.Configuration configuration,
+            String usage,
+            String category,
+            String role,
+            Provider<Integer> targetJavaMajor
+    ) {
         configuration.setCanBeConsumed(true);
         configuration.setCanBeResolved(false);
-        configuration.getAttributes().attribute(Usage.USAGE_ATTRIBUTE,
-                project.getObjects().named(Usage.class, usage));
-        configuration.getAttributes().attribute(Category.CATEGORY_ATTRIBUTE,
-                project.getObjects().named(Category.class, category));
-        configuration.getAttributes().attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE,
-                project.getObjects().named(LibraryElements.class, LibraryElements.JAR));
-        configuration.getAttributes().attribute(Bundling.BUNDLING_ATTRIBUTE,
-                project.getObjects().named(Bundling.class, Bundling.EXTERNAL));
+        configuration.getAttributes().attribute(Usage.USAGE_ATTRIBUTE, project.getObjects().named(Usage.class, usage));
+        configuration.getAttributes().attribute(Category.CATEGORY_ATTRIBUTE, project.getObjects().named(Category.class, category));
+        configuration.getAttributes()
+                .attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, project.getObjects().named(LibraryElements.class, LibraryElements.JAR));
+        configuration.getAttributes().attribute(Bundling.BUNDLING_ATTRIBUTE, project.getObjects().named(Bundling.class, Bundling.EXTERNAL));
         configuration.getAttributes().attributeProvider(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, targetJavaMajor);
         configuration.getAttributes().attribute(UserdevAttributes.ROLE, role);
     }
@@ -704,12 +709,9 @@ public final class DistributionTasks {
     private static Provider<String> universalRepositoryUrl(Project project) {
         return project.getProviders().provider(() -> {
             var publishing = project.getExtensions().getByType(PublishingExtension.class);
-            var urls = publishing.getRepositories().withType(MavenArtifactRepository.class).stream()
-                    .map(repository -> LibraryJson.trailingSlash(repository.getUrl().toString()))
-                    .collect(Collectors.toSet());
+            var urls = publishing.getRepositories().withType(MavenArtifactRepository.class).stream().map(repository -> LibraryJson.trailingSlash(repository.getUrl().toString())).collect(Collectors.toSet());
             if (urls.size() != 1) {
-                throw new GradleException("Cleanroom distribution requires exactly one Maven publication repository; found "
-                        + urls);
+                throw new GradleException("Cleanroom distribution requires exactly one Maven publication repository; found " + urls);
             }
             return urls.iterator().next();
         });

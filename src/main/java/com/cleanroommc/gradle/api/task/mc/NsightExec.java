@@ -88,13 +88,19 @@ public abstract class NsightExec extends Exec {
 
         this.commandLine(
                 ngfxPath,
-                "--activity", activity,
-                "--platform", platform,
+                "--activity",
+                activity,
+                "--platform",
+                platform,
                 "--wait-hotkey",
-                "--dir", workingDir,
-                "--output-dir", workingDir,
-                "--exe", javaExecutable,
-                "--args", wrapperArgs
+                "--dir",
+                workingDir,
+                "--output-dir",
+                workingDir,
+                "--exe",
+                javaExecutable,
+                "--args",
+                wrapperArgs
         );
     }
 

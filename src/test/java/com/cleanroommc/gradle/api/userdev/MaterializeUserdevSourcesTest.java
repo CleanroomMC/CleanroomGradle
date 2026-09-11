@@ -18,9 +18,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 /**
  * The patch step decides whether a workspace's sources are complete, so it has to fail rather than skip,
@@ -34,7 +33,9 @@ class MaterializeUserdevSourcesTest {
     @Test
     void appliesAPatchWithLineFeedsOnly() throws IOException {
         var source = write("source/net/minecraft/Block.java", "class Block {\nvoid a() { }\n}\n");
-        write("patches/net/minecraft/Block.java.patch", """
+        write(
+                "patches/net/minecraft/Block.java.patch",
+                """
                 --- a/net/minecraft/Block.java
                 +++ b/net/minecraft/Block.java
                 @@ -1,3 +1,3 @@
@@ -42,29 +43,36 @@ class MaterializeUserdevSourcesTest {
                 -void a() { }
                 +void b() { }
                  }
-                """);
+                """
+        );
 
         UserdevSourceMaterializer.applyPatches(this.directory.resolve("source"), this.directory.resolve("patches"));
 
-        assertEquals("class Block {\nvoid b() { }\n}\n", Files.readString(source, StandardCharsets.UTF_8));
+        assertThat(Files.readString(source, StandardCharsets.UTF_8)).isEqualTo("class Block {\nvoid b() { }\n}\n");
     }
 
     @Test
     void failsWhenAPatchHasNoTarget() throws IOException {
         write("source/net/minecraft/Block.java", "class Block {\n}\n");
-        write("patches/net/minecraft/Missing.java.patch", """
+        write(
+                "patches/net/minecraft/Missing.java.patch",
+                """
                 --- a/net/minecraft/Missing.java
                 +++ b/net/minecraft/Missing.java
                 @@ -1,1 +1,1 @@
                 -class Missing { }
                 +class Missing { void a() { } }
-                """);
+                """
+        );
 
-        var failure = assertThrows(IllegalStateException.class, () -> UserdevSourceMaterializer
-                .applyPatches(this.directory.resolve("source"), this.directory.resolve("patches")));
-        assertTrue(failure.getMessage().contains("Missing.java.patch"), failure.getMessage());
-        assertTrue(failure.getMessage().contains("net" + java.io.File.separator + "minecraft"
-                + java.io.File.separator + "Missing.java"), failure.getMessage());
+        var failure = catchThrowableOfType(
+                () -> UserdevSourceMaterializer.applyPatches(this.directory.resolve("source"), this.directory.resolve("patches")),
+                IllegalStateException.class
+        );
+        assertThat(failure).as(failure.getMessage()).hasMessageContaining("Missing.java.patch");
+        assertThat(failure.getMessage().contains("net" + java.io.File.separator + "minecraft" + java.io.File.separator + "Missing.java"))
+                .as(failure.getMessage())
+                .isTrue();
     }
 
     private Path write(String path, String content) throws IOException {

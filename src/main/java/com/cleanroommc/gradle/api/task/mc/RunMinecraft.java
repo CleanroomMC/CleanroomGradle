@@ -25,7 +25,14 @@ import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Property;
-import org.gradle.api.tasks.*;
+import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.InputDirectory;
+import org.gradle.api.tasks.Internal;
+import org.gradle.api.tasks.JavaExec;
+import org.gradle.api.tasks.Optional;
+import org.gradle.api.tasks.PathSensitive;
+import org.gradle.api.tasks.PathSensitivity;
+import org.gradle.api.tasks.UntrackedTask;
 import org.gradle.work.DisableCachingByDefault;
 
 import javax.inject.Inject;
@@ -154,12 +161,13 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         var side = this.getSide().get();
 
         if (this.getNatives().isPresent()) {
-            this.systemProperty("java.library.path",
-                    Platform.joinLibraryPath(System.getProperty("java.library.path"), this.getNatives().get().getAsFile()));
+            this.systemProperty("java.library.path", Platform.joinLibraryPath(System.getProperty("java.library.path"), this.getNatives().get().getAsFile()));
         }
 
         if (!this.setCustomWorkingDir) {
-            super.setWorkingDir(IO.runDir(this.getProjectLayout().getProjectDirectory().getAsFile(), this.getMinecraftVersion().get(), this.getEnv().get(), side));
+            super.setWorkingDir(
+                    IO.runDir(this.getProjectLayout().getProjectDirectory().getAsFile(), this.getMinecraftVersion().get(), this.getEnv().get(), side)
+            );
         }
 
         var consumerArgs = new ArrayList<>(this.getArgs());
@@ -232,7 +240,11 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
                 }
                 return;
             }
-            this.getLogger().warn("Version meta for {} declares neither 'arguments' nor 'minecraftArguments'; using legacy launch arguments.", this.getMinecraftVersion().get());
+            this.getLogger()
+                    .warn(
+                            "Version meta for {} declares neither 'arguments' nor 'minecraftArguments'; using legacy launch arguments.",
+                            this.getMinecraftVersion().get()
+                    );
         }
         appendLegacyArguments();
     }
@@ -241,13 +253,21 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
      * The pre-1.13 hardcoded argument list, resolved from the same properties as before (lazily, at exec time).
      */
     private void appendLegacyArguments() {
-        this.args("--gameDir", (Supplier<File>) this::getWorkingDir,
-                "--version", this.getMinecraftVersion(),
-                "--assetIndex", this.getAssetIndexVersion(),
-                "--assetsDir", this.getVanillaAssetsLocation(),
-                "--username", this.getUsername(),
-                "--uuid", this.getUUID(),
-                "--accessToken", this.getAccessToken()
+        this.args(
+                "--gameDir",
+                (Supplier<File>) this::getWorkingDir,
+                "--version",
+                this.getMinecraftVersion(),
+                "--assetIndex",
+                this.getAssetIndexVersion(),
+                "--assetsDir",
+                this.getVanillaAssetsLocation(),
+                "--username",
+                this.getUsername(),
+                "--uuid",
+                this.getUUID(),
+                "--accessToken",
+                this.getAccessToken()
         );
     }
 

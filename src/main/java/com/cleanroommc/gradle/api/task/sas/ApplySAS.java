@@ -47,7 +47,9 @@ public abstract class ApplySAS extends DefaultTask {
         var result = SideOnlyHandler.applySas(
                 this.getInputJar().get().getAsFile().toPath(),
                 this.getOutputJar().get().getAsFile().toPath(),
-                this.getSideAnnotationStrippers().getFiles().stream().map(File::toPath).toList());
+                this.getSideAnnotationStrippers().getFiles().stream().map(File::toPath).toList()
+        );
         this.getLogger().lifecycle("Removed {} legacy @SideOnly annotations", result.annotationsRemoved());
     }
+
 }

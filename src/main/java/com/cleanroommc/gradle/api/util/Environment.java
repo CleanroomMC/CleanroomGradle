@@ -24,4 +24,5 @@ public enum Environment {
     public String toString() {
         return this.name().toLowerCase(Locale.ENGLISH);
     }
+
 }

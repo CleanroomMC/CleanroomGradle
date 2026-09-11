@@ -30,17 +30,21 @@ public final class ToolConfigs {
 
     private static final String ASM_VERSION = asmVersion();
     private static final Map<String, String> DEFAULTS = Map.of(
-            "accesstransformer", "net.minecraftforge:accesstransformers:8.2.17", // Forge
-            "decompiler", "com.cleanroommc:cleanflower:1.0.0", // Cleanroom
-            "installertools", "net.minecraftforge:installertools:1.4.1:fatjar", // Forge
-            "mergetool", "net.minecraftforge:mergetool:1.2.2" // Forge
+            "accesstransformer",
+            "net.minecraftforge:accesstransformers:8.2.17", // Forge
+            "decompiler",
+            "com.cleanroommc:cleanflower:1.0.0", // Cleanroom
+            "installertools",
+            "net.minecraftforge:installertools:1.4.1:fatjar", // Forge
+            "mergetool",
+            "net.minecraftforge:mergetool:1.2.2" // Forge
     );
     /**
      * Tools whose output decides what the decompiled Minecraft tree looks like.
      */
     public static final List<String> SOURCE_TOOLS = List.of("accesstransformer", "decompiler", "mergetool");
     /**
-     * Pinned ASM modules for tools that may depend on older ASM versions
+     * Pinned ASM modules for tools that may depend on older ASM versions.
      */
     private static final String[] PINNED_ASM_MODULES = new String[] {
             "org.ow2.asm:asm:" + ASM_VERSION,
@@ -77,9 +81,8 @@ public final class ToolConfigs {
         Provider<Map<String, String>> tools = project.getProviders().provider(LinkedHashMap::new);
         for (var name : DEFAULTS.keySet().stream().sorted().toList()) {
             var fallback = DEFAULTS.get(name);
-            var declared = configurations.named(name).map(configuration -> configuration.getDependencies().stream()
-                    .map(String::valueOf)
-                    .collect(Collectors.joining(", ")));
+            var declared = configurations.named(name)
+                    .map(configuration -> configuration.getDependencies().stream().map(String::valueOf).collect(Collectors.joining(", ")));
             tools = tools.zip(declared, (resolved, value) -> {
                 var merged = new LinkedHashMap<>(resolved);
                 merged.put(name, value.isEmpty() ? fallback : value);
@@ -116,6 +119,6 @@ public final class ToolConfigs {
         return version;
     }
 
-    private ToolConfigs() { }
+    private ToolConfigs() {}
 
 }

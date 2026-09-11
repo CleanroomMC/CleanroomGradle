@@ -68,8 +68,9 @@ public abstract class CleanroomExtension {
             if (current == selected) {
                 return;
             }
-            throw new InvalidUserDataException("Cleanroom environment '" + current.name().toLowerCase()
-                    + "' is already registered. A project can register only one Cleanroom environment.");
+            throw new InvalidUserDataException(
+                    "Cleanroom environment '" + current.name().toLowerCase() + "' is already registered. A project can register only one Cleanroom environment."
+            );
         }
         this.mode.set(selected);
         var pending = List.copyOf(this.modeActions);
@@ -108,13 +109,11 @@ public abstract class CleanroomExtension {
         var versionMetaCacheFile = this.caches.getVersionDirectory().file("meta.json");
         var offline = project.getGradle().getStartParameter().isOffline();
         this.minecraft.getVersionMeta().convention(
-                this.minecraft.getVersionMetaUrl()
-                        .flatMap(url -> providers.of(VersionMetaValueSource.class, spec -> {
-                            spec.getParameters().getCacheFile().set(versionMetaCacheFile);
-                            spec.getParameters().getVersionMetaUrl().set(url);
-                            spec.getParameters().getOffline().set(offline);
-                        }))
-                        .orElse(providers.of(BundledVersionMetaValueSource.class, _ -> {}))
+                this.minecraft.getVersionMetaUrl().flatMap(url -> providers.of(VersionMetaValueSource.class, spec -> {
+                    spec.getParameters().getCacheFile().set(versionMetaCacheFile);
+                    spec.getParameters().getVersionMetaUrl().set(url);
+                    spec.getParameters().getOffline().set(offline);
+                })).orElse(providers.of(BundledVersionMetaValueSource.class, _ -> {}))
         );
 
         this.patches.getDevelopInitial().convention(false);
@@ -126,6 +125,8 @@ public abstract class CleanroomExtension {
     /**
      * Kotlin DSL cannot see the {@code deobf} extension as a bare function inside a dependencies block,
      * so it reaches the same handler through {@code cleanroom.deobf(...)}.
+     *
+     * @param notation the dependency notation to deobfuscate
      */
     public Dependency deobf(Object notation) {
         return deobfHandler().call(notation);
@@ -176,7 +177,7 @@ public abstract class CleanroomExtension {
     }
 
     public UserdevDependency userdev(String version) {
-        return userdev(version, _ -> { });
+        return userdev(version, _ -> {});
     }
 
     public UserdevDependency userdev(String version, Action<? super UserdevDependency> action) {
@@ -202,8 +203,9 @@ public abstract class CleanroomExtension {
     }
 
     private static InvalidUserDataException removedUserdevContract() {
-        return new InvalidUserDataException("The old cleanroom.userdev block was removed. Declare "
-                + "dependencies { implementation cleanroom.userdev('version') { accessTransformers.from(...) } } instead.");
+        return new InvalidUserDataException(
+                "The old cleanroom.userdev block was removed. Declare " + "dependencies { implementation cleanroom.userdev('version') { accessTransformers.from(...) } } instead."
+        );
     }
 
 }

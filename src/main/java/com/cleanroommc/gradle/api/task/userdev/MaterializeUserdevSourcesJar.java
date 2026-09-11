@@ -50,9 +50,14 @@ public abstract class MaterializeUserdevSourcesJar extends DefaultTask {
     @TaskAction
     public void materialize() {
         try {
-            UserdevSourceMaterializer.materialize(getUserdevArtifact().getAsFile().get(),
-                    getOutput().getAsFile().get().toPath(), getTemporaryDir().toPath(), getLibraries(),
-                    getDecompilerClasspath(), getExecOperations());
+            UserdevSourceMaterializer.materialize(
+                    getUserdevArtifact().getAsFile().get(),
+                    getOutput().getAsFile().get().toPath(),
+                    getTemporaryDir().toPath(),
+                    getLibraries(),
+                    getDecompilerClasspath(),
+                    getExecOperations()
+            );
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to materialize " + getUserdevArtifact().getAsFile().get(), e);
         }

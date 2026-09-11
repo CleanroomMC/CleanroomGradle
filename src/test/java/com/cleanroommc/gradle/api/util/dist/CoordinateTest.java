@@ -13,77 +13,71 @@ package com.cleanroommc.gradle.api.util.dist;
 import org.gradle.api.GradleException;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CoordinateTest {
 
     @Test
     void parsesFullAndMinimalNotations() {
-        assertEquals(new Coordinate("g", "a", "1", null, "jar"), Coordinate.parse("g:a:1"));
-        assertEquals(new Coordinate("g", "a", "1", "natives-linux", "jar"),
-                Coordinate.parse("g:a:1:natives-linux"));
-        assertEquals(new Coordinate("g", "a", "1", null, "zip"), Coordinate.parse("g:a:1@zip"));
-        assertEquals(new Coordinate("g", "a", "1", "classifier", "zip"),
-                Coordinate.parse("g:a:1:classifier@zip"));
+        assertThat(Coordinate.parse("g:a:1")).isEqualTo(new Coordinate("g", "a", "1", null, "jar"));
+        assertThat(Coordinate.parse("g:a:1:natives-linux")).isEqualTo(new Coordinate("g", "a", "1", "natives-linux", "jar"));
+        assertThat(Coordinate.parse("g:a:1@zip")).isEqualTo(new Coordinate("g", "a", "1", null, "zip"));
+        assertThat(Coordinate.parse("g:a:1:classifier@zip")).isEqualTo(new Coordinate("g", "a", "1", "classifier", "zip"));
     }
 
     @Test
     void blankClassifierMeansNoClassifier() {
-        assertNull(Coordinate.parse("g:a:1:").classifier());
+        assertThat(Coordinate.parse("g:a:1:").classifier()).isNull();
     }
 
     @Test
     void rejectsMalformedCoordinates() {
-        for (var bad : new String[] { "", "g", "g:a", "g:a:1:x:y", ":a:1", "g::1", "g:a: ",
-                "g:a:1@", "g:a:1@zip@jar" }) {
-            assertThrows(GradleException.class, () -> Coordinate.parse(bad), bad);
+        for (var bad : new String[] { "", "g", "g:a", "g:a:1:x:y", ":a:1", "g::1", "g:a: ", "g:a:1@", "g:a:1@zip@jar" }) {
+            assertThatThrownBy(() -> Coordinate.parse(bad)).as(bad).isInstanceOf(GradleException.class);
         }
     }
 
     @Test
     void serializedRoundTripsAndDropsDefaultExtension() {
-        assertEquals("g:a:1", Coordinate.parse("g:a:1").serialized());
-        assertEquals("g:a:1:classifier", Coordinate.parse("g:a:1:classifier").serialized());
-        assertEquals("g:a:1@zip", Coordinate.parse("g:a:1@zip").serialized());
-        assertEquals("g:a:1:classifier@zip", Coordinate.parse("g:a:1:classifier@zip").serialized());
+        assertThat(Coordinate.parse("g:a:1").serialized()).isEqualTo("g:a:1");
+        assertThat(Coordinate.parse("g:a:1:classifier").serialized()).isEqualTo("g:a:1:classifier");
+        assertThat(Coordinate.parse("g:a:1@zip").serialized()).isEqualTo("g:a:1@zip");
+        assertThat(Coordinate.parse("g:a:1:classifier@zip").serialized()).isEqualTo("g:a:1:classifier@zip");
     }
 
     @Test
     void moduleAndWithoutClassifier() {
         var coordinate = Coordinate.parse("g:a:1:classifier@zip");
-        assertEquals("g:a:1", coordinate.module());
-        assertEquals(Coordinate.parse("g:a:1@zip"), coordinate.withoutClassifier());
+        assertThat(coordinate.module()).isEqualTo("g:a:1");
+        assertThat(coordinate.withoutClassifier()).isEqualTo(Coordinate.parse("g:a:1@zip"));
     }
 
     @Test
     void sameArtifactComparesEveryComponent() {
         var base = Coordinate.parse("g:a:1");
-        assertTrue(base.sameArtifact(Coordinate.parse("g:a:1")));
-        assertFalse(base.sameArtifact(Coordinate.parse("g:a:2")));
-        assertFalse(base.sameArtifact(Coordinate.parse("g:a:1:natives-linux")));
-        assertFalse(base.sameArtifact(Coordinate.parse("g:a:1@zip")));
-        assertFalse(base.sameArtifact(Coordinate.parse("g:b:1")));
+        assertThat(base.sameArtifact(Coordinate.parse("g:a:1"))).isTrue();
+        assertThat(base.sameArtifact(Coordinate.parse("g:a:2"))).isFalse();
+        assertThat(base.sameArtifact(Coordinate.parse("g:a:1:natives-linux"))).isFalse();
+        assertThat(base.sameArtifact(Coordinate.parse("g:a:1@zip"))).isFalse();
+        assertThat(base.sameArtifact(Coordinate.parse("g:b:1"))).isFalse();
     }
 
     @Test
     void hasLocalComponentMatchesDotSeparatedSuffix() {
-        assertTrue(Coordinate.parse("g:a:1+local").hasLocalComponent());
-        assertTrue(Coordinate.parse("g:a:1+build.local.1").hasLocalComponent());
-        assertFalse(Coordinate.parse("g:a:1").hasLocalComponent());
-        assertFalse(Coordinate.parse("g:a:1+localbuild").hasLocalComponent());
-        assertFalse(Coordinate.parse("g:a:1+build.locals").hasLocalComponent());
+        assertThat(Coordinate.parse("g:a:1+local").hasLocalComponent()).isTrue();
+        assertThat(Coordinate.parse("g:a:1+build.local.1").hasLocalComponent()).isTrue();
+        assertThat(Coordinate.parse("g:a:1").hasLocalComponent()).isFalse();
+        assertThat(Coordinate.parse("g:a:1+localbuild").hasLocalComponent()).isFalse();
+        assertThat(Coordinate.parse("g:a:1+build.locals").hasLocalComponent()).isFalse();
     }
 
     @Test
     void mavenPathAndFileName() {
         var coordinate = Coordinate.parse("com.example:mod:1.0:natives-linux@ZIP");
-        assertEquals("mod-1.0-natives-linux.zip", coordinate.fileName());
-        assertEquals("com/example/mod/1.0/mod-1.0-natives-linux.zip", coordinate.mavenPath());
-        assertEquals("mod-1.0.jar", Coordinate.parse("com.example:mod:1.0").fileName());
+        assertThat(coordinate.fileName()).isEqualTo("mod-1.0-natives-linux.zip");
+        assertThat(coordinate.mavenPath()).isEqualTo("com/example/mod/1.0/mod-1.0-natives-linux.zip");
+        assertThat(Coordinate.parse("com.example:mod:1.0").fileName()).isEqualTo("mod-1.0.jar");
     }
 
 }

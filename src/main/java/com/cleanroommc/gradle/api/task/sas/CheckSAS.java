@@ -60,8 +60,7 @@ public abstract class CheckSAS extends DefaultTask {
 
     @TaskAction
     public void check() throws IOException {
-        Map<String, JsonObject> parsed = IO.readJson(this.getInheritance().get().getAsFile(),
-                new TypeToken<Map<String, JsonObject>>() { }.getType());
+        Map<String, JsonObject> parsed = IO.readJson(this.getInheritance().get().getAsFile(), new TypeToken<Map<String, JsonObject>>() {}.getType());
         Map<String, JsonObject> inheritance = parsed == null ? Map.of() : parsed;
 
         var sourceFiles = this.getSideAnnotationStrippers().getFiles().stream().map(File::toPath).toList();
@@ -73,18 +72,16 @@ public abstract class CheckSAS extends DefaultTask {
             }
         }
         if (!duplicates.isEmpty()) {
-            throw new GradleException("Duplicate legacy side annotation stripper roots:\n  "
-                    + String.join("\n  ", duplicates.stream().map(Target::format).toList()));
+            throw new GradleException(
+                    "Duplicate legacy side annotation stripper roots:\n  " + String.join("\n  ", duplicates.stream().map(Target::format).toList())
+            );
         }
         validateAndWrite(inheritance, roots);
     }
 
     private void validateAndWrite(Map<String, JsonObject> inheritance, Map<Target, SasLine> roots) throws IOException {
         var classRoots = new HashSet<String>();
-        roots.keySet().stream()
-                .filter(target -> target.kind() == TargetKind.CLASS)
-                .map(Target::owner)
-                .forEach(classRoots::add);
+        roots.keySet().stream().filter(target -> target.kind() == TargetKind.CLASS).map(Target::owner).forEach(classRoots::add);
         var errors = new TreeSet<String>();
         var expanded = new HashMap<Target, Set<Target>>();
         for (var line : roots.values()) {
@@ -106,17 +103,22 @@ public abstract class CheckSAS extends DefaultTask {
         return generated;
     }
 
-    private static void validateKind(Map<String, JsonObject> inheritance, Set<String> classRoots, Set<String> errors,
-                                     Target root, Set<Target> generated, JsonObject cls) {
+    private static void validateKind(
+            Map<String, JsonObject> inheritance,
+            Set<String> classRoots,
+            Set<String> errors,
+            Target root,
+            Set<Target> generated,
+            JsonObject cls
+    ) {
         switch (root.kind()) {
             case CLASS -> validateClassRoot(inheritance, root, cls, generated, errors);
             case FIELD -> validateFieldRoot(root, cls, classRoots, errors);
-            case METHOD -> validateMethodRoot(inheritance, root, cls, classRoots, generated, errors);
+            default -> validateMethodRoot(inheritance, root, cls, classRoots, generated, errors);
         }
     }
 
-    private static void validateClassRoot(Map<String, JsonObject> inheritance, Target root, JsonObject cls,
-                                          Set<Target> generated, Set<String> errors) {
+    private static void validateClassRoot(Map<String, JsonObject> inheritance, Target root, JsonObject cls, Set<Target> generated, Set<String> errors) {
         if (!hasSideOnly(cls)) {
             errors.add(root.format() + ": class is not annotated with legacy @SideOnly");
             return;
@@ -154,8 +156,14 @@ public abstract class CheckSAS extends DefaultTask {
         }
     }
 
-    private static void validateMethodRoot(Map<String, JsonObject> inheritance, Target root, JsonObject cls,
-                                           Set<String> classRoots, Set<Target> generated, Set<String> errors) {
+    private static void validateMethodRoot(
+            Map<String, JsonObject> inheritance,
+            Target root,
+            JsonObject cls,
+            Set<String> classRoots,
+            Set<Target> generated,
+            Set<String> errors
+    ) {
         if (hasSideOnly(cls) && !classRoots.contains(root.owner())) {
             errors.add(root.format() + ": declaring class is also @SideOnly; add a class SAS root");
             return;
@@ -200,14 +208,14 @@ public abstract class CheckSAS extends DefaultTask {
     }
 
     private static boolean hasSideOnly(JsonObject annotated) {
-        if (annotated == null || !annotated.has("annotations")
-                || !annotated.get("annotations").isJsonArray()) {
+        if (annotated == null || !annotated.has("annotations") || !annotated.get("annotations").isJsonArray()) {
             return false;
         }
         JsonArray annotations = annotated.getAsJsonArray("annotations");
         for (var annotation : annotations) {
-            if (annotation.isJsonObject() && annotation.getAsJsonObject().has("desc")
-                    && SideOnlyHandler.SIDE_ONLY_DESCRIPTOR.equals(annotation.getAsJsonObject().get("desc").getAsString())) {
+            if (annotation.isJsonObject() &&
+                    annotation.getAsJsonObject().has("desc") &&
+                    SideOnlyHandler.SIDE_ONLY_DESCRIPTOR.equals(annotation.getAsJsonObject().get("desc").getAsString())) {
                 return true;
             }
         }
@@ -219,8 +227,8 @@ public abstract class CheckSAS extends DefaultTask {
             throw new GradleException("Invalid legacy side annotation stripper entries:\n  " + String.join("\n  ", errors));
         }
         writeOutput(roots, expanded);
-        this.getLogger().lifecycle("Validated {} SAS roots and generated {} dependent targets",
-                roots.size(), expanded.values().stream().mapToInt(Set::size).sum());
+        this.getLogger()
+                .lifecycle("Validated {} SAS roots and generated {} dependent targets", roots.size(), expanded.values().stream().mapToInt(Set::size).sum());
     }
 
     private void writeOutput(Map<Target, SasLine> roots, Map<Target, Set<Target>> expanded) throws IOException {
@@ -237,4 +245,5 @@ public abstract class CheckSAS extends DefaultTask {
         }
         IO.writeString(output, String.join("\n", lines) + "\n");
     }
+
 }

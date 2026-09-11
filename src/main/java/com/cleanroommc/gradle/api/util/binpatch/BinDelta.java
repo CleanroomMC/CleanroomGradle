@@ -180,6 +180,6 @@ public final class BinDelta {
 
     }
 
-    private BinDelta() { }
+    private BinDelta() {}
 
 }

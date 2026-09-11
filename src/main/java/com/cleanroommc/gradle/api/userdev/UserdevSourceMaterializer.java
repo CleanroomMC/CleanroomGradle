@@ -34,9 +34,14 @@ import java.util.zip.ZipFile;
 /** Materializes the sources shared by the published classifier and the consumer transform. */
 public final class UserdevSourceMaterializer {
 
-    public static void materialize(File input, Path output, Path work, Iterable<File> dependencies,
-                                   FileCollection decompilerClasspath, ExecOperations execOperations)
-            throws IOException {
+    public static void materialize(
+            File input,
+            Path output,
+            Path work,
+            Iterable<File> dependencies,
+            FileCollection decompilerClasspath,
+            ExecOperations execOperations
+    ) throws IOException {
         var config = UserdevConfig.readFromJar(input);
         delete(work);
         Files.createDirectories(work);
@@ -82,8 +87,7 @@ public final class UserdevSourceMaterializer {
         delete(work);
     }
 
-    private static void readMappings(File input, String entryName, Map<String, String> names,
-                                     Map<String, String> docs) throws IOException {
+    private static void readMappings(File input, String entryName, Map<String, String> names, Map<String, String> docs) throws IOException {
         var temporary = Files.createTempFile("userdev-mappings", ".csv");
         try {
             extractFile(input, entryName, temporary);
@@ -104,8 +108,7 @@ public final class UserdevSourceMaterializer {
         }
     }
 
-    private static void remapSources(Path source, Path destination, Map<String, String> names,
-                                     Map<String, String> docs) throws IOException {
+    private static void remapSources(Path source, Path destination, Map<String, String> names, Map<String, String> docs) throws IOException {
         try (var files = Files.walk(source)) {
             for (var file : files.filter(Files::isRegularFile).toList()) {
                 var target = destination.resolve(source.relativize(file));
@@ -128,8 +131,10 @@ public final class UserdevSourceMaterializer {
                 var relative = patches.relativize(patch).toString();
                 var target = source.resolve(relative.substring(0, relative.length() - ".patch".length()));
                 if (!Files.isRegularFile(target)) {
-                    throw new IllegalStateException("Userdev patch " + relative + " has no target: expected "
-                            + target + ". The artifact's patch set and its decompiled sources are out of sync.");
+                    throw new IllegalStateException(
+                            "Userdev patch " + relative + " has no target: expected " + target +
+                                    ". The artifact's patch set and its decompiled sources are out of sync."
+                    );
                 }
                 try {
                     var diff = UnifiedDiffUtils.parseUnifiedDiff(Files.readAllLines(patch, StandardCharsets.UTF_8));
@@ -186,8 +191,7 @@ public final class UserdevSourceMaterializer {
     private static void zip(Path directory, Path output) throws IOException {
         try (var out = IO.zipOut(output.toFile()); var files = Files.walk(directory)) {
             for (var file : files.filter(Files::isRegularFile).sorted().toList()) {
-                IO.writeEntry(out, directory.relativize(file).toString().replace(File.separatorChar, '/'),
-                        Files.readAllBytes(file));
+                IO.writeEntry(out, directory.relativize(file).toString().replace(File.separatorChar, '/'), Files.readAllBytes(file));
             }
         }
     }
@@ -203,6 +207,6 @@ public final class UserdevSourceMaterializer {
         }
     }
 
-    private UserdevSourceMaterializer() { }
+    private UserdevSourceMaterializer() {}
 
 }

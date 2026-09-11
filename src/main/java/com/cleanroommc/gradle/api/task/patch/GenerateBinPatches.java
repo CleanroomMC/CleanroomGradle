@@ -98,10 +98,8 @@ public abstract class GenerateBinPatches extends DefaultTask {
                 Files.createDirectories(parent);
             }
             try (var archive = IO.zipOut(temporary.toFile())) {
-                generateSide(archive, getClientOriginalJar().getAsFile().get(), getClientModifiedJar().getAsFile().get(),
-                        getClientPrefix().get(), prefixes);
-                generateSide(archive, getServerOriginalJar().getAsFile().get(), getServerModifiedJar().getAsFile().get(),
-                        getServerPrefix().get(), prefixes);
+                generateSide(archive, getClientOriginalJar().getAsFile().get(), getClientModifiedJar().getAsFile().get(), getClientPrefix().get(), prefixes);
+                generateSide(archive, getServerOriginalJar().getAsFile().get(), getServerModifiedJar().getAsFile().get(), getServerPrefix().get(), prefixes);
             }
             IO.move(temporary, output);
         } catch (IOException e) {
@@ -114,8 +112,7 @@ public abstract class GenerateBinPatches extends DefaultTask {
         }
     }
 
-    private void generateSide(ZipOutputStream archive, File originalJar, File modifiedJar, String prefix,
-                              Set<String> prefixes) throws IOException {
+    private void generateSide(ZipOutputStream archive, File originalJar, File modifiedJar, String prefix, Set<String> prefixes) throws IOException {
         int changed = 0;
         int added = 0;
         try (var originalZip = new ZipFile(originalJar); var modifiedZip = new ZipFile(modifiedJar)) {
@@ -131,16 +128,14 @@ public abstract class GenerateBinPatches extends DefaultTask {
                 } else {
                     byte[] base = IO.readEntry(originalZip, originalEntry);
                     if (!Arrays.equals(base, revised)) {
-                        IO.writeEntry(archive, prefix + name + ".binpatch",
-                                concatenate(IO.sha256(base), BinDelta.encode(base, revised)));
+                        IO.writeEntry(archive, prefix + name + ".binpatch", concatenate(IO.sha256(base), BinDelta.encode(base, revised)));
                         changed++;
                     }
                 }
             }
             var removed = new TreeSet<>(original.keySet());
             removed.removeAll(modified.keySet());
-            IO.writeEntry(archive, prefix + "META-INF/binpatch-removed.txt",
-                    String.join("\n", removed).getBytes(StandardCharsets.UTF_8));
+            IO.writeEntry(archive, prefix + "META-INF/binpatch-removed.txt", String.join("\n", removed).getBytes(StandardCharsets.UTF_8));
             getLogger().lifecycle("Binpatches {}: {} changed, {} added, {} removed", prefix, changed, added, removed.size());
         }
     }

@@ -74,10 +74,17 @@ public abstract class StripSideOnlyJar extends DefaultTask {
                 this.getOutputJar().get().getAsFile().toPath(),
                 side,
                 this.getValidateReferences().get(),
-                this.getValidatedPrefixes().get());
-        this.getLogger().lifecycle(
-                "Built {} jar: removed {} classes, {} fields, {} methods. Cleared {} @SideOnly annotations",
-                side.name().toLowerCase(), result.classesRemoved(), result.fieldsRemoved(),
-                result.methodsRemoved(), result.annotationsRemoved());
+                this.getValidatedPrefixes().get()
+        );
+        this.getLogger()
+                .lifecycle(
+                        "Built {} jar: removed {} classes, {} fields, {} methods. Cleared {} @SideOnly annotations",
+                        side.name().toLowerCase(),
+                        result.classesRemoved(),
+                        result.fieldsRemoved(),
+                        result.methodsRemoved(),
+                        result.annotationsRemoved()
+                );
     }
+
 }

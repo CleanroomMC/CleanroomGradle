@@ -42,15 +42,24 @@ public final class McpMappings {
     public static final String DEFAULT_MCP_CONFIG = "de.oceanlabs.mcp:mcp_config:1.12.2-20201025.185735";
     public static final String DEFAULT_MCP_MAPPINGS = "de.oceanlabs.mcp:mcp_stable:39-1.12@zip";
 
-    public final NamedDomainObjectProvider<Configuration> mcpConfig, mcpMappings;
-    public final TaskProvider<Copy> extractMcpConfig, extractMcpMappings;
+    public final NamedDomainObjectProvider<Configuration> mcpConfig;
+    public final NamedDomainObjectProvider<Configuration> mcpMappings;
+    public final TaskProvider<Copy> extractMcpConfig;
+    public final TaskProvider<Copy> extractMcpMappings;
     public final TaskProvider<WriteMappings> writeSrg2Mcp;
     public final Provider<File> tinyFileWhenPresent;
     public final Provider<Directory> mcpConfigDirectory;
     public final Provider<RegularFile> joinedSrg;
-    public final Provider<File> methodMappings, fieldMappings, parameterMappings;
-    public final Provider<RegularFile> access, constructors, exceptions;
-    public final Provider<String> activeNamesId, mcpVersionId, mcpMappingsId, mcpConfigVersion;
+    public final Provider<File> methodMappings;
+    public final Provider<File> fieldMappings;
+    public final Provider<File> parameterMappings;
+    public final Provider<RegularFile> access;
+    public final Provider<RegularFile> constructors;
+    public final Provider<RegularFile> exceptions;
+    public final Provider<String> activeNamesId;
+    public final Provider<String> mcpVersionId;
+    public final Provider<String> mcpMappingsId;
+    public final Provider<String> mcpConfigVersion;
 
     public McpMappings(Project project, CachesExtension caches, MappingsExtension mappings) {
         this.mcpConfig = Objects.archive(project, "mcpConfig", "MCPConfig for SRG names.", DEFAULT_MCP_CONFIG);
@@ -67,8 +76,7 @@ public final class McpMappings {
         this.mcpVersionId = this.mcpConfig.map(McpMappings::deriveMcpVersion);
         this.mcpMappingsId = this.mcpMappings.map(McpMappings::deriveMcpMappings);
 
-        this.extractMcpConfig = Tasks.unzip(project, "extractMcpConfig", this.mcpConfig,
-                caches.getVersionDirectory().dir("mcp_config"));
+        this.extractMcpConfig = Tasks.unzip(project, "extractMcpConfig", this.mcpConfig, caches.getVersionDirectory().dir("mcp_config"));
         var mcpConfigRoot = project.getObjects().directoryProperty();
         mcpConfigRoot.fileProvider(this.extractMcpConfig.map(Copy::getDestinationDir));
         this.mcpConfigDirectory = mcpConfigRoot.map(dir -> dir.dir("config"));
@@ -81,12 +89,10 @@ public final class McpMappings {
         this.methodMappings = mcpMappingsDir.map(dir -> new File(dir, CsvNames.METHODS_FILE));
         this.fieldMappings = mcpMappingsDir.map(dir -> new File(dir, CsvNames.FIELDS_FILE));
         this.parameterMappings = mcpMappingsDir.map(dir -> new File(dir, CsvNames.PARAMS_FILE));
-        this.writeSrg2Mcp = write(project, caches, "writeSrg2Mcp", WriteMappings.Direction.SRG_TO_MCP,
-                UserdevConfig.SRG2MCP);
+        this.writeSrg2Mcp = write(project, caches, "writeSrg2Mcp", WriteMappings.Direction.SRG_TO_MCP, UserdevConfig.SRG2MCP);
     }
 
-    public TaskProvider<WriteMappings> write(Project project, CachesExtension caches, String name,
-                                             WriteMappings.Direction direction, String outputName) {
+    public TaskProvider<WriteMappings> write(Project project, CachesExtension caches, String name, WriteMappings.Direction direction, String outputName) {
         var task = Tasks.register(project, name, WriteMappings.class);
         task.configure(writeMappings -> {
             writeMappings.getJoinedSrgFile().set(this.joinedSrg);
@@ -117,8 +123,13 @@ public final class McpMappings {
         });
     }
 
-    public void configureInitialPatches(Project project, PatchesExtension patches, VanillaTasks vanilla,
-                                        TaskProvider<Copy> prepareApplyInitialDiffs, TaskProvider<ApplyDiffs> applyInitialDiffs) {
+    public void configureInitialPatches(
+            Project project,
+            PatchesExtension patches,
+            VanillaTasks vanilla,
+            TaskProvider<Copy> prepareApplyInitialDiffs,
+            TaskProvider<ApplyDiffs> applyInitialDiffs
+    ) {
         if (!patches.getDevelopInitial().get()) {
             return;
         }
@@ -127,14 +138,15 @@ public final class McpMappings {
             env.dependsOn(prepareApplyInitialDiffs.getName());
         });
         initial.configure(env -> SourceSets.extendFromConfiguration(project, env.getSourceSet(), vanilla.vanillaConfig));
-        applyInitialDiffs.configure(task -> task.getPatchesDirectory().set(
-                initial.flatMap(PatchDevEnvironment::getPatches)));
+        applyInitialDiffs.configure(task -> task.getPatchesDirectory().set(initial.flatMap(PatchDevEnvironment::getPatches)));
     }
 
     /**
      * The {@code MCP_VERSION} GradleStart expects.
      * {@code 20201025.185735} for an mcpConfig coordinate of{@code de.oceanlabs.mcp:mcp_config:1.12.2-20201025.185735}.
      * Userdev derives it from the notation the artifact records rather than from a resolved configuration.
+     *
+     * @param notation the mcpConfig dependency notation
      */
     public static String mcpVersionId(String notation) {
         var version = coordinates(notation)[2];
@@ -145,6 +157,8 @@ public final class McpMappings {
     /**
      * The {@code MCP_MAPPINGS} GradleStart expects.
      * {@code stable_39} for a mappings coordinate of {@code de.oceanlabs.mcp:mcp_stable:39-1.12@zip}.
+     *
+     * @param notation the mappings dependency notation
      */
     public static String mcpMappingsId(String notation) {
         var coordinates = coordinates(notation);

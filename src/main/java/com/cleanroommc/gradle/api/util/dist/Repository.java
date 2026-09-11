@@ -21,8 +21,7 @@ import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 public enum Repository {
 
     CENTRAL("Maven Central", "https://repo.maven.apache.org/maven2/"),
-    CLEANROOM("CleanroomMC", "https://maven.cleanroommc.com/", true,
-            "com.cleanroommc", "top.outlands", "zone.rong", "net.minecraftforge", "de.oceanlabs.mcp"),
+    CLEANROOM("CleanroomMC", "https://maven.cleanroommc.com/", true, "com.cleanroommc", "top.outlands", "zone.rong", "net.minecraftforge", "de.oceanlabs.mcp"),
     MOJANG("Mojang", "https://libraries.minecraft.net/");
 
     public static void addTo(Project project) {

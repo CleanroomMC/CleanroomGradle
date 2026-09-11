@@ -13,7 +13,12 @@ package com.cleanroommc.gradle.api.task.mcp;
 import com.cleanroommc.gradle.api.util.inject.MetadataInjector;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
-import org.gradle.api.tasks.*;
+import org.gradle.api.tasks.CacheableTask;
+import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.OutputFile;
+import org.gradle.api.tasks.PathSensitive;
+import org.gradle.api.tasks.PathSensitivity;
+import org.gradle.api.tasks.TaskAction;
 
 import java.io.IOException;
 
@@ -56,8 +61,13 @@ public abstract class InjectMetadata extends DefaultTask {
                 this.getConstructorsFile().get().getAsFile().toPath(),
                 this.getExceptionsFile().get().getAsFile().toPath()
         );
-        this.getLogger().lifecycle("Injected metadata into {} classes, copied {} entries, recorded {} abstract methods",
-                result.classesProcessed(), result.entriesCopied(), result.abstractMethodsRecorded());
+        this.getLogger()
+                .lifecycle(
+                        "Injected metadata into {} classes, copied {} entries, recorded {} abstract methods",
+                        result.classesProcessed(),
+                        result.entriesCopied(),
+                        result.abstractMethodsRecorded()
+                );
     }
 
 }

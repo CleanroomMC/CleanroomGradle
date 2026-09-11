@@ -24,9 +24,9 @@ import java.nio.file.Path;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 class UserdevConfigTest {
 
@@ -36,7 +36,9 @@ class UserdevConfigTest {
     @Test
     void specOneUsesTheNewNestedArtifactContract() throws IOException {
         var artifact = this.directory.resolve("userdev.jar");
-        writeConfig(artifact, """
+        writeConfig(
+                artifact,
+                """
                 {
                   "spec": 1,
                   "minecraft": {
@@ -66,36 +68,41 @@ class UserdevConfigTest {
                     "server": {"mainClass": "Server", "launchClass": "Launch", "tweakClass": "ServerTweaker", "target": "server"}
                   }
                 }
-                """);
+                """
+        );
 
         var config = UserdevConfig.readFromJar(artifact.toFile());
-        assertEquals("1.12.2", config.minecraftVersion());
-        assertEquals("0.7.0", config.loaderVersion());
-        assertEquals("userdev/mcp2srg.tsrg", config.layout().mcpToSrg());
+        assertThat(config.minecraftVersion()).isEqualTo("1.12.2");
+        assertThat(config.loaderVersion()).isEqualTo("0.7.0");
+        assertThat(config.layout().mcpToSrg()).isEqualTo("userdev/mcp2srg.tsrg");
     }
 
     @Test
     void previousFlatSpecOneIsRejected() throws IOException {
         var artifact = this.directory.resolve("old-userdev.jar");
-        writeConfig(artifact, """
+        writeConfig(
+                artifact,
+                """
                 {"spec":1,"minecraftVersion":"1.12.2","cleanroomVersion":"0.7.0","libraries":[]}
-                """);
+                """
+        );
 
-        var failure = assertThrows(IllegalStateException.class,
-                () -> UserdevConfig.readFromJar(artifact.toFile()));
-        assertTrue(failure.getMessage().contains("minecraft, loader, inputs, layout and runs are required"));
+        var failure = catchThrowableOfType(() -> UserdevConfig.readFromJar(artifact.toFile()), IllegalStateException.class);
+        assertThat(failure).hasMessageContaining("minecraft, loader, inputs, layout and runs are required");
     }
 
     @Test
     void legacyArtifactWithoutLayoutExplainsTheVersionSkew() throws IOException {
         var artifact = this.directory.resolve("legacy-userdev.jar");
-        writeConfig(artifact, """
+        writeConfig(
+                artifact,
+                """
                 {"spec":1,"mcpConfig":"mcp:config:1"}
-                """);
+                """
+        );
 
-        var failure = assertThrows(IllegalStateException.class,
-                () -> UserdevConfig.readFromJar(artifact.toFile()));
-        assertTrue(failure.getMessage().contains("older than 0.15.0"), failure.getMessage());
+        var failure = catchThrowableOfType(() -> UserdevConfig.readFromJar(artifact.toFile()), IllegalStateException.class);
+        assertThat(failure).as(failure.getMessage()).hasMessageContaining("older than 0.15.0");
     }
 
     @Test
@@ -106,47 +113,52 @@ class UserdevConfigTest {
             output.write("other".getBytes(StandardCharsets.UTF_8));
             output.closeEntry();
         }
-        var failure = assertThrows(IllegalStateException.class,
-                () -> UserdevConfig.readFromJar(artifact.toFile()));
-        assertTrue(failure.getMessage().contains(UserdevConfig.meta(UserdevConfig.FILE_NAME)), failure.getMessage());
+        var failure = catchThrowableOfType(() -> UserdevConfig.readFromJar(artifact.toFile()), IllegalStateException.class);
+        assertThat(failure).as(failure.getMessage()).hasMessageContaining(UserdevConfig.meta(UserdevConfig.FILE_NAME));
     }
 
     @Test
     void wrongSpecAndMissingFieldsAreRejected() {
         var config = valid();
-        var wrongSpec = new UserdevConfig(2, config.minecraft(), config.loader(), config.inputs(),
-                config.layout(), config.runs());
-        assertTrue(assertThrows(IllegalStateException.class, wrongSpec::validate)
-                .getMessage().contains("Unsupported Cleanroom userdev spec 2"));
+        var wrongSpec = new UserdevConfig(2, config.minecraft(), config.loader(), config.inputs(), config.layout(), config.runs());
+        assertThatThrownBy(wrongSpec::validate).isInstanceOf(IllegalStateException.class).hasMessageContaining("Unsupported Cleanroom userdev spec 2");
 
-        var missingRuns = new UserdevConfig(1, config.minecraft(), config.loader(), config.inputs(),
-                config.layout(), null);
-        assertTrue(assertThrows(IllegalStateException.class, missingRuns::validate)
-                .getMessage().contains("minecraft, loader, inputs, layout and runs are required"));
+        var missingRuns = new UserdevConfig(1, config.minecraft(), config.loader(), config.inputs(), config.layout(), null);
+        assertThatThrownBy(missingRuns::validate)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("minecraft, loader, inputs, layout and runs are required");
 
-        var missingVersion = new UserdevConfig(1,
+        var missingVersion = new UserdevConfig(
+                1,
                 new UserdevConfig.Minecraft(" ", config.minecraft().client(), config.minecraft().server()),
-                config.loader(), config.inputs(), config.layout(), config.runs());
-        assertTrue(assertThrows(IllegalStateException.class, missingVersion::validate)
-                .getMessage().contains("minecraft.version is required"));
+                config.loader(),
+                config.inputs(),
+                config.layout(),
+                config.runs()
+        );
+        assertThatThrownBy(missingVersion::validate).isInstanceOf(IllegalStateException.class).hasMessageContaining("minecraft.version is required");
 
-        var missingTool = new UserdevConfig(1, config.minecraft(), config.loader(),
+        var missingTool = new UserdevConfig(
+                1,
+                config.minecraft(),
+                config.loader(),
                 new UserdevConfig.Inputs("mcp", "mappings", "patches", java.util.Map.of()),
-                config.layout(), config.runs());
-        assertTrue(assertThrows(IllegalStateException.class, missingTool::validate)
-                .getMessage().contains("inputs.tools.accesstransformer is required"));
+                config.layout(),
+                config.runs()
+        );
+        assertThatThrownBy(missingTool::validate).isInstanceOf(IllegalStateException.class).hasMessageContaining("inputs.tools.accesstransformer is required");
     }
 
     @Test
     void metaPrefixesEntries() {
-        assertEquals("userdev/config.json", UserdevConfig.meta(UserdevConfig.FILE_NAME));
+        assertThat(UserdevConfig.meta(UserdevConfig.FILE_NAME)).isEqualTo("userdev/config.json");
     }
 
     @Test
     void everyMaterializationOperationIsCacheable() {
-        assertTrue(MaterializeUserdevClasses.class.isAnnotationPresent(CacheableTransform.class));
-        assertTrue(MaterializeUserdevSources.class.isAnnotationPresent(CacheableTransform.class));
-        assertTrue(ExtractUserdevExtra.class.isAnnotationPresent(CacheableTransform.class));
+        assertThat(MaterializeUserdevClasses.class.isAnnotationPresent(CacheableTransform.class)).isTrue();
+        assertThat(MaterializeUserdevSources.class.isAnnotationPresent(CacheableTransform.class)).isTrue();
+        assertThat(ExtractUserdevExtra.class.isAnnotationPresent(CacheableTransform.class)).isTrue();
     }
 
     private static void writeConfig(Path artifact, String json) throws IOException {
@@ -159,16 +171,41 @@ class UserdevConfigTest {
 
     private static UserdevConfig valid() {
         var download = new UserdevConfig.Download("https://example.invalid/a.jar", "sha1");
-        return new UserdevConfig(1,
+        return new UserdevConfig(
+                1,
                 new UserdevConfig.Minecraft("1.12.2", download, download),
                 new UserdevConfig.Loader("0.7.0", "14.23.5.2860", "com.cleanroommc"),
-                new UserdevConfig.Inputs("mcp:config:1", "mcp:names:1", "patches:initial:1",
-                        java.util.Map.of("accesstransformer", "t:at:1", "decompiler", "t:dec:1", "mergetool", "t:merge:1")),
-                new UserdevConfig.Layout("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l",
-                        "m", "n", "o", "p", "q", java.util.List.of(), "r", "s", "t"),
-                new UserdevConfig.Runs(
-                        new UserdevConfig.Run("C", "L", "T", "client"),
-                        new UserdevConfig.Run("C", "L", "T", "server")));
+                new UserdevConfig.Inputs(
+                        "mcp:config:1",
+                        "mcp:names:1",
+                        "patches:initial:1",
+                        java.util.Map.of("accesstransformer", "t:at:1", "decompiler", "t:dec:1", "mergetool", "t:merge:1")
+                ),
+                new UserdevConfig.Layout(
+                        "a",
+                        "b",
+                        "c",
+                        "d",
+                        "e",
+                        "f",
+                        "g",
+                        "h",
+                        "i",
+                        "j",
+                        "k",
+                        "l",
+                        "m",
+                        "n",
+                        "o",
+                        "p",
+                        "q",
+                        java.util.List.of(),
+                        "r",
+                        "s",
+                        "t"
+                ),
+                new UserdevConfig.Runs(new UserdevConfig.Run("C", "L", "T", "client"), new UserdevConfig.Run("C", "L", "T", "server"))
+        );
     }
 
 }

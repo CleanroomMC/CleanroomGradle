@@ -19,10 +19,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class LibraryJsonTest {
 
@@ -31,44 +29,43 @@ class LibraryJsonTest {
 
     @Test
     void nativeDetectionAndPlatformMapping() {
-        assertTrue(LibraryJson.isNative(Coordinate.parse("g:a:1:natives-linux")));
-        assertFalse(LibraryJson.isNative(Coordinate.parse("g:a:1")));
-        assertFalse(LibraryJson.isNative(Coordinate.parse("g:a:1:linux")));
+        assertThat(LibraryJson.isNative(Coordinate.parse("g:a:1:natives-linux"))).isTrue();
+        assertThat(LibraryJson.isNative(Coordinate.parse("g:a:1"))).isFalse();
+        assertThat(LibraryJson.isNative(Coordinate.parse("g:a:1:linux"))).isFalse();
 
-        assertEquals("osx", LibraryJson.nativePlatform("natives-macos"));
-        assertEquals("osx", LibraryJson.nativePlatform("natives-osx"));
-        assertEquals("osx-arm64", LibraryJson.nativePlatform("natives-macos-arm64"));
-        assertEquals("linux", LibraryJson.nativePlatform("natives-linux"));
+        assertThat(LibraryJson.nativePlatform("natives-macos")).isEqualTo("osx");
+        assertThat(LibraryJson.nativePlatform("natives-osx")).isEqualTo("osx");
+        assertThat(LibraryJson.nativePlatform("natives-macos-arm64")).isEqualTo("osx-arm64");
+        assertThat(LibraryJson.nativePlatform("natives-linux")).isEqualTo("linux");
     }
 
     @Test
     void trailingSlashLocalAndDownloadShape() throws IOException {
-        assertEquals("https://example.invalid/", LibraryJson.trailingSlash("https://example.invalid"));
-        assertEquals("https://example.invalid/", LibraryJson.trailingSlash("https://example.invalid/"));
+        assertThat(LibraryJson.trailingSlash("https://example.invalid")).isEqualTo("https://example.invalid/");
+        assertThat(LibraryJson.trailingSlash("https://example.invalid/")).isEqualTo("https://example.invalid/");
 
-        assertTrue(LibraryJson.isLocalRepository("file:///tmp/repo"));
-        assertTrue(LibraryJson.isLocalRepository("FILE:///tmp/repo"));
-        assertFalse(LibraryJson.isLocalRepository("https://example.invalid/"));
+        assertThat(LibraryJson.isLocalRepository("file:///tmp/repo")).isTrue();
+        assertThat(LibraryJson.isLocalRepository("FILE:///tmp/repo")).isTrue();
+        assertThat(LibraryJson.isLocalRepository("https://example.invalid/")).isFalse();
 
         var file = write("lib.jar", "contents");
         var remote = new Artifact(Coordinate.parse("g:a:1"), file, "https://example.invalid/g/a/1/a-1.jar");
         var download = LibraryJson.download(remote, true);
-        assertEquals("g/a/1/a-1.jar", download.get("path").getAsString());
-        assertEquals("https://example.invalid/g/a/1/a-1.jar", download.get("url").getAsString());
+        assertThat(download.get("path").getAsString()).isEqualTo("g/a/1/a-1.jar");
+        assertThat(download.get("url").getAsString()).isEqualTo("https://example.invalid/g/a/1/a-1.jar");
 
         var local = new Artifact(Coordinate.parse("g:a:1"), file, "");
-        assertTrue(LibraryJson.isLocal(local));
-        assertFalse(LibraryJson.isLocal(remote));
+        assertThat(LibraryJson.isLocal(local)).isTrue();
+        assertThat(LibraryJson.isLocal(remote)).isFalse();
         var localDownload = LibraryJson.download(local, false);
-        assertEquals("", localDownload.get("url").getAsString());
-        assertFalse(localDownload.has("path"));
+        assertThat(localDownload.get("url").getAsString()).isEqualTo("");
+        assertThat(localDownload.has("path")).isFalse();
     }
 
     @Test
     void artifactRequiresAnExistingFile() {
         var missing = this.directory.resolve("missing.jar");
-        assertThrows(GradleException.class,
-                () -> LibraryJson.artifact(Coordinate.parse("g:a:1"), missing, "https://example.invalid/"));
+        assertThatThrownBy(() -> LibraryJson.artifact(Coordinate.parse("g:a:1"), missing, "https://example.invalid/")).isInstanceOf(GradleException.class);
     }
 
     @Test
@@ -78,44 +75,42 @@ class LibraryJsonTest {
         var windows = artifact("g:lib:1:natives-windows", "windows");
 
         var libraries = LibraryJson.mmcLibraries(List.of(windows, linux, base));
-        assertEquals(2, libraries.size());
-        assertEquals("g:lib:1", libraries.get(0).getAsJsonObject().get("name").getAsString());
+        assertThat(libraries.size()).isEqualTo(2);
+        assertThat(libraries.get(0).getAsJsonObject().get("name").getAsString()).isEqualTo("g:lib:1");
         var natives = libraries.get(1).getAsJsonObject();
-        assertEquals("g:lib:1", natives.get("name").getAsString());
-        assertTrue(natives.getAsJsonObject("downloads").getAsJsonObject("classifiers").has("natives-linux"));
-        assertTrue(natives.getAsJsonObject("natives").has("linux"));
+        assertThat(natives.get("name").getAsString()).isEqualTo("g:lib:1");
+        assertThat(natives.getAsJsonObject("downloads").getAsJsonObject("classifiers").has("natives-linux")).isTrue();
+        assertThat(natives.getAsJsonObject("natives").has("linux")).isTrue();
     }
 
     @Test
     void mojangDialectsCarryRulesAndRejectNonNatives() throws IOException {
         var plain = artifact("g:lib:1", "plain");
         var libraries = LibraryJson.mojangLibraries(List.of(plain));
-        assertEquals("g:lib:1", libraries.get(0).getAsJsonObject().get("name").getAsString());
-        assertTrue(libraries.get(0).getAsJsonObject().getAsJsonObject("downloads").has("artifact"));
+        assertThat(libraries.get(0).getAsJsonObject().get("name").getAsString()).isEqualTo("g:lib:1");
+        assertThat(libraries.get(0).getAsJsonObject().getAsJsonObject("downloads").has("artifact")).isTrue();
 
         var nativeArtifact = artifact("g:lib:1:natives-linux", "native");
         var nativeLibraries = LibraryJson.mojangNativeLibraries(List.of(nativeArtifact));
-        assertEquals("client", nativeLibraries.get(0).getAsJsonObject().get("side").getAsString());
-        assertTrue(nativeLibraries.get(0).getAsJsonObject().has("rules"));
+        assertThat(nativeLibraries.get(0).getAsJsonObject().get("side").getAsString()).isEqualTo("client");
+        assertThat(nativeLibraries.get(0).getAsJsonObject().has("rules")).isTrue();
 
-        assertThrows(GradleException.class,
-                () -> LibraryJson.mojangNativeLibraries(List.of(plain)));
+        assertThatThrownBy(() -> LibraryJson.mojangNativeLibraries(List.of(plain))).isInstanceOf(GradleException.class);
     }
 
     @Test
     void localLibrariesCarryNoUrl() throws IOException {
         var local = new Artifact(Coordinate.parse("g:a:1"), write("a.jar", "a"), "");
         var library = LibraryJson.ordinaryLibrary(local);
-        assertEquals("local", library.get("MMC-hint").getAsString());
-        assertFalse(library.getAsJsonObject("downloads").getAsJsonObject("artifact").has("url"));
+        assertThat(library.get("MMC-hint").getAsString()).isEqualTo("local");
+        assertThat(library.getAsJsonObject("downloads").getAsJsonObject("artifact").has("url")).isFalse();
 
         var embedded = LibraryJson.embeddedLibrary(local);
-        assertEquals("", embedded.getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString());
+        assertThat(embedded.getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString()).isEqualTo("");
     }
 
     private Artifact artifact(String coordinate, String content) throws IOException {
-        return new Artifact(Coordinate.parse(coordinate), write(coordinate.replace(':', '-') + ".jar", content),
-                "https://example.invalid/");
+        return new Artifact(Coordinate.parse(coordinate), write(coordinate.replace(':', '-') + ".jar", content), "https://example.invalid/");
     }
 
     private Path write(String name, String content) throws IOException {

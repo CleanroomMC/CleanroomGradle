@@ -22,9 +22,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class BinPatchTest extends BaseFunctionalTest {
 
@@ -32,19 +30,16 @@ class BinPatchTest extends BaseFunctionalTest {
     void roundTripPreservesJarContents() throws IOException {
         var original = this.projectDir.resolve("original.jar");
         var modified = this.projectDir.resolve("modified.jar");
-        writeArchive(original, List.of(
-                new ArchiveEntry("a/A.class", "old"),
-                new ArchiveEntry("b/B.class", "removed"),
-                new ArchiveEntry("resource.txt", "resource")));
-        writeArchive(modified, List.of(
-                new ArchiveEntry("a/A.class", "new class contents"),
-                new ArchiveEntry("c/C.class", "added")));
+        writeArchive(
+                original,
+                List.of(new ArchiveEntry("a/A.class", "old"), new ArchiveEntry("b/B.class", "removed"), new ArchiveEntry("resource.txt", "resource"))
+        );
+        writeArchive(modified, List.of(new ArchiveEntry("a/A.class", "new class contents"), new ArchiveEntry("c/C.class", "added")));
         var serverModified = this.projectDir.resolve("server-modified.jar");
-        writeArchive(serverModified, List.of(
-                new ArchiveEntry("a/A.class", "new server class contents"),
-                new ArchiveEntry("b/B.class", "removed")));
+        writeArchive(serverModified, List.of(new ArchiveEntry("a/A.class", "new server class contents"), new ArchiveEntry("b/B.class", "removed")));
 
-        this.project.vanilla("""
+        this.project.vanilla(
+                """
                 import com.cleanroommc.gradle.api.task.patch.ApplyBinPatches
                 import com.cleanroommc.gradle.api.task.patch.GenerateBinPatches
 
@@ -73,35 +68,41 @@ class BinPatchTest extends BaseFunctionalTest {
                     prefix = 'binpatch/server/'
                     patchedJar = layout.buildDirectory.file('server-patched.jar')
                 }
-                """);
+                """
+        );
 
         var result = this.project.runner("applyTestBinPatches", "applyTestServerBinPatches").build();
-        assertEquals(TaskOutcome.SUCCESS, result.task(":generateTestBinPatches").getOutcome());
-        assertEquals(TaskOutcome.SUCCESS, result.task(":applyTestBinPatches").getOutcome());
+        assertThat(result.task(":generateTestBinPatches").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":applyTestBinPatches").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         try (var zip = new ZipFile(this.projectDir.resolve("build/patched.jar").toFile())) {
-            assertEquals("new class contents", readEntry(zip, "a/A.class"));
-            assertNull(zip.getEntry("b/B.class"));
-            assertEquals("added", readEntry(zip, "c/C.class"));
-            assertEquals("resource", readEntry(zip, "resource.txt"));
+            assertThat(readEntry(zip, "a/A.class")).isEqualTo("new class contents");
+            assertThat(zip.getEntry("b/B.class")).isNull();
+            assertThat(readEntry(zip, "c/C.class")).isEqualTo("added");
+            assertThat(readEntry(zip, "resource.txt")).isEqualTo("resource");
         }
         // The server side of the same archive has to round-trip independently of the client side
         try (var zip = new ZipFile(this.projectDir.resolve("build/server-patched.jar").toFile())) {
-            assertEquals("new server class contents", readEntry(zip, "a/A.class"));
-            assertEquals("removed", readEntry(zip, "b/B.class"));
-            assertNull(zip.getEntry("c/C.class"));
+            assertThat(readEntry(zip, "a/A.class")).isEqualTo("new server class contents");
+            assertThat(readEntry(zip, "b/B.class")).isEqualTo("removed");
+            assertThat(zip.getEntry("c/C.class")).isNull();
         }
     }
 
     @Test
     void splitKeepsAddedMinecraftClassesInSlimJar() throws IOException {
-        writeArchive(this.projectDir.resolve("patched.jar"), List.of(
-                new ArchiveEntry("ain.class", "mapped"),
-                new ArchiveEntry("ain$22.class", "added inner"),
-                new ArchiveEntry("net/minecraft/NewClass.class", "added class"),
-                new ArchiveEntry("library/Helper.class", "library")));
+        writeArchive(
+                this.projectDir.resolve("patched.jar"),
+                List.of(
+                        new ArchiveEntry("ain.class", "mapped"),
+                        new ArchiveEntry("ain$22.class", "added inner"),
+                        new ArchiveEntry("net/minecraft/NewClass.class", "added class"),
+                        new ArchiveEntry("library/Helper.class", "library")
+                )
+        );
         Files.writeString(this.projectDir.resolve("joined.tsrg"), "ain net/minecraft/MappedClass\n");
 
-        this.project.vanilla("""
+        this.project.vanilla(
+                """
                 import com.cleanroommc.gradle.api.task.mcp.SplitJar
 
                 tasks.register('splitPatchedJar', SplitJar) {
@@ -110,20 +111,22 @@ class BinPatchTest extends BaseFunctionalTest {
                     slimJar = layout.buildDirectory.file('slim.jar')
                     extraJar = layout.buildDirectory.file('extra.jar')
                 }
-                """);
+                """
+        );
 
         var result = this.project.runner("splitPatchedJar").build();
-        assertEquals(TaskOutcome.SUCCESS, result.task(":splitPatchedJar").getOutcome());
-        try (var slim = new ZipFile(this.projectDir.resolve("build/slim.jar").toFile());
-             var extra = new ZipFile(this.projectDir.resolve("build/extra.jar").toFile())) {
-            assertNotNull(slim.getEntry("ain.class"));
-            assertNotNull(slim.getEntry("ain$22.class"));
-            assertNotNull(slim.getEntry("net/minecraft/NewClass.class"));
-            assertNull(slim.getEntry("library/Helper.class"));
-            assertNull(extra.getEntry("ain.class"));
-            assertNull(extra.getEntry("ain$22.class"));
-            assertNull(extra.getEntry("net/minecraft/NewClass.class"));
-            assertNotNull(extra.getEntry("library/Helper.class"));
+        assertThat(result.task(":splitPatchedJar").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        try (var slim = new ZipFile(this.projectDir.resolve("build/slim.jar").toFile()); var extra = new ZipFile(
+                this.projectDir.resolve("build/extra.jar").toFile()
+        )) {
+            assertThat(slim.getEntry("ain.class")).isNotNull();
+            assertThat(slim.getEntry("ain$22.class")).isNotNull();
+            assertThat(slim.getEntry("net/minecraft/NewClass.class")).isNotNull();
+            assertThat(slim.getEntry("library/Helper.class")).isNull();
+            assertThat(extra.getEntry("ain.class")).isNull();
+            assertThat(extra.getEntry("ain$22.class")).isNull();
+            assertThat(extra.getEntry("net/minecraft/NewClass.class")).isNull();
+            assertThat(extra.getEntry("library/Helper.class")).isNotNull();
         }
     }
 
@@ -143,6 +146,6 @@ class BinPatchTest extends BaseFunctionalTest {
         }
     }
 
-    private record ArchiveEntry(String name, String contents) { }
+    private record ArchiveEntry(String name, String contents) {}
 
 }

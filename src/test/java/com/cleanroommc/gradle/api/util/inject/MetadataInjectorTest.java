@@ -30,8 +30,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class MetadataInjectorTest {
 
@@ -45,11 +44,7 @@ class MetadataInjectorTest {
         var input = this.directory.resolve("in.jar");
         var output = this.directory.resolve("out.jar");
         var untouched = "sample".getBytes(StandardCharsets.UTF_8);
-        writeJar(input, Map.of(
-                OWNER + ".class", demoClass(),
-                "other/Ignored.class", demoClass(),
-                "META-INF/MANIFEST.MF", untouched
-        ));
+        writeJar(input, Map.of(OWNER + ".class", demoClass(), "other/Ignored.class", demoClass(), "META-INF/MANIFEST.MF", untouched));
 
         var access = this.write("access.txt", "PUBLIC " + OWNER + " func_1234_a (ILjava/lang/String;)V");
         var constructors = this.write("constructors.txt", "77 " + OWNER + " (Ljava/lang/String;)V");
@@ -57,28 +52,28 @@ class MetadataInjectorTest {
 
         var result = MetadataInjector.inject(input, output, access, constructors, exceptions);
 
-        assertEquals(1, result.classesProcessed());
-        assertEquals(2, result.entriesCopied());
-        assertEquals(1, result.abstractMethodsRecorded());
+        assertThat(result.classesProcessed()).isEqualTo(1);
+        assertThat(result.entriesCopied()).isEqualTo(2);
+        assertThat(result.abstractMethodsRecorded()).isEqualTo(1);
 
         var entries = readJar(output);
-        assertArrayEquals(untouched, entries.get("META-INF/MANIFEST.MF"));
-        assertArrayEquals(demoClass(), entries.get("other/Ignored.class"), "classes outside net/minecraft are copied");
+        assertThat(entries.get("META-INF/MANIFEST.MF")).isEqualTo(untouched);
+        assertThat(entries.get("other/Ignored.class")).as("classes outside net/minecraft are copied").isEqualTo(demoClass());
 
         var node = read(entries.get(OWNER + ".class"));
         var named = method(node, "func_1234_a");
-        assertEquals(Opcodes.ACC_PUBLIC, named.access & 0b111, "access.txt raises the method to public");
-        assertEquals(java.util.List.of("java/io/IOException"), named.exceptions);
-        assertEquals("this", local(named, 0).name);
-        assertEquals("p_1234_1_", local(named, 1).name);
-        assertEquals("p_1234_2_", local(named, 2).name);
-        assertEquals("lvt_3_1_", local(named, 3).name, "snowman placeholders are renamed after their slot");
+        assertThat(named.access & 0b111).as("access.txt raises the method to public").isEqualTo(Opcodes.ACC_PUBLIC);
+        assertThat(named.exceptions).isEqualTo(java.util.List.of("java/io/IOException"));
+        assertThat(local(named, 0).name).isEqualTo("this");
+        assertThat(local(named, 1).name).isEqualTo("p_1234_1_");
+        assertThat(local(named, 2).name).isEqualTo("p_1234_2_");
+        assertThat(local(named, 3).name).as("snowman placeholders are renamed after their slot").isEqualTo("lvt_3_1_");
 
         var constructor = method(node, "<init>");
-        assertEquals("p_i77_1_", local(constructor, 1).name, "constructors.txt supplies the id");
+        assertThat(local(constructor, 1).name).as("constructors.txt supplies the id").isEqualTo("p_i77_1_");
 
         var abstractNames = new String(entries.get("fernflower_abstract_parameter_names.txt"), StandardCharsets.UTF_8);
-        assertEquals(OWNER + " func_5678_b (J)V p_5678_1_\n", abstractNames, "`this` is not written for abstract methods");
+        assertThat(abstractNames).as("`this` is not written for abstract methods").isEqualTo(OWNER + " func_5678_b (J)V p_5678_1_\n");
     }
 
     @Test
@@ -91,13 +86,13 @@ class MetadataInjectorTest {
         writeJar(input, ordered);
 
         var constructors = this.write("constructors.txt", "5 net/minecraft/A (Ljava/lang/String;)V");
-        MetadataInjector.inject(input, output, this.write("access.txt", ""), constructors,
-                this.write("exceptions.txt", ""));
+        MetadataInjector.inject(input, output, this.write("access.txt", ""), constructors, this.write("exceptions.txt", ""));
 
         var entries = readJar(output);
-        assertEquals("p_i6_1_", local(method(read(entries.get("net/minecraft/B.class")), "<init>"), 1).name);
-        assertEquals("p_i7_1_", local(method(read(entries.get("net/minecraft/C.class")), "<init>"), 1).name,
-                "ids follow jar order, whichever thread happened to reach the class first");
+        assertThat(local(method(read(entries.get("net/minecraft/B.class")), "<init>"), 1).name).isEqualTo("p_i6_1_");
+        assertThat(local(method(read(entries.get("net/minecraft/C.class")), "<init>"), 1).name)
+                .as("ids follow jar order, whichever thread happened to reach the class first")
+                .isEqualTo("p_i7_1_");
     }
 
     @Test
@@ -116,7 +111,7 @@ class MetadataInjectorTest {
         MetadataInjector.inject(input, first, access, constructors, exceptions);
         MetadataInjector.inject(input, second, access, constructors, exceptions);
 
-        assertArrayEquals(Files.readAllBytes(first), Files.readAllBytes(second));
+        assertThat(Files.readAllBytes(second)).isEqualTo(Files.readAllBytes(first));
     }
 
     private static byte[] constructorOnlyClass(String owner) {
@@ -139,8 +134,7 @@ class MetadataInjectorTest {
 
     private static byte[] demoClass() {
         var node = new ClassNode();
-        node.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_SUPER,
-                OWNER, null, "java/lang/Object", null);
+        node.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_SUPER, OWNER, null, "java/lang/Object", null);
 
         var named = new MethodNode(Opcodes.ACC_PRIVATE, "func_1234_a", "(ILjava/lang/String;)V", null, null);
         var start = new LabelNode();

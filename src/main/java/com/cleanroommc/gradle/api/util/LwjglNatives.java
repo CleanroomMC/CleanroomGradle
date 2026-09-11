@@ -17,13 +17,12 @@ import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.dsl.DependencyFactory;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.provider.ListProperty;
-import org.gradle.api.provider.Provider;
 
 import java.util.Collection;
 import java.util.List;
 
 /**
- * Wires the {@value #CONFIGURATION_NAME} configuration, usage is as follows:
+ * Wires the {@value #CONFIGURATION_NAME} configuration. Usage:
  *
  * <pre>{@code
  * dependencies {
@@ -74,22 +73,24 @@ public final class LwjglNatives {
             config.withDependencies(dependencies -> create(factory, dependencies, declared.get(), classifiers.get()));
         });
         // runtimeElements deliberately stays free of natives
-        project.getPlugins().withType(JavaPlugin.class, $ -> configurations
-                .named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME)
-                .configure(config -> config.extendsFrom(current.get())));
+        project.getPlugins()
+                .withType(
+                        JavaPlugin.class,
+                        _ -> configurations.named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME).configure(config -> config.extendsFrom(current.get()))
+                );
     }
 
     public static void addFor(Project project, Collection<Dependency> target, String classifier) {
-        create(project.getDependencyFactory(), target,
-                project.getConfigurations().getByName(CONFIGURATION_NAME), List.of(classifier));
+        create(project.getDependencyFactory(), target, project.getConfigurations().getByName(CONFIGURATION_NAME), List.of(classifier));
     }
 
     private static void create(DependencyFactory factory, Collection<Dependency> target, Configuration declared, List<String> classifiers) {
         for (var dependency : declared.getAllDependencies()) {
             if (dependency.getVersion() == null || dependency.getVersion().isBlank()) {
-                throw new InvalidUserDataException(dependency.getGroup() + ":" + dependency.getName()
-                        + " is declared in " + CONFIGURATION_NAME + " without a version. Native classifiers are"
-                        + " published one variant each, and a platform does not travel with them.");
+                throw new InvalidUserDataException(
+                        dependency.getGroup() + ":" + dependency.getName() + " is declared in " + CONFIGURATION_NAME + " without a version. Native classifiers are" +
+                                " published one variant each, and a platform does not travel with them."
+                );
             }
             var version = dependency.getVersion();
             for (var classifier : classifiers) {
@@ -101,6 +102,6 @@ public final class LwjglNatives {
         }
     }
 
-    private LwjglNatives() { }
+    private LwjglNatives() {}
 
 }

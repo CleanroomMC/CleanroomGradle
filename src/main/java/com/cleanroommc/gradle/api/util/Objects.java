@@ -90,6 +90,8 @@ public final class Objects {
      * Like {@link #notation(Configuration)}, but keeps the classifier and extension the dependency declares.
      * A coordinate such as {@code de.oceanlabs.mcp:mcp_stable:39-1.12@zip} resolves to a different file
      * without them, so anything republished for another build to resolve has to carry them.
+     *
+     * @param configuration the configuration whose first dependency is read
      */
     public static String fullNotation(Configuration configuration) {
         var notation = notation(configuration);
@@ -176,6 +178,7 @@ public final class Objects {
                     }
                 }
             } catch (IOException ignore) {
+                // No network or an unreadable response, the deterministic fallback below covers it
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } catch (URISyntaxException e) {
@@ -186,6 +189,6 @@ public final class Objects {
         return uuid == null ? UUID.nameUUIDFromBytes(username.getBytes(StandardCharsets.UTF_8)) : uuid;
     }
 
-    private Objects() { }
+    private Objects() {}
 
 }

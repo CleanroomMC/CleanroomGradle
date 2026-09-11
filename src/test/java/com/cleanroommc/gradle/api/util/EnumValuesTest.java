@@ -17,34 +17,33 @@ import net.minecraftforge.srgutils.IMappingFile;
 import org.gradle.api.InvalidUserDataException;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 class EnumValuesTest {
 
     @Test
     void parsesIgnoreCaseHyphensAndPadding() {
-        assertEquals(ProjectMode.USERDEV, EnumValues.parse(ProjectMode.class, "userdev"));
-        assertEquals(ProjectMode.LOADER, EnumValues.parse(ProjectMode.class, " Loader "));
-        assertEquals(Environment.REOBF_SRG, EnumValues.parse(Environment.class, "reobf-srg"));
-        assertEquals(Side.CLIENT, EnumValues.parse(Side.class, "client"));
-        assertEquals(WriteMappings.Direction.MCP_TO_SRG, EnumValues.parse(WriteMappings.Direction.class, "mcp-to-srg"));
-        assertEquals(IMappingFile.Format.TSRG, EnumValues.parse(IMappingFile.Format.class, "tsrg"));
+        assertThat(EnumValues.parse(ProjectMode.class, "userdev")).isEqualTo(ProjectMode.USERDEV);
+        assertThat(EnumValues.parse(ProjectMode.class, " Loader ")).isEqualTo(ProjectMode.LOADER);
+        assertThat(EnumValues.parse(Environment.class, "reobf-srg")).isEqualTo(Environment.REOBF_SRG);
+        assertThat(EnumValues.parse(Side.class, "client")).isEqualTo(Side.CLIENT);
+        assertThat(EnumValues.parse(WriteMappings.Direction.class, "mcp-to-srg")).isEqualTo(WriteMappings.Direction.MCP_TO_SRG);
+        assertThat(EnumValues.parse(IMappingFile.Format.class, "tsrg")).isEqualTo(IMappingFile.Format.TSRG);
     }
 
     @Test
     void unknownValueListsConstants() {
-        var error = assertThrows(InvalidUserDataException.class, () -> EnumValues.parse(ProjectMode.class, "nope"));
-        assertTrue(error.getMessage().contains("Unknown ProjectMode 'nope'"));
-        assertTrue(error.getMessage().contains("VANILLA, LOADER, USERDEV"));
+        var error = catchThrowableOfType(() -> EnumValues.parse(ProjectMode.class, "nope"), InvalidUserDataException.class);
+        assertThat(error).hasMessageContaining("Unknown ProjectMode 'nope'");
+        assertThat(error).hasMessageContaining("VANILLA, LOADER, USERDEV");
     }
 
     @Test
     void blankValueListsConstants() {
-        var error = assertThrows(InvalidUserDataException.class, () -> EnumValues.parse(ProjectMode.class, "  "));
-        assertTrue(error.getMessage().contains("Missing ProjectMode"));
-        assertTrue(error.getMessage().contains("VANILLA, LOADER, USERDEV"));
+        var error = catchThrowableOfType(() -> EnumValues.parse(ProjectMode.class, "  "), InvalidUserDataException.class);
+        assertThat(error).hasMessageContaining("Missing ProjectMode");
+        assertThat(error).hasMessageContaining("VANILLA, LOADER, USERDEV");
     }
 
 }

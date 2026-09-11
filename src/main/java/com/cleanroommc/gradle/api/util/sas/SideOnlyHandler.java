@@ -96,11 +96,12 @@ public final class SideOnlyHandler {
         public int compareTo(Target other) {
             return ORDER.compare(this, other);
         }
+
     }
 
-    public record SasLine(Target target, String comment, boolean generated) { }
+    public record SasLine(Target target, String comment, boolean generated) {}
 
-    public record TransformResult(int classesRemoved, int fieldsRemoved, int methodsRemoved, int annotationsRemoved) { }
+    public record TransformResult(int classesRemoved, int fieldsRemoved, int methodsRemoved, int annotationsRemoved) {}
 
     public static List<SasLine> readSas(Collection<Path> files) throws IOException {
         var sortedFiles = files.stream().map(Path::toAbsolutePath).sorted().toList();
@@ -197,8 +198,9 @@ public final class SideOnlyHandler {
         var missing = new TreeSet<>(targets);
         missing.removeAll(found);
         if (!missing.isEmpty()) {
-            throw new IllegalArgumentException("SAS targets did not resolve to legacy @SideOnly annotations:\n  "
-                    + String.join("\n  ", missing.stream().map(Target::format).toList()));
+            throw new IllegalArgumentException(
+                    "SAS targets did not resolve to legacy @SideOnly annotations:\n  " + String.join("\n  ", missing.stream().map(Target::format).toList())
+            );
         }
 
         writeArchive(output, entries);
@@ -209,8 +211,8 @@ public final class SideOnlyHandler {
         return strip(input, output, targetSide, validateReferences, Set.of());
     }
 
-    public static TransformResult strip(Path input, Path output, Side targetSide, boolean validateReferences,
-            Collection<String> validatedPrefixes) throws IOException {
+    public static TransformResult strip(Path input, Path output, Side targetSide, boolean validateReferences, Collection<String> validatedPrefixes)
+            throws IOException {
         var entries = readArchive(input);
         var classes = new TreeMap<String, ClassNode>();
         for (var entry : entries.entrySet()) {
@@ -403,7 +405,8 @@ public final class SideOnlyHandler {
                     collectFrame(frame.local, out);
                     collectFrame(frame.stack, out);
                 }
-                default -> { }
+                default -> {
+                }
             }
         }
     }
@@ -412,10 +415,7 @@ public final class SideOnlyHandler {
         if (values == null) {
             return;
         }
-        values.stream()
-                .filter(String.class::isInstance)
-                .map(String.class::cast)
-                .forEach(value -> collectTypeLike(value, out));
+        values.stream().filter(String.class::isInstance).map(String.class::cast).forEach(value -> collectTypeLike(value, out));
     }
 
     private static void collectConstant(Object value, Set<String> out) {
@@ -514,12 +514,14 @@ public final class SideOnlyHandler {
         var removed = new AtomicBoolean(false);
         try {
             new SignatureReader(signature).accept(new SignatureVisitor(Opcodes.ASM9) {
+
                 @Override
                 public void visitClassType(String name) {
                     if (removedClasses.contains(name)) {
                         removed.set(true);
                     }
                 }
+
             });
         } catch (IllegalArgumentException ignored) {
             // Preserve malformed signatures, transform is responsible only for side pruning
@@ -527,9 +529,14 @@ public final class SideOnlyHandler {
         return removed.get();
     }
 
-    private static void validateNoRemovedReferences(Map<String, byte[]> entries, Set<String> removedClasses,
-            Set<FieldKey> removedFields, Set<MethodKey> removedMethods, Side targetSide,
-            Collection<String> validatedPrefixes) {
+    private static void validateNoRemovedReferences(
+            Map<String, byte[]> entries,
+            Set<String> removedClasses,
+            Set<FieldKey> removedFields,
+            Set<MethodKey> removedMethods,
+            Side targetSide,
+            Collection<String> validatedPrefixes
+    ) {
         var errors = new TreeSet<String>();
         for (var entry : entries.entrySet()) {
             if (!entry.getKey().endsWith(".class") || !isValidated(entry.getKey(), validatedPrefixes)) {
@@ -576,14 +583,14 @@ public final class SideOnlyHandler {
                                 checkConstant(location, argument, removedClasses, removedFields, removedMethods, errors);
                             }
                         }
-                        case LdcInsnNode ldc -> checkConstant(
-                                location, ldc.cst, removedClasses, removedFields, removedMethods, errors);
+                        case LdcInsnNode ldc -> checkConstant(location, ldc.cst, removedClasses, removedFields, removedMethods, errors);
                         case MultiANewArrayInsnNode array -> checkDescriptor(location, array.desc, removedClasses, errors);
                         case FrameNode frame -> {
                             checkFrame(location, frame.local, removedClasses, errors);
                             checkFrame(location, frame.stack, removedClasses, errors);
                         }
-                        default -> { }
+                        default -> {
+                        }
                     }
                 }
             }
@@ -591,9 +598,12 @@ public final class SideOnlyHandler {
         if (!errors.isEmpty()) {
             var shown = errors.stream().limit(50).toList();
             var suffix = errors.size() > shown.size() ? "\n  ... and " + (errors.size() - shown.size()) + " more" : "";
-            throw new IllegalStateException("Invalid " + targetSide.name().toLowerCase(Locale.ROOT)
-                    + " jar: retained bytecode references classes removed by @SideOnly:\n  "
-                    + String.join("\n  ", shown) + suffix);
+            throw new IllegalStateException(
+                    "Invalid " + targetSide.name().toLowerCase(Locale.ROOT) + " jar: retained bytecode references classes removed by @SideOnly:\n  " + String.join(
+                                    "\n  ",
+                                    shown
+                            ) + suffix
+            );
         }
     }
 
@@ -613,39 +623,46 @@ public final class SideOnlyHandler {
         if (values == null) {
             return;
         }
-        values.stream().filter(String.class::isInstance).map(String.class::cast)
-                .forEach(value -> checkTypeLike(location, value, removed, errors));
+        values.stream().filter(String.class::isInstance).map(String.class::cast).forEach(value -> checkTypeLike(location, value, removed, errors));
     }
 
-    private static void checkConstant(String location, Object value, Set<String> removedClasses,
-            Set<FieldKey> removedFields, Set<MethodKey> removedMethods, Set<String> errors) {
+    private static void checkConstant(
+            String location,
+            Object value,
+            Set<String> removedClasses,
+            Set<FieldKey> removedFields,
+            Set<MethodKey> removedMethods,
+            Set<String> errors
+    ) {
         if (value instanceof Type type) {
             checkType(location, type, removedClasses, errors);
         } else if (value instanceof Handle handle) {
             checkHandle(location, handle, removedClasses, removedFields, removedMethods, errors);
         } else if (value instanceof ConstantDynamic dynamic) {
             checkDescriptor(location, dynamic.getDescriptor(), removedClasses, errors);
-            checkHandle(location, dynamic.getBootstrapMethod(),
-                    removedClasses, removedFields, removedMethods, errors);
+            checkHandle(location, dynamic.getBootstrapMethod(), removedClasses, removedFields, removedMethods, errors);
             for (var index = 0; index < dynamic.getBootstrapMethodArgumentCount(); index++) {
-                checkConstant(location, dynamic.getBootstrapMethodArgument(index),
-                        removedClasses, removedFields, removedMethods, errors);
+                checkConstant(location, dynamic.getBootstrapMethodArgument(index), removedClasses, removedFields, removedMethods, errors);
             }
         }
     }
 
-    private static void checkHandle(String location, Handle handle, Set<String> removedClasses,
-            Set<FieldKey> removedFields, Set<MethodKey> removedMethods, Set<String> errors) {
+    private static void checkHandle(
+            String location,
+            Handle handle,
+            Set<String> removedClasses,
+            Set<FieldKey> removedFields,
+            Set<MethodKey> removedMethods,
+            Set<String> errors
+    ) {
         checkReference(location, "handle owner", handle.getOwner(), removedClasses, errors);
         checkDescriptor(location, handle.getDesc(), removedClasses, errors);
         if (handle.getTag() >= Opcodes.H_GETFIELD && handle.getTag() <= Opcodes.H_PUTSTATIC) {
             if (removedFields.contains(new FieldKey(handle.getOwner(), handle.getName(), handle.getDesc()))) {
-                errors.add(location + " -> removed field handle "
-                        + handle.getOwner() + "." + handle.getName() + handle.getDesc());
+                errors.add(location + " -> removed field handle " + handle.getOwner() + "." + handle.getName() + handle.getDesc());
             }
         } else if (removedMethods.contains(new MethodKey(handle.getOwner(), handle.getName(), handle.getDesc()))) {
-            errors.add(location + " -> removed method handle "
-                    + handle.getOwner() + "." + handle.getName() + handle.getDesc());
+            errors.add(location + " -> removed method handle " + handle.getOwner() + "." + handle.getName() + handle.getDesc());
         }
     }
 
@@ -711,8 +728,8 @@ public final class SideOnlyHandler {
             }
             var bootstrapOwner = dynamic.bsm.getOwner();
             var bootstrapName = dynamic.bsm.getName();
-            if (!"java/lang/invoke/LambdaMetafactory".equals(bootstrapOwner)
-                    || !("metafactory".equals(bootstrapName) || "altMetafactory".equals(bootstrapName))) {
+            if (!"java/lang/invoke/LambdaMetafactory".equals(bootstrapOwner) ||
+                    !("metafactory".equals(bootstrapName) || "altMetafactory".equals(bootstrapName))) {
                 continue;
             }
             for (var argument : dynamic.bsmArgs) {
@@ -725,8 +742,7 @@ public final class SideOnlyHandler {
 
     private static Side sideOf(List<AnnotationNode> visible, List<AnnotationNode> invisible) {
         Side found = null;
-        @SuppressWarnings("unchecked")
-        List<AnnotationNode>[] annotationLists = new List[] { visible, invisible };
+        @SuppressWarnings("unchecked") List<AnnotationNode>[] annotationLists = new List[] { visible, invisible };
         for (var annotations : annotationLists) {
             if (annotations == null) {
                 continue;
@@ -812,7 +828,8 @@ public final class SideOnlyHandler {
             if (entries.containsKey(MANIFEST)) {
                 ordered.put(MANIFEST, entries.get(MANIFEST));
             }
-            entries.entrySet().stream()
+            entries.entrySet()
+                    .stream()
                     .filter(entry -> !MANIFEST.equals(entry.getKey()))
                     .sorted(Map.Entry.comparingByKey())
                     .forEach(entry -> ordered.put(entry.getKey(), entry.getValue()));
@@ -833,8 +850,7 @@ public final class SideOnlyHandler {
             return false;
         }
         var leaf = upper.substring("META-INF/".length());
-        return leaf.endsWith(".SF") || leaf.endsWith(".RSA") || leaf.endsWith(".DSA")
-                || leaf.endsWith(".EC") || leaf.startsWith("SIG-");
+        return leaf.endsWith(".SF") || leaf.endsWith(".RSA") || leaf.endsWith(".DSA") || leaf.endsWith(".EC") || leaf.startsWith("SIG-");
     }
 
     private static int firstWhitespace(String value) {
@@ -846,9 +862,10 @@ public final class SideOnlyHandler {
         return -1;
     }
 
-    private record FieldKey(String owner, String name, String descriptor) { }
+    private record FieldKey(String owner, String name, String descriptor) {}
 
-    private record MethodKey(String owner, String name, String descriptor) { }
+    private record MethodKey(String owner, String name, String descriptor) {}
 
-    private SideOnlyHandler() { }
+    private SideOnlyHandler() {}
+
 }

@@ -28,15 +28,17 @@ public final class UserdevAttributes {
     /** Carries no artifact of its own, only the platform's native library dependencies. */
     public static final String NATIVES = "natives";
 
-    private UserdevAttributes() { }
+    private UserdevAttributes() {}
 
     public abstract static class PreferClasses implements AttributeDisambiguationRule<String> {
+
         @Override
         public void execute(MultipleCandidatesDetails<String> details) {
             if (details.getCandidateValues().contains(CLASSES)) {
                 details.closestMatch(CLASSES);
             }
         }
+
     }
 
 }

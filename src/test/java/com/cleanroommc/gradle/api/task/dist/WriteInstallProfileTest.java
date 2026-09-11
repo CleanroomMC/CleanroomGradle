@@ -29,10 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class WriteInstallProfileTest {
 
@@ -48,8 +45,7 @@ class WriteInstallProfileTest {
 
         task.write();
 
-        assertEquals("1.12.2-custom", json(task.getInstallProfile().get().getAsFile().toPath())
-                .get("minecraft").getAsString());
+        assertThat(json(task.getInstallProfile().get().getAsFile().toPath()).get("minecraft").getAsString()).isEqualTo("1.12.2-custom");
     }
 
     @Test
@@ -84,23 +80,34 @@ class WriteInstallProfileTest {
         task.getNativeLibraries().add(library(project, "com.mojang:text2speech:1.10.3:natives-windows", text2speechWindows));
         task.getNativeLibraries().add(library(project, "net.java.jinput:jinput-platform:2.0.5:natives-linux", jinputLinux));
         task.getNativeLibraries().add(library(project, "net.java.jinput:jinput-platform:2.0.5:natives-windows", jinputWindows));
-        task.getVersionMeta().set(versionMeta("--username ${auth_player_name} --versionType ${version_type}",
-                "com.google.guava:guava:21.0", "com.mojang:patchy:1.3.9", "com.paulscode:soundsystem:20120107"));
-        task.getManifestUrls().put("com.paulscode:soundsystem:20120107",
-                "https://libraries.minecraft.net/com/paulscode/soundsystem/20120107/soundsystem-20120107.jar");
-        task.getManifestUrls().put("com.mojang:text2speech:1.10.3:natives-linux",
-                "https://libraries.minecraft.net/com/mojang/text2speech/1.10.3/text2speech-1.10.3-natives-linux.jar");
+        task.getVersionMeta()
+                .set(
+                        versionMeta(
+                                "--username ${auth_player_name} --versionType ${version_type}",
+                                "com.google.guava:guava:21.0",
+                                "com.mojang:patchy:1.3.9",
+                                "com.paulscode:soundsystem:20120107"
+                        )
+                );
+        task.getManifestUrls()
+                .put("com.paulscode:soundsystem:20120107", "https://libraries.minecraft.net/com/paulscode/soundsystem/20120107/soundsystem-20120107.jar");
+        task.getManifestUrls()
+                .put(
+                        "com.mojang:text2speech:1.10.3:natives-linux",
+                        "https://libraries.minecraft.net/com/mojang/text2speech/1.10.3/text2speech-1.10.3-natives-linux.jar"
+                );
 
         task.write();
 
         var version = json(task.getVersionJson().get().getAsFile().toPath());
         var libraries = version.getAsJsonArray("libraries");
         var names = names(libraries);
-        assertFalse(names.contains("com.google.guava:guava:21.0"), names.toString());
-        assertFalse(names.contains("com.mojang:patchy:1.3.9"), names.toString());
-        assertTrue(names.stream().noneMatch(name -> name.startsWith("org.lwjgl:") && name.contains(":natives-")),
-                names.toString());
-        assertEquals(List.of("com.cleanroommc:cleanroom:1.0.0:universal",
+        assertThat(names).as(names.toString()).doesNotContain("com.google.guava:guava:21.0");
+        assertThat(names).as(names.toString()).doesNotContain("com.mojang:patchy:1.3.9");
+        assertThat(names.stream().noneMatch(name -> name.startsWith("org.lwjgl:") && name.contains(":natives-"))).as(names.toString()).isTrue();
+        assertThat(names).isEqualTo(
+                List.of(
+                        "com.cleanroommc:cleanroom:1.0.0:universal",
                         "com.google.guava:guava:33.6.0-jre",
                         "com.paulscode:soundsystem:20120107",
                         "io.netty:netty-transport-native-epoll:4.2.16.Final:linux-aarch_64",
@@ -112,57 +119,56 @@ class WriteInstallProfileTest {
                         "net.java.jinput:jinput-platform:2.0.5",
                         "org.lwjgl:lwjgl:3.4.2",
                         "org.lwjgl:lwjgl:3.4.2",
-                        "org.lwjgl:lwjgl:3.4.2"),
-                names);
+                        "org.lwjgl:lwjgl:3.4.2"
+                )
+        );
 
         // Mojang hosts libraries no public Maven carries, so the manifest's url wins for what it names
-        assertEquals("https://libraries.minecraft.net/com/paulscode/soundsystem/20120107/soundsystem-20120107.jar",
-                library(libraries, "com.paulscode:soundsystem:20120107")
-                        .getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString());
+        assertThat(
+                library(libraries, "com.paulscode:soundsystem:20120107").getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString()
+        ).isEqualTo("https://libraries.minecraft.net/com/paulscode/soundsystem/20120107/soundsystem-20120107.jar");
         // A library this build moved off Minecraft's version keeps its actual resolved repository
-        assertEquals("https://authority.example/releases/com/google/guava/guava/33.6.0-jre/guava-33.6.0-jre.jar",
-                library(libraries, "com.google.guava:guava:33.6.0-jre")
-                        .getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString());
-        assertEquals("https://authority.example/releases/",
-                json(task.getInstallProfile().get().getAsFile().toPath())
-                        .getAsJsonObject("repositories").get("com.google.guava").getAsString());
+        assertThat(
+                library(libraries, "com.google.guava:guava:33.6.0-jre").getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString()
+        ).isEqualTo("https://authority.example/releases/com/google/guava/guava/33.6.0-jre/guava-33.6.0-jre.jar");
+        assertThat(json(task.getInstallProfile().get().getAsFile().toPath()).getAsJsonObject("repositories").get("com.google.guava").getAsString()).isEqualTo(
+                "https://authority.example/releases/"
+        );
 
         // The loader's own jar travels inside the installer
-        var embedded = library(libraries, "com.cleanroommc:cleanroom:1.0.0:universal")
-                .getAsJsonObject("downloads").getAsJsonObject("artifact");
-        assertEquals("", embedded.get("url").getAsString());
+        var embedded = library(libraries, "com.cleanroommc:cleanroom:1.0.0:universal").getAsJsonObject("downloads").getAsJsonObject("artifact");
+        assertThat(embedded.get("url").getAsString()).isEqualTo("");
 
         // LWJGL natives are extracted by launchers and are therefore recognizable as client-only by installers
         var lwjglNative = library(libraries, "org.lwjgl:lwjgl:3.4.2", true, "linux", "x64");
-        assertEquals("client", lwjglNative.get("side").getAsString());
-        assertEquals("natives-linux", lwjglNative.getAsJsonObject("natives").get("linux").getAsString());
-        assertFalse(lwjglNative.getAsJsonObject("downloads").has("artifact"));
-        assertEquals(Set.of("natives-linux"),
-                lwjglNative.getAsJsonObject("downloads").getAsJsonObject("classifiers").keySet());
+        assertThat(lwjglNative.get("side").getAsString()).isEqualTo("client");
+        assertThat(lwjglNative.getAsJsonObject("natives").get("linux").getAsString()).isEqualTo("natives-linux");
+        assertThat(lwjglNative.getAsJsonObject("downloads").has("artifact")).isFalse();
+        assertThat(lwjglNative.getAsJsonObject("downloads").getAsJsonObject("classifiers").keySet()).isEqualTo(Set.of("natives-linux"));
         var lwjglArmNative = library(libraries, "org.lwjgl:lwjgl:3.4.2", true, "linux", "arm64");
-        assertEquals("natives-linux-arm64", lwjglArmNative.getAsJsonObject("natives").get("linux").getAsString());
+        assertThat(lwjglArmNative.getAsJsonObject("natives").get("linux").getAsString()).isEqualTo("natives-linux-arm64");
         library(libraries, "org.lwjgl:lwjgl:3.4.2", true, "windows", "x64");
 
         // Netty classifiers contain Java classes, so they remain on the classpath behind exact platform rules
-        var nettyNative = library(libraries,
-                "io.netty:netty-transport-native-epoll:4.2.16.Final:linux-aarch_64", false, "linux", "arm64");
-        assertNotNull(nettyNative.getAsJsonObject("downloads").getAsJsonObject("artifact"));
+        var nettyNative = library(libraries, "io.netty:netty-transport-native-epoll:4.2.16.Final:linux-aarch_64", false, "linux", "arm64");
+        assertThat(nettyNative.getAsJsonObject("downloads").getAsJsonObject("artifact")).isNotNull();
 
         // Minecraft's own natives are extracted instead, which needs the classifier/platform shape
         var narrator = library(libraries, "com.mojang:text2speech:1.10.3", true, "linux", "x64");
-        assertEquals("natives-linux", narrator.getAsJsonObject("natives").get("linux").getAsString());
+        assertThat(narrator.getAsJsonObject("natives").get("linux").getAsString()).isEqualTo("natives-linux");
         var narratorClassifiers = narrator.getAsJsonObject("downloads").getAsJsonObject("classifiers");
-        assertEquals(Set.of("natives-linux"), narratorClassifiers.keySet());
-        assertEquals("https://libraries.minecraft.net/com/mojang/text2speech/1.10.3/text2speech-1.10.3-natives-linux.jar",
-                narratorClassifiers.getAsJsonObject("natives-linux").get("url").getAsString());
-        assertEquals(List.of("META-INF/"), narrator.getAsJsonObject("extract").getAsJsonArray("exclude")
-                .asList().stream().map(element -> element.getAsString()).toList());
+        assertThat(narratorClassifiers.keySet()).isEqualTo(Set.of("natives-linux"));
+        assertThat(narratorClassifiers.getAsJsonObject("natives-linux").get("url").getAsString()).isEqualTo(
+                "https://libraries.minecraft.net/com/mojang/text2speech/1.10.3/text2speech-1.10.3-natives-linux.jar"
+        );
+        assertThat(narrator.getAsJsonObject("extract").getAsJsonArray("exclude").asList().stream().map(element -> element.getAsString()).toList()).isEqualTo(
+                List.of("META-INF/")
+        );
 
         var jinput = library(libraries, "net.java.jinput:jinput-platform:2.0.5", true, "windows", "x64");
-        assertEquals(Set.of("windows"), jinput.getAsJsonObject("natives").keySet());
-        assertFalse(jinput.getAsJsonObject("downloads").has("artifact"));
-        assertEquals(Set.of("natives-windows"),
-                jinput.getAsJsonObject("downloads").getAsJsonObject("classifiers").keySet());
+        assertThat(jinput.getAsJsonObject("natives").keySet()).isEqualTo(Set.of("windows"));
+        assertThat(jinput.getAsJsonObject("downloads").has("artifact")).isFalse();
+        assertThat(jinput.getAsJsonObject("downloads").getAsJsonObject("classifiers").keySet()).isEqualTo(Set.of("natives-windows"));
     }
 
     @Test
@@ -171,22 +177,26 @@ class WriteInstallProfileTest {
         var task = task(project);
 
         task.getUniversalJar().fileValue(file("cleanroom-1.0.0-universal.jar", "cleanroom").toFile());
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2",
-                file("lwjgl-3.4.2.jar", "lwjgl3")));
-        task.getLibraries().add(library(project, "org.lwjgl.lwjgl:lwjgl:2.9.4-nightly-20150209",
-                file("lwjgl-2.9.4-nightly-20150209.jar", "lwjgl2")));
-        task.getNativeLibraries().add(library(project, "org.lwjgl.lwjgl:lwjgl-platform:2.9.4-nightly-20150209:natives-linux",
-                file("lwjgl-platform-2.9.4-nightly-20150209-natives-linux.jar", "lwjgl2 native")));
-        task.getNativeLibraries().add(library(project, "com.mojang:text2speech:1.10.3:natives-linux",
-                file("text2speech-1.10.3-natives-linux.jar", "narrator")));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", file("lwjgl-3.4.2.jar", "lwjgl3")));
+        task.getLibraries().add(library(project, "org.lwjgl.lwjgl:lwjgl:2.9.4-nightly-20150209", file("lwjgl-2.9.4-nightly-20150209.jar", "lwjgl2")));
+        task.getNativeLibraries()
+                .add(
+                        library(
+                                project,
+                                "org.lwjgl.lwjgl:lwjgl-platform:2.9.4-nightly-20150209:natives-linux",
+                                file("lwjgl-platform-2.9.4-nightly-20150209-natives-linux.jar", "lwjgl2 native")
+                        )
+                );
+        task.getNativeLibraries()
+                .add(library(project, "com.mojang:text2speech:1.10.3:natives-linux", file("text2speech-1.10.3-natives-linux.jar", "narrator")));
         task.getVersionMeta().set(versionMeta("--username ${auth_player_name}"));
 
         task.write();
 
         var names = names(json(task.getVersionJson().get().getAsFile().toPath()).getAsJsonArray("libraries"));
-        assertTrue(names.contains("org.lwjgl:lwjgl:3.4.2"), names.toString());
-        assertTrue(names.contains("com.mojang:text2speech:1.10.3"), names.toString());
-        assertTrue(names.stream().noneMatch(name -> name.startsWith("org.lwjgl.lwjgl:")), names.toString());
+        assertThat(names).as(names.toString()).contains("org.lwjgl:lwjgl:3.4.2");
+        assertThat(names).as(names.toString()).contains("com.mojang:text2speech:1.10.3");
+        assertThat(names.stream().noneMatch(name -> name.startsWith("org.lwjgl.lwjgl:"))).as(names.toString()).isTrue();
     }
 
     @Test
@@ -194,20 +204,20 @@ class WriteInstallProfileTest {
         var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
         var task = task(project);
         task.getUniversalJar().fileValue(file("cleanroom-1.0.0-universal.jar", "cleanroom").toFile());
-        task.getLibraries().add(library(project, "example.shared:first:1.0",
-                file("first-1.0.jar", "first"), "https://first.example/releases/"));
-        task.getLibraries().add(library(project, "example.shared:second:1.0",
-                file("second-1.0.jar", "second"), "https://second.example/releases/"));
+        task.getLibraries().add(library(project, "example.shared:first:1.0", file("first-1.0.jar", "first"), "https://first.example/releases/"));
+        task.getLibraries().add(library(project, "example.shared:second:1.0", file("second-1.0.jar", "second"), "https://second.example/releases/"));
         task.getVersionMeta().set(versionMeta("--username ${auth_player_name}"));
 
         task.write();
 
         var versionLibraries = json(task.getVersionJson().get().getAsFile().toPath()).getAsJsonArray("libraries");
-        assertEquals("https://first.example/releases/example/shared/first/1.0/first-1.0.jar",
-                library(versionLibraries, "example.shared:first:1.0").getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString());
-        assertEquals("https://second.example/releases/example/shared/second/1.0/second-1.0.jar",
-                library(versionLibraries, "example.shared:second:1.0").getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString());
-        assertFalse(json(task.getInstallProfile().get().getAsFile().toPath()).getAsJsonObject("repositories").has("example.shared"));
+        assertThat(
+                library(versionLibraries, "example.shared:first:1.0").getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString()
+        ).isEqualTo("https://first.example/releases/example/shared/first/1.0/first-1.0.jar");
+        assertThat(
+                library(versionLibraries, "example.shared:second:1.0").getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString()
+        ).isEqualTo("https://second.example/releases/example/shared/second/1.0/second-1.0.jar");
+        assertThat(json(task.getInstallProfile().get().getAsFile().toPath()).getAsJsonObject("repositories").has("example.shared")).isFalse();
     }
 
     @Test
@@ -217,26 +227,27 @@ class WriteInstallProfileTest {
         task.getUniversalJar().fileValue(file("cleanroom-1.0.0-universal.jar", "cleanroom").toFile());
         var mcttf = file("mcttf-0.1.0-beta+local.0.jar", "local mcttf");
         var coordinate = "example.local:mcttf:0.1.0-beta+local.0";
-        task.getLibraries().add(library(project, coordinate, mcttf,
-                directory.resolve("m2").toUri().toString()));
+        task.getLibraries().add(library(project, coordinate, mcttf, directory.resolve("m2").toUri().toString()));
         task.getManifestUrls().put(coordinate, "https://example.invalid/mcttf.jar");
         task.getVersionMeta().set(versionMeta("--username ${auth_player_name}"));
 
         task.write();
 
         var versionLibraries = json(task.getVersionJson().get().getAsFile().toPath()).getAsJsonArray("libraries");
-        var versionDownload = library(versionLibraries, coordinate)
-                .getAsJsonObject("downloads").getAsJsonObject("artifact");
-        assertEquals("", versionDownload.get("url").getAsString());
-        assertEquals("example/local/mcttf/0.1.0-beta+local.0/mcttf-0.1.0-beta+local.0.jar",
-                versionDownload.get("path").getAsString());
+        var versionDownload = library(versionLibraries, coordinate).getAsJsonObject("downloads").getAsJsonObject("artifact");
+        assertThat(versionDownload.get("url").getAsString()).isEqualTo("");
+        assertThat(versionDownload.get("path").getAsString()).isEqualTo("example/local/mcttf/0.1.0-beta+local.0/mcttf-0.1.0-beta+local.0.jar");
 
         var profile = json(task.getInstallProfile().get().getAsFile().toPath());
-        assertEquals("", library(profile.getAsJsonArray("libraries"), coordinate)
-                .getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString());
-        assertFalse(profile.getAsJsonObject("repositories").has("example.local"));
-        assertEquals("local mcttf", Files.readString(task.getEmbeddedLibraries().get().getAsFile().toPath()
-                .resolve("example/local/mcttf/0.1.0-beta+local.0/mcttf-0.1.0-beta+local.0.jar")));
+        assertThat(
+                library(profile.getAsJsonArray("libraries"), coordinate).getAsJsonObject("downloads").getAsJsonObject("artifact").get("url").getAsString()
+        ).isEqualTo("");
+        assertThat(profile.getAsJsonObject("repositories").has("example.local")).isFalse();
+        assertThat(
+                Files.readString(
+                        task.getEmbeddedLibraries().get().getAsFile().toPath().resolve("example/local/mcttf/0.1.0-beta+local.0/mcttf-0.1.0-beta+local.0.jar")
+                )
+        ).isEqualTo("local mcttf");
     }
 
     @Test
@@ -245,19 +256,22 @@ class WriteInstallProfileTest {
         var task = task(project);
         task.getUniversalJar().fileValue(file("cleanroom-1.0.0-universal.jar", "cleanroom").toFile());
         task.getTweakers().add("net.minecraftforge.fml.common.launcher.FMLTweaker");
-        task.getVersionMeta().set(versionMeta("--username ${auth_player_name} --versionType ${version_type} "
-                + "--tweakClass net.minecraftforge.fml.common.launcher.FMLTweaker"));
+        task.getVersionMeta()
+                .set(
+                        versionMeta(
+                                "--username ${auth_player_name} --versionType ${version_type} " + "--tweakClass net.minecraftforge.fml.common.launcher.FMLTweaker"
+                        )
+                );
 
         task.write();
 
-        var arguments = json(task.getVersionJson().get().getAsFile().toPath())
-                .get("minecraftArguments").getAsString();
-        assertEquals("--username ${auth_player_name} "
-                + "--tweakClass net.minecraftforge.fml.common.launcher.FMLTweaker "
-                + "--versionType Cleanroom", arguments);
-        assertEquals(1, count(arguments, "--versionType"));
-        assertEquals(1, count(arguments, "--tweakClass"));
-        assertFalse(arguments.contains("${version_type}"));
+        var arguments = json(task.getVersionJson().get().getAsFile().toPath()).get("minecraftArguments").getAsString();
+        assertThat(arguments).isEqualTo(
+                "--username ${auth_player_name} " + "--tweakClass net.minecraftforge.fml.common.launcher.FMLTweaker " + "--versionType Cleanroom"
+        );
+        assertThat(count(arguments, "--versionType")).isEqualTo(1);
+        assertThat(count(arguments, "--tweakClass")).isEqualTo(1);
+        assertThat(arguments).doesNotContain("${version_type}");
     }
 
     private WriteInstallProfile task(Project project) {
@@ -286,17 +300,33 @@ class WriteInstallProfileTest {
     private static VersionMeta versionMetaWithId(String minecraftVersion, String minecraftArguments, String... libraries) {
         var entries = new ArrayList<VersionMeta.Library>();
         for (var name : libraries) {
-            entries.add(new VersionMeta.Library(new VersionMeta.Downloads(
-                    new VersionMeta.Download("ignored", "sha1", 1, "https://example.invalid/ignored.jar"), Map.of()),
-                    name, null, null, null));
+            entries.add(
+                    new VersionMeta.Library(
+                            new VersionMeta.Downloads(new VersionMeta.Download("ignored", "sha1", 1, "https://example.invalid/ignored.jar"), Map.of()),
+                            name,
+                            null,
+                            null,
+                            null
+                    )
+            );
         }
-        return new VersionMeta(null,
+        return new VersionMeta(
+                null,
                 new VersionMeta.AssetIndex("1.12", 1, null, "sha1", 1, "https://example.invalid/1.12.json"),
-                "1.12", 0,
+                "1.12",
+                0,
                 Map.of("client", new VersionMeta.Download(null, "sha1", 1, "https://example.invalid/client.jar")),
-                minecraftVersion, new VersionMeta.JavaVersion("jre-legacy", 8), entries, null,
-                "net.minecraft.client.main.Main", minecraftArguments, 18,
-                "2017-09-18T08:39:46+00:00", "2017-09-18T08:39:46+00:00", "release");
+                minecraftVersion,
+                new VersionMeta.JavaVersion("jre-legacy", 8),
+                entries,
+                null,
+                "net.minecraft.client.main.Main",
+                minecraftArguments,
+                18,
+                "2017-09-18T08:39:46+00:00",
+                "2017-09-18T08:39:46+00:00",
+                "release"
+        );
     }
 
     private static LibraryArtifact library(Project project, String coordinate, Path file) {

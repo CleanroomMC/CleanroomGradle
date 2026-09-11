@@ -33,7 +33,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @DisableCachingByDefault(because = "Generates committed patches from a mutable development tree")

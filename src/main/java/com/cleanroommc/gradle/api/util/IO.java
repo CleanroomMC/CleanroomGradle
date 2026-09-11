@@ -17,7 +17,18 @@ import net.minecraftforge.fml.relauncher.Side;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.StringReader;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -187,6 +198,8 @@ public final class IO {
 
     /**
      * Rewrites a ZIP with stable entry order and timestamps.
+     *
+     * @param path the archive to rewrite in place
      */
     public static void normalizeZip(Path path) {
         var temporary = path.resolveSibling(path.getFileName() + ".deterministic.tmp");
@@ -242,29 +255,32 @@ public final class IO {
             if (response.statusCode() == 200) {
                 Files.write(dest.toPath(), response.body());
                 response.headers().firstValue("ETag").ifPresent(etag -> {
-                    try { Files.writeString(etagFile.toPath(), etag); }
-                    catch (IOException e) { throw new UncheckedIOException(e); }
+                    try {
+                        Files.writeString(etagFile.toPath(), etag);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
                 });
             } else if (response.statusCode() != 304) {
-                throw new RuntimeException("HTTP " + response.statusCode() + " downloading " + url + " to " + dest
-                        + ". Check the URL, proxy, and repository availability.");
+                throw new RuntimeException(
+                        "HTTP " + response.statusCode() + " downloading " + url + " to " + dest + ". Check the URL, proxy, and repository availability."
+                );
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while downloading " + url + " to " + dest + ". Rerun the task to retry.", e);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to download " + url + " to " + dest
-                    + ". Check network access and filesystem permissions, then rerun the task.", e);
+            throw new RuntimeException(
+                    "Failed to download " + url + " to " + dest + ". Check network access and filesystem permissions, then rerun the task.",
+                    e
+            );
         }
     }
 
     static HttpClient httpClient() {
         synchronized (HTTP_CLIENT_LOCK) {
             if (httpClient == null) {
-                httpClient = HttpClient.newBuilder()
-                        .followRedirects(HttpClient.Redirect.NORMAL)
-                        .connectTimeout(Duration.ofSeconds(30))
-                        .build();
+                httpClient = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(Duration.ofSeconds(30)).build();
             }
             return httpClient;
         }
@@ -287,6 +303,6 @@ public final class IO {
         return runDir;
     }
 
-    private IO() { }
+    private IO() {}
 
 }

@@ -40,12 +40,21 @@ public final class CleanroomTasks {
     private static final String RUNS_GROUP_NAME = "cleanroom runs";
 
     public final TaskProvider<DefaultTask> setup;
-    public final TaskProvider<RunMinecraft> runCleanroomClient, runCleanroomServer;
+    public final TaskProvider<RunMinecraft> runCleanroomClient;
+    public final TaskProvider<RunMinecraft> runCleanroomServer;
     public final TaskProvider<NsightExec> runCleanroomNsightClient;
 
-    public CleanroomTasks(Project project, ProjectCoordinates coordinates, CachesExtension caches,
-                          MinecraftExtension minecraft, LoaderExtension loader, PatchesExtension patches,
-                          VanillaTasks vanilla, MCPTasks mcp, McpMappings mappings) {
+    public CleanroomTasks(
+            Project project,
+            ProjectCoordinates coordinates,
+            CachesExtension caches,
+            MinecraftExtension minecraft,
+            LoaderExtension loader,
+            PatchesExtension patches,
+            VanillaTasks vanilla,
+            MCPTasks mcp,
+            McpMappings mappings
+    ) {
         var mainSourceSet = project.getExtensions().getByType(SourceSetContainer.class).named(SourceSet.MAIN_SOURCE_SET_NAME);
         SourceSets.extendFromConfiguration(project, mainSourceSet, vanilla.vanillaConfig);
         var minecraftPatchDev = patches.getPatchDev().register("minecraft", env -> {
@@ -64,8 +73,7 @@ public final class CleanroomTasks {
         mainSourceSet.configure(sourceSet -> {
             sourceSet.getJava().srcDir(mcp.prepareMcpInjectedSources.map(Copy::getDestinationDir));
             project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class).configure(task -> {
-                task.dependsOn(minecraftPatchDev.map(PatchDevEnvironment::getPrepareEnvironment),
-                        mcp.prepareMcpInjectedSources);
+                task.dependsOn(minecraftPatchDev.map(PatchDevEnvironment::getPrepareEnvironment), mcp.prepareMcpInjectedSources);
                 task.mustRunAfter(minecraftPatchDev.map(PatchDevEnvironment::getApplyDiffs));
             });
         });
@@ -102,8 +110,7 @@ public final class CleanroomTasks {
             task.setWorkingDir(runDir);
             task.getNatives().fileProvider(natives);
             task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitClientJar.flatMap(SplitJar::getExtraJar));
-            MinecraftRuns.fmlEnvironment(task, fml.forSide(true, loader.getClientTarget(),
-                    loader.getClientTweakClass(), fml.launchClass));
+            MinecraftRuns.fmlEnvironment(task, fml.forSide(true, loader.getClientTarget(), loader.getClientTweakClass(), fml.launchClass));
         });
 
         RunRegistry.configure(project, this.runCleanroomServer, task -> {
@@ -116,8 +123,7 @@ public final class CleanroomTasks {
             task.setWorkingDir(runDir);
             task.getNatives().fileProvider(natives);
             task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitServerJar.flatMap(SplitJar::getExtraJar));
-            MinecraftRuns.fmlEnvironment(task, fml.forSide(false, loader.getServerTarget(),
-                    loader.getServerTweakClass(), fml.launchClass));
+            MinecraftRuns.fmlEnvironment(task, fml.forSide(false, loader.getServerTarget(), loader.getServerTweakClass(), fml.launchClass));
         });
 
         RunRegistry.configure(project, this.runCleanroomNsightClient, task -> {
@@ -126,8 +132,7 @@ public final class CleanroomTasks {
             task.getNgfxPath().set(Property.NSIGHT_NGFX_PATH.value(project.getProviders()));
             task.getRunTaskName().set(this.runCleanroomClient.getName());
             task.getGradleWrapperJar().set(project.getLayout().getProjectDirectory().file("gradle/wrapper/gradle-wrapper.jar"));
-            task.getJavaExecutable().set(this.runCleanroomClient.flatMap(RunMinecraft::getJavaLauncher)
-                    .map(launcher -> launcher.getExecutablePath().getAsFile().getAbsolutePath()));
+            task.getJavaExecutable().set(this.runCleanroomClient.flatMap(RunMinecraft::getJavaLauncher).map(launcher -> launcher.getExecutablePath().getAsFile().getAbsolutePath()));
         });
     }
 

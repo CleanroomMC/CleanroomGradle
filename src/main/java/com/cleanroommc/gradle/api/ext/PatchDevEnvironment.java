@@ -44,8 +44,10 @@ public abstract class PatchDevEnvironment implements Named {
     private String dependsOn;
     private NamedDomainObjectProvider<SourceSet> sourceSet;
     private TaskProvider<Copy> prepareSources;
-    private TaskProvider<DefaultTask> initializeEnvironment, prepareEnvironment;
-    private TaskProvider<ApplyDiffs> initializeDiffs, applyDiffs;
+    private TaskProvider<DefaultTask> initializeEnvironment;
+    private TaskProvider<DefaultTask> prepareEnvironment;
+    private TaskProvider<ApplyDiffs> initializeDiffs;
+    private TaskProvider<ApplyDiffs> applyDiffs;
     private TaskProvider<GenerateDiffs> generateDiffs;
 
     @Inject
@@ -127,7 +129,7 @@ public abstract class PatchDevEnvironment implements Named {
             if (this.dependsOn != null) {
                 task.dependsOn(this.dependsOn);
             }
-            task.doLast($ -> {
+            task.doLast(_ -> {
                 if (!input.isPresent()) {
                     throw new InvalidUserDataException("Input for %s must be set!".formatted(name));
                 }
@@ -152,7 +154,7 @@ public abstract class PatchDevEnvironment implements Named {
             task.getOriginalDirectory().fileProvider(input);
             task.getPatchesDirectory().set(patches);
             task.getModifiedDirectory().set(output);
-            task.onlyIf("patch dev source tree is not yet populated", $ -> {
+            task.onlyIf("patch dev source tree is not yet populated", _ -> {
                 var dir = output.get().getAsFile();
                 var contents = dir.listFiles();
                 return contents == null || contents.length == 0;
@@ -160,7 +162,7 @@ public abstract class PatchDevEnvironment implements Named {
         });
         this.prepareEnvironment.configure(task -> {
             task.dependsOn(this.initializeDiffs);
-            task.doLast($ -> createDirectory(sourcesDir.get(), "staged input", name));
+            task.doLast(_ -> createDirectory(sourcesDir.get(), "staged input", name));
         });
         this.generateDiffs.configure(task -> {
             task.dependsOn(this.prepareEnvironment);

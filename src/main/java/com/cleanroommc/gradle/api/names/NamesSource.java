@@ -31,11 +31,7 @@ import java.util.Map;
  *   <li>{@code tiny2:<first-12-hex-of-sha256-of-file>} which is a sha256 content hash of the Tiny2 file.</li>
  * </ul>
  */
-public record NamesSource(String id,
-                          Map<String, String> methods,
-                          Map<String, String> fields,
-                          Map<String, String> params,
-                          Map<String, String> docs) {
+public record NamesSource(String id, Map<String, String> methods, Map<String, String> fields, Map<String, String> params, Map<String, String> docs) {
 
     /**
      * Resolves a names source from a Tiny2 file.

@@ -14,7 +14,6 @@ import com.cleanroommc.gradle.api.util.Platform;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 
 import java.lang.reflect.Type;
@@ -22,27 +21,33 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public record VersionMeta(Arguments arguments,
-                          AssetIndex assetIndex,
-                          String assets,
-                          int complianceLevel,
-                          Map<String, Download> downloads,
-                          String id,
-                          JavaVersion javaVersion,
-                          List<Library> libraries,
-                          Object logging,
-                          String mainClass,
-                          String minecraftArguments,
-                          int minimumLauncherVersion,
-                          String releaseTime,
-                          String time,
-                          String type) {
+public record VersionMeta(
+        Arguments arguments,
+        AssetIndex assetIndex,
+        String assets,
+        int complianceLevel,
+        Map<String, Download> downloads,
+        String id,
+        JavaVersion javaVersion,
+        List<Library> libraries,
+        Object logging,
+        String mainClass,
+        String minecraftArguments,
+        int minimumLauncherVersion,
+        String releaseTime,
+        String time,
+        String type
+) {
 
     private static final Map<Platform.OperatingSystem, String> OS_NAMES = Map.of(
-            Platform.OperatingSystem.WINDOWS, "windows",
-            Platform.OperatingSystem.MAC_OS, "osx",
-            Platform.OperatingSystem.LINUX, "linux",
-            Platform.OperatingSystem.FREE_BSD, "linux"
+            Platform.OperatingSystem.WINDOWS,
+            "windows",
+            Platform.OperatingSystem.MAC_OS,
+            "osx",
+            Platform.OperatingSystem.LINUX,
+            "linux",
+            Platform.OperatingSystem.FREE_BSD,
+            "linux"
     );
 
     public String clientUrl() {
@@ -90,9 +95,9 @@ public record VersionMeta(Arguments arguments,
         return javaVersion() == null ? 8 : javaVersion().majorVersion();
     }
 
-    public record JavaVersion(String component, int majorVersion) { }
+    public record JavaVersion(String component, int majorVersion) {}
 
-    public record AssetIndex(String id, long totalSize, String path, String sha1, long size, String url) { }
+    public record AssetIndex(String id, long totalSize, String path, String sha1, long size, String url) {}
 
     public record Library(Downloads downloads, String name, Map<String, String> natives, List<Rule> rules, Object extract) {
 
@@ -181,12 +186,12 @@ public record VersionMeta(Arguments arguments,
 
     }
 
-    public record Download(String path, String sha1, long size, String url) { }
+    public record Download(String path, String sha1, long size, String url) {}
 
     // 1.13+ arguments block
-    public record Arguments(List<Argument> game, List<Argument> jvm) { }
+    public record Arguments(List<Argument> game, List<Argument> jvm) {}
 
-    public record Argument(List<ArgRule> rules, List<String> values) { }
+    public record Argument(List<ArgRule> rules, List<String> values) {}
 
     public record ArgRule(String action, OS os, Map<String, Boolean> features) {
 

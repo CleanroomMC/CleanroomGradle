@@ -16,7 +16,15 @@ import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.MapProperty;
 import org.gradle.api.provider.Property;
-import org.gradle.api.tasks.*;
+import org.gradle.api.tasks.CacheableTask;
+import org.gradle.api.tasks.Classpath;
+import org.gradle.api.tasks.Input;
+import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.InputFiles;
+import org.gradle.api.tasks.Optional;
+import org.gradle.api.tasks.OutputFile;
+import org.gradle.api.tasks.PathSensitive;
+import org.gradle.api.tasks.PathSensitivity;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -141,21 +149,21 @@ public abstract class Decompile extends MavenJarExec {
     public abstract MapProperty<String, Object> getOptions();
 
     /**
-     * {@code -only=<prefix>}: only decompile classes matching these prefixes
+     * {@code -only=<prefix>}: only decompile classes matching these prefixes.
      */
     @Input
     @Optional
     public abstract ListProperty<String> getOnlyClasses();
 
     /**
-     * {@code --silent}: suppress the decompiler's console output
+     * {@code --silent}: suppress the decompiler's console output.
      */
     @Input
     @Optional
     public abstract Property<Boolean> getSilent();
 
     /**
-     * Additional raw decompiler arguments, appended after {@link #getOptions()}
+     * Additional raw decompiler arguments, appended after {@link #getOptions()}.
      */
     @Input
     public abstract ListProperty<String> getExtraArgs();

@@ -34,8 +34,7 @@ public final class Platform {
 
     public static List<Platform> nativePlatforms() {
         var platforms = new LinkedHashMap<String, Platform>();
-        for (var os : List.of(OperatingSystem.WINDOWS, OperatingSystem.LINUX,
-                OperatingSystem.MAC_OS, OperatingSystem.FREE_BSD)) {
+        for (var os : List.of(OperatingSystem.WINDOWS, OperatingSystem.LINUX, OperatingSystem.MAC_OS, OperatingSystem.FREE_BSD)) {
             for (var architecture : Architecture.values()) {
                 var platform = new Platform(os, architecture);
                 platforms.putIfAbsent(platform.lwjglNativesClassifier(), platform);
@@ -46,6 +45,9 @@ public final class Platform {
 
     /**
      * Joins an existing {@code java.library.path} with a natives directory using the host separator.
+     *
+     * @param existing the path to extend, which may be null or blank
+     * @param extra the natives directory to add
      */
     public static String joinLibraryPath(String existing, File extra) {
         var added = fixCommandLine(extra.getAbsolutePath());
@@ -78,10 +80,7 @@ public final class Platform {
 
     public Platform canonicalNativePlatform() {
         var classifier = lwjglNativesClassifier();
-        return nativePlatforms().stream()
-                .filter(platform -> platform.lwjglNativesClassifier().equals(classifier))
-                .findFirst()
-                .orElseThrow();
+        return nativePlatforms().stream().filter(platform -> platform.lwjglNativesClassifier().equals(classifier)).findFirst().orElseThrow();
     }
 
     public String operatingSystemFamily() {
@@ -106,19 +105,21 @@ public final class Platform {
 
     public String lwjglNativesClassifier() {
         return switch (this.operatingSystem) {
-            case WINDOWS -> switch (this.architecture) {
-                case X86 -> "natives-windows-x86";
-                case ARM64 -> "natives-windows-arm64";
-                default -> "natives-windows";
-            };
+            case WINDOWS ->
+                    switch (this.architecture) {
+                        case X86 -> "natives-windows-x86";
+                        case ARM64 -> "natives-windows-arm64";
+                        default -> "natives-windows";
+                    };
             case MAC_OS -> this.architecture == Architecture.ARM64 ? "natives-macos-arm64" : "natives-macos";
-            case LINUX -> switch (this.architecture) {
-                case ARM32 -> "natives-linux-arm32";
-                case ARM64 -> "natives-linux-arm64";
-                case PPC64LE -> "natives-linux-ppc64le";
-                case RISCV64 -> "natives-linux-riscv64";
-                default -> "natives-linux";
-            };
+            case LINUX ->
+                    switch (this.architecture) {
+                        case ARM32 -> "natives-linux-arm32";
+                        case ARM64 -> "natives-linux-arm64";
+                        case PPC64LE -> "natives-linux-ppc64le";
+                        case RISCV64 -> "natives-linux-riscv64";
+                        default -> "natives-linux";
+                    };
             // LWJGL builds FreeBSD natives for x64 only
             case FREE_BSD -> "natives-freebsd";
         };
@@ -188,7 +189,8 @@ public final class Platform {
             };
         }
 
-        private final boolean is64Bit, isArm;
+        private final boolean is64Bit;
+        private final boolean isArm;
 
         Architecture(boolean is64Bit, boolean isArm) {
             this.is64Bit = is64Bit;

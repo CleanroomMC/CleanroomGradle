@@ -140,25 +140,41 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
         return new IllegalStateException("Invalid Cleanroom userdev spec 1: " + field + " is required.");
     }
 
-    public record Minecraft(String version, Download client, Download server) { }
+    public record Minecraft(String version, Download client, Download server) {}
 
-    public record Download(String url, String sha1) { }
+    public record Download(String url, String sha1) {}
 
-    public record Loader(String version, String forgeVersion, String group) { }
+    public record Loader(String version, String forgeVersion, String group) {}
 
-    public record Inputs(String mcpConfig, String mappings, String initialPatches, Map<String, String> tools) { }
+    public record Inputs(String mcpConfig, String mappings, String initialPatches, Map<String, String> tools) {}
 
-    public record Layout(String binpatches, String clientBinpatches, String serverBinpatches,
-                         String obfToSrg, String srgToMcp, String mcpToSrg,
-                         String access, String constructors, String exceptions,
-                         String methods, String fields, String params,
-                         String deobfLibrary, String sourceInput, String clientExtra, String serverExtra,
-                         String initialPatches, List<String> accessTransformers,
-                         String sideAnnotationStrippers, String patches, String loaderSources) { }
+    public record Layout(
+            String binpatches,
+            String clientBinpatches,
+            String serverBinpatches,
+            String obfToSrg,
+            String srgToMcp,
+            String mcpToSrg,
+            String access,
+            String constructors,
+            String exceptions,
+            String methods,
+            String fields,
+            String params,
+            String deobfLibrary,
+            String sourceInput,
+            String clientExtra,
+            String serverExtra,
+            String initialPatches,
+            List<String> accessTransformers,
+            String sideAnnotationStrippers,
+            String patches,
+            String loaderSources
+    ) {}
 
-    public record Runs(Run client, Run server) { }
+    public record Runs(Run client, Run server) {}
 
-    public record Run(String mainClass, String launchClass, String tweakClass, String target) { }
+    public record Run(String mainClass, String launchClass, String tweakClass, String target) {}
 
     public static UserdevConfig read(File file) {
         try {
@@ -185,8 +201,9 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
     private static UserdevConfig parse(String json) {
         var root = JsonParser.parseString(json).getAsJsonObject();
         if (root.has("mcpConfig") && !root.has("layout")) {
-            throw new IllegalStateException("This userdev artifact was produced by CleanroomGradle older than 0.15.0. "
-                    + "Rebuild it with 0.15.0 or newer, or use the plugin version that produced it.");
+            throw new IllegalStateException(
+                    "This userdev artifact was produced by CleanroomGradle older than 0.15.0. " + "Rebuild it with 0.15.0 or newer, or use the plugin version that produced it."
+            );
         }
         var config = IO.readJson(json, UserdevConfig.class);
         config.validate();

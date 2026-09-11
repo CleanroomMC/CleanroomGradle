@@ -17,7 +17,7 @@ import org.gradle.api.provider.Provider;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
-public class LazyStringable {
+public final class LazyStringable {
 
     public static LazyStringable of(Provider<?> property) {
         return new LazyStringable(property);

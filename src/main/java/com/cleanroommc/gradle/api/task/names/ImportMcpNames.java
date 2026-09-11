@@ -32,7 +32,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -71,11 +70,13 @@ public abstract class ImportMcpNames extends DefaultTask {
     public void importNames() {
         if (!getNamesDirectoryConfigured().getOrElse(false)) {
             throw new InvalidUserDataException(
-                    "cleanroom.namesDirectory must be set before running importMcpNames "
-                            + "(it determines where mappings.tiny is written).");
+                    "cleanroom.namesDirectory must be set before running importMcpNames " + "(it determines where mappings.tiny is written)."
+            );
         }
 
-        var namesZip = getMcpNames().getFiles().stream()
+        var namesZip = getMcpNames()
+                .getFiles()
+                .stream()
                 .filter(f -> f.getName().endsWith(".zip"))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No MCP names zip found: " + getMcpNames().getFiles()));

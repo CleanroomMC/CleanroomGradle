@@ -45,8 +45,9 @@ public final class ProjectCoordinates {
         this.group.set(String.valueOf(project.getGroup()));
         this.version.set(String.valueOf(project.getVersion()));
         var urls = new HashMap<String, String>();
-        project.getRepositories().withType(MavenArtifactRepository.class).forEach(repository ->
-                urls.put(repository.getName(), LibraryJson.trailingSlash(repository.getUrl().toString())));
+        project.getRepositories()
+                .withType(MavenArtifactRepository.class)
+                .forEach(repository -> urls.put(repository.getName(), LibraryJson.trailingSlash(repository.getUrl().toString())));
         this.repositoryUrls.set(urls);
     }
 

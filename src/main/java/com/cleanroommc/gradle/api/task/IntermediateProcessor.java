@@ -52,25 +52,32 @@ public abstract class IntermediateProcessor {
 
     /**
      * Deletes {@code files} after {@code consumer} has run. Skipped when discard is disabled.
+     *
+     * @param consumer the task the deletion waits for
+     * @param files the intermediates to delete
      */
     public Discard discardAfter(TaskProvider<?> consumer, Object... files) {
-        return discardAfterAll("discard" + StringUtils.capitalize(consumer.getName()) + "Intermediates",
-                List.of(consumer), files);
+        return discardAfterAll("discard" + StringUtils.capitalize(consumer.getName()) + "Intermediates", List.of(consumer), files);
     }
 
     /**
      * Deletes {@code files} after every requested consumer has run.
+     *
+     * @param consumers the tasks the deletion waits for
+     * @param files the intermediates to delete
      */
     public Discard discardAfterAll(Collection<? extends TaskProvider<?>> consumers, Object... files) {
         var consumerNames = consumers.stream().map(TaskProvider::getName).toList();
-        var taskName = "discard" + consumerNames.stream()
-                .map(StringUtils::capitalize)
-                .collect(Collectors.joining("And")) + "Intermediates";
+        var taskName = "discard" + consumerNames.stream().map(StringUtils::capitalize).collect(Collectors.joining("And")) + "Intermediates";
         return discardAfterAll(taskName, consumers, files);
     }
 
     /**
      * Deletes {@code files} after every requested consumer has run, using the supplied stable task name.
+     *
+     * @param taskName the name to register the delete task under
+     * @param consumers the tasks the deletion waits for
+     * @param files the intermediates to delete
      */
     public Discard discardAfterAll(String taskName, Collection<? extends TaskProvider<?>> consumers, Object... files) {
         var enabled = getDiscardIntermediates();
@@ -88,6 +95,9 @@ public abstract class IntermediateProcessor {
 
     /**
      * Adds more consumers that have to run before {@code discard} deletes its files.
+     *
+     * @param discard the deletion to hold back
+     * @param consumers the tasks to wait for
      */
     public void after(Discard discard, TaskProvider<?>... consumers) {
         after(discard, Arrays.asList(consumers));

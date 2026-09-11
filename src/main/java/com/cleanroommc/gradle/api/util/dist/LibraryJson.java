@@ -41,10 +41,13 @@ public final class LibraryJson {
     }
 
     /**
+     * Resolves a component's libraries with the Cleanroom universal artifact included.
+     *
+     * @param universal the universal artifact the component publishes
+     * @param libraries the component's declared libraries
      * @param inherited coordinates the parent component already supplies, which are skipped
      */
-    public static List<Artifact> resolve(Artifact universal, List<? extends LibraryArtifact> libraries,
-                                         Set<String> inherited) {
+    public static List<Artifact> resolve(Artifact universal, List<? extends LibraryArtifact> libraries, Set<String> inherited) {
         var artifacts = new TreeMap<String, Artifact>();
         artifacts.put(universal.coordinate().serialized(), universal);
 
@@ -55,6 +58,7 @@ public final class LibraryJson {
     /**
      * Resolves a component's libraries without adding the Cleanroom universal artifact.
      *
+     * @param libraries the component's declared libraries
      * @param inherited coordinates a parent component already supplies, which are skipped
      */
     public static List<Artifact> resolve(List<? extends LibraryArtifact> libraries, Set<String> inherited) {
@@ -63,19 +67,15 @@ public final class LibraryJson {
         return new ArrayList<>(artifacts.values());
     }
 
-    private static void resolveInto(Map<String, Artifact> artifacts, List<? extends LibraryArtifact> libraries,
-                                    Set<String> inherited, Coordinate universal) {
+    private static void resolveInto(Map<String, Artifact> artifacts, List<? extends LibraryArtifact> libraries, Set<String> inherited, Coordinate universal) {
         for (var input : libraries) {
             var coordinate = Coordinate.parse(input.getCoordinate().get());
-            if (inherited.contains(coordinate.serialized())
-                    || universal != null && coordinate.sameArtifact(universal)) {
+            if (inherited.contains(coordinate.serialized()) || universal != null && coordinate.sameArtifact(universal)) {
                 continue;
             }
             var path = input.getFile().get().getAsFile().toPath();
             var repositoryUrl = input.getRepositoryUrl().get();
-            var url = isLocalRepository(repositoryUrl)
-                    ? ""
-                    : trailingSlash(repositoryUrl) + coordinate.mavenPath();
+            var url = isLocalRepository(repositoryUrl) ? "" : trailingSlash(repositoryUrl) + coordinate.mavenPath();
             var artifact = artifact(coordinate, path, url);
             var previous = artifacts.put(coordinate.serialized(), artifact);
             if (previous != null && !previous.path().equals(path)) {
@@ -87,6 +87,8 @@ public final class LibraryJson {
     /**
      * The MultiMC/Prism dialect:
      * Natives are folded into their base module under {@code classifiers} with a {@code natives} platform map.
+     *
+     * @param artifacts the resolved artifacts to write
      */
     public static JsonArray mmcLibraries(List<Artifact> artifacts) {
         var ordinary = new ArrayList<Artifact>();
@@ -113,6 +115,8 @@ public final class LibraryJson {
     /**
      * The Mojang dialect used by {@code version.json} for classpath libraries:
      * One flat entry per artifact, classifiers in the name, including side-less native jars such as Netty's.
+     *
+     * @param artifacts the resolved artifacts to write
      */
     public static JsonArray mojangLibraries(List<Artifact> artifacts) {
         var sorted = new ArrayList<>(artifacts);
@@ -136,6 +140,8 @@ public final class LibraryJson {
      * One entry per classifier with a platform rule, extracted rather than classpathed.
      * Separate entries are required because the published classifier names do not share a usable {@code ${arch}}
      * template.
+     *
+     * @param artifacts the resolved native artifacts to write
      */
     public static JsonArray mojangNativeLibraries(List<Artifact> artifacts) {
         var natives = new ArrayList<Artifact>();
@@ -149,8 +155,7 @@ public final class LibraryJson {
         var output = new JsonArray();
         for (var artifact : natives) {
             var classifier = artifact.coordinate().classifier();
-            var library = nativeLibrary(artifact.coordinate().withoutClassifier(),
-                    new ArrayList<>(List.of(artifact)), false);
+            var library = nativeLibrary(artifact.coordinate().withoutClassifier(), new ArrayList<>(List.of(artifact)), false);
             var platform = classifierPlatform(classifier);
             if (platform != null) {
                 var nativeMap = new JsonObject();
@@ -184,9 +189,7 @@ public final class LibraryJson {
         if (classifier == null) {
             return null;
         }
-        var platform = classifier.startsWith(LwjglNatives.CLASSIFIER_PREFIX)
-                ? classifier.substring(LwjglNatives.CLASSIFIER_PREFIX.length())
-                : classifier;
+        var platform = classifier.startsWith(LwjglNatives.CLASSIFIER_PREFIX) ? classifier.substring(LwjglNatives.CLASSIFIER_PREFIX.length()) : classifier;
         var separator = platform.indexOf('-');
         var os = separator == -1 ? platform : platform.substring(0, separator);
         var arch = separator == -1 ? null : platform.substring(separator + 1);
@@ -206,10 +209,12 @@ public final class LibraryJson {
         return new NativePlatform(os, arch);
     }
 
-    private record NativePlatform(String os, String arch) { }
+    private record NativePlatform(String os, String arch) {}
 
     /**
      * A library entry whose file the installer embeds rather than downloads.
+     *
+     * @param artifact the artifact the entry describes
      */
     public static JsonObject embeddedLibrary(Artifact artifact) {
         var download = new JsonObject();
@@ -244,6 +249,8 @@ public final class LibraryJson {
     /**
      * A library both MultiMC and Prism take from the instance's own {@code libraries/} folder instead of downloading.
      * The launcher matches it by bare file name, and never issues a download for it, so the entry carries no url.
+     *
+     * @param artifact the artifact the entry describes
      */
     public static JsonObject localLibrary(Artifact artifact) {
         var download = new JsonObject();
@@ -263,6 +270,8 @@ public final class LibraryJson {
 
     /**
      * An artifact with no download url is one whose file travels inside the archive.
+     *
+     * @param artifact the artifact to test
      */
     public static boolean isLocal(Artifact artifact) {
         return artifact.url() == null || artifact.url().isBlank();
@@ -305,6 +314,9 @@ public final class LibraryJson {
     }
 
     /**
+     * The download block an artifact's entry carries.
+     *
+     * @param artifact the artifact the block describes
      * @param withPath whether to include the {@code path} key, which Mojang's format carries but not MMC's format
      */
     public static JsonObject download(Artifact artifact, boolean withPath) {
@@ -362,6 +374,6 @@ public final class LibraryJson {
         return value.endsWith("/") ? value : value + "/";
     }
 
-    private LibraryJson() { }
+    private LibraryJson() {}
 
 }

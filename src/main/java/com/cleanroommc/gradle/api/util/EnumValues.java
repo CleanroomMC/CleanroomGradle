@@ -35,6 +35,6 @@ public final class EnumValues {
         return Arrays.stream(constants).map(Enum::name).collect(Collectors.joining(", "));
     }
 
-    private EnumValues() { }
+    private EnumValues() {}
 
 }

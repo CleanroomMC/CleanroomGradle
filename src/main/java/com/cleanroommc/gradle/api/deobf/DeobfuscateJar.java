@@ -97,12 +97,14 @@ public abstract class DeobfuscateJar implements TransformAction<DeobfuscateJar.P
             libraries.add(new File(directory, UserdevConfig.DEOBF_LIBRARY));
         }
         if (declared.isEmpty() && mappings.isEmpty()) {
-            throw new InvalidUserDataException("deobf() needs MCP mappings, which this project's mode does not build. "
-                    + "Set cleanroom.mode to 'userdev' or 'loader'.");
+            throw new InvalidUserDataException(
+                    "deobf() needs MCP mappings, which this project's mode does not build. " + "Set cleanroom.mode to 'userdev' or 'loader'."
+            );
         }
         if (mappings.stream().noneMatch(File::isFile)) {
-            throw new InvalidUserDataException("The MCP mappings have not been written yet: " + declared + ". "
-                    + "Run './gradlew prepareDeobf' before importing or refreshing the project in an IDE.");
+            throw new InvalidUserDataException(
+                    "The MCP mappings have not been written yet: " + declared + ". " + "Run './gradlew prepareDeobf' before importing or refreshing the project in an IDE."
+            );
         }
 
         var input = getInputArtifact().get().getAsFile();

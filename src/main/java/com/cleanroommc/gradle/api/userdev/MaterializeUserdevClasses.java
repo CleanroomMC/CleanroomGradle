@@ -62,6 +62,7 @@ import java.util.zip.ZipFile;
 public abstract class MaterializeUserdevClasses implements TransformAction<MaterializeUserdevClasses.Parameters> {
 
     public interface Parameters extends TransformParameters {
+
         @InputFiles
         @PathSensitive(PathSensitivity.NONE)
         ConfigurableFileCollection getAccessTransformers();
@@ -81,6 +82,7 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
         // Toggling --offline must not invalidate an already materialized jar
         @Internal
         Property<Boolean> getOffline();
+
     }
 
     @InputArtifact
@@ -105,40 +107,36 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
             Files.createDirectories(work);
             var loaderSrg = work.resolve("loader-srg.jar").toFile();
             UserdevArchive.select(input, loaderSrg, name -> !name.startsWith(UserdevConfig.META + "/"), "");
-            var cache = getParameters().getSharedCacheDirectory().getAsFile().get().toPath()
-                    .resolve("versions").resolve(config.minecraftVersion());
+            var cache = getParameters().getSharedCacheDirectory().getAsFile().get().toPath().resolve("versions").resolve(config.minecraftVersion());
             var client = acquire(config.minecraft().client(), cache.resolve("client.jar"));
             var server = acquire(config.minecraft().server(), cache.resolve("server.jar"));
             var binpatches = extract(input, config.layout().binpatches(), work.resolve("binpatches.zip").toFile());
             var obfToSrg = extract(input, config.layout().obfToSrg(), work.resolve("obf2srg.tsrg").toFile());
             var clientPatched = work.resolve("client-patched.jar").toFile();
             var serverPatched = work.resolve("server-patched.jar").toFile();
-            ApplyBinPatches.apply(client, binpatches.toPath(),
-                    config.layout().clientBinpatches(), clientPatched.toPath());
-            ApplyBinPatches.apply(server, binpatches.toPath(),
-                    config.layout().serverBinpatches(), serverPatched.toPath());
+            ApplyBinPatches.apply(client, binpatches.toPath(), config.layout().clientBinpatches(), clientPatched.toPath());
+            ApplyBinPatches.apply(server, binpatches.toPath(), config.layout().serverBinpatches(), serverPatched.toPath());
             var clientSlim = work.resolve("client-slim.jar").toFile();
             var serverSlim = work.resolve("server-slim.jar").toFile();
-            SplitJar.split(clientPatched, obfToSrg, clientSlim,
-                    work.resolve("client-extra.jar").toFile());
-            SplitJar.split(serverPatched, obfToSrg, serverSlim,
-                    work.resolve("server-extra.jar").toFile());
+            SplitJar.split(clientPatched, obfToSrg, clientSlim, work.resolve("client-extra.jar").toFile());
+            SplitJar.split(serverPatched, obfToSrg, serverSlim, work.resolve("server-extra.jar").toFile());
             var merged = work.resolve("merged.jar").toFile();
             getExecOperations().javaexec(spec -> {
                 spec.setClasspath(getParameters().getMergeToolClasspath());
                 spec.getMainClass().set("net.minecraftforge.mergetool.ConsoleMerger");
-                spec.args("--client", clientSlim, "--server", serverSlim, "--output", merged,
-                        "-ann", config.minecraftVersion(), "--inject", false);
+                spec.args("--client", clientSlim, "--server", serverSlim, "--output", merged, "-ann", config.minecraftVersion(), "--inject", false);
             });
             var loaderNotch = work.resolve("loader-notch.jar").toFile();
             rename(loaderSrg, loaderNotch, obfToSrg, List.of(), true, true);
             var remappedSrg = work.resolve("minecraft-srg.jar").toFile();
             rename(merged, remappedSrg, obfToSrg, List.of(loaderNotch));
-            MetadataInjector.inject(remappedSrg.toPath(),
+            MetadataInjector.inject(
+                    remappedSrg.toPath(),
                     work.resolve("minecraft-injected.jar"),
                     extract(input, config.layout().access(), work.resolve("access.txt").toFile()).toPath(),
                     extract(input, config.layout().constructors(), work.resolve("constructors.txt").toFile()).toPath(),
-                    extract(input, config.layout().exceptions(), work.resolve("exceptions.txt").toFile()).toPath());
+                    extract(input, config.layout().exceptions(), work.resolve("exceptions.txt").toFile()).toPath()
+            );
             var minecraftSrg = work.resolve("minecraft-injected.jar").toFile();
             var mappings = extract(input, config.layout().srgToMcp(), work.resolve("srg2mcp.tsrg").toFile());
 
@@ -155,8 +153,9 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
             if (ats.isEmpty()) {
                 Files.copy(minecraftSrg.toPath(), minecraftAt.toPath());
             } else {
-                var arguments = new ArrayList<>(List.of("--inJar", minecraftSrg.getAbsolutePath(),
-                        "--outJar", minecraftAt.getAbsolutePath(), "--logFile", "accesstransform.log"));
+                var arguments = new ArrayList<>(
+                        List.of("--inJar", minecraftSrg.getAbsolutePath(), "--outJar", minecraftAt.getAbsolutePath(), "--logFile", "accesstransform.log")
+                );
                 for (var at : ats) {
                     arguments.add("--atFile");
                     arguments.add(at.getAbsolutePath());
@@ -183,22 +182,18 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
     private Path acquire(UserdevConfig.Download download, Path target) throws IOException {
         Files.createDirectories(target.getParent());
         var lockPath = target.resolveSibling(target.getFileName() + ".lock");
-        try (var channel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
-             var ignored = channel.lock()) {
+        try (var channel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE); var ignored = channel.lock()) {
             if (IO.sha1Match(target, download.sha1())) {
                 return target;
             }
             if (getParameters().getOffline().get()) {
-                throw new IllegalStateException("Minecraft " + target.getFileName() + " is missing or corrupt in the shared cache. "
-                        + "Resolve userdev once without --offline to repair it.");
+                throw new IllegalStateException(
+                        "Minecraft " + target.getFileName() + " is missing or corrupt in the shared cache. " + "Resolve userdev once without --offline to repair it."
+                );
             }
             var temporary = target.resolveSibling(target.getFileName() + ".part");
-            var request = HttpRequest.newBuilder(URI.create(download.url()))
-                    .timeout(Duration.ofMinutes(5))
-                    .GET().build();
-            var builder = HttpClient.newBuilder()
-                    .followRedirects(HttpClient.Redirect.NORMAL)
-                    .connectTimeout(Duration.ofSeconds(30));
+            var request = HttpRequest.newBuilder(URI.create(download.url())).timeout(Duration.ofMinutes(5)).GET().build();
+            var builder = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(Duration.ofSeconds(30));
             var proxy = ProxySelector.getDefault();
             if (proxy != null) {
                 builder.proxy(proxy);
@@ -225,10 +220,8 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
         rename(input, output, mappings, libraries, false, false);
     }
 
-    private void rename(File input, File output, File mappings, List<File> libraries,
-                        boolean reverse, boolean naiveSrg) {
-        var arguments = new ArrayList<>(List.of("--input", input.getAbsolutePath(), "--map",
-                mappings.getAbsolutePath(), "--output", output.getAbsolutePath()));
+    private void rename(File input, File output, File mappings, List<File> libraries, boolean reverse, boolean naiveSrg) {
+        var arguments = new ArrayList<>(List.of("--input", input.getAbsolutePath(), "--map", mappings.getAbsolutePath(), "--output", output.getAbsolutePath()));
         if (reverse) {
             arguments.add("--reverse");
         }

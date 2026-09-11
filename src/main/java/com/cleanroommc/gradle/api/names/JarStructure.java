@@ -36,12 +36,12 @@ public record JarStructure(Map<String, ClassEntry> classes) {
     /**
      * A method or field: its name and JVM descriptor.
      */
-    public record Member(String name, String descriptor) { }
+    public record Member(String name, String descriptor) {}
 
     /**
      * One class's SRG-named members.
      */
-    public record ClassEntry(String internalName, List<Member> methods, List<Member> fields) { }
+    public record ClassEntry(String internalName, List<Member> methods, List<Member> fields) {}
 
     /**
      * Scans a jar, keeping only members whose names look like SRG ids (func_/field_).
@@ -101,4 +101,5 @@ public record JarStructure(Map<String, ClassEntry> classes) {
         }
 
     }
+
 }

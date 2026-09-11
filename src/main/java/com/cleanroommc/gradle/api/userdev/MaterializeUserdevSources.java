@@ -32,11 +32,13 @@ import java.io.UncheckedIOException;
 public abstract class MaterializeUserdevSources implements TransformAction<MaterializeUserdevSources.Parameters> {
 
     public interface Parameters extends TransformParameters {
+
         @Classpath
         ConfigurableFileCollection getDecompilerClasspath();
 
         @CompileClasspath
         ConfigurableFileCollection getLibraries();
+
     }
 
     @InputArtifact
@@ -52,8 +54,14 @@ public abstract class MaterializeUserdevSources implements TransformAction<Mater
         var output = outputs.file("cleanroom-userdev-materialized-sources.jar");
         var work = output.toPath().resolveSibling("sources-work");
         try {
-            UserdevSourceMaterializer.materialize(input, output.toPath(), work, getParameters().getLibraries(),
-                    getParameters().getDecompilerClasspath(), getExecOperations());
+            UserdevSourceMaterializer.materialize(
+                    input,
+                    output.toPath(),
+                    work,
+                    getParameters().getLibraries(),
+                    getParameters().getDecompilerClasspath(),
+                    getExecOperations()
+            );
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to materialize sources from " + input, e);
         }

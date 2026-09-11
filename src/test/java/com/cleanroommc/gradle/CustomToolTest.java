@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class CustomToolTest extends BaseFunctionalTest {
 
@@ -24,7 +24,9 @@ class CustomToolTest extends BaseFunctionalTest {
     void customMergeJarsReusesConfigurationCache() throws IOException {
         var sourceDir = this.projectDir.resolve("src/main/java/example");
         Files.createDirectories(sourceDir);
-        Files.writeString(sourceDir.resolve("CustomMerge.java"), """
+        Files.writeString(
+                sourceDir.resolve("CustomMerge.java"),
+                """
                 package example;
 
                 import java.nio.file.Files;
@@ -37,8 +39,10 @@ class CustomToolTest extends BaseFunctionalTest {
                         Files.writeString(output, args[1]);
                     }
                 }
-                """);
-        this.project.vanilla("""
+                """
+        );
+        this.project.vanilla(
+                """
                 import com.cleanroommc.gradle.api.task.mcp.MergeJars
 
                 def customOutput = layout.buildDirectory.file('custom-merge.txt')
@@ -54,17 +58,18 @@ class CustomToolTest extends BaseFunctionalTest {
                     minecraftVersion = 'replacement'
                     mergedJar = customOutput
                 }
-                """);
+                """
+        );
 
         var first = this.project.runner("customMerge").build();
-        assertEquals(TaskOutcome.SUCCESS, first.task(":customMerge").getOutcome());
-        assertEquals("replacement-tool", Files.readString(this.projectDir.resolve("build/custom-merge.txt")));
+        assertThat(first.task(":customMerge").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(Files.readString(this.projectDir.resolve("build/custom-merge.txt"))).isEqualTo("replacement-tool");
 
         Files.delete(this.projectDir.resolve("build/custom-merge.txt"));
         var second = this.project.runner("customMerge").build();
         PluginBuild.reused(second.getOutput());
-        assertEquals(TaskOutcome.SUCCESS, second.task(":customMerge").getOutcome());
-        assertEquals("replacement-tool", Files.readString(this.projectDir.resolve("build/custom-merge.txt")));
+        assertThat(second.task(":customMerge").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(Files.readString(this.projectDir.resolve("build/custom-merge.txt"))).isEqualTo("replacement-tool");
     }
 
 }

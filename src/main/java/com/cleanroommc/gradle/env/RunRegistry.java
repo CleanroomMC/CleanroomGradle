@@ -37,8 +37,19 @@ import java.util.regex.Pattern;
 public abstract class RunRegistry {
 
     private static final Set<String> CONDITIONAL_TASKS = Set.of(
-            "runClient", "runServer", "runVanillaClient", "runVanillaServer", "runCleanroomClient", "runCleanroomServer", "runCleanroomNsightClient",
-            "runSrgClient", "runSrgServer", "runReobfSrgClient", "runReobfSrgServer", "runMcpClient", "runMcpServer"
+            "runClient",
+            "runServer",
+            "runVanillaClient",
+            "runVanillaServer",
+            "runCleanroomClient",
+            "runCleanroomServer",
+            "runCleanroomNsightClient",
+            "runSrgClient",
+            "runSrgServer",
+            "runReobfSrgClient",
+            "runReobfSrgServer",
+            "runMcpClient",
+            "runMcpServer"
     );
     private static final String RUNS_GROUP = "minecraft runs";
     private static final Pattern VALID_NAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
@@ -157,9 +168,7 @@ public abstract class RunRegistry {
 
         var taskName = "run" + StringUtils.capitalize(name);
         var builtin = this.builtins.get(taskName);
-        var task = builtin == null
-                ? this.project.getTasks().register(taskName, types.getFirst(), value -> value.setGroup(RUNS_GROUP))
-                : builtin.task;
+        var task = builtin == null ? this.project.getTasks().register(taskName, types.getFirst(), value -> value.setGroup(RUNS_GROUP)) : builtin.task;
         var consumers = new LinkedHashSet<Action<TaskProvider<?>>>();
         for (var ancestor : ancestors) {
             ancestor.actions.forEach(task::configure);
@@ -175,12 +184,16 @@ public abstract class RunRegistry {
     }
 
     private RuntimeException invalid(String message) {
-        return CleanroomProblems.throwing(getProblems(), new InvalidUserDataException(message),
-                CleanroomProblems.INVALID_RUN, message, "Check the declarations in cleanroom.runs.");
+        return CleanroomProblems.throwing(
+                getProblems(),
+                new InvalidUserDataException(message),
+                CleanroomProblems.INVALID_RUN,
+                message,
+                "Check the declarations in cleanroom.runs."
+        );
     }
 
-    private record Builtin(Class<? extends Task> type, TaskProvider<?> task,
-                           List<Action<? super Task>> actions, Set<Action<TaskProvider<?>>> consumers) {
+    private record Builtin(Class<? extends Task> type, TaskProvider<?> task, List<Action<? super Task>> actions, Set<Action<TaskProvider<?>>> consumers) {
 
         private Builtin(Class<? extends Task> type, TaskProvider<?> task) {
             this(type, task, new ArrayList<>(), new LinkedHashSet<>());

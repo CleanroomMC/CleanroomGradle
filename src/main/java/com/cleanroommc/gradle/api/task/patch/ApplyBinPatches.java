@@ -78,8 +78,7 @@ public abstract class ApplyBinPatches extends DefaultTask {
         Path original = getOriginalJar().getAsFile().get().toPath();
         Path output = getPatchedJar().getAsFile().get().toPath();
         var result = apply(original, getBinpatches().getAsFile().get().toPath(), getPrefix().get(), output);
-        getLogger().lifecycle("Binpatches: {} patched, {} added, {} removed -> {}",
-                result.patched(), result.added(), result.removed(), output.getFileName());
+        getLogger().lifecycle("Binpatches: {} patched, {} added, {} removed -> {}", result.patched(), result.added(), result.removed(), output.getFileName());
     }
 
     public static Result apply(Path original, Path binpatches, String prefix, Path output) {
@@ -111,9 +110,12 @@ public abstract class ApplyBinPatches extends DefaultTask {
                 var missing = new LinkedHashSet<>(patches.deltas().keySet());
                 missing.removeAll(contents.keySet());
                 if (!missing.isEmpty()) {
-                    throw new IllegalStateException(("%d class(es) that the binpatches change are absent from %s, " +
-                            "the original jar does not match the one the patches were generated against.")
-                            .formatted(missing.size(), original.getFileName()));
+                    throw new IllegalStateException(
+                            ("%d class(es) that the binpatches change are absent from %s, " + "the original jar does not match the one the patches were generated against.").formatted(
+                                    missing.size(),
+                                    original.getFileName()
+                            )
+                    );
                 }
 
                 var outputNames = new TreeSet<>(contents.keySet());
@@ -182,16 +184,18 @@ public abstract class ApplyBinPatches extends DefaultTask {
         byte[] expected = Arrays.copyOf(patch, SHA256_LENGTH);
         byte[] actual = IO.sha256(original);
         if (!Arrays.equals(expected, actual)) {
-            throw new IllegalStateException(("SHA-256 mismatch for %s: " +
-                    "the original class is not the one the binpatch was generated against. " +
-                    "Delete the cached Minecraft jars and let them re-download, " +
-                    "and make sure the userdev artifact targets this Minecraft version.").formatted(name));
+            throw new IllegalStateException(
+                    ("SHA-256 mismatch for %s: " + "the original class is not the one the binpatch was generated against. " +
+                            "Delete the cached Minecraft jars and let them re-download, " + "and make sure the userdev artifact targets this Minecraft version.").formatted(
+                            name
+                    )
+            );
         }
         return BinDelta.decode(original, Arrays.copyOfRange(patch, SHA256_LENGTH, patch.length));
     }
 
-    private record Patches(Map<String, byte[]> deltas, Map<String, byte[]> added, Set<String> removed) { }
+    private record Patches(Map<String, byte[]> deltas, Map<String, byte[]> added, Set<String> removed) {}
 
-    public record Result(int patched, int added, int removed) { }
+    public record Result(int patched, int added, int removed) {}
 
 }

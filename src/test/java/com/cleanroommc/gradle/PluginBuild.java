@@ -24,8 +24,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 final class PluginBuild {
 
@@ -38,7 +37,9 @@ final class PluginBuild {
     }
 
     PluginBuild settings() throws IOException {
-        Files.writeString(this.projectDir.resolve("settings.gradle"), """
+        Files.writeString(
+                this.projectDir.resolve("settings.gradle"),
+                """
                 pluginManagement {
                     includeBuild '%s'
                     repositories {
@@ -54,48 +55,67 @@ final class PluginBuild {
                     id 'com.cleanroommc.cleanroomgradle.settings'
                 }
                 rootProject.name = 'test-project'
-                """.formatted(PLUGIN_DIR));
+                """.formatted(
+                        PLUGIN_DIR
+                )
+        );
         return this;
     }
 
     PluginBuild build(String body) throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"), """
+        Files.writeString(
+                this.projectDir.resolve("build.gradle"),
+                """
                 plugins {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
                 }
                 group = 'com.example'
                 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
-                """ + body);
+                """ +
+                        body
+        );
         return this;
     }
 
     PluginBuild vanilla(String extra) throws IOException {
-        return build("""
+        return build(
+                """
                 cleanroom {
                     mode = 'vanilla'
                     patches.developInitial = false
                 }
-                """ + extra);
+                """ +
+                        extra
+        );
     }
 
     void seedLauncherMeta(Path cacheDirectory, String version, String metaJson) throws IOException {
         var metaFile = cacheDirectory.resolve("versions").resolve(version).resolve("meta.json");
         Files.createDirectories(metaFile.getParent());
         Files.writeString(metaFile, metaJson);
-        Files.writeString(cacheDirectory.resolve("version_manifest_v2.json"),
+        Files.writeString(
+                cacheDirectory.resolve("version_manifest_v2.json"),
                 """
                         {"versions":[{"id":"%s","url":"https://example.invalid/%s.json","sha1":"%s"}]}
-                        """.formatted(version, version, IO.sha1(metaFile)));
+                        """.formatted(
+                        version,
+                        version,
+                        IO.sha1(metaFile)
+                )
+        );
     }
 
     PluginBuild loader(String extra) throws IOException {
-        return build("""
+        return build(
+                """
                 cleanroom {
                     mode = 'loader'
                     patches.developInitial = false
                 }
-                """ + extra);
+                """ +
+                        extra
+        );
     }
 
     /**
@@ -171,28 +191,26 @@ final class PluginBuild {
 
     void assertProblem(String problemId) throws IOException {
         var report = this.projectDir.resolve("build/reports/problems/problems-report.html");
-        assertTrue(Files.isRegularFile(report), "Gradle Problems report was not generated");
-        assertTrue(Files.readString(report).contains(problemId),
-                "Problems report does not contain '" + problemId + "'");
+        assertThat(Files.isRegularFile(report)).as("Gradle Problems report was not generated").isTrue();
+        assertThat(Files.readString(report)).as("Problems report does not contain '" + problemId + "'").contains(problemId);
     }
 
     static void scheduled(String output, String... tasks) {
         for (var task : tasks) {
-            assertTrue(output.contains(":" + task), () -> "missing :" + task + " in\n" + output);
+            assertThat(output).as(() -> "missing :" + task + " in\n" + output).contains(":" + task);
         }
     }
 
     static void notScheduled(String output, String... tasks) {
         for (var task : tasks) {
-            assertFalse(output.contains(":" + task), () -> "unexpected :" + task + " in\n" + output);
+            assertThat(output).as(() -> "unexpected :" + task + " in\n" + output).doesNotContain(":" + task);
         }
     }
 
     static void reused(String output) {
-        assertTrue(output.contains("Reusing configuration cache"),
-                () -> "configuration cache was not reused:\n" + output);
+        assertThat(output).as(() -> "configuration cache was not reused:\n" + output).contains("Reusing configuration cache");
     }
 
-    record IdeaModel(IdeaProject value, String output) { }
+    record IdeaModel(IdeaProject value, String output) {}
 
 }

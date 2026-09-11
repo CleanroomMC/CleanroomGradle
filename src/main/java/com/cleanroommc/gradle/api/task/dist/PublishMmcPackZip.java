@@ -79,9 +79,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     private static final String LWJGL_PATCH_PATH = "patches/" + LWJGL_UID + ".json";
     private static final String LOCAL_LIBRARIES = "libraries/";
     private static final String BLOCKED_LIBRARY_VERSION = "999999.0-empty";
-    private static final byte[] EMPTY_JAR = {
-            0x50, 0x4b, 0x05, 0x06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    };
+    private static final byte[] EMPTY_JAR = { 0x50, 0x4b, 0x05, 0x06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
     @Input
     public abstract Property<String> getInstanceName();
@@ -135,8 +133,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     @Inject
     public PublishMmcPackZip() {
         getMinecraftVersion().convention(Meta.ONE_TRUE_MINECRAFT_VERSION);
-        getEmbedUniversalJar().convention(getUniversalCoordinate()
-                .map(coordinate -> Coordinate.parse(coordinate).hasLocalComponent()));
+        getEmbedUniversalJar().convention(getUniversalCoordinate().map(coordinate -> Coordinate.parse(coordinate).hasLocalComponent()));
     }
 
     @TaskAction
@@ -286,8 +283,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
             }
         }
         if (lwjglVersions.size() != 1) {
-            throw new GradleException("Cleanroom's MMC component requires exactly one LWJGL version. Found "
-                    + lwjglVersions);
+            throw new GradleException("Cleanroom's MMC component requires exactly one LWJGL version. Found " + lwjglVersions);
         }
 
         var cleanroom = LibraryJson.resolve(universal, cleanroomInputs, getInheritedLibraries().get());
@@ -295,12 +291,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         var local = new ArrayList<Artifact>();
         cleanroom.stream().filter(LibraryJson::isLocal).forEach(local::add);
         lwjgl.stream().filter(LibraryJson::isLocal).forEach(local::add);
-        return new ComponentLibraries(
-                lwjglVersions.iterator().next(),
-                LibraryJson.mmcLibraries(cleanroom),
-                LibraryJson.mmcLibraries(lwjgl),
-                local
-        );
+        return new ComponentLibraries(lwjglVersions.iterator().next(), LibraryJson.mmcLibraries(cleanroom), LibraryJson.mmcLibraries(lwjgl), local);
     }
 
     private static JsonObject requirement(String uid, String version) {
@@ -310,8 +301,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         return requirement;
     }
 
-    private record ComponentLibraries(String lwjglVersion, JsonArray cleanroom, JsonArray lwjgl, List<Artifact> local) {
-    }
+    private record ComponentLibraries(String lwjglVersion, JsonArray cleanroom, JsonArray lwjgl, List<Artifact> local) {}
 
     private static byte[] read(Path path) {
         try {
@@ -322,9 +312,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     }
 
     private String instanceCfg() {
-        return "InstanceType=OneSix\n"
-                + "name=" + getInstanceName().get() + " " + getCleanroomVersion().get() + "\n"
-                + "iconKey=default\n";
+        return "InstanceType=OneSix\n" + "name=" + getInstanceName().get() + " " + getCleanroomVersion().get() + "\n" + "iconKey=default\n";
     }
 
     private static byte[] json(JsonObject object) {
@@ -347,4 +335,5 @@ public abstract class PublishMmcPackZip extends DefaultTask {
             throw new UncheckedIOException("Failed to write MMC archive " + output, e);
         }
     }
+
 }

@@ -27,23 +27,28 @@ import java.util.regex.Pattern;
 public final class SourceRenamer {
 
     // Token matcher: capitalized Func_/Field_ (Mixin accessors), TSRG2 m_/f_, p_i constructor params
-    private static final Pattern SRG_TOKEN = Pattern.compile(
-            "[fF]unc_\\d+_[a-zA-Z_]+|m_\\d+_|[fF]ield_\\d+_[a-zA-Z_]+|f_\\d+_|p_\\w+_\\d+_|p_\\d+_");
+    private static final Pattern SRG_TOKEN = Pattern.compile("[fF]unc_\\d+_[a-zA-Z_]+|m_\\d+_|[fF]ield_\\d+_[a-zA-Z_]+|f_\\d+_|p_\\w+_\\d+_|p_\\d+_");
     private static final Pattern CONSTRUCTOR = Pattern.compile(
-            "^(?<indent> +|\\t+)(public |private|protected |)(?<generic><[\\w\\W]*>\\s+)?(?<name>[\\w.]+)\\((?<parameters>.*)\\)\\s+(?:throws[\\w.,\\s]+)?\\{");
+            "^(?<indent> +|\\t+)(public |private|protected |)(?<generic><[\\w\\W]*>\\s+)?(?<name>[\\w.]+)\\((?<parameters>.*)\\)\\s+(?:throws[\\w.,\\s]+)?\\{"
+    );
     private static final Pattern METHOD = Pattern.compile(
-            "^(?<indent> +|\\t+)(?!return)(?:\\w+\\s+)*(?<generic><[\\w\\W]*>\\s+)?(?<return>\\w+[\\w$.]*(?:<[\\w\\W]*>)?[\\[\\]]*)\\s+(?<name>(?:func_|m_)[0-9]+_[a-zA-Z_]*)\\(");
+            "^(?<indent> +|\\t+)(?!return)(?:\\w+\\s+)*(?<generic><[\\w\\W]*>\\s+)?(?<return>\\w+[\\w$.]*(?:<[\\w\\W]*>)?[\\[\\]]*)\\s+(?<name>(?:func_|m_)[0-9]+_[a-zA-Z_]*)\\("
+    );
     private static final Pattern FIELD = Pattern.compile(
-            "^(?<indent> +|\\t+)(?!return)(?:\\w+\\s+)*\\w+[\\w$.]*(?:<[\\w\\W]*>)?[\\[\\]]*\\s+(?<name>(?:field_|f_)[0-9]+_[a-zA-Z_]*) *[=;]");
-    private static final Pattern CLASS = Pattern.compile(
-            "^(?<indent> *|\\t*)([\\w|@]*\\s)*(class|interface|@interface|enum) (?<name>[\\w]+)");
+            "^(?<indent> +|\\t+)(?!return)(?:\\w+\\s+)*\\w+[\\w$.]*(?:<[\\w\\W]*>)?[\\[\\]]*\\s+(?<name>(?:field_|f_)[0-9]+_[a-zA-Z_]*) *[=;]"
+    );
+    private static final Pattern CLASS = Pattern.compile("^(?<indent> *|\\t*)([\\w|@]*\\s)*(class|interface|@interface|enum) (?<name>[\\w]+)");
     private static final Pattern CLOSING_BRACE = Pattern.compile("^(?<indent> *|\\t*)}");
     private static final Pattern PACKAGE = Pattern.compile("^\\s*package\\s*(?<name>[\\w.]+);$");
 
-    private SourceRenamer() { }
+    private SourceRenamer() {}
 
     /**
      * Renames SRG ids in {@code lines} and inserts javadocs from {@code docs} (keyed by SRG id).
+     *
+     * @param lines the source lines to rewrite
+     * @param names MCP names keyed by SRG id
+     * @param docs javadoc bodies keyed by SRG id
      */
     public static List<String> rename(List<String> lines, Map<String, String> names, Map<String, String> docs) {
         var out = new ArrayList<String>(lines.size() + 64);
@@ -83,11 +88,9 @@ public final class SourceRenamer {
         return mapped;
     }
 
-    private static void injectJavadoc(Map<String, String> docs, List<String> out, String line, String pkg,
-                                      Deque<Map.Entry<String, Integer>> innerClasses) {
+    private static void injectJavadoc(Map<String, String> docs, List<String> out, String line, String pkg, Deque<Map.Entry<String, Integer>> innerClasses) {
         var matcher = CONSTRUCTOR.matcher(line);
-        boolean isConstructor = matcher.find() && !innerClasses.isEmpty()
-                && innerClasses.peek().getKey().contains(matcher.group("name"));
+        boolean isConstructor = matcher.find() && !innerClasses.isEmpty() && innerClasses.peek().getKey().contains(matcher.group("name"));
         if (!isConstructor) {
             matcher = METHOD.matcher(line);
         }

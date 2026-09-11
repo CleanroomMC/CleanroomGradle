@@ -37,11 +37,9 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 class SasPatchTest {
 
@@ -50,51 +48,48 @@ class SasPatchTest {
 
     @Test
     void parseLineHandlesBlankCommentClassFieldAndMethod() {
-        assertNull(SideOnlyHandler.parseLine(""));
-        assertNull(SideOnlyHandler.parseLine("   "));
-        assertNull(SideOnlyHandler.parseLine("# only a comment"));
-        assertNull(SideOnlyHandler.parseLine("\t# generated comment only"));
+        assertThat(SideOnlyHandler.parseLine("")).isNull();
+        assertThat(SideOnlyHandler.parseLine("   ")).isNull();
+        assertThat(SideOnlyHandler.parseLine("# only a comment")).isNull();
+        assertThat(SideOnlyHandler.parseLine("\t# generated comment only")).isNull();
 
         var cls = SideOnlyHandler.parseLine("net.minecraft.Block");
-        assertEquals(SideOnlyHandler.TargetKind.CLASS, cls.target().kind());
-        assertEquals("net/minecraft/Block", cls.target().owner());
-        assertFalse(cls.generated());
+        assertThat(cls.target().kind()).isEqualTo(SideOnlyHandler.TargetKind.CLASS);
+        assertThat(cls.target().owner()).isEqualTo("net/minecraft/Block");
+        assertThat(cls.generated()).isFalse();
 
         var dotted = SideOnlyHandler.parseLine("net.minecraft.Block # a block");
-        assertEquals("net/minecraft/Block", dotted.target().owner());
-        assertEquals("a block", dotted.comment());
+        assertThat(dotted.target().owner()).isEqualTo("net/minecraft/Block");
+        assertThat(dotted.comment()).isEqualTo("a block");
 
         var generated = SideOnlyHandler.parseLine("\tnet.minecraft.Block");
-        assertTrue(generated.generated());
+        assertThat(generated.generated()).isTrue();
 
         var field = SideOnlyHandler.parseLine("net.minecraft.Block field_1_a");
-        assertEquals(SideOnlyHandler.TargetKind.FIELD, field.target().kind());
-        assertEquals("field_1_a", field.target().name());
+        assertThat(field.target().kind()).isEqualTo(SideOnlyHandler.TargetKind.FIELD);
+        assertThat(field.target().name()).isEqualTo("field_1_a");
 
         var method = SideOnlyHandler.parseLine("net.minecraft.Block func_1_a ()V");
-        assertEquals(SideOnlyHandler.TargetKind.METHOD, method.target().kind());
-        assertEquals("func_1_a", method.target().name());
-        assertEquals("()V", method.target().descriptor());
+        assertThat(method.target().kind()).isEqualTo(SideOnlyHandler.TargetKind.METHOD);
+        assertThat(method.target().name()).isEqualTo("func_1_a");
+        assertThat(method.target().descriptor()).isEqualTo("()V");
     }
 
     @Test
     void parseLineRejectsBadTargets() {
-        assertThrows(IllegalArgumentException.class,
-                () -> SideOnlyHandler.parseLine("net.minecraft.Block field one two"));
-        assertThrows(IllegalArgumentException.class,
-                () -> SideOnlyHandler.parseLine("net.minecraft.Block ()V"));
+        assertThatThrownBy(() -> SideOnlyHandler.parseLine("net.minecraft.Block field one two")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> SideOnlyHandler.parseLine("net.minecraft.Block ()V")).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void targetFormatsAndSorts() {
         var cls = new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.CLASS, "a.B", null, null);
-        assertEquals("a/B", cls.format());
+        assertThat(cls.format()).isEqualTo("a/B");
         var field = new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.FIELD, "a.B", "field_1_a", null);
-        assertEquals("a/B field_1_a", field.format());
+        assertThat(field.format()).isEqualTo("a/B field_1_a");
         var method = new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.METHOD, "a.B", "func_1_a", "()V");
-        assertEquals("a/B func_1_a()V", method.format());
-        assertThrows(IllegalArgumentException.class,
-                () -> new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.CLASS, " ", null, null));
+        assertThat(method.format()).isEqualTo("a/B func_1_a()V");
+        assertThatThrownBy(() -> new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.CLASS, " ", null, null)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -103,16 +98,16 @@ class SasPatchTest {
         writeJar(input, Map.of("demo/Block.class", annotatedMethod("demo/Block", "func_1_a")));
 
         var output = this.directory.resolve("out.jar");
-        var target = new SideOnlyHandler.Target(
-                SideOnlyHandler.TargetKind.METHOD, "demo/Block", "func_1_a", "()V");
+        var target = new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.METHOD, "demo/Block", "func_1_a", "()V");
         var result = SideOnlyHandler.applySas(input, output, Set.of(target));
-        assertEquals(1, result.annotationsRemoved());
+        assertThat(result.annotationsRemoved()).isEqualTo(1);
 
-        var missing = new SideOnlyHandler.Target(
-                SideOnlyHandler.TargetKind.METHOD, "demo/Block", "missing", "()V");
-        var failure = assertThrows(IllegalArgumentException.class,
-                () -> SideOnlyHandler.applySas(input, this.directory.resolve("out2.jar"), Set.of(missing)));
-        assertTrue(failure.getMessage().contains("did not resolve"), failure.getMessage());
+        var missing = new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.METHOD, "demo/Block", "missing", "()V");
+        var failure = catchThrowableOfType(
+                () -> SideOnlyHandler.applySas(input, this.directory.resolve("out2.jar"), Set.of(missing)),
+                IllegalArgumentException.class
+        );
+        assertThat(failure).as(failure.getMessage()).hasMessageContaining("did not resolve");
     }
 
     @Test
@@ -132,14 +127,14 @@ class SasPatchTest {
 
         var output = this.directory.resolve("patched.jar");
         var result = ApplyBinPatches.apply(original, patches, "", output);
-        assertEquals(1, result.patched());
-        assertEquals(1, result.added());
-        assertEquals(1, result.removed());
+        assertThat(result.patched()).isEqualTo(1);
+        assertThat(result.added()).isEqualTo(1);
+        assertThat(result.removed()).isEqualTo(1);
 
         var entries = readJar(output);
-        assertTrue(Arrays.equals(revisedBytes, entries.get("demo/A.class")));
-        assertTrue(entries.containsKey("demo/Added.class"));
-        assertFalse(entries.containsKey("demo/Remove.class"));
+        assertThat(Arrays.equals(revisedBytes, entries.get("demo/A.class"))).isTrue();
+        assertThat(entries).containsKey("demo/Added.class");
+        assertThat(entries).doesNotContainKey("demo/Remove.class");
     }
 
     @Test
@@ -150,14 +145,13 @@ class SasPatchTest {
         writeJar(original, Map.of("demo/A.class", originalBytes));
         var patches = this.directory.resolve("binpatches.zip");
         try (var out = new ZipOutputStream(Files.newOutputStream(patches))) {
-            zipEntry(out, "binpatch/client/demo/A.class.binpatch",
-                    concatenate(IO.sha256(originalBytes), BinDelta.encode(originalBytes, revisedBytes)));
+            zipEntry(out, "binpatch/client/demo/A.class.binpatch", concatenate(IO.sha256(originalBytes), BinDelta.encode(originalBytes, revisedBytes)));
             zipEntry(out, "binpatch/client/META-INF/binpatch-removed.txt", new byte[0]);
         }
         var output = this.directory.resolve("patched.jar");
         var result = ApplyBinPatches.apply(original, patches, "binpatch/client/", output);
-        assertEquals(1, result.patched());
-        assertTrue(Arrays.equals(revisedBytes, readJar(output).get("demo/A.class")));
+        assertThat(result.patched()).isEqualTo(1);
+        assertThat(Arrays.equals(revisedBytes, readJar(output).get("demo/A.class"))).isTrue();
     }
 
     @Test
@@ -170,28 +164,27 @@ class SasPatchTest {
             zipEntry(out, "demo/Ghost.class.binpatch", new byte[64]);
             zipEntry(out, "META-INF/binpatch-removed.txt", new byte[0]);
         }
-        assertTrue(assertThrows(IllegalStateException.class, () -> ApplyBinPatches.apply(
-                original, missingPatches, "", this.directory.resolve("o1.jar")))
-                .getMessage().contains("absent"));
+        assertThatThrownBy(() -> ApplyBinPatches.apply(original, missingPatches, "", this.directory.resolve("o1.jar")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("absent");
 
         var wrongBase = this.directory.resolve("wrong.zip");
         try (var out = new ZipOutputStream(Files.newOutputStream(wrongBase))) {
-            zipEntry(out, "demo/A.class.binpatch",
-                    concatenate(new byte[32], BinDelta.encode(classBytes("demo/A", 1), classBytes("demo/A", 2))));
+            zipEntry(out, "demo/A.class.binpatch", concatenate(new byte[32], BinDelta.encode(classBytes("demo/A", 1), classBytes("demo/A", 2))));
             zipEntry(out, "META-INF/binpatch-removed.txt", new byte[0]);
         }
-        assertTrue(assertThrows(IllegalStateException.class, () -> ApplyBinPatches.apply(
-                original, wrongBase, "", this.directory.resolve("o2.jar")))
-                .getMessage().contains("SHA-256 mismatch"));
+        assertThatThrownBy(() -> ApplyBinPatches.apply(original, wrongBase, "", this.directory.resolve("o2.jar")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SHA-256 mismatch");
 
         var truncated = this.directory.resolve("truncated.zip");
         try (var out = new ZipOutputStream(Files.newOutputStream(truncated))) {
             zipEntry(out, "demo/A.class.binpatch", new byte[4]);
             zipEntry(out, "META-INF/binpatch-removed.txt", new byte[0]);
         }
-        assertTrue(assertThrows(IllegalStateException.class, () -> ApplyBinPatches.apply(
-                original, truncated, "", this.directory.resolve("o3.jar")))
-                .getMessage().contains("truncated"));
+        assertThatThrownBy(() -> ApplyBinPatches.apply(original, truncated, "", this.directory.resolve("o3.jar")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("truncated");
     }
 
     private static byte[] annotatedMethod(String owner, String name) {

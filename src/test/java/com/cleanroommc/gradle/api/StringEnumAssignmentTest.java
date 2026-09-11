@@ -25,7 +25,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class StringEnumAssignmentTest {
 
@@ -37,27 +37,27 @@ class StringEnumAssignmentTest {
         var project = ProjectBuilder.builder().withProjectDir(this.projectDir.toFile()).build();
         var ext = project.getExtensions().create("cleanroom", CleanroomExtension.class);
         ext.setMode("loader");
-        assertEquals(ProjectMode.LOADER, ext.getMode().get());
+        assertThat(ext.getMode().get()).isEqualTo(ProjectMode.LOADER);
 
         var run = project.getTasks().register("run", RunMinecraft.class).get();
         run.setSide("server");
         run.setEnv("reobf-srg");
-        assertEquals(Side.SERVER, run.getSide().get());
-        assertEquals(Environment.REOBF_SRG, run.getEnv().get());
+        assertThat(run.getSide().get()).isEqualTo(Side.SERVER);
+        assertThat(run.getEnv().get()).isEqualTo(Environment.REOBF_SRG);
 
         var strip = project.getTasks().register("strip", StripSideOnlyJar.class).get();
         strip.setTargetSide("client");
-        assertEquals(Side.CLIENT, strip.getTargetSide().get());
+        assertThat(strip.getTargetSide().get()).isEqualTo(Side.CLIENT);
 
         var write = project.getTasks().register("write", WriteMappings.class).get();
         write.setDirection("mcp-to-srg");
         write.setFormat("tsrg");
-        assertEquals(WriteMappings.Direction.MCP_TO_SRG, write.getDirection().get());
-        assertEquals(IMappingFile.Format.TSRG, write.getFormat().get());
+        assertThat(write.getDirection().get()).isEqualTo(WriteMappings.Direction.MCP_TO_SRG);
+        assertThat(write.getFormat().get()).isEqualTo(IMappingFile.Format.TSRG);
 
         var info = project.getTasks().register("info", CleanroomInfo.class).get();
         info.setMode("vanilla");
-        assertEquals(ProjectMode.VANILLA, info.getMode().get());
+        assertThat(info.getMode().get()).isEqualTo(ProjectMode.VANILLA);
     }
 
 }

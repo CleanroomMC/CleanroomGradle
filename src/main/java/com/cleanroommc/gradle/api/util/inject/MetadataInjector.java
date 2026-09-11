@@ -53,7 +53,7 @@ import java.util.zip.ZipEntry;
  */
 public final class MetadataInjector {
 
-    public record InjectResult(int classesProcessed, int entriesCopied, int abstractMethodsRecorded) { }
+    public record InjectResult(int classesProcessed, int entriesCopied, int abstractMethodsRecorded) {}
 
     private record Entry(String name, byte[] data, boolean directory) {
 
@@ -169,11 +169,7 @@ public final class MetadataInjector {
 
     private byte[] renderAbstractParameters() {
         var builder = new StringBuilder();
-        this.abstractParameters.forEach((key, parameters) -> builder
-                .append(key)
-                .append(' ')
-                .append(String.join(" ", parameters))
-                .append('\n'));
+        this.abstractParameters.forEach((key, parameters) -> builder.append(key).append(' ').append(String.join(" ", parameters)).append('\n'));
         return builder.toString().getBytes(StandardCharsets.UTF_8);
     }
 
@@ -196,6 +192,8 @@ public final class MetadataInjector {
     }
 
     /**
+     * The id this constructor carries.
+     *
      * @param allowGeneration whether this pass may hand out a new id, or has to defer the class to the serial pass
      * @return the constructor's id, or {@code -1} when it has none and is not entitled to one
      */
@@ -305,8 +303,7 @@ public final class MetadataInjector {
             if ((method.access & ABSTRACT_OR_NATIVE) != 0) {
                 var first = instance ? 1 : 0;
                 if (count > first) {
-                    this.injector.recordAbstractParameters(this.className, name, descriptor,
-                            List.of(Arrays.copyOfRange(parameters, first, count)));
+                    this.injector.recordAbstractParameters(this.className, name, descriptor, List.of(Arrays.copyOfRange(parameters, first, count)));
                 }
                 return;
             }
@@ -320,8 +317,7 @@ public final class MetadataInjector {
             }
             if ("<init>".equals(name)) {
                 // Only constructors that take something beyond `this` are worth an id of their own.
-                return "p_i" + this.injector.constructorId(this.className, descriptor, parameterCount > 1,
-                        this.allowGeneration) + "_";
+                return "p_i" + this.injector.constructorId(this.className, descriptor, parameterCount > 1, this.allowGeneration) + "_";
             }
             return "p_" + name + "_";
         }
@@ -409,8 +405,7 @@ public final class MetadataInjector {
         }
         for (var index = 0; index < parameters.length; index++) {
             if (!renamed[slots[index]]) {
-                method.localVariables.add(new LocalVariableNode(parameters[index], types[index].getDescriptor(),
-                        null, start, end, slots[index]));
+                method.localVariables.add(new LocalVariableNode(parameters[index], types[index].getDescriptor(), null, start, end, slots[index]));
             }
         }
         method.localVariables.sort(Comparator.comparingInt(local -> local.index));
@@ -506,8 +501,7 @@ public final class MetadataInjector {
         @Override
         public void visitEnd() {
             if (!this.hasConstructor && !this.isStatic && this.outerDescriptor != null && this.outerField != null) {
-                var method = this.visitMethod(Opcodes.ACC_PRIVATE | Opcodes.ACC_SYNTHETIC,
-                        "<init>", "(" + this.outerDescriptor + ")V", null, null);
+                var method = this.visitMethod(Opcodes.ACC_PRIVATE | Opcodes.ACC_SYNTHETIC, "<init>", "(" + this.outerDescriptor + ")V", null, null);
                 method.visitVarInsn(Opcodes.ALOAD, 0);
                 method.visitVarInsn(Opcodes.ALOAD, 1);
                 method.visitFieldInsn(Opcodes.PUTFIELD, this.className, this.outerField, this.outerDescriptor);
@@ -540,10 +534,12 @@ public final class MetadataInjector {
             }
             for (var method : this.node.methods) {
                 if ("<init>".equals(method.name) && beginsWith(Type.getArgumentTypes(method.desc), synthetic)) {
-                    method.visibleParameterAnnotations = trim(method.visibleParameterAnnotations,
-                            Type.getArgumentTypes(method.desc).length, synthetic.length);
-                    method.invisibleParameterAnnotations = trim(method.invisibleParameterAnnotations,
-                            Type.getArgumentTypes(method.desc).length, synthetic.length);
+                    method.visibleParameterAnnotations = trim(method.visibleParameterAnnotations, Type.getArgumentTypes(method.desc).length, synthetic.length);
+                    method.invisibleParameterAnnotations = trim(
+                            method.invisibleParameterAnnotations,
+                            Type.getArgumentTypes(method.desc).length,
+                            synthetic.length
+                    );
                     if (method.visibleParameterAnnotations != null) {
                         method.visibleAnnotableParameterCount = method.visibleParameterAnnotations.length;
                     }
@@ -554,10 +550,10 @@ public final class MetadataInjector {
             }
         }
 
-        /** @return the arguments javac prepends to this class' constructors, or {@code null} if it prepends none */
+        /** The arguments javac prepends to this class' constructors, or {@code null} if it prepends none. */
         private Type[] syntheticParameters() {
             if ((this.node.access & Opcodes.ACC_ENUM) != 0) {
-                return new Type[] {Type.getObjectType("java/lang/String"), Type.INT_TYPE};
+                return new Type[] { Type.getObjectType("java/lang/String"), Type.INT_TYPE };
             }
             InnerClassNode self = null;
             for (var inner : this.node.innerClasses) {
@@ -569,7 +565,7 @@ public final class MetadataInjector {
             if (self == null || self.innerName == null || (self.access & (Opcodes.ACC_STATIC | Opcodes.ACC_INTERFACE)) != 0) {
                 return null;
             }
-            return new Type[] {Type.getObjectType(self.outerName)};
+            return new Type[] { Type.getObjectType(self.outerName) };
         }
 
         private static boolean beginsWith(Type[] values, Type[] prefix) {
@@ -613,9 +609,12 @@ public final class MetadataInjector {
                 if (method.localVariables == null || method.localVariables.isEmpty()) {
                     continue;
                 }
-                method.localVariables.sort(Comparator
-                        .comparingInt((LocalVariableNode local) -> local.index)
-                        .thenComparingInt(local -> method.instructions.indexOf(local.start)));
+                method.localVariables
+                        .sort(
+                                Comparator
+                                        .comparingInt((LocalVariableNode local) -> local.index)
+                                        .thenComparingInt(local -> method.instructions.indexOf(local.start))
+                        );
                 int[] occurrences = null;
                 for (var local : method.localVariables) {
                     if (local.name.isEmpty() || local.name.charAt(0) != PLACEHOLDER) {

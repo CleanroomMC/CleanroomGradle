@@ -26,7 +26,7 @@ public record AssetIndex(Map<String, Entry> objects, boolean virtual, @Serialize
         return objects().entrySet().stream().map(AssetEntry::new).toList();
     }
 
-    public record Entry(String hash, long size) { }
+    public record Entry(String hash, long size) {}
 
     public record AssetEntry(@SerializedName("path") String realPath, String hash, long size) {
 
@@ -39,5 +39,5 @@ public record AssetIndex(Map<String, Entry> objects, boolean virtual, @Serialize
         }
 
     }
-}
 
+}

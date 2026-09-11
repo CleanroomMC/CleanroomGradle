@@ -36,8 +36,13 @@ public final class Tasks {
         return project.getTasks().register(name, type, ctorArgs);
     }
 
-    public static <T extends MavenJarExec> TaskProvider<T> tool(Project project, DirectoryProperty localCache,
-                                                                String name, Class<T> type, Provider<Configuration> classpath) {
+    public static <T extends MavenJarExec> TaskProvider<T> tool(
+            Project project,
+            DirectoryProperty localCache,
+            String name,
+            Class<T> type,
+            Provider<Configuration> classpath
+    ) {
         var task = register(project, name, type);
         task.configure(exec -> {
             exec.getToolClasspath().from(classpath);
@@ -56,6 +61,8 @@ public final class Tasks {
     /**
      * {@link ArchiveOperations} is the configuration-cache safe way to open zip/tar trees.
      * {@code Project.zipTree} is not.
+     *
+     * @param project the project the operations are created for
      */
     public static ArchiveOperations archives(Project project) {
         return project.getObjects().newInstance(InjectedArchiveOperations.class).getArchiveOperations();
@@ -66,15 +73,13 @@ public final class Tasks {
         var archives = archives(project);
         var files = project.getObjects().fileCollection().from(from);
         provider.configure(task -> {
-            task.from(files.getElements().map(locations -> locations.stream()
-                    .map(file -> archives.zipTree(file.getAsFile()))
-                    .toList()));
+            task.from(files.getElements().map(locations -> locations.stream().map(file -> archives.zipTree(file.getAsFile())).toList()));
             task.into(to);
         });
         return provider;
     }
 
-    private Tasks() { }
+    private Tasks() {}
 
     public abstract static class InjectedArchiveOperations {
 

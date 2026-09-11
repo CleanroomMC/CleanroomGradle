@@ -66,9 +66,7 @@ public abstract class DownloadAssets extends DefaultTask {
             return List.of();
         }
         var objectsDirectory = this.getObjects().get().getAsFile();
-        return IO.readJson(indexFile, AssetIndex.class).objectCollection().stream()
-                .map(asset -> new File(objectsDirectory, asset.path()))
-                .toList();
+        return IO.readJson(indexFile, AssetIndex.class).objectCollection().stream().map(asset -> new File(objectsDirectory, asset.path())).toList();
     }
 
     @Input
@@ -102,17 +100,19 @@ public abstract class DownloadAssets extends DefaultTask {
             return;
         }
         if (this.getOffline().get()) {
-            var shown = problems.stream().limit(20)
+            var shown = problems.stream()
+                    .limit(20)
                     .map(problem -> "  - %s: %s (%s)".formatted(problem.asset().realPath(), problem.reason(), problem.target()))
                     .collect(Collectors.joining("\n"));
             var remainder = problems.size() > 20 ? "\n  ... and " + (problems.size() - 20) + " more" : "";
-            var details = "Gradle is offline and %d Minecraft asset(s) are missing or invalid:\n%s%s"
-                    .formatted(problems.size(), shown, remainder);
+            var details = "Gradle is offline and %d Minecraft asset(s) are missing or invalid:\n%s%s".formatted(problems.size(), shown, remainder);
             var solution = "Run " + getName() + " once without --offline to repair the shared asset cache.";
-            throw CleanroomProblems.throwing(getProblems(), new GradleException(details + "\n" + solution),
-                    CleanroomProblems.OFFLINE_ASSETS, spec -> spec.details(details)
-                            .solution(solution)
-                            .fileLocation(getAssetIndexFile().get().getAsFile().getAbsolutePath()));
+            throw CleanroomProblems.throwing(
+                    getProblems(),
+                    new GradleException(details + "\n" + solution),
+                    CleanroomProblems.OFFLINE_ASSETS,
+                    spec -> spec.details(details).solution(solution).fileLocation(getAssetIndexFile().get().getAsFile().getAbsolutePath())
+            );
         }
 
         this.getLogger().lifecycle("Downloading {} of {} Minecraft assets", problems.size(), assets.size());
@@ -141,7 +141,7 @@ public abstract class DownloadAssets extends DefaultTask {
         return IO.sha1Match(target, asset.hash()) ? null : "SHA-1 does not match " + asset.hash();
     }
 
-    private record AssetProblem(AssetIndex.AssetEntry asset, File target, String reason) { }
+    private record AssetProblem(AssetIndex.AssetEntry asset, File target, String reason) {}
 
     public interface AssetParameters extends WorkParameters {
 
@@ -155,7 +155,7 @@ public abstract class DownloadAssets extends DefaultTask {
 
     }
 
-    public static abstract class AssetAction implements WorkAction<AssetParameters> {
+    public abstract static class AssetAction implements WorkAction<AssetParameters> {
 
         @Override
         public void execute() {
@@ -169,20 +169,31 @@ public abstract class DownloadAssets extends DefaultTask {
                     }
                     if (size != params.getSize().get()) {
                         FileUtils.deleteQuietly(target);
-                        throw new IOException("Asset %s had mismatching sizes. Downloaded %s | Expected %s"
-                                .formatted(target.getAbsolutePath(), size, params.getSize().get()));
+                        throw new IOException(
+                                "Asset %s had mismatching sizes. Downloaded %s | Expected %s".formatted(target.getAbsolutePath(), size, params.getSize().get())
+                        );
                     }
                     var actualSha1 = IO.sha1(target);
                     if (!actualSha1.equalsIgnoreCase(params.getSha1().get())) {
                         FileUtils.deleteQuietly(target);
-                        throw new IOException("Asset %s had mismatching checksums. Downloaded %s | Expected %s"
-                                .formatted(target.getAbsolutePath(), actualSha1, params.getSha1().get()));
+                        throw new IOException(
+                                "Asset %s had mismatching checksums. Downloaded %s | Expected %s".formatted(
+                                        target.getAbsolutePath(),
+                                        actualSha1,
+                                        params.getSha1().get()
+                                )
+                        );
                     }
                     return;
                 } catch (IOException e) {
                     if (retry == 4) {
-                        throw new RuntimeException("Failed to download %s to %s after 5 attempts. Check network access, then rerun downloadAssets."
-                                .formatted(params.getSourceUrl().get(), params.getTargetFile().get()), e);
+                        throw new RuntimeException(
+                                "Failed to download %s to %s after 5 attempts. Check network access, then rerun downloadAssets.".formatted(
+                                        params.getSourceUrl().get(),
+                                        params.getTargetFile().get()
+                                ),
+                                e
+                        );
                     }
                 }
             }

@@ -40,7 +40,8 @@ public final class MinecraftJarPipeline {
         return new MinecraftJarPipeline(project, caches, spec);
     }
 
-    public final TaskProvider<SplitJar> splitClient, splitServer;
+    public final TaskProvider<SplitJar> splitClient;
+    public final TaskProvider<SplitJar> splitServer;
     public final TaskProvider<MergeJars> merge;
     public final TaskProvider<RenameJar> remapNotch2Srg;
     public final TaskProvider<InjectMetadata> inject;

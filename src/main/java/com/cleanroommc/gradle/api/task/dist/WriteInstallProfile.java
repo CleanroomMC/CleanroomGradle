@@ -163,10 +163,7 @@ public abstract class WriteInstallProfile extends DefaultTask {
     @TaskAction
     public void write() {
         var universalCoordinate = Coordinate.parse(getUniversalCoordinate().get());
-        var universal = LibraryJson.artifact(
-                universalCoordinate,
-                getUniversalJar().get().getAsFile().toPath(),
-                getUniversalUrl().get());
+        var universal = LibraryJson.artifact(universalCoordinate, getUniversalJar().get().getAsFile().toPath(), getUniversalUrl().get());
         var excluded = getLibraryExcludeRules().get();
         var artifacts = LibraryJson.resolve(universal, getLibraries().get());
         artifacts.removeIf(artifact -> drop(artifact, universal, excluded));
@@ -182,21 +179,18 @@ public abstract class WriteInstallProfile extends DefaultTask {
     }
 
     private boolean drop(Artifact artifact, Artifact universal, Set<String> excluded) {
-        return artifact.coordinate().sameArtifact(universal.coordinate())
-                || ResolvedLibraries.isExcluded(artifact.coordinate(), excluded);
+        return artifact.coordinate().sameArtifact(universal.coordinate()) || ResolvedLibraries.isExcluded(artifact.coordinate(), excluded);
     }
 
     private List<Artifact> manifestUrls(List<Artifact> artifacts) {
         var urls = getManifestUrls().get();
-        return artifacts.stream()
-                .map(artifact -> {
-                    if (LibraryJson.isLocal(artifact)) {
-                        return artifact;
-                    }
-                    var url = urls.get(artifact.coordinate().serialized());
-                    return url == null ? artifact : new Artifact(artifact.coordinate(), artifact.path(), url);
-                })
-                .toList();
+        return artifacts.stream().map(artifact -> {
+            if (LibraryJson.isLocal(artifact)) {
+                return artifact;
+            }
+            var url = urls.get(artifact.coordinate().serialized());
+            return url == null ? artifact : new Artifact(artifact.coordinate(), artifact.path(), url);
+        }).toList();
     }
 
     private JsonObject versionJson(List<Artifact> artifacts, List<Artifact> natives, Artifact universal) {
@@ -333,8 +327,7 @@ public abstract class WriteInstallProfile extends DefaultTask {
             if (LibraryJson.isLocalRepository(library.getRepositoryUrl().get())) {
                 continue;
             }
-            addRepository(repositories, Coordinate.parse(library.getCoordinate().get()),
-                    library.getRepositoryUrl().get());
+            addRepository(repositories, Coordinate.parse(library.getCoordinate().get()), library.getRepositoryUrl().get());
         }
     }
 

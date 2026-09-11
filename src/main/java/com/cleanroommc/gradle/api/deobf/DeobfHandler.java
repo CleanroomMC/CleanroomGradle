@@ -35,7 +35,7 @@ public class DeobfHandler {
     }
 
     public Dependency call(Object notation) {
-        return call(notation, _ -> { });
+        return call(notation, _ -> {});
     }
 
     public Dependency call(Object notation, Action<? super DeobfSpec> action) {
@@ -59,8 +59,9 @@ public class DeobfHandler {
     private ExternalModuleDependency dependency(Object notation) {
         var dependency = this.dependencies.create(notation);
         if (!(dependency instanceof ExternalModuleDependency module)) {
-            throw new InvalidUserDataException("deobf(...) only accepts external module notations, got "
-                    + notation + " which resolves to " + dependency.getClass().getSimpleName() + ".");
+            throw new InvalidUserDataException(
+                    "deobf(...) only accepts external module notations, got " + notation + " which resolves to " + dependency.getClass().getSimpleName() + "."
+            );
         }
         module.attributes(attributes -> attributes.attribute(DeobfAttributes.DEOBFUSCATED, DeobfAttributes.MCP));
         return module;

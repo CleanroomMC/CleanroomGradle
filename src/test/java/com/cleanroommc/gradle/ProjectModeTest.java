@@ -15,28 +15,30 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class ProjectModeTest extends BaseFunctionalTest {
 
     @Test
     void pluginIsInertUntilAnEnvironmentIsRegistered() throws IOException {
-        this.project.build("""
+        this.project.build(
+                """
                 gradle.projectsEvaluated {
                     assert tasks.findByName('runClient') == null
                     assert tasks.findByName('runVanillaClient') == null
                     assert tasks.findByName('setup') == null
                     assert configurations.findByName('cleanroomUserdev') == null
                 }
-                """);
+                """
+        );
 
-        assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
+        assertThat(this.project.runner("help").build().task(":help").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
     }
 
     @Test
     void userdevRegistersModWorkspaceTasks() throws IOException {
-        this.project.build("""
+        this.project.build(
+                """
                 dependencies {
                     implementation cleanroom.userdev('0.4.5') {
                         accessTransformers.from('src/main/resources/META-INF/accesstransformer.cfg')
@@ -55,15 +57,16 @@ class ProjectModeTest extends BaseFunctionalTest {
                     assert dependency.name == 'cleanroom-userdev'
                     assert dependency.version == '0.4.5'
                 }
-                """);
+                """
+        );
 
-        assertEquals(TaskOutcome.SUCCESS,
-                this.project.runner(this.project.userdevModuleArgs("0.4.5", "help")).build().task(":help").getOutcome());
+        assertThat(this.project.runner(this.project.userdevModuleArgs("0.4.5", "help")).build().task(":help").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
     }
 
     @Test
     void vanillaDoesNotRegisterMcpOrUserdev() throws IOException {
-        this.project.vanilla("""
+        this.project.vanilla(
+                """
                 gradle.projectsEvaluated {
                     assert tasks.findByName('decompileVersion') != null
                     assert tasks.findByName('runVanillaClient') != null
@@ -73,16 +76,18 @@ class ProjectModeTest extends BaseFunctionalTest {
                     assert tasks.findByName('runSrgClient') == null
                     assert tasks.findByName('runClient') == null
                 }
-                """);
+                """
+        );
 
         var result = this.project.runner("cleanroomInfo").build();
-        assertEquals(TaskOutcome.SUCCESS, result.task(":cleanroomInfo").getOutcome());
-        assertTrue(result.getOutput().contains("mode: vanilla"));
+        assertThat(result.task(":cleanroomInfo").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.getOutput()).contains("mode: vanilla");
     }
 
     @Test
     void loaderWiresMcpDistributionAndPatchDev() throws IOException {
-        this.project.build("""
+        this.project.build(
+                """
                 group = 'com.cleanroommc'
                 version = '0.1.0'
                 cleanroom.mode = 'loader'
@@ -105,19 +110,30 @@ class ProjectModeTest extends BaseFunctionalTest {
                     def applyMinecraftDiffs = tasks.named('applyMinecraftDiffs').get()
                     assert compileJava.mustRunAfter.getDependencies(compileJava).contains(applyMinecraftDiffs)
                 }
-                """);
+                """
+        );
 
         var output = this.project.runner("userdevJar", "runCleanroomClient", "genBinPatches", "--dry-run").build().getOutput();
-        PluginBuild.scheduled(output,
-                "userdevJar", "deobfLibraryJar", "writeMcp2Srg", "writeMcp2Notch", "remapSrg2Mcp", "mergeJars",
-                "decompileSrg", "prepareMinecraftPatchDevEnvironment", "initializeMinecraftPatchDevSources",
-                "applySAS", "genBinPatches");
+        PluginBuild.scheduled(
+                output,
+                "userdevJar",
+                "deobfLibraryJar",
+                "writeMcp2Srg",
+                "writeMcp2Notch",
+                "remapSrg2Mcp",
+                "mergeJars",
+                "decompileSrg",
+                "prepareMinecraftPatchDevEnvironment",
+                "initializeMinecraftPatchDevSources",
+                "applySAS",
+                "genBinPatches"
+        );
         PluginBuild.notScheduled(output, "minecraftClassesJar", "genClientBinPatches", "genRuntimeBinPatches");
-        assertTrue(output.indexOf(":prepareMinecraftPatchDevEnvironment") < output.lastIndexOf(":compileJava"));
-        assertTrue(output.indexOf(":prepareMcpInjectedSources") < output.lastIndexOf(":compileJava"));
+        assertThat(output.indexOf(":prepareMinecraftPatchDevEnvironment") < output.lastIndexOf(":compileJava")).isTrue();
+        assertThat(output.indexOf(":prepareMcpInjectedSources") < output.lastIndexOf(":compileJava")).isTrue();
 
         output = this.project.runner("setup", "compileJava", "test", "--parallel", "--dry-run").build().getOutput();
-        assertTrue(output.indexOf(":applyMinecraftDiffs") < output.lastIndexOf(":compileJava"), output);
+        assertThat(output.indexOf(":applyMinecraftDiffs") < output.lastIndexOf(":compileJava")).as(output).isTrue();
 
         output = this.project.runner("compileJava", "--dry-run").build().getOutput();
         PluginBuild.notScheduled(output, "applyMinecraftDiffs");
@@ -125,7 +141,8 @@ class ProjectModeTest extends BaseFunctionalTest {
 
     @Test
     void loaderLaunchConsumersUseLoaderExtensionAsTheirSingleSource() throws IOException {
-        this.project.build("""
+        this.project.build(
+                """
                 import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip
                 import com.cleanroommc.gradle.api.task.dist.WriteInstallProfile
                 import com.cleanroommc.gradle.api.task.mc.RunMinecraft
@@ -171,16 +188,17 @@ class ProjectModeTest extends BaseFunctionalTest {
                     assert installer.tweakers.get() == ['example.ClientTweaker']
                     assert installer.serverTweakers.get() == ['example.ServerTweaker']
                 }
-                """);
+                """
+        );
 
-        assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
-        PluginBuild.notScheduled(this.project.runner("runCleanroomClient", "--dry-run").build().getOutput(),
-                "writeUserdevConfig");
+        assertThat(this.project.runner("help").build().task(":help").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        PluginBuild.notScheduled(this.project.runner("runCleanroomClient", "--dry-run").build().getOutput(), "writeUserdevConfig");
     }
 
     @Test
     void loaderOwnsItsLaunchConventions() throws IOException {
-        this.project.build("""
+        this.project.build(
+                """
                 import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip
                 import com.cleanroommc.gradle.api.task.dist.WriteInstallProfile
                 import com.cleanroommc.gradle.api.task.dist.WriteUserdevConfig
@@ -214,14 +232,16 @@ class ProjectModeTest extends BaseFunctionalTest {
                     assert installer.mainClass.get() == loader.launchClass.get()
                     assert installer.tweakers.get() == [loader.clientTweakClass.get()]
                 }
-                """);
+                """
+        );
 
-        assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
+        assertThat(this.project.runner("help").build().task(":help").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
     }
 
     @Test
     void loaderJavaTargetPropagatesToDistributionMetadata() throws IOException {
-        this.project.build("""
+        this.project.build(
+                """
                 import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip
                 import com.cleanroommc.gradle.api.task.dist.WriteInstallProfile
 
@@ -236,9 +256,10 @@ class ProjectModeTest extends BaseFunctionalTest {
                     assert installer.minimumJava.get() == 28
                     assert installer.recommendedJava.get() == 28
                 }
-                """);
+                """
+        );
 
-        assertEquals(TaskOutcome.SUCCESS, this.project.runner("help").build().task(":help").getOutcome());
+        assertThat(this.project.runner("help").build().task(":help").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
     }
 
     @Test
@@ -246,42 +267,45 @@ class ProjectModeTest extends BaseFunctionalTest {
         this.project.loader("");
 
         var first = this.project.runner("remapSrg2Mcp", "--dry-run").build();
-        PluginBuild.scheduled(first.getOutput(),
-                "remapSrg2Mcp", "remapNotch2Srg", "mergeJars", "splitClientJar", "extractMcpConfig", "decompileSrg");
-        assertTrue(first.getOutput().contains("Configuration cache entry stored"));
+        PluginBuild.scheduled(first.getOutput(), "remapSrg2Mcp", "remapNotch2Srg", "mergeJars", "splitClientJar", "extractMcpConfig", "decompileSrg");
+        assertThat(first.getOutput()).contains("Configuration cache entry stored");
 
         PluginBuild.reused(this.project.runner("remapSrg2Mcp", "--dry-run").build().getOutput());
     }
 
     @Test
     void loaderDistributionReusesConfigurationCache() throws IOException {
-        this.project.build("""
+        this.project.build(
+                """
                 group = 'com.cleanroommc'
                 version = '0.1.0'
                 cleanroom {
                     mode = 'loader'
                     patches.developInitial = false
                 }
-                """);
+                """
+        );
 
         var first = this.project.runner("userdevJar", "--dry-run").build();
         PluginBuild.scheduled(first.getOutput(), "userdevJar", "reobfJar", "writeUserdevConfig", "genBinPatches");
-        assertTrue(first.getOutput().contains("Configuration cache entry stored"));
+        assertThat(first.getOutput()).contains("Configuration cache entry stored");
 
         PluginBuild.reused(this.project.runner("userdevJar", "--dry-run").build().getOutput());
     }
 
     @Test
     void unknownStringModeFails() throws IOException {
-        this.project.build("""
+        this.project.build(
+                """
                 cleanroom {
                     mode = 'nope'
                 }
-                """);
+                """
+        );
 
         var output = this.project.runner("help").buildAndFail().getOutput();
-        assertTrue(output.contains("Unknown ProjectMode 'nope'"));
-        assertTrue(output.contains("VANILLA, LOADER, USERDEV"));
+        assertThat(output).contains("Unknown ProjectMode 'nope'");
+        assertThat(output).contains("VANILLA, LOADER, USERDEV");
     }
 
     @Test
@@ -294,7 +318,7 @@ class ProjectModeTest extends BaseFunctionalTest {
         this.project.loader("");
         this.project.runner("help").build();
         var missing = this.project.runner("runMcpClient", "--dry-run").buildAndFail().getOutput();
-        assertTrue(missing.contains("Task 'runMcpClient' not found"), missing);
+        assertThat(missing).as(missing).contains("Task 'runMcpClient' not found");
     }
 
     /**
@@ -304,7 +328,8 @@ class ProjectModeTest extends BaseFunctionalTest {
      */
     @Test
     void loaderTasksAreConfigurableFromTheBuildscriptBody() throws IOException {
-        this.project.build("""
+        this.project.build(
+                """
                 cleanroom.mode = 'loader'
                 tasks.named('runCleanroomClient') {
                     description = 'set from the body'
@@ -323,23 +348,26 @@ class ProjectModeTest extends BaseFunctionalTest {
                     assert universal.archiveVersion.get() == '0.1.0'
                     assert tasks.named('installerJar').get().archiveVersion.get() == '0.1.0'
                 }
-                """);
+                """
+        );
 
         this.project.plainRunner("help", "--offline").build();
     }
 
     @Test
     void selectingTwoDifferentEnvironmentsFailsDirectly() throws IOException {
-        this.project.build("""
+        this.project.build(
+                """
                 cleanroom.mode = 'loader'
                 dependencies {
                     implementation cleanroom.userdev('0.7.0')
                 }
-                """);
+                """
+        );
 
         var output = this.project.plainRunner("help").buildAndFail().getOutput();
-        assertTrue(output.contains("environment 'loader' is already registered"), output);
-        assertTrue(output.contains("only one Cleanroom environment"), output);
+        assertThat(output).as(output).contains("environment 'loader' is already registered");
+        assertThat(output).as(output).contains("only one Cleanroom environment");
     }
 
     @Test

@@ -35,11 +35,10 @@ public final class Providers {
         return toolchains.launcherFor(spec -> spec.getLanguageVersion().set(JavaLanguageVersion.of(api)));
     }
 
-    public static Provider<JavaLauncher> javaLauncher(JavaToolchainService toolchains,
-                                                      Provider<JavaLanguageVersion> api) {
+    public static Provider<JavaLauncher> javaLauncher(JavaToolchainService toolchains, Provider<JavaLanguageVersion> api) {
         return toolchains.launcherFor(spec -> spec.getLanguageVersion().set(api));
     }
 
-    private Providers() { }
+    private Providers() {}
 
 }

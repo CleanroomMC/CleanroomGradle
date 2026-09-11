@@ -47,6 +47,6 @@ public final class CleanroomProblems {
         return ProblemId.create(name, displayName, GROUP);
     }
 
-    private CleanroomProblems() { }
+    private CleanroomProblems() {}
 
 }

@@ -38,10 +38,12 @@ public final class ResolvedLibraries {
 
     private static final String EXCLUDE_WILDCARD = "*";
 
-    public static Provider<List<LibraryArtifact>> artifacts(ObjectFactory objects,
-                                                             Provider<Set<ResolvedArtifactResult>> resolved,
-                                                             Provider<ResolvedComponentResult> root,
-                                                             Provider<Map<String, String>> repositoryUrls) {
+    public static Provider<List<LibraryArtifact>> artifacts(
+            ObjectFactory objects,
+            Provider<Set<ResolvedArtifactResult>> resolved,
+            Provider<ResolvedComponentResult> root,
+            Provider<Map<String, String>> repositoryUrls
+    ) {
         return repositoryUrls.flatMap(urls -> resolved.zip(root, (artifacts, component) -> {
             var origins = new HashMap<ComponentIdentifier, String>();
             collectRepositoryUrls(component, urls, origins, new HashSet<>());
@@ -49,8 +51,11 @@ public final class ResolvedLibraries {
         }));
     }
 
-    private static List<LibraryArtifact> artifactInputs(ObjectFactory objects, Set<ResolvedArtifactResult> artifacts,
-                                                         Map<ComponentIdentifier, String> repositoryUrls) {
+    private static List<LibraryArtifact> artifactInputs(
+            ObjectFactory objects,
+            Set<ResolvedArtifactResult> artifacts,
+            Map<ComponentIdentifier, String> repositoryUrls
+    ) {
         return artifacts.stream()
                 .filter(artifact -> artifact.getId().getComponentIdentifier() instanceof ModuleComponentIdentifier)
                 .sorted(Comparator.comparing(artifact -> Coordinate.from(artifact).serialized()))
@@ -92,8 +97,8 @@ public final class ResolvedLibraries {
             if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
                 throw new GradleException("Invalid library exclude rule: " + value);
             }
-            if ((parts[0].equals(EXCLUDE_WILDCARD) || parts[0].equals(coordinate.group()))
-                    && (parts[1].equals(EXCLUDE_WILDCARD) || parts[1].equals(coordinate.artifact()))) {
+            if ((parts[0].equals(EXCLUDE_WILDCARD) || parts[0].equals(coordinate.group())) &&
+                    (parts[1].equals(EXCLUDE_WILDCARD) || parts[1].equals(coordinate.artifact()))) {
                 return true;
             }
         }
@@ -133,8 +138,12 @@ public final class ResolvedLibraries {
         }
     }
 
-    private static void collectRepositoryUrls(ResolvedComponentResult component, Map<String, String> repositories,
-                                               Map<ComponentIdentifier, String> origins, Set<ComponentIdentifier> seen) {
+    private static void collectRepositoryUrls(
+            ResolvedComponentResult component,
+            Map<String, String> repositories,
+            Map<ComponentIdentifier, String> origins,
+            Set<ComponentIdentifier> seen
+    ) {
         if (!seen.add(component.getId())) {
             return;
         }
@@ -145,8 +154,9 @@ public final class ResolvedLibraries {
             var repositoryId = internal.getRepositoryId();
             var repositoryUrl = repositories.get(repositoryId);
             if (repositoryUrl == null) {
-                throw new GradleException("Resolved " + component.getId() + " from unknown repository '"
-                        + repositoryId + "'. Configured Maven repositories: " + repositories.keySet());
+                throw new GradleException(
+                        "Resolved " + component.getId() + " from unknown repository '" + repositoryId + "'. Configured Maven repositories: " + repositories.keySet()
+                );
             }
             origins.put(component.getId(), repositoryUrl);
         }
@@ -177,6 +187,6 @@ public final class ResolvedLibraries {
         return value == null ? EXCLUDE_WILDCARD : value;
     }
 
-    private ResolvedLibraries() { }
+    private ResolvedLibraries() {}
 
 }

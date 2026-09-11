@@ -125,23 +125,42 @@ public abstract class WriteUserdevConfig extends DefaultTask {
     public void write() {
         var runs = new UserdevConfig.Runs(
                 new UserdevConfig.Run(getClientMainClass().get(), getLaunchClass().get(), getClientTweakClass().get(), getClientTarget().get()),
-                new UserdevConfig.Run(getServerMainClass().get(), getLaunchClass().get(), getServerTweakClass().get(), getServerTarget().get()));
-        var config = new UserdevConfig(UserdevConfig.SPEC,
-                new UserdevConfig.Minecraft(getMinecraftVersion().get(),
+                new UserdevConfig.Run(getServerMainClass().get(), getLaunchClass().get(), getServerTweakClass().get(), getServerTarget().get())
+        );
+        var config = new UserdevConfig(
+                UserdevConfig.SPEC,
+                new UserdevConfig.Minecraft(
+                        getMinecraftVersion().get(),
                         new UserdevConfig.Download(getClientUrl().get(), getClientSha1().get()),
-                        new UserdevConfig.Download(getServerUrl().get(), getServerSha1().get())),
+                        new UserdevConfig.Download(getServerUrl().get(), getServerSha1().get())
+                ),
                 new UserdevConfig.Loader(getCleanroomVersion().get(), getForgeVersion().get(), getLoaderGroup().get()),
                 new UserdevConfig.Inputs(getMcpConfig().get(), getMcpMappings().get(), getInitialPatches().get(), getTools().get()),
-                new UserdevConfig.Layout(getBinpatches().get(), getClientBinpatches().get(), getServerBinpatches().get(),
-                        UserdevConfig.meta(UserdevConfig.OBF2SRG), getSrg2Mcp().get(), getMcp2Srg().get(),
-                        UserdevConfig.meta(UserdevConfig.ACCESS), UserdevConfig.meta(UserdevConfig.CONSTRUCTORS),
-                        UserdevConfig.meta(UserdevConfig.EXCEPTIONS), UserdevConfig.meta(UserdevConfig.METHODS),
-                        UserdevConfig.meta(UserdevConfig.FIELDS), UserdevConfig.meta(UserdevConfig.PARAMS),
-                        UserdevConfig.meta(UserdevConfig.DEOBF_LIBRARY), UserdevConfig.meta(UserdevConfig.SOURCE_INPUT),
-                        UserdevConfig.meta("client-extra"), UserdevConfig.meta("server-extra"),
-                        UserdevConfig.meta(UserdevConfig.INITIAL_PATCHES), getAccessTransformers().get(),
-                        getSideAnnotationStrippers().get(), getPatches().get(), UserdevConfig.meta(UserdevConfig.LOADER_SOURCES)),
-                runs);
+                new UserdevConfig.Layout(
+                        getBinpatches().get(),
+                        getClientBinpatches().get(),
+                        getServerBinpatches().get(),
+                        UserdevConfig.meta(UserdevConfig.OBF2SRG),
+                        getSrg2Mcp().get(),
+                        getMcp2Srg().get(),
+                        UserdevConfig.meta(UserdevConfig.ACCESS),
+                        UserdevConfig.meta(UserdevConfig.CONSTRUCTORS),
+                        UserdevConfig.meta(UserdevConfig.EXCEPTIONS),
+                        UserdevConfig.meta(UserdevConfig.METHODS),
+                        UserdevConfig.meta(UserdevConfig.FIELDS),
+                        UserdevConfig.meta(UserdevConfig.PARAMS),
+                        UserdevConfig.meta(UserdevConfig.DEOBF_LIBRARY),
+                        UserdevConfig.meta(UserdevConfig.SOURCE_INPUT),
+                        UserdevConfig.meta("client-extra"),
+                        UserdevConfig.meta("server-extra"),
+                        UserdevConfig.meta(UserdevConfig.INITIAL_PATCHES),
+                        getAccessTransformers().get(),
+                        getSideAnnotationStrippers().get(),
+                        getPatches().get(),
+                        UserdevConfig.meta(UserdevConfig.LOADER_SOURCES)
+                ),
+                runs
+        );
         var output = getOutput().getAsFile().get().toPath();
         try {
             var json = new GsonBuilder().setPrettyPrinting().create().toJson(config);

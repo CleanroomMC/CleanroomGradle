@@ -26,9 +26,7 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Drives both materialization transforms end to end against a raw userdev module, with the decompiler,
@@ -45,14 +43,13 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
 
         var output = resolve("1.0.0");
 
-        assertEquals(List.of("com/cleanroommc/Loader.class", "net/minecraft/Block.class",
-                        "net/minecraft/Patched.class"),
-                entries(file(output, "CLASSES")));
-        assertTrue(entries(file(output, "SOURCES")).contains("net/minecraft/Block.java"),
-                () -> entries(file(output, "SOURCES")).toString());
-        assertEquals(List.of("assets/pack.mcmeta"), entries(file(output, "CLIENT_EXTRA")));
-        assertEquals(List.of("assets/server.txt"), entries(file(output, "SERVER_EXTRA")));
-        assertTrue(read(file(output, "SOURCES"), "decompiler-classpath.txt").contains("fixture-library-1.jar"));
+        assertThat(entries(file(output, "CLASSES"))).isEqualTo(
+                List.of("com/cleanroommc/Loader.class", "net/minecraft/Block.class", "net/minecraft/Patched.class")
+        );
+        assertThat(entries(file(output, "SOURCES"))).as(() -> entries(file(output, "SOURCES")).toString()).contains("net/minecraft/Block.java");
+        assertThat(entries(file(output, "CLIENT_EXTRA"))).isEqualTo(List.of("assets/pack.mcmeta"));
+        assertThat(entries(file(output, "SERVER_EXTRA"))).isEqualTo(List.of("assets/server.txt"));
+        assertThat(read(file(output, "SOURCES"), "decompiler-classpath.txt")).contains("fixture-library-1.jar");
     }
 
     @Test
@@ -62,8 +59,8 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
 
         var sources = file(resolve("1.1.0"), "SOURCES");
 
-        assertEquals("class Block {\n    // patched by the artifact\n}\n", read(sources, "net/minecraft/Block.java"));
-        assertEquals("package com.cleanroommc;\n", read(sources, "com/cleanroommc/Loader.java"));
+        assertThat(read(sources, "net/minecraft/Block.java")).isEqualTo("class Block {\n    // patched by the artifact\n}\n");
+        assertThat(read(sources, "com/cleanroommc/Loader.java")).isEqualTo("package com.cleanroommc;\n");
     }
 
     /**
@@ -77,14 +74,14 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
         buildScript("1.2.0", "accessTransformers.from('mod_at.cfg')");
 
         var first = file(resolve("1.2.0"), "CLASSES");
-        assertEquals("public net.minecraft.Block", read(first, "access-transformed.txt"));
+        assertThat(read(first, "access-transformed.txt")).isEqualTo("public net.minecraft.Block");
 
         var reused = file(resolve("1.2.0"), "CLASSES");
-        assertEquals(first, reused, "the unchanged transform was not reused");
+        assertThat(reused).as("the unchanged transform was not reused").isEqualTo(first);
 
         Files.writeString(this.projectDir.resolve("mod_at.cfg"), "public net.minecraft.Item");
         var rebuilt = file(resolve("1.2.0"), "CLASSES");
-        assertEquals("public net.minecraft.Item", read(rebuilt, "access-transformed.txt"));
+        assertThat(read(rebuilt, "access-transformed.txt")).isEqualTo("public net.minecraft.Item");
     }
 
     @Test
@@ -95,7 +92,7 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
         buildScript("1.3.0", "");
 
         var failure = runner("1.3.0", "--offline").buildAndFail().getOutput();
-        assertTrue(failure.contains("missing or corrupt in the shared cache"), failure);
+        assertThat(failure).as(failure).contains("missing or corrupt in the shared cache");
     }
 
     @Test
@@ -106,7 +103,7 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
         buildScript("1.4.0", "");
 
         var failure = runner("1.4.0").buildAndFail().getOutput();
-        assertTrue(failure.contains("Missing required userdev entry userdev/access.txt"), failure);
+        assertThat(failure).as(failure).contains("Missing required userdev entry userdev/access.txt");
     }
 
     @Test
@@ -119,7 +116,7 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
         var output = runner("1.5.0", "--offline").build().getOutput();
         PluginBuild.reused(output);
         var classes = file(resolvedFiles(output), "CLASSES");
-        assertEquals("public net.minecraft.Block", read(classes, "access-transformed.txt"));
+        assertThat(read(classes, "access-transformed.txt")).isEqualTo("public net.minecraft.Block");
     }
 
     private Map<String, Path> resolve(String version, String... extra) {
@@ -141,20 +138,22 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
     }
 
     private GradleRunner runner(String version, String... extra) {
-        var arguments = new ArrayList<>(List.of("resolveUserdev", "-Pcg.repos.enableLocal=true",
-                "-Dmaven.repo.local=" + this.projectDir.resolve("local-maven")));
+        var arguments = new ArrayList<>(
+                List.of("resolveUserdev", "-Pcg.repos.enableLocal=true", "-Dmaven.repo.local=" + this.projectDir.resolve("local-maven"))
+        );
         arguments.addAll(List.of(extra));
         return this.project.runner(arguments.toArray(String[]::new));
     }
 
     private static Path file(Map<String, Path> resolved, String role) {
         var file = resolved.get(role);
-        assertTrue(file != null && Files.isRegularFile(file), () -> role + " was not resolved: " + resolved);
+        assertThat(file != null && Files.isRegularFile(file)).as(() -> role + " was not resolved: " + resolved).isTrue();
         return file;
     }
 
     private void buildScript(String version, String userdevBody) throws IOException {
-        this.project.build(UserdevFixture.PREAMBLE + """
+        this.project.build(
+                UserdevFixture.PREAMBLE + """
                 import org.gradle.api.attributes.Category
                 import org.gradle.api.attributes.DocsType
                 import com.cleanroommc.gradle.api.userdev.UserdevAttributes
@@ -195,7 +194,8 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
                         resolved.each { name, files -> files.each { println 'USERDEV ' + name + ' -> ' + it } }
                     }
                 }
-                """.formatted(version, userdevBody));
+                """.formatted(version, userdevBody)
+        );
     }
 
     private static List<String> entries(Path jar) {
@@ -209,7 +209,7 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
     private static String read(Path jar, String entry) throws IOException {
         try (var zip = new ZipFile(jar.toFile())) {
             var found = zip.getEntry(entry);
-            assertFalse(found == null, () -> entry + " is missing from " + jar + ": " + entries(jar));
+            assertThat(found == null).as(() -> entry + " is missing from " + jar + ": " + entries(jar)).isFalse();
             try (var stream = zip.getInputStream(found)) {
                 return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
             }

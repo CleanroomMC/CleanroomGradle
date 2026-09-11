@@ -127,9 +127,11 @@ public final class LaunchArguments {
 
     // Broad, but meh
     private static boolean shouldSkipJvmArgument(String raw) {
-        return raw.equals("-cp") || raw.equals("-classpath") || raw.equals("--class-path")
-                || raw.contains("${classpath}")
-                || raw.startsWith("-Djava.library.path=");
+        return raw.equals("-cp") ||
+                raw.equals("-classpath") ||
+                raw.equals("--class-path") ||
+                raw.contains("${classpath}") ||
+                raw.startsWith("-Djava.library.path=");
     }
 
     private String substitute(String value) {

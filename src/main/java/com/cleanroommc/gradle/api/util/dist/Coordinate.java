@@ -40,9 +40,13 @@ public record Coordinate(String group, String artifact, String version, String c
     public static Coordinate parse(String value) {
         var extensionSplit = value.split("@", -1);
         var parts = extensionSplit[0].split(":", -1);
-        if (extensionSplit.length > 2 || (extensionSplit.length == 2 && extensionSplit[1].isBlank())
-                || parts.length < 3 || parts.length > 4
-                || parts[0].isBlank() || parts[1].isBlank() || parts[2].isBlank()) {
+        if (extensionSplit.length > 2 ||
+                (extensionSplit.length == 2 && extensionSplit[1].isBlank()) ||
+                parts.length < 3 ||
+                parts.length > 4 ||
+                parts[0].isBlank() ||
+                parts[1].isBlank() ||
+                parts[2].isBlank()) {
             throw new GradleException("Invalid Maven coordinate: " + value);
         }
         var extension = extensionSplit.length == 2 ? extensionSplit[1] : "jar";
@@ -70,9 +74,11 @@ public record Coordinate(String group, String artifact, String version, String c
     }
 
     public boolean sameArtifact(Coordinate other) {
-        return group.equals(other.group) && artifact.equals(other.artifact)
-                && version.equals(other.version) && classifierEquals(classifier, other.classifier)
-                && extension.equals(other.extension);
+        return group.equals(other.group) &&
+                artifact.equals(other.artifact) &&
+                version.equals(other.version) &&
+                classifierEquals(classifier, other.classifier) &&
+                extension.equals(other.extension);
     }
 
     public boolean hasLocalComponent() {

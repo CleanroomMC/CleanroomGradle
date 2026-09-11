@@ -14,13 +14,14 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class VanillaEnvironmentTest extends BaseFunctionalTest {
 
     @Test
     void namedEnvironmentsRegisterSuffixedTasks() throws IOException {
-        this.project.build("""
+        this.project.build(
+                """
                 import com.cleanroommc.gradle.api.task.mc.RunMinecraft
 
                 cleanroom {
@@ -49,26 +50,29 @@ class VanillaEnvironmentTest extends BaseFunctionalTest {
                     assert tasks.findByName('download1.12ClientJar') != null
                     assert configurations.findByName('vanilla1.12') != null
                 }
-                """);
+                """
+        );
 
         var first = this.project.runner("tasks", "--all").build();
-        assertTrue(first.getOutput().contains("run1.12Client"));
-        assertTrue(first.getOutput().contains("download1.12Assets"));
-        assertTrue(first.getOutput().contains("run26.1Client"));
+        assertThat(first.getOutput()).contains("run1.12Client");
+        assertThat(first.getOutput()).contains("download1.12Assets");
+        assertThat(first.getOutput()).contains("run26.1Client");
 
         PluginBuild.reused(this.project.runner("tasks", "--all").build().getOutput());
     }
 
     @Test
     void invalidNameUsesProblemsApi() throws IOException {
-        this.project.vanilla("""
+        this.project.vanilla(
+                """
                 cleanroom.vanilla {
                     "../escape" { }
                 }
-                """);
+                """
+        );
 
         var result = this.project.runner("help").buildAndFail();
-        assertTrue(result.getOutput().contains("Invalid vanilla environment name '../escape'"));
+        assertThat(result.getOutput()).contains("Invalid vanilla environment name '../escape'");
         this.project.assertProblem("invalid-vanilla-environment");
     }
 

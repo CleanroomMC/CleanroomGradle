@@ -43,7 +43,12 @@ public final class ConstructorMap {
 
     private int maxId;
 
-    /** {@code -1} when the constructor is not in it. */
+    /**
+     * The constructor's id, or {@code -1} when the map does not hold it.
+     *
+     * @param owner internal name of the declaring class
+     * @param descriptor the constructor's descriptor
+     */
     public int get(String owner, String descriptor) {
         var id = this.ids.get(owner + " " + descriptor);
         return id == null ? -1 : id;

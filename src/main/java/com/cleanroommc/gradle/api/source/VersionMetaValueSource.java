@@ -35,9 +35,10 @@ public abstract class VersionMetaValueSource implements ValueSource<VersionMeta,
         var dest = this.getParameters().getCacheFile().get().getAsFile();
         if (this.getParameters().getOffline().getOrElse(false)) {
             if (!dest.isFile()) {
-                var message = ("Gradle is offline and no cached version metadata exists at %s. "
-                        + "Run the requested task once without --offline to download %s, or place a valid metadata file at that path.")
-                        .formatted(dest, getParameters().getVersionMetaUrl().get());
+                var message = ("Gradle is offline and no cached version metadata exists at %s. " + "Run the requested task once without --offline to download %s, or place a valid metadata file at that path.").formatted(
+                        dest,
+                        getParameters().getVersionMetaUrl().get()
+                );
                 throw new GradleException(message);
             }
         } else {

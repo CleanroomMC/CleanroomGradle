@@ -37,9 +37,8 @@ public class MaintenanceTasks {
             task.getMinecraftVersion().set(vanillaTasks.minecraftVersion);
             task.getOffline().set(project.getGradle().getStartParameter().isOffline());
             task.getDiscardIntermediates().set(caches.getDiscardIntermediates());
-            task.getNamesSource().set(mappings.getNamesDirectory()
-                    .map(directory -> "Tiny v2 (" + directory.file(MappingsExtension.NAMES_FILE).getAsFile() + ")")
-                    .orElse("MCP CSV dependency"));
+            task.getNamesSource().set(mappings.getNamesDirectory().map(directory -> "Tiny v2 (" + directory.file(MappingsExtension.NAMES_FILE)
+                            .getAsFile() + ")").orElse("MCP CSV dependency"));
             task.getSharedCacheDirectory().set(caches.getDirectory());
             task.getVersionCacheDirectory().set(vanillaTasks.versionCacheDirectory);
             task.getLocalCacheDirectory().set(caches.getLocalDirectory());

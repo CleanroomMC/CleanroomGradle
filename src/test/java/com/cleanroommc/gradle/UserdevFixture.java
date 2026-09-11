@@ -30,7 +30,7 @@ import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * A published Cleanroom userdev module a workspace can actually be built from: one raw artifact, the raw
@@ -50,12 +50,17 @@ final class UserdevFixture {
     static final String PREAMBLE = """
             cleanroom.caches.directory = file('%s')
             deobf.renamerClasspath.setFrom(files('%s'))
-            """.formatted(CACHE_DIRECTORY, RENAMER_JAR);
+            """.formatted(
+            CACHE_DIRECTORY,
+            RENAMER_JAR
+    );
 
     /** What the seeded artifact declares, so a test can break exactly one thing about it. */
     static final class Spec {
+
         String clientSha1;
         String omit = "";
+
     }
 
     static void seed(Path projectDir, String version) throws IOException {
@@ -71,21 +76,32 @@ final class UserdevFixture {
         var client = minecraftJar(cache.resolve("client.jar"), "assets/pack.mcmeta");
         var server = minecraftJar(cache.resolve("server.jar"), "assets/server.txt");
 
-        var module = Files.createDirectories(
-                projectDir.resolve("local-maven/com/cleanroommc/cleanroom-userdev/" + version));
-        writeArtifact(module.resolve("cleanroom-userdev-" + version + ".jar"), version, spec,
-                spec.clientSha1 == null ? IO.sha1(client) : spec.clientSha1, IO.sha1(server));
-        Files.write(module.resolve("cleanroom-userdev-" + version + "-sources.jar"), archive(Map.of(
-                "net/minecraft/Block.java", "class Block {\n    // patched by the artifact\n}\n",
-                "com/cleanroommc/Loader.java", "package com.cleanroommc;\n")));
-        Files.writeString(module.resolve("cleanroom-userdev-" + version + ".pom"),
-                pom("com.cleanroommc", "cleanroom-userdev", version));
+        var module = Files.createDirectories(projectDir.resolve("local-maven/com/cleanroommc/cleanroom-userdev/" + version));
+        writeArtifact(
+                module.resolve("cleanroom-userdev-" + version + ".jar"),
+                version,
+                spec,
+                spec.clientSha1 == null ? IO.sha1(client) : spec.clientSha1,
+                IO.sha1(server)
+        );
+        Files.write(
+                module.resolve("cleanroom-userdev-" + version + "-sources.jar"),
+                archive(
+                        Map.of(
+                                "net/minecraft/Block.java",
+                                "class Block {\n    // patched by the artifact\n}\n",
+                                "com/cleanroommc/Loader.java",
+                                "package com.cleanroommc;\n"
+                        )
+                )
+        );
+        Files.writeString(module.resolve("cleanroom-userdev-" + version + ".pom"), pom("com.cleanroommc", "cleanroom-userdev", version));
 
         var platform = Platform.CURRENT.canonicalNativePlatform();
-        var foreign = Platform.nativePlatforms().stream()
-                .filter(candidate -> candidate != platform)
-                .findFirst().orElseThrow();
-        Files.writeString(module.resolve("cleanroom-userdev-" + version + ".module"), """
+        var foreign = Platform.nativePlatforms().stream().filter(candidate -> candidate != platform).findFirst().orElseThrow();
+        Files.writeString(
+                module.resolve("cleanroom-userdev-" + version + ".module"),
+                """
                 {
                   "formatVersion": "1.1",
                   "component": {"group":"com.cleanroommc","module":"cleanroom-userdev","version":"%1$s","attributes":{"org.gradle.status":"release"}},
@@ -100,23 +116,33 @@ final class UserdevFixture {
                     {"name":"%5$sElements","attributes":{"org.gradle.category":"library","org.gradle.libraryelements":"jar","org.gradle.usage":"java-runtime","org.gradle.native.operatingSystem":"%6$s","org.gradle.native.architecture":"%7$s","com.cleanroommc.userdev.role":"natives"},"dependencies":[{"group":"com.cleanroommc","module":"fixture-native-foreign","version":{"requires":"1"}}]}
                   ]
                 }
-                """.formatted(version, platform.lwjglNativesClassifier(),
-                        platform.operatingSystemFamily(), platform.machineArchitecture(),
-                        foreign.lwjglNativesClassifier(), foreign.operatingSystemFamily(),
-                        foreign.machineArchitecture()));
+                """.formatted(
+                        version,
+                        platform.lwjglNativesClassifier(),
+                        platform.operatingSystemFamily(),
+                        platform.machineArchitecture(),
+                        foreign.lwjglNativesClassifier(),
+                        foreign.operatingSystemFamily(),
+                        foreign.machineArchitecture()
+                )
+        );
     }
 
-    static void writeArtifact(Path jar, String version, Spec spec, String clientSha1, String serverSha1)
-            throws IOException {
+    static void writeArtifact(Path jar, String version, Spec spec, String clientSha1, String serverSha1) throws IOException {
         var entries = new LinkedHashMap<String, byte[]>();
         entries.put("com/cleanroommc/Loader.class", classBytes("com/cleanroommc/Loader"));
-        entries.put(UserdevConfig.meta(UserdevConfig.FILE_NAME),
-                config(version, clientSha1, serverSha1).getBytes(StandardCharsets.UTF_8));
-        entries.put(UserdevConfig.meta(UserdevConfig.BINPATCHES), binaryArchive(Map.of(
-                UserdevConfig.CLIENT_BINPATCHES + "net/minecraft/Patched.class.add",
-                classBytes("net/minecraft/Patched"),
-                UserdevConfig.SERVER_BINPATCHES + "net/minecraft/Patched.class.add",
-                classBytes("net/minecraft/Patched"))));
+        entries.put(UserdevConfig.meta(UserdevConfig.FILE_NAME), config(version, clientSha1, serverSha1).getBytes(StandardCharsets.UTF_8));
+        entries.put(
+                UserdevConfig.meta(UserdevConfig.BINPATCHES),
+                binaryArchive(
+                        Map.of(
+                                UserdevConfig.CLIENT_BINPATCHES + "net/minecraft/Patched.class.add",
+                                classBytes("net/minecraft/Patched"),
+                                UserdevConfig.SERVER_BINPATCHES + "net/minecraft/Patched.class.add",
+                                classBytes("net/minecraft/Patched")
+                        )
+                )
+        );
         entries.put(UserdevConfig.meta(UserdevConfig.OBF2SRG), tsrg());
         entries.put(UserdevConfig.meta(UserdevConfig.SRG2MCP), tsrg());
         entries.put(UserdevConfig.meta(UserdevConfig.MCP2SRG), tsrg());
@@ -130,16 +156,23 @@ final class UserdevFixture {
         entries.put(UserdevConfig.meta(UserdevConfig.SOURCE_INPUT), classArchive());
         entries.put(UserdevConfig.meta("client-extra") + "/assets/pack.mcmeta", "{}".getBytes(StandardCharsets.UTF_8));
         entries.put(UserdevConfig.meta("server-extra") + "/assets/server.txt", "server".getBytes(StandardCharsets.UTF_8));
-        entries.put(UserdevConfig.meta(UserdevConfig.PATCHES) + "/net/minecraft/Block.java.patch", """
+        entries.put(
+                UserdevConfig.meta(UserdevConfig.PATCHES) + "/net/minecraft/Block.java.patch",
+                """
                 --- a/net/minecraft/Block.java
                 +++ b/net/minecraft/Block.java
                 @@ -1,2 +1,3 @@
                  class Block {
                 +    // patched by the artifact
                  }
-                """.getBytes(StandardCharsets.UTF_8));
-        entries.put(UserdevConfig.meta(UserdevConfig.LOADER_SOURCES) + "/com/cleanroommc/Loader.java",
-                "package com.cleanroommc;\n".getBytes(StandardCharsets.UTF_8));
+                """.getBytes(
+                        StandardCharsets.UTF_8
+                )
+        );
+        entries.put(
+                UserdevConfig.meta(UserdevConfig.LOADER_SOURCES) + "/com/cleanroommc/Loader.java",
+                "package com.cleanroommc;\n".getBytes(StandardCharsets.UTF_8)
+        );
 
         entries.remove(spec.omit);
         Files.createDirectories(jar.getParent());
@@ -201,7 +234,12 @@ final class UserdevFixture {
                     "server": {"mainClass": "GradleStartServer", "launchClass": "net.minecraft.launchwrapper.Launch", "tweakClass": "net.minecraftforge.fml.common.launcher.FMLServerTweaker", "target": "fmluserdevserver"}
                   }
                 }
-                """.formatted(clientSha1, serverSha1, version, MINECRAFT_VERSION);
+                """.formatted(
+                clientSha1,
+                serverSha1,
+                version,
+                MINECRAFT_VERSION
+        );
     }
 
     static String pom(String group, String artifact, String version) {
@@ -212,13 +250,21 @@ final class UserdevFixture {
                 <!-- do_not_remove: published-with-gradle-metadata -->
                 <project><modelVersion>4.0.0</modelVersion><groupId>%s</groupId>
                 <artifactId>%s</artifactId><version>%s</version></project>
-                """.formatted(group, artifact, version);
+                """.formatted(
+                group,
+                artifact,
+                version
+        );
     }
 
     // Stub tools, resolved by the coordinates the artifact records
 
     private static void stubTools(Path projectDir) throws IOException {
-        toolJar(projectDir, "mergetool", "net.minecraftforge.mergetool.ConsoleMerger", """
+        toolJar(
+                projectDir,
+                "mergetool",
+                "net.minecraftforge.mergetool.ConsoleMerger",
+                """
                 package net.minecraftforge.mergetool;
 
                 import java.nio.file.*;
@@ -233,8 +279,13 @@ final class UserdevFixture {
                         Files.copy(client, output, StandardCopyOption.REPLACE_EXISTING);
                     }
                 }
-                """);
-        toolJar(projectDir, "accesstransformers", "net.minecraftforge.accesstransformer.TransformerProcessor", """
+                """
+        );
+        toolJar(
+                projectDir,
+                "accesstransformers",
+                "net.minecraftforge.accesstransformer.TransformerProcessor",
+                """
                 package net.minecraftforge.accesstransformer;
 
                 import java.nio.file.*;
@@ -261,8 +312,13 @@ final class UserdevFixture {
                         }
                     }
                 }
-                """);
-        toolJar(projectDir, "decompiler", "org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler", """
+                """
+        );
+        toolJar(
+                projectDir,
+                "decompiler",
+                "org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler",
+                """
                 package org.jetbrains.java.decompiler.main.decompiler;
 
                 import java.nio.file.*;
@@ -288,8 +344,13 @@ final class UserdevFixture {
                         }
                     }
                 }
-                """);
-        toolJar(projectDir, "renamer", "tool.FakeRenamer", """
+                """
+        );
+        toolJar(
+                projectDir,
+                "renamer",
+                "tool.FakeRenamer",
+                """
                 package tool;
 
                 import java.nio.file.*;
@@ -304,7 +365,8 @@ final class UserdevFixture {
                         Files.copy(input, output, StandardCopyOption.REPLACE_EXISTING);
                     }
                 }
-                """);
+                """
+        );
     }
 
     private static void toolJar(Path projectDir, String artifact, String mainClass, String source) throws IOException {
@@ -316,16 +378,15 @@ final class UserdevFixture {
         var sourceFile = work.resolve(mainClass.substring(mainClass.lastIndexOf('.') + 1) + ".java");
         Files.writeString(sourceFile, source);
         var classes = Files.createDirectories(work.resolve("classes"));
-        assertEquals(0, ToolProvider.getSystemJavaCompiler()
-                        .run(null, null, null, "-d", classes.toString(), sourceFile.toString()),
-                "could not compile the " + artifact + " stub");
+        assertThat(ToolProvider.getSystemJavaCompiler().run(null, null, null, "-d", classes.toString(), sourceFile.toString()))
+                .as("could not compile the " + artifact + " stub")
+                .isEqualTo(0);
 
         Files.createDirectories(module);
         var manifest = new Manifest();
         manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
         manifest.getMainAttributes().put(Attributes.Name.MAIN_CLASS, mainClass);
-        try (var out = new JarOutputStream(Files.newOutputStream(module.resolve(artifact + "-1.0.jar")), manifest);
-             var files = Files.walk(classes)) {
+        try (var out = new JarOutputStream(Files.newOutputStream(module.resolve(artifact + "-1.0.jar")), manifest); var files = Files.walk(classes)) {
             for (var file : files.filter(Files::isRegularFile).toList()) {
                 out.putNextEntry(new ZipEntry(classes.relativize(file).toString().replace('\\', '/')));
                 out.write(Files.readAllBytes(file));
@@ -364,9 +425,7 @@ final class UserdevFixture {
         try (var out = new JarOutputStream(buffer)) {
             for (var entry : entries.entrySet()) {
                 out.putNextEntry(new ZipEntry(entry.getKey()));
-                out.write(entry.getValue() == null
-                        ? classBytes("net/minecraft/Block")
-                        : entry.getValue().getBytes(StandardCharsets.UTF_8));
+                out.write(entry.getValue() == null ? classBytes("net/minecraft/Block") : entry.getValue().getBytes(StandardCharsets.UTF_8));
                 out.closeEntry();
             }
         } catch (IOException e) {
@@ -411,6 +470,6 @@ final class UserdevFixture {
         return writer.toByteArray();
     }
 
-    private UserdevFixture() { }
+    private UserdevFixture() {}
 
 }
