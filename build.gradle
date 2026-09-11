@@ -1,24 +1,10 @@
 plugins {
-    id 'com.cleanroommc.versioning' version '2.0.0'
     id 'java-gradle-plugin'
-    id 'maven-publish'
-    id 'com.gradle.plugin-publish' version '2.1.1'
-    id 'signing'
+    id 'com.cleanroommc.conventions'
 }
 
-java {
-    toolchain.languageVersion = JavaLanguageVersion.of(25)
-}
-
-group = 'com.cleanroommc'
-
-repositories {
-    maven {
-        name = 'CleanroomMC'
-        url = 'https://maven.cleanroommc.com/'
-    }
-    mavenCentral()
-    gradlePluginPortal()
+conventions {
+    beginFrom = 2022
 }
 
 def asmVersion = '9.10.1'
@@ -41,8 +27,6 @@ dependencies {
     implementation 'net.minecraftforge:renamer-gradle:1.1.5'
 
     testImplementation gradleTestKit()
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 gradlePlugin {
@@ -76,14 +60,7 @@ gradlePlugin {
     }
 }
 
-jar {
-    manifest {
-        attributes 'Implementation-Version': version
-    }
-}
-
 test {
-    useJUnitPlatform()
     systemProperty 'plugin.project.dir', rootDir.absolutePath
     systemProperty 'test.gradle.home', gradle.gradleHomeDir
     // includeBuild of this project has to resolve versioning
@@ -96,28 +73,9 @@ publishing {
             artifactId = 'cleanroomgradle'
         }
     }
-    repositories {
-        maven {
-            name = 'CleanroomMaven'
-            url = 'https://maven.cleanroommc.com'
-            credentials(PasswordCredentials)
-            authentication {
-                basic(BasicAuthentication)
-            }
-        }
-    }
 }
 
-def signingKey = providers.gradleProperty('signingKey')
-def signingPassword = providers.gradleProperty('signingPassword')
-
-signing {
-    required = {
-        gradle.taskGraph.allTasks.any {
-            it.name == 'publishPlugins'
-        }
-    }
-    if (signingKey.present && signingPassword.present) {
-        useInMemoryPgpKeys(signingKey.get(), signingPassword.get())
-    }
+// Third-party FML source keeps cpw's original header
+tasks.withType(Checkstyle).configureEach {
+    exclude 'net/minecraftforge/**'
 }
