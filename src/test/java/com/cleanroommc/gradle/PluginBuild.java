@@ -60,10 +60,7 @@ final class PluginBuild {
                 )
         );
 
-        Files.writeString(
-                this.projectDir.resolve("gradle.properties"),
-                "org.gradle.jvmargs=-Xmx1g -XX:MaxMetaspaceSize=768m\n"
-        );
+        Files.writeString(this.projectDir.resolve("gradle.properties"), "org.gradle.jvmargs=-Xmx1g -XX:MaxMetaspaceSize=768m\n");
         return this;
     }
 
