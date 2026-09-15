@@ -99,11 +99,10 @@ public final class UserDevTasks {
         this.reobfJar.configure(task -> {
             task.setGroup("build");
             task.setDescription("Renames this project's jar from MCP to SRG names.");
-            task.getInput().set(jar.flatMap(Jar::getArchiveFile));
+            task.from(jar);
+            task.getArchiveClassifier().set("srg");
             task.getMap().setFrom(this.extractMcpToSrg.flatMap(ExtractUserdevFile::getOutput));
             task.getLibraries().setFrom(main.map(SourceSet::getCompileClasspath));
-            task.getOutput().set(jar.flatMap(value -> value.getDestinationDirectory().file(value.getArchiveBaseName().zip(value.getArchiveVersion(), (base, version) -> base +
-                    "-" + version + "-srg.jar"))));
         });
         project.getTasks().named("assemble").configure(task -> task.dependsOn(this.reobfJar));
 
