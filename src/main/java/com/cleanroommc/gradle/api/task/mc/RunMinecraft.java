@@ -246,18 +246,19 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
                             this.getMinecraftVersion().get()
                     );
         }
-        appendLegacyArguments();
+        appendLegacyArguments(side);
     }
 
     /**
      * The pre-1.13 hardcoded argument list, resolved from the same properties as before (lazily, at exec time).
+     * A dedicated server has no session and no assets, so it only takes the two arguments FML reads.
      */
-    private void appendLegacyArguments() {
+    private void appendLegacyArguments(Side side) {
+        this.args("--gameDir", (Supplier<File>) this::getWorkingDir, "--version", this.getMinecraftVersion());
+        if (side.isServer()) {
+            return;
+        }
         this.args(
-                "--gameDir",
-                (Supplier<File>) this::getWorkingDir,
-                "--version",
-                this.getMinecraftVersion(),
                 "--assetIndex",
                 this.getAssetIndexVersion(),
                 "--assetsDir",
