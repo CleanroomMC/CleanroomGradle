@@ -19,6 +19,32 @@ import static org.assertj.core.api.Assertions.assertThat;
 class UserdevPipelineTest extends BaseFunctionalTest {
 
     /**
+     * The MCP jar keeps the plain archive name and stays what the java component hands consumers, so a
+     * project dependency resolves to names the workspace can compile against. The reobfuscated jar is an
+     * opt-in extra under the "srg" classifier.
+     */
+    @Test
+    void mcpJarKeepsThePlainArchiveNameAndTheReobfuscatedJarTakesTheSrgClassifier() throws IOException {
+        this.project.build(
+                UserdevFixture.PREAMBLE + """
+                version = '1.0'
+                dependencies {
+                    implementation cleanroom.userdev('0.7.0')
+                }
+                tasks.register('printMainArtifact') {
+                    def artifacts = configurations.runtimeElements.outgoing.artifacts.files
+                    doLast { println 'MAIN ' + artifacts.files.collect { it.name } }
+                }
+                """
+        );
+
+        var output = this.project.plainRunner(this.project.userdevModuleArgs("0.7.0", "assemble", "printMainArtifact")).build().getOutput();
+        assertThat(output).as(output).contains("MAIN [test-project-1.0.jar]");
+        assertThat(this.projectDir.resolve("build/libs/test-project-1.0.jar")).exists();
+        assertThat(this.projectDir.resolve("build/libs/test-project-1.0-srg.jar")).exists();
+    }
+
+    /**
      * The natives and the renamer's type hierarchy come out of the published module's own graph, so both
      * have to select a variant of it. The artifact itself is kept off the hierarchy: it is MCP-named.
      */

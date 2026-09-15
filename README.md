@@ -1,6 +1,6 @@
 # CleanroomGradle
 
-Gradle plugin for Cleanroom Loader development and Cleanroom-targeted mod development. The current release is `0.15.0`.
+Gradle plugin for Cleanroom Loader development and Cleanroom-targeted mod development. The current release is `0.16.0`.
 
 ## Usage
 
@@ -22,7 +22,7 @@ pluginManagement {
 }
 
 plugins {
-    id 'com.cleanroommc.cleanroomgradle.settings' version '0.15.0'
+    id 'com.cleanroommc.cleanroomgradle.settings' version '0.16.0'
     id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0' // If auto-provisioning is needed
 }
 ```
@@ -178,6 +178,34 @@ cleanroom {
     }
 }
 ```
+
+## Mod Artifacts
+
+`assemble` produces two jars in a userdev workspace:
+
+| File                       | Names | Use                      |
+|----------------------------|-------|--------------------------|
+| `<name>-<version>.jar`     | MCP   | For development          |
+| `<name>-<version>-srg.jar` | SRG   | For publishing + playing |
+
+The MCP jar is what `components.java` carries.
+- `from components.java` publishes it as the module's main artifact
+- A project dependency on this module resolves to it, so it needs no `deobf(...)`.
+
+To publish the SRG jar alongside it, add the `reobfJar` task to the publication:
+
+```groovy
+publishing {
+    publications {
+        mod(MavenPublication) {
+            from components.java
+            artifact tasks.reobfJar // the -srg jar
+        }
+    }
+}
+```
+
+Consumers of the published `-srg` jar bring it back to MCP names with `deobf(...)`.
 
 ## Deobfuscation
 
