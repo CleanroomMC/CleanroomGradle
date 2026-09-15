@@ -13,6 +13,7 @@ package com.cleanroommc.gradle.api.userdev;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.task.mcp.SplitJar;
 import com.cleanroommc.gradle.api.task.patch.ApplyBinPatches;
+import com.cleanroommc.gradle.api.util.Execs;
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.inject.MetadataInjector;
 import org.gradle.api.artifacts.transform.CacheableTransform;
@@ -121,7 +122,7 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
             SplitJar.split(clientPatched, obfToSrg, clientSlim, work.resolve("client-extra.jar").toFile());
             SplitJar.split(serverPatched, obfToSrg, serverSlim, work.resolve("server-extra.jar").toFile());
             var merged = work.resolve("merged.jar").toFile();
-            getExecOperations().javaexec(spec -> {
+            Execs.quietJavaExec(getExecOperations(), spec -> {
                 spec.setClasspath(getParameters().getMergeToolClasspath());
                 spec.getMainClass().set("net.minecraftforge.mergetool.ConsoleMerger");
                 spec.args("--client", clientSlim, "--server", serverSlim, "--output", merged, "-ann", config.minecraftVersion(), "--inject", false);
@@ -160,7 +161,7 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
                     arguments.add("--atFile");
                     arguments.add(at.getAbsolutePath());
                 }
-                getExecOperations().javaexec(spec -> {
+                Execs.quietJavaExec(getExecOperations(), spec -> {
                     spec.setClasspath(getParameters().getAccessTransformerClasspath());
                     spec.getMainClass().set("net.minecraftforge.accesstransformer.TransformerProcessor");
                     spec.setArgs(arguments);
@@ -237,7 +238,7 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
             arguments.add(library.getAbsolutePath());
         }
         var classpath = getParameters().getRenamerClasspath();
-        getExecOperations().javaexec(spec -> {
+        Execs.quietJavaExec(getExecOperations(), spec -> {
             spec.setClasspath(classpath);
             spec.getMainClass().set(mainClassOf(classpath));
             spec.setArgs(arguments);

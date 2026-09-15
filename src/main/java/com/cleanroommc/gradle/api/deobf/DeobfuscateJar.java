@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.deobf;
 
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
+import com.cleanroommc.gradle.api.util.Execs;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.artifacts.transform.CacheableTransform;
 import org.gradle.api.artifacts.transform.InputArtifact;
@@ -131,7 +132,7 @@ public abstract class DeobfuscateJar implements TransformAction<DeobfuscateJar.P
         }
 
         var renamer = parameters.getRenamerClasspath();
-        getExecOperations().javaexec(spec -> {
+        Execs.quietJavaExec(getExecOperations(), spec -> {
             spec.setClasspath(renamer);
             spec.getMainClass().set(mainClassOf(renamer));
             spec.setArgs(arguments);
