@@ -99,7 +99,7 @@ public abstract class DeobfuscateJar implements TransformAction<DeobfuscateJar.P
         }
         if (declared.isEmpty() && mappings.isEmpty()) {
             throw new InvalidUserDataException(
-                    "deobf() needs MCP mappings, which this project's mode does not build. " + "Set cleanroom.mode to 'userdev' or 'loader'."
+                    "deobf() needs MCP mappings, which this project does not build. " + "Declare a Cleanroom userdev dependency, or set cleanroom.mode to 'loader'."
             );
         }
         if (mappings.stream().noneMatch(File::isFile)) {
