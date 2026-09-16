@@ -17,6 +17,8 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.gradle.tooling.model.idea.IdeaSingleEntryLibraryDependency;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -296,6 +298,81 @@ class DeobfExtensionTest extends BaseFunctionalTest {
         var methods = methodsIn(transformed, "net/test/mod.class");
         assertThat(methods).as(methods.toString()).contains("readableName");
         assertThat(methods).as(methods.toString()).doesNotContain("func_123_a");
+    }
+
+    @ParameterizedTest
+    @CsvSource({ "false, false", "false, true", "true, false", "true, true" })
+    void remapsClassifiedJarsWithoutChangingOtherDependencies(boolean moduleMetadata, boolean mapNotation) throws IOException {
+        var repository = fixture();
+        var module = this.projectDir.resolve("fixture-repo/net/test/mod/1.0.0");
+        try (var jar = new JarOutputStream(Files.newOutputStream(module.resolve("mod-1.0.0-srg.jar")))) {
+            jar.putNextEntry(new ZipEntry("net/test/classified.class"));
+            jar.write(classBytes("net/test/classified"));
+            jar.closeEntry();
+        }
+        if (moduleMetadata) {
+            Files.writeString(
+                    module.resolve("mod-1.0.0.module"),
+                    """
+                    {
+                      "formatVersion": "1.1",
+                      "component": {"group": "net.test", "module": "mod", "version": "1.0.0"},
+                      "variants": [
+                        {"name": "apiElements", "attributes": {"org.gradle.usage": "java-api"},
+                         "dependencies": [{"group": "net.test", "module": "child", "version": {"requires": "1.0.0"}}],
+                         "files": [{"name": "mod-1.0.0.jar", "url": "mod-1.0.0.jar"}]},
+                        {"name": "runtimeElements", "attributes": {"org.gradle.usage": "java-runtime"},
+                         "dependencies": [{"group": "net.test", "module": "child", "version": {"requires": "1.0.0"}}],
+                         "files": [{"name": "mod-1.0.0.jar", "url": "mod-1.0.0.jar"}]}
+                      ]
+                    }
+                    """
+            );
+            repository = repository.replace(" }", "; metadataSources { gradleMetadata(); mavenPom() } }");
+        }
+        Files.writeString(
+                this.projectDir.resolve("srg2mcp.tsrg"),
+                """
+                tsrg2 srg mcp
+                net/test/classified net/test/classified
+                \tfunc_123_a ()V readableName
+                """
+        );
+        var notation = mapNotation ? "[group: 'net.test', name: 'mod', version: '1.0.0', classifier: 'srg']" : "'net.test:mod:1.0.0:srg'";
+        this.project.vanilla(
+                """
+                repositories { %s }
+                deobf.mappings.from(file('srg2mcp.tsrg'))
+                dependencies {
+                    implementation 'net.test:mod:1.0.0'
+                    implementation deobf(%s)
+                    testImplementation deobf(%s)
+                }
+                tasks.register('resolveClassified') {
+                    def compile = configurations.compileClasspath.incoming.files
+                    def runtime = configurations.runtimeClasspath.incoming.files
+                    inputs.files(compile, runtime)
+                    doLast {
+                        assert compile.files*.name.containsAll(['mod-1.0.0.jar', 'mod-1.0.0-srg-deobf.jar', 'child-1.0.0.jar'])
+                        assert runtime.files*.name.containsAll(['mod-1.0.0.jar', 'mod-1.0.0-srg-deobf.jar', 'child-1.0.0.jar'])
+                        compile.each { println 'PATH ' + it.absolutePath }
+                    }
+                }
+                """.formatted(
+                        repository,
+                        notation,
+                        notation
+                )
+        );
+
+        var output = this.project.runner("resolveClassified", "--offline").build().getOutput();
+        var transformed = output.lines()
+                .filter(line -> line.startsWith("PATH ") && line.endsWith("mod-1.0.0-srg-deobf.jar"))
+                .map(line -> Path.of(line.substring("PATH ".length())))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(output));
+        assertThat(methodsIn(transformed, "net/test/classified.class")).contains("readableName").doesNotContain("func_123_a");
+        PluginBuild.reused(this.project.runner("resolveClassified", "--offline").build().getOutput());
     }
 
     @Test

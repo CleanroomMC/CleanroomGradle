@@ -19,6 +19,8 @@ import org.gradle.api.artifacts.dsl.DependencyHandler;
 import org.gradle.api.model.ObjectFactory;
 
 import javax.inject.Inject;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Backs the {@code deobf(...)} notation inside a {@code dependencies} block.
@@ -27,6 +29,7 @@ public class DeobfHandler {
 
     private final DependencyHandler dependencies;
     private final ObjectFactory objects;
+    private final Set<String> classifiedModules = new HashSet<>();
 
     @Inject
     public DeobfHandler(DependencyHandler dependencies, ObjectFactory objects) {
@@ -62,6 +65,27 @@ public class DeobfHandler {
             throw new InvalidUserDataException(
                     "deobf(...) only accepts external module notations, got " + notation + " which resolves to " + dependency.getClass().getSimpleName() + "."
             );
+        }
+        if (!module.getArtifacts().isEmpty()) {
+            if (module.getArtifacts().size() != 1) {
+                throw new InvalidUserDataException("deobf(...) accepts one jar artifact per dependency");
+            }
+            var artifact = module.getArtifacts().iterator().next();
+            if (!"jar".equals(artifact.getExtension())) {
+                throw new InvalidUserDataException("deobf(...) only accepts jar artifacts");
+            }
+            var classifier = artifact.getClassifier();
+            module.getArtifacts().clear();
+            if (classifier != null && !classifier.isEmpty()) {
+                var capability = artifact.getName() + "-cleanroom-deobf-" + classifier;
+                var coordinate = module.getGroup() + ":" + module.getName();
+                if (this.classifiedModules.add(coordinate + ":" + capability)) {
+                    this.dependencies
+                            .getComponents()
+                            .withModule(coordinate, ClassifiedDeobfRule.class, spec -> spec.params(artifact.getName(), classifier, capability));
+                }
+                module.capabilities(capabilities -> capabilities.requireCapability(module.getGroup() + ":" + capability));
+            }
         }
         module.attributes(attributes -> attributes.attribute(DeobfAttributes.DEOBFUSCATED, DeobfAttributes.MCP));
         return module;
