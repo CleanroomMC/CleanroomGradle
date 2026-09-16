@@ -181,31 +181,35 @@ cleanroom {
 
 ## Mod Artifacts
 
-`assemble` produces two jars in a userdev workspace:
+`assemble` produces both jars in `build/libs`. Maven uses different classifiers.
 
-| File                       | Names | Use                      |
-|----------------------------|-------|--------------------------|
-| `<name>-<version>.jar`     | MCP   | For development          |
-| `<name>-<version>-srg.jar` | SRG   | For publishing + playing |
+| Names | Build Artifact             | Maven Artifact                   |
+|-------|----------------------------|----------------------------------|
+| MCP   | `<name>-<version>-mcp.jar` | `<artifactId>-<version>.jar`     |
+| SRG   | `<name>-<version>.jar`     | `<artifactId>-<version>-srg.jar` |
 
 The MCP jar is what `components.java` carries.
 - `from components.java` publishes it as the module's main artifact
-- A project dependency on this module resolves to it, so it needs no `deobf(...)`.
-
-To publish the SRG jar alongside it, add the `reobfJar` task to the publication:
+- A project dependency on this module resolves to it
 
 ```groovy
+plugins {
+    id 'maven-publish'
+}
+
 publishing {
     publications {
         mod(MavenPublication) {
+            // Publishes the main (MCP named) artifact
             from components.java
-            artifact tasks.reobfJar // the -srg jar
+            // If you want to publish the reobfuscated artifact also
+            artifact(tasks.reobfJar) {
+                classifier = 'srg'
+            }
         }
     }
 }
 ```
-
-Consumers of the published `-srg` jar bring it back to MCP names with `deobf(...)`.
 
 ## Deobfuscation
 

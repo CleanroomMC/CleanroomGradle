@@ -60,6 +60,7 @@ final class UserdevFixture {
 
         String clientSha1;
         String omit = "";
+        String srgToMcp;
 
     }
 
@@ -144,7 +145,7 @@ final class UserdevFixture {
                 )
         );
         entries.put(UserdevConfig.meta(UserdevConfig.OBF2SRG), tsrg());
-        entries.put(UserdevConfig.meta(UserdevConfig.SRG2MCP), tsrg());
+        entries.put(UserdevConfig.meta(UserdevConfig.SRG2MCP), spec.srgToMcp == null ? tsrg() : spec.srgToMcp.getBytes(StandardCharsets.UTF_8));
         entries.put(UserdevConfig.meta(UserdevConfig.MCP2SRG), tsrg());
         entries.put(UserdevConfig.meta(UserdevConfig.ACCESS), new byte[0]);
         entries.put(UserdevConfig.meta(UserdevConfig.CONSTRUCTORS), new byte[0]);

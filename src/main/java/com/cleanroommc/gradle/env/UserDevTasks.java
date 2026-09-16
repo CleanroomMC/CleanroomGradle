@@ -76,6 +76,14 @@ public final class UserDevTasks {
         var java = project.getExtensions().getByType(JavaPluginExtension.class);
         var main = java.getSourceSets().named(SourceSet.MAIN_SOURCE_SET_NAME);
         var jar = project.getTasks().named("jar", Jar.class);
+        jar.configure(task -> task.getArchiveClassifier().convention("mcp"));
+        for (var name : new String[] { "apiElements", "runtimeElements" }) {
+            project.getConfigurations().named(name).configure(configuration -> {
+                // Maven's main artifact is MCP even though the local archive has an MCP classifier.
+                configuration.getOutgoing().getArtifacts().clear();
+                configuration.getOutgoing().artifact(jar, artifact -> artifact.setClassifier(null));
+            });
+        }
         var renamer = project.getExtensions().getByType(RenamerExtension.class);
         var config = userdev.getConfig();
 
@@ -100,7 +108,7 @@ public final class UserDevTasks {
             task.setGroup("build");
             task.setDescription("Renames this project's jar from MCP to SRG names.");
             task.from(jar);
-            task.getArchiveClassifier().set("srg");
+            task.getArchiveClassifier().set("");
             task.getMap().setFrom(this.extractMcpToSrg.flatMap(ExtractUserdevFile::getOutput));
             task.getLibraries().setFrom(main.map(SourceSet::getCompileClasspath));
         });
