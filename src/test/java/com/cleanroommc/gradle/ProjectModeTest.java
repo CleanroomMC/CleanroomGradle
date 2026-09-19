@@ -263,6 +263,19 @@ class ProjectModeTest extends BaseFunctionalTest {
     }
 
     @Test
+    void loaderKeepsTestOutputOutOfTheProjectDirectory() throws IOException {
+        this.project.loader(
+                """
+                gradle.projectsEvaluated {
+                    assert tasks.test.workingDir == layout.buildDirectory.dir('test').get().asFile
+                }
+                """
+        );
+
+        assertThat(this.project.runner("help", "--offline").build().task(":help").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+    }
+
+    @Test
     void loaderPipelineReusesConfigurationCache() throws IOException {
         this.project.loader("");
 

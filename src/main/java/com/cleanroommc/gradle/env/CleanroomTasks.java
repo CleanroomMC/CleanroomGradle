@@ -33,6 +33,7 @@ import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.compile.JavaCompile;
+import org.gradle.api.tasks.testing.Test;
 
 public final class CleanroomTasks {
 
@@ -77,6 +78,15 @@ public final class CleanroomTasks {
                 task.mustRunAfter(minecraftPatchDev.map(PatchDevEnvironment::getApplyDiffs));
             });
         });
+
+        // The loader's log4j configuration writes logs/ next to the working directory, which Gradle
+        // leaves at the project root for tests
+        var testDir = project.getLayout().getBuildDirectory().dir("test").get().getAsFile();
+        project.getTasks().withType(Test.class).configureEach(task -> {
+            task.setWorkingDir(testDir);
+            task.doFirst("create the working directory", unused -> testDir.mkdirs());
+        });
+
         var runDir = project.getLayout().getProjectDirectory().dir("run").getAsFile();
         var offline = project.getGradle().getStartParameter().isOffline();
         var natives = vanilla.extractNatives.map(Copy::getDestinationDir);
