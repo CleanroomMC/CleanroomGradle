@@ -73,11 +73,10 @@ public final class LwjglNatives {
             config.withDependencies(dependencies -> create(factory, dependencies, declared.get(), classifiers.get()));
         });
         // runtimeElements deliberately stays free of natives
-        project.getPlugins()
-                .withType(
-                        JavaPlugin.class,
-                        _ -> configurations.named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME).configure(config -> config.extendsFrom(current.get()))
-                );
+        project.getPlugins().withType(JavaPlugin.class, _ -> {
+            configurations.named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME).configure(config -> config.extendsFrom(current.get()));
+            configurations.named(JavaPlugin.TEST_RUNTIME_CLASSPATH_CONFIGURATION_NAME).configure(config -> config.extendsFrom(current.get()));
+        });
     }
 
     public static void addFor(Project project, Collection<Dependency> target, String classifier) {

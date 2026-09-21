@@ -277,6 +277,19 @@ class ProjectModeTest extends BaseFunctionalTest {
     }
 
     @Test
+    void loaderPutsLwjglNativesOnTheTestRuntimeClasspath() throws IOException {
+        this.project.loader(
+                """
+                gradle.projectsEvaluated {
+                    assert configurations.testRuntimeClasspath.extendsFrom.contains(configurations.lwjglNativeCurrent)
+                }
+                """
+        );
+
+        assertThat(this.project.runner("help", "--offline").build().task(":help").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+    }
+
+    @Test
     void loaderPipelineReusesConfigurationCache() throws IOException {
         this.project.loader("");
 
