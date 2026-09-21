@@ -11,17 +11,18 @@
 package com.cleanroommc.gradle.api.task;
 
 import org.apache.commons.lang3.StringUtils;
+
 import org.gradle.api.Project;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Delete;
 import org.gradle.api.tasks.TaskContainer;
 import org.gradle.api.tasks.TaskProvider;
 
-import javax.inject.Inject;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.inject.Inject;
 
 /**
  * Toggleable cleanup of intermediate jars/files that exist only to feed a later task.

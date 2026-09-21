@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.ext;
 
 import com.cleanroommc.gradle.api.schema.VersionMeta;
+
 import org.gradle.api.provider.Property;
 
 /**

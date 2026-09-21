@@ -12,6 +12,7 @@ package com.cleanroommc.gradle.api.task;
 
 import com.cleanroommc.gradle.api.ext.ProjectMode;
 import com.cleanroommc.gradle.api.util.EnumValues;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.model.ObjectFactory;
@@ -22,8 +23,8 @@ import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.work.DisableCachingByDefault;
 
-import javax.inject.Inject;
 import java.io.File;
+import javax.inject.Inject;
 
 @DisableCachingByDefault(because = "Prints build diagnostics")
 public abstract class CleanroomInfo extends DefaultTask {

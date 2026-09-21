@@ -17,8 +17,8 @@ import org.gradle.api.tasks.Classpath;
 import org.gradle.api.tasks.Input;
 import org.gradle.work.DisableCachingByDefault;
 
-import javax.inject.Inject;
 import java.io.File;
+import javax.inject.Inject;
 
 @DisableCachingByDefault(because = "Executes a Maven-provided tool in an external JVM")
 public abstract class MavenJarExec extends LazilyConstructedJavaExec {

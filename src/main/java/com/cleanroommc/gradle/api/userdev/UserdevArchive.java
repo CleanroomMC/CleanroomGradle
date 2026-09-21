@@ -43,6 +43,6 @@ final class UserdevArchive {
         }
     }
 
-    private UserdevArchive() {}
+    private UserdevArchive() { }
 
 }

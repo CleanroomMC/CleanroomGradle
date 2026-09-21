@@ -17,8 +17,8 @@ import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 import org.gradle.api.artifacts.result.ResolvedComponentResult;
 import org.gradle.api.artifacts.result.ResolvedDependencyResult;
-import org.gradle.api.internal.artifacts.result.ResolvedComponentResultInternal;
 import org.gradle.api.attributes.Category;
+import org.gradle.api.internal.artifacts.result.ResolvedComponentResultInternal;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Provider;
 
@@ -187,6 +187,6 @@ public final class ResolvedLibraries {
         return value == null ? EXCLUDE_WILDCARD : value;
     }
 
-    private ResolvedLibraries() {}
+    private ResolvedLibraries() { }
 
 }

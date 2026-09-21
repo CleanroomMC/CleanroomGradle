@@ -11,15 +11,17 @@
 package com.cleanroommc.gradle.api.task.dist;
 
 import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.gradle.api.GradleException;
-import org.gradle.testkit.runner.GradleRunner;
-import org.gradle.testkit.runner.TaskOutcome;
-import org.gradle.testfixtures.ProjectBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import org.gradle.api.GradleException;
+import org.gradle.testfixtures.ProjectBuilder;
+import org.gradle.testkit.runner.GradleRunner;
+import org.gradle.testkit.runner.TaskOutcome;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

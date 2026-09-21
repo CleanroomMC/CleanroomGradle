@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.util.dist;
 
 import com.cleanroommc.gradle.api.util.Property;
+
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.dsl.RepositoryHandler;
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository;

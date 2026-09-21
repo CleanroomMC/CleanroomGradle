@@ -12,6 +12,7 @@ package com.cleanroommc.gradle.api.task.patch;
 
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.binpatch.BinDelta;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
@@ -194,8 +195,8 @@ public abstract class ApplyBinPatches extends DefaultTask {
         return BinDelta.decode(original, Arrays.copyOfRange(patch, SHA256_LENGTH, patch.length));
     }
 
-    private record Patches(Map<String, byte[]> deltas, Map<String, byte[]> added, Set<String> removed) {}
+    private record Patches(Map<String, byte[]> deltas, Map<String, byte[]> added, Set<String> removed) { }
 
-    public record Result(int patched, int added, int removed) {}
+    public record Result(int patched, int added, int removed) { }
 
 }

@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.util;
 
 import com.cleanroommc.gradle.api.schema.VersionMeta;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -36,9 +37,9 @@ class LaunchArgumentsTest {
     @Test
     void emptyMetaHasNoGameArguments() {
         var meta = meta(null, null);
-        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> {}).gameArguments()).isEqualTo(List.of());
-        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> {}).jvmArguments()).isEqualTo(List.of());
-        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> {}).hasGameArguments()).isFalse();
+        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> { }).gameArguments()).isEqualTo(List.of());
+        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> { }).jvmArguments()).isEqualTo(List.of());
+        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> { }).hasGameArguments()).isFalse();
     }
 
     @Test
@@ -46,15 +47,15 @@ class LaunchArgumentsTest {
         var windowsOnly = argument(List.of(rule("allow", "windows", null), rule("disallow", "osx", null)), List.of("--demo"));
         var meta = meta(new VersionMeta.Arguments(List.of(windowsOnly), List.of()), null);
         var windows = new Platform(Platform.OperatingSystem.WINDOWS, Platform.Architecture.X64);
-        assertThat(new LaunchArguments(meta, Map.of(), windows, ignored -> {}).gameArguments()).isEqualTo(List.of("--demo"));
-        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> {}).gameArguments()).isEqualTo(List.of());
+        assertThat(new LaunchArguments(meta, Map.of(), windows, ignored -> { }).gameArguments()).isEqualTo(List.of("--demo"));
+        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> { }).gameArguments()).isEqualTo(List.of());
     }
 
     @Test
     void featuresVetoAnOtherwiseMatchingRule() {
         var gated = argument(List.of(rule("allow", null, Map.of("is_demo_user", true))), List.of("--gated"));
         var meta = meta(new VersionMeta.Arguments(List.of(gated), List.of()), null);
-        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> {}).gameArguments()).isEqualTo(List.of());
+        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> { }).gameArguments()).isEqualTo(List.of());
     }
 
     @Test
@@ -68,7 +69,7 @@ class LaunchArgumentsTest {
                 argument(null, List.of("-Xmx2G"))
         );
         var meta = meta(new VersionMeta.Arguments(List.of(), jvm), null);
-        var rendered = new LaunchArguments(meta, Map.of("launcher_name", "cleanroom"), LINUX, ignored -> {}).jvmArguments();
+        var rendered = new LaunchArguments(meta, Map.of("launcher_name", "cleanroom"), LINUX, ignored -> { }).jvmArguments();
         assertThat(rendered).isEqualTo(List.of("-Dminecraft.launcher.brand=cleanroom", "-Xmx2G"));
     }
 

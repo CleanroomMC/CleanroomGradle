@@ -11,8 +11,10 @@
 package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
-import org.gradle.testkit.runner.GradleRunner;
+
 import org.junit.jupiter.api.Test;
+
+import org.gradle.testkit.runner.GradleRunner;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

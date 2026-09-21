@@ -16,8 +16,7 @@ import com.cleanroommc.gradle.api.deobf.DeobfuscateJar;
 import com.cleanroommc.gradle.api.deobf.ExtractUserdevDeobfInputs;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.util.CleanroomProblems;
-import net.minecraftforge.renamer.gradle.RenameJar;
-import net.minecraftforge.renamer.gradle.RenamerExtension;
+
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -28,8 +27,11 @@ import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.problems.Problems;
 import org.gradle.api.tasks.SourceSet;
 
-import javax.inject.Inject;
+import net.minecraftforge.renamer.gradle.RenameJar;
+import net.minecraftforge.renamer.gradle.RenamerExtension;
+
 import java.util.concurrent.Callable;
+import javax.inject.Inject;
 
 /**
  * Registration facade for {@code deobf(...)}.

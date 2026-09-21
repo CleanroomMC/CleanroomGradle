@@ -13,6 +13,7 @@ package com.cleanroommc.gradle.api.ext;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.util.CleanroomProblems;
 import com.cleanroommc.gradle.env.VanillaTasks;
+
 import org.gradle.api.Action;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.Named;
@@ -21,8 +22,8 @@ import org.gradle.api.problems.Problems;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.TaskProvider;
 
-import javax.inject.Inject;
 import java.util.regex.Pattern;
+import javax.inject.Inject;
 
 /**
  * A named, independently runnable vanilla Minecraft environment.

@@ -41,6 +41,6 @@ public final class Streams {
         return initial.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> valueConverter.apply(e.getValue())));
     }
 
-    private Streams() {}
+    private Streams() { }
 
 }

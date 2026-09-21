@@ -79,7 +79,7 @@ public final class Tasks {
         return provider;
     }
 
-    private Tasks() {}
+    private Tasks() { }
 
     public abstract static class InjectedArchiveOperations {
 

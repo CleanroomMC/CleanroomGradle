@@ -41,7 +41,7 @@ public final class SourceRenamer {
     private static final Pattern CLOSING_BRACE = Pattern.compile("^(?<indent> *|\\t*)}");
     private static final Pattern PACKAGE = Pattern.compile("^\\s*package\\s*(?<name>[\\w.]+);$");
 
-    private SourceRenamer() {}
+    private SourceRenamer() { }
 
     /**
      * Renames SRG ids in {@code lines} and inserts javadocs from {@code docs} (keyed by SRG id).

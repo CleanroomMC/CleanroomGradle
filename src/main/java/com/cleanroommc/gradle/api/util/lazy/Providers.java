@@ -39,6 +39,6 @@ public final class Providers {
         return toolchains.launcherFor(spec -> spec.getLanguageVersion().set(api));
     }
 
-    private Providers() {}
+    private Providers() { }
 
 }

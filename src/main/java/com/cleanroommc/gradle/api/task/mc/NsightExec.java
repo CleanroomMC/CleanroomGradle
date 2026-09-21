@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.task.mc;
 
 import com.cleanroommc.gradle.api.util.Platform;
+
 import org.gradle.api.GradleException;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.file.RegularFileProperty;

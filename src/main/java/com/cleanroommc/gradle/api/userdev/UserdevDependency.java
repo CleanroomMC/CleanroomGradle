@@ -12,6 +12,7 @@ package com.cleanroommc.gradle.api.userdev;
 
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.source.UserdevConfigValueSource;
+
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.ExternalModuleDependency;

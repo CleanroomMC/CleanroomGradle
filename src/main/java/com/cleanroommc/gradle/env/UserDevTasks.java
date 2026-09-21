@@ -25,10 +25,9 @@ import com.cleanroommc.gradle.api.userdev.UserdevDependency;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.Platform;
+
 import org.apache.commons.lang3.StringUtils;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.renamer.gradle.RenameJar;
-import net.minecraftforge.renamer.gradle.RenamerExtension;
+
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -48,6 +47,10 @@ import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.nativeplatform.MachineArchitecture;
 import org.gradle.nativeplatform.OperatingSystemFamily;
 import org.gradle.plugins.ide.idea.model.IdeaModel;
+
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.renamer.gradle.RenameJar;
+import net.minecraftforge.renamer.gradle.RenamerExtension;
 
 import java.io.File;
 import java.util.List;

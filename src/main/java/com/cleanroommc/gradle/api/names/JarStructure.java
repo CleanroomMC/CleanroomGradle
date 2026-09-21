@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.names;
 
 import com.cleanroommc.gradle.api.util.IO;
+
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
@@ -36,12 +37,12 @@ public record JarStructure(Map<String, ClassEntry> classes) {
     /**
      * A method or field: its name and JVM descriptor.
      */
-    public record Member(String name, String descriptor) {}
+    public record Member(String name, String descriptor) { }
 
     /**
      * One class's SRG-named members.
      */
-    public record ClassEntry(String internalName, List<Member> methods, List<Member> fields) {}
+    public record ClassEntry(String internalName, List<Member> methods, List<Member> fields) { }
 
     /**
      * Scans a jar, keeping only members whose names look like SRG ids (func_/field_).

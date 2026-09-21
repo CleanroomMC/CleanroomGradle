@@ -11,9 +11,11 @@
 package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.api.util.Platform;
+
 import org.apache.commons.lang3.StringUtils;
-import org.gradle.testkit.runner.TaskOutcome;
 import org.junit.jupiter.api.Test;
+
+import org.gradle.testkit.runner.TaskOutcome;
 
 import java.io.IOException;
 import java.nio.file.Files;

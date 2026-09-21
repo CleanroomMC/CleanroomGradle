@@ -30,17 +30,17 @@ public final class TinyV2 {
 
     public static final String HEADER = "tiny\t2\t0\tsrg\tnamed";
 
-    private TinyV2() {}
+    private TinyV2() { }
 
     /**
      * Flat SRG -> named lookups parsed from a Tiny2 file, plus member javadocs keyed by SRG id.
      */
-    public record FlatNames(Map<String, String> methods, Map<String, String> fields, Map<String, String> params, Map<String, String> docs) {}
+    public record FlatNames(Map<String, String> methods, Map<String, String> fields, Map<String, String> params, Map<String, String> docs) { }
 
     /**
      * A constructor from {@code constructors.txt}: its param-number key ({@code i<id>}) and SRG descriptor.
      */
-    public record Constructor(String numberKey, String descriptor) {}
+    public record Constructor(String numberKey, String descriptor) { }
 
     /**
      * Builds Tiny2 text mapping SRG ids to MCP names, using {@code structure} for descriptors.
@@ -158,7 +158,7 @@ public final class TinyV2 {
         return true;
     }
 
-    private record ParamEntry(int lvIndex, String srg, String named) {}
+    private record ParamEntry(int lvIndex, String srg, String named) { }
 
     /**
      * Groups {@code p_<methodNum>_<slot>_} params by their method number.

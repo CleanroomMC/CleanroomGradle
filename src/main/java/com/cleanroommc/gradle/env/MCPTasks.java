@@ -33,9 +33,10 @@ import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.lazy.Providers;
 import com.cleanroommc.gradle.api.util.lazy.SourceSets;
+
 import de.undercouch.gradle.tasks.download.Download;
-import net.minecraftforge.fml.relauncher.Side;
 import org.apache.commons.lang3.StringUtils;
+
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -45,8 +46,10 @@ import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.compile.JavaCompile;
 
-import java.util.Locale;
+import net.minecraftforge.fml.relauncher.Side;
+
 import java.util.List;
+import java.util.Locale;
 
 public final class MCPTasks {
 

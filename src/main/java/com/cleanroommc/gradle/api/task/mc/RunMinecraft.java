@@ -11,14 +11,15 @@
 package com.cleanroommc.gradle.api.task.mc;
 
 import com.cleanroommc.gradle.api.schema.VersionMeta;
+import com.cleanroommc.gradle.api.task.LazilyConstructedJavaExec;
 import com.cleanroommc.gradle.api.util.EnumValues;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.LaunchArguments;
 import com.cleanroommc.gradle.api.util.Platform;
-import com.cleanroommc.gradle.api.task.LazilyConstructedJavaExec;
-import net.minecraftforge.fml.relauncher.Side;
+
 import org.apache.commons.io.FileUtils;
+
 import org.gradle.api.GradleException;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.ProjectLayout;
@@ -35,7 +36,8 @@ import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.UntrackedTask;
 import org.gradle.work.DisableCachingByDefault;
 
-import javax.inject.Inject;
+import net.minecraftforge.fml.relauncher.Side;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -45,6 +47,7 @@ import java.util.Map;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.function.Supplier;
+import javax.inject.Inject;
 
 @UntrackedTask(because = "Launches the game")
 @DisableCachingByDefault(because = "Launches the game")

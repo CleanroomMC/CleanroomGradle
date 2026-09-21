@@ -13,6 +13,7 @@ package com.cleanroommc.gradle.api.source;
 import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.util.IO;
+
 import org.gradle.api.provider.ValueSource;
 import org.gradle.api.provider.ValueSourceParameters;
 

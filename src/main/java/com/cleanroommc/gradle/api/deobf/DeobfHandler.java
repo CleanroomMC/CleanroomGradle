@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.deobf;
 
 import groovy.lang.Closure;
+
 import org.gradle.api.Action;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.artifacts.Dependency;
@@ -18,9 +19,9 @@ import org.gradle.api.artifacts.ExternalModuleDependency;
 import org.gradle.api.artifacts.dsl.DependencyHandler;
 import org.gradle.api.model.ObjectFactory;
 
-import javax.inject.Inject;
 import java.util.HashSet;
 import java.util.Set;
+import javax.inject.Inject;
 
 /**
  * Backs the {@code deobf(...)} notation inside a {@code dependencies} block.
@@ -38,7 +39,7 @@ public class DeobfHandler {
     }
 
     public Dependency call(Object notation) {
-        return call(notation, _ -> {});
+        return call(notation, _ -> { });
     }
 
     public Dependency call(Object notation, Action<? super DeobfSpec> action) {

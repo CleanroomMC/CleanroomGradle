@@ -10,10 +10,11 @@
 
 package com.cleanroommc.gradle;
 
-import com.cleanroommc.gradle.api.ext.DeobfExtension;
 import com.cleanroommc.gradle.api.ext.CleanroomExtension;
+import com.cleanroommc.gradle.api.ext.DeobfExtension;
 import com.cleanroommc.gradle.api.task.IntermediateProcessor;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
+import com.cleanroommc.gradle.api.userdev.UserdevAttributes;
 import com.cleanroommc.gradle.api.util.CloseHttpClientFlowAction;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
@@ -27,19 +28,20 @@ import com.cleanroommc.gradle.env.RunRegistry;
 import com.cleanroommc.gradle.env.ToolConfigs;
 import com.cleanroommc.gradle.env.UserDevTasks;
 import com.cleanroommc.gradle.env.VanillaTasks;
-import com.cleanroommc.gradle.api.userdev.UserdevAttributes;
-import net.minecraftforge.renamer.gradle.RenameJar;
+
 import org.gradle.api.Action;
-import org.gradle.api.Plugin;
 import org.gradle.api.InvalidUserDataException;
+import org.gradle.api.Plugin;
 import org.gradle.api.Project;
-import org.gradle.api.flow.FlowScope;
 import org.gradle.api.component.SoftwareComponentFactory;
+import org.gradle.api.flow.FlowScope;
 import org.gradle.api.problems.Problems;
 import org.gradle.api.tasks.Delete;
 
-import javax.inject.Inject;
+import net.minecraftforge.renamer.gradle.RenameJar;
+
 import java.util.ArrayList;
+import javax.inject.Inject;
 
 public abstract class CleanroomGradle implements Plugin<Project> {
 
@@ -59,7 +61,7 @@ public abstract class CleanroomGradle implements Plugin<Project> {
         project.getLogger().info("Applying CleanroomGradle {}", pluginVersion);
 
         project.getPlugins().apply("net.minecraftforge.renamer");
-        getFlowScope().always(CloseHttpClientFlowAction.class, spec -> {});
+        getFlowScope().always(CloseHttpClientFlowAction.class, spec -> { });
 
         final var ext = Objects.extension(project, "cleanroom", CleanroomExtension.class);
         var runs = project.getExtensions().create("cleanroomRuns", RunRegistry.class, project, ext.getRuns());

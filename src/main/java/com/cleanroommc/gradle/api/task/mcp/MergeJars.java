@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.task.mcp;
 
 import com.cleanroommc.gradle.api.task.MavenJarExec;
+
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.CacheableTask;

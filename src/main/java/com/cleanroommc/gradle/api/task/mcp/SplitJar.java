@@ -12,7 +12,7 @@ package com.cleanroommc.gradle.api.task.mcp;
 
 import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.util.IO;
-import net.minecraftforge.srgutils.IMappingFile;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.tasks.CacheableTask;
@@ -21,6 +21,8 @@ import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
+
+import net.minecraftforge.srgutils.IMappingFile;
 
 import java.io.IOException;
 import java.util.stream.Collectors;

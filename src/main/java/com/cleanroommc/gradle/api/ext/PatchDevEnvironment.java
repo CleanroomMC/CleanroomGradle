@@ -14,7 +14,9 @@ import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.patch.ApplyDiffs;
 import com.cleanroommc.gradle.api.task.patch.GenerateDiffs;
 import com.cleanroommc.gradle.api.util.lazy.SourceSets;
+
 import org.apache.commons.lang3.StringUtils;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.Named;
@@ -25,11 +27,11 @@ import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
-import org.gradle.api.tasks.bundling.Zip;
 import org.gradle.api.tasks.TaskProvider;
+import org.gradle.api.tasks.bundling.Zip;
 
-import javax.inject.Inject;
 import java.io.File;
+import javax.inject.Inject;
 
 public abstract class PatchDevEnvironment implements Named {
 

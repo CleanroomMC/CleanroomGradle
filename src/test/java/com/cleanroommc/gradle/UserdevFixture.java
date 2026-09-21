@@ -13,10 +13,10 @@ package com.cleanroommc.gradle;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.Platform;
+
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 
-import javax.tools.ToolProvider;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -29,6 +29,7 @@ import java.util.jar.Attributes;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
+import javax.tools.ToolProvider;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -471,6 +472,6 @@ final class UserdevFixture {
         return writer.toByteArray();
     }
 
-    private UserdevFixture() {}
+    private UserdevFixture() { }
 
 }

@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.schema;
 
 import com.cleanroommc.gradle.api.util.Platform;
+
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
@@ -95,9 +96,9 @@ public record VersionMeta(
         return javaVersion() == null ? 8 : javaVersion().majorVersion();
     }
 
-    public record JavaVersion(String component, int majorVersion) {}
+    public record JavaVersion(String component, int majorVersion) { }
 
-    public record AssetIndex(String id, long totalSize, String path, String sha1, long size, String url) {}
+    public record AssetIndex(String id, long totalSize, String path, String sha1, long size, String url) { }
 
     public record Library(Downloads downloads, String name, Map<String, String> natives, List<Rule> rules, Object extract) {
 
@@ -186,12 +187,12 @@ public record VersionMeta(
 
     }
 
-    public record Download(String path, String sha1, long size, String url) {}
+    public record Download(String path, String sha1, long size, String url) { }
 
     // 1.13+ arguments block
-    public record Arguments(List<Argument> game, List<Argument> jvm) {}
+    public record Arguments(List<Argument> game, List<Argument> jvm) { }
 
-    public record Argument(List<ArgRule> rules, List<String> values) {}
+    public record Argument(List<ArgRule> rules, List<String> values) { }
 
     public record ArgRule(String action, OS os, Map<String, Boolean> features) {
 

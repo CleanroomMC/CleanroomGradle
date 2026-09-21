@@ -11,9 +11,10 @@
 package com.cleanroommc.gradle;
 
 import com.google.gson.JsonParser;
+import org.junit.jupiter.api.Test;
+
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
-import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;

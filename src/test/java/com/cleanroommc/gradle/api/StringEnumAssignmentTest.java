@@ -17,11 +17,14 @@ import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.task.sas.StripSideOnlyJar;
 import com.cleanroommc.gradle.api.util.Environment;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.srgutils.IMappingFile;
-import org.gradle.testfixtures.ProjectBuilder;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import org.gradle.testfixtures.ProjectBuilder;
+
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.srgutils.IMappingFile;
 
 import java.nio.file.Path;
 

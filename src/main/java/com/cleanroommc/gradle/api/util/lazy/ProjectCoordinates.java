@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.util.lazy;
 
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
+
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 import org.gradle.api.provider.MapProperty;

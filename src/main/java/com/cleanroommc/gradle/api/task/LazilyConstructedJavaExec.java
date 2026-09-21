@@ -12,8 +12,10 @@ package com.cleanroommc.gradle.api.task;
 
 import com.cleanroommc.gradle.api.util.lazy.LazyStringable;
 import com.cleanroommc.gradle.api.util.lazy.Streams;
+
 import kotlin.jvm.functions.Function0;
 import org.apache.commons.io.FileUtils;
+
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Internal;
@@ -66,9 +68,9 @@ public abstract class LazilyConstructedJavaExec extends JavaExec {
         afterExec();
     }
 
-    protected void beforeExec() {}
+    protected void beforeExec() { }
 
-    protected void afterExec() {}
+    protected void afterExec() { }
 
     @Override
     public void setAllJvmArgs(Iterable<?> arguments) {

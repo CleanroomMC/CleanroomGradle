@@ -10,8 +10,9 @@
 
 package com.cleanroommc.gradle;
 
-import org.gradle.tooling.model.idea.IdeaSingleEntryLibraryDependency;
 import org.junit.jupiter.api.Test;
+
+import org.gradle.tooling.model.idea.IdeaSingleEntryLibraryDependency;
 
 import java.io.IOException;
 import java.util.zip.ZipFile;

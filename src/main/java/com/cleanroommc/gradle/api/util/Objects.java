@@ -11,9 +11,11 @@
 package com.cleanroommc.gradle.api.util;
 
 import com.cleanroommc.gradle.api.Meta;
+
 import com.google.gson.JsonObject;
 import kotlin.jvm.functions.Function0;
 import org.apache.commons.io.FileUtils;
+
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -25,10 +27,10 @@ import org.gradle.api.provider.Provider;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -189,6 +191,6 @@ public final class Objects {
         return uuid == null ? UUID.nameUUIDFromBytes(username.getBytes(StandardCharsets.UTF_8)) : uuid;
     }
 
-    private Objects() {}
+    private Objects() { }
 
 }

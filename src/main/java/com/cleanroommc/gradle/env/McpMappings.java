@@ -12,17 +12,17 @@ package com.cleanroommc.gradle.env;
 
 import com.cleanroommc.gradle.api.ext.CachesExtension;
 import com.cleanroommc.gradle.api.ext.MappingsExtension;
+import com.cleanroommc.gradle.api.ext.PatchDevEnvironment;
 import com.cleanroommc.gradle.api.ext.PatchesExtension;
 import com.cleanroommc.gradle.api.names.CsvNames;
 import com.cleanroommc.gradle.api.names.NamesSource;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.task.Tasks;
-import com.cleanroommc.gradle.api.ext.PatchDevEnvironment;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.task.patch.ApplyDiffs;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.lazy.SourceSets;
-import net.minecraftforge.srgutils.IMappingFile;
+
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
@@ -31,6 +31,8 @@ import org.gradle.api.file.RegularFile;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.TaskProvider;
+
+import net.minecraftforge.srgutils.IMappingFile;
 
 import java.io.File;
 

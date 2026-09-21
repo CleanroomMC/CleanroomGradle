@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.task.userdev;
 
 import com.cleanroommc.gradle.api.userdev.UserdevSourceMaterializer;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFileProperty;
@@ -24,9 +25,9 @@ import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.process.ExecOperations;
 
-import javax.inject.Inject;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import javax.inject.Inject;
 
 @CacheableTask
 public abstract class MaterializeUserdevSourcesJar extends DefaultTask {

@@ -13,9 +13,11 @@ package com.cleanroommc.gradle.api.schema;
 import com.cleanroommc.gradle.api.userdev.ExtractUserdevExtra;
 import com.cleanroommc.gradle.api.userdev.MaterializeUserdevClasses;
 import com.cleanroommc.gradle.api.userdev.MaterializeUserdevSources;
-import org.gradle.api.artifacts.transform.CacheableTransform;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import org.gradle.api.artifacts.transform.CacheableTransform;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

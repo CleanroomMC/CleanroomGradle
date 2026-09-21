@@ -11,7 +11,9 @@
 package com.cleanroommc.gradle.api.util.lazy;
 
 import com.cleanroommc.gradle.api.util.Objects;
+
 import kotlin.jvm.functions.Function0;
+
 import org.gradle.api.provider.Provider;
 
 import java.util.concurrent.Callable;

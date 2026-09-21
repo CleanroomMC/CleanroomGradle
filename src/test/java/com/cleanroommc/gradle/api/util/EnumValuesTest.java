@@ -12,10 +12,13 @@ package com.cleanroommc.gradle.api.util;
 
 import com.cleanroommc.gradle.api.ext.ProjectMode;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
+
+import org.junit.jupiter.api.Test;
+
+import org.gradle.api.InvalidUserDataException;
+
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.srgutils.IMappingFile;
-import org.gradle.api.InvalidUserDataException;
-import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;

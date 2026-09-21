@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.ext;
 
 import com.cleanroommc.gradle.api.util.LwjglNatives;
+
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;

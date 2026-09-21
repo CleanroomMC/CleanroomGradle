@@ -17,15 +17,15 @@ import com.cleanroommc.gradle.api.ext.PatchDevEnvironment;
 import com.cleanroommc.gradle.api.ext.PatchesExtension;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.task.Tasks;
-import com.cleanroommc.gradle.api.util.lazy.ProjectCoordinates;
-import com.cleanroommc.gradle.api.util.lazy.SourceSets;
 import com.cleanroommc.gradle.api.task.mc.NsightExec;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.task.mcp.SplitJar;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.Property;
-import net.minecraftforge.fml.relauncher.Side;
+import com.cleanroommc.gradle.api.util.lazy.ProjectCoordinates;
+import com.cleanroommc.gradle.api.util.lazy.SourceSets;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
 import org.gradle.api.tasks.Copy;
@@ -34,6 +34,8 @@ import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.api.tasks.testing.Test;
+
+import net.minecraftforge.fml.relauncher.Side;
 
 public final class CleanroomTasks {
 

@@ -12,6 +12,7 @@ package com.cleanroommc.gradle.api.task.patch;
 
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.binpatch.BinDelta;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;

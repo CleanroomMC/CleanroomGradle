@@ -14,6 +14,7 @@ import com.cleanroommc.gradle.api.ext.CachesExtension;
 import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.util.Objects;
+
 import org.gradle.api.file.Directory;
 import org.gradle.api.provider.Provider;
 
@@ -90,6 +91,6 @@ public final class MinecraftRuns {
 
     }
 
-    private MinecraftRuns() {}
+    private MinecraftRuns() { }
 
 }

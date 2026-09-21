@@ -14,7 +14,9 @@ import com.cleanroommc.gradle.api.ext.RunConfiguration;
 import com.cleanroommc.gradle.api.task.mc.NsightExec;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.util.CleanroomProblems;
+
 import org.apache.commons.lang3.StringUtils;
+
 import org.gradle.api.Action;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.NamedDomainObjectContainer;
@@ -23,7 +25,6 @@ import org.gradle.api.Task;
 import org.gradle.api.problems.Problems;
 import org.gradle.api.tasks.TaskProvider;
 
-import javax.inject.Inject;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import javax.inject.Inject;
 
 public abstract class RunRegistry {
 

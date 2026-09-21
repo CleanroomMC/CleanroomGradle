@@ -10,8 +10,9 @@
 
 package com.cleanroommc.gradle;
 
-import org.gradle.testkit.runner.TaskOutcome;
 import org.junit.jupiter.api.Test;
+
+import org.gradle.testkit.runner.TaskOutcome;
 
 import java.io.IOException;
 import java.nio.file.Files;

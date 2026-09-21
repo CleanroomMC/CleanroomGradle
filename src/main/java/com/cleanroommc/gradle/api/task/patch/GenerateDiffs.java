@@ -15,6 +15,7 @@ import com.github.difflib.UnifiedDiffUtils;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import org.apache.commons.io.FileUtils;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.FileSystemOperations;
@@ -28,12 +29,12 @@ import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.work.DisableCachingByDefault;
 
-import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.inject.Inject;
 
 @DisableCachingByDefault(because = "Generates committed patches from a mutable development tree")
 public abstract class GenerateDiffs extends DefaultTask {

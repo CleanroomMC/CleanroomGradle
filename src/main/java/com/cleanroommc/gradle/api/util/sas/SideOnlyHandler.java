@@ -11,13 +11,15 @@
 package com.cleanroommc.gradle.api.util.sas;
 
 import com.cleanroommc.gradle.api.util.IO;
-import net.minecraftforge.fml.relauncher.Side;
+
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.ConstantDynamic;
 import org.objectweb.asm.Handle;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.signature.SignatureReader;
+import org.objectweb.asm.signature.SignatureVisitor;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldInsnNode;
@@ -28,8 +30,8 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.MultiANewArrayInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
-import org.objectweb.asm.signature.SignatureReader;
-import org.objectweb.asm.signature.SignatureVisitor;
+
+import net.minecraftforge.fml.relauncher.Side;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -99,9 +101,9 @@ public final class SideOnlyHandler {
 
     }
 
-    public record SasLine(Target target, String comment, boolean generated) {}
+    public record SasLine(Target target, String comment, boolean generated) { }
 
-    public record TransformResult(int classesRemoved, int fieldsRemoved, int methodsRemoved, int annotationsRemoved) {}
+    public record TransformResult(int classesRemoved, int fieldsRemoved, int methodsRemoved, int annotationsRemoved) { }
 
     public static List<SasLine> readSas(Collection<Path> files) throws IOException {
         var sortedFiles = files.stream().map(Path::toAbsolutePath).sorted().toList();
@@ -862,10 +864,10 @@ public final class SideOnlyHandler {
         return -1;
     }
 
-    private record FieldKey(String owner, String name, String descriptor) {}
+    private record FieldKey(String owner, String name, String descriptor) { }
 
-    private record MethodKey(String owner, String name, String descriptor) {}
+    private record MethodKey(String owner, String name, String descriptor) { }
 
-    private SideOnlyHandler() {}
+    private SideOnlyHandler() { }
 
 }

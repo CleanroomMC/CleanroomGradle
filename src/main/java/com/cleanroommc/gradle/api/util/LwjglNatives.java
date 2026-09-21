@@ -102,6 +102,6 @@ public final class LwjglNatives {
         }
     }
 
-    private LwjglNatives() {}
+    private LwjglNatives() { }
 
 }

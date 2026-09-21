@@ -11,11 +11,13 @@
 package com.cleanroommc.gradle.env;
 
 import com.cleanroommc.gradle.api.schema.VersionMeta;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ExternalModuleDependency;
 import org.gradle.testfixtures.ProjectBuilder;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.util.LinkedHashMap;

@@ -10,8 +10,9 @@
 
 package com.cleanroommc.gradle.api.util.dist;
 
-import org.gradle.api.GradleException;
 import org.junit.jupiter.api.Test;
+
+import org.gradle.api.GradleException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

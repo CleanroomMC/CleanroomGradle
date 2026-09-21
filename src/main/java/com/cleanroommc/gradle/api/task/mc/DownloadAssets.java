@@ -17,12 +17,13 @@ import com.cleanroommc.gradle.api.util.IO;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFileProperty;
-import org.gradle.api.provider.Property;
 import org.gradle.api.problems.Problems;
+import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.Internal;
@@ -30,12 +31,11 @@ import org.gradle.api.tasks.OutputFiles;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
+import org.gradle.work.DisableCachingByDefault;
 import org.gradle.workers.WorkAction;
 import org.gradle.workers.WorkParameters;
 import org.gradle.workers.WorkerExecutor;
-import org.gradle.work.DisableCachingByDefault;
 
-import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -45,6 +45,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.inject.Inject;
 
 @DisableCachingByDefault(because = "Maintains a large shared asset store")
 public abstract class DownloadAssets extends DefaultTask {
@@ -141,7 +142,7 @@ public abstract class DownloadAssets extends DefaultTask {
         return IO.sha1Match(target, asset.hash()) ? null : "SHA-1 does not match " + asset.hash();
     }
 
-    private record AssetProblem(AssetIndex.AssetEntry asset, File target, String reason) {}
+    private record AssetProblem(AssetIndex.AssetEntry asset, File target, String reason) { }
 
     public interface AssetParameters extends WorkParameters {
 

@@ -12,6 +12,7 @@ package com.cleanroommc.gradle.api.deobf;
 
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.util.Execs;
+
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.artifacts.transform.CacheableTransform;
 import org.gradle.api.artifacts.transform.InputArtifact;
@@ -32,13 +33,13 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.process.ExecOperations;
 
-import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
+import javax.inject.Inject;
 
 /**
  * Renames a published SRG-named mod jar into this project's MCP names.

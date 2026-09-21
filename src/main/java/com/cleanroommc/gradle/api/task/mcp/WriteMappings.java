@@ -12,10 +12,10 @@ package com.cleanroommc.gradle.api.task.mcp;
 
 import com.cleanroommc.gradle.api.names.NamesSource;
 import com.cleanroommc.gradle.api.util.EnumValues;
+
 import de.siegmar.fastcsv.reader.CsvReader;
-import net.minecraftforge.srgutils.IMappingFile;
-import net.minecraftforge.srgutils.IRenamer;
 import org.apache.commons.io.FileUtils;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.file.RegularFileProperty;
@@ -30,11 +30,14 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 
-import javax.inject.Inject;
+import net.minecraftforge.srgutils.IMappingFile;
+import net.minecraftforge.srgutils.IRenamer;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import javax.inject.Inject;
 
 /**
  * Derives a mapping file from the joined notch-to-srg mapping and

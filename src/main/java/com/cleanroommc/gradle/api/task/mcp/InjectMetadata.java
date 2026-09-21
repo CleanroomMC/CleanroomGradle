@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.task.mcp;
 
 import com.cleanroommc.gradle.api.util.inject.MetadataInjector;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.tasks.CacheableTask;

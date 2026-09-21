@@ -13,10 +13,12 @@ package com.cleanroommc.gradle.api.userdev;
 import com.cleanroommc.gradle.api.names.SourceRenamer;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.util.IO;
+
 import com.github.difflib.DiffUtils;
 import com.github.difflib.UnifiedDiffUtils;
 import de.siegmar.fastcsv.reader.CsvReader;
 import org.apache.commons.io.FileUtils;
+
 import org.gradle.api.file.FileCollection;
 import org.gradle.process.ExecOperations;
 
@@ -207,6 +209,6 @@ public final class UserdevSourceMaterializer {
         }
     }
 
-    private UserdevSourceMaterializer() {}
+    private UserdevSourceMaterializer() { }
 
 }

@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.names;
 
 import com.cleanroommc.gradle.api.util.IO;
+
 import org.apache.commons.codec.digest.DigestUtils;
 
 import java.io.File;

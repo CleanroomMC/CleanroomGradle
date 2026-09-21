@@ -26,6 +26,6 @@ public final class Meta {
     // RegEx's
     public static final Pattern NATIVES_PATTERN = Pattern.compile("^(?<group>.*)/(.*?)/(?<version>.*)/((?<name>.*?)-(\\k<version>)-)(?<classifier>.*).jar$");
 
-    private Meta() {}
+    private Meta() { }
 
 }

@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.schema;
 
 import com.cleanroommc.gradle.api.util.IO;
+
 import com.google.gson.JsonParser;
 
 import java.io.File;
@@ -140,13 +141,13 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
         return new IllegalStateException("Invalid Cleanroom userdev spec 1: " + field + " is required.");
     }
 
-    public record Minecraft(String version, Download client, Download server) {}
+    public record Minecraft(String version, Download client, Download server) { }
 
-    public record Download(String url, String sha1) {}
+    public record Download(String url, String sha1) { }
 
-    public record Loader(String version, String forgeVersion, String group) {}
+    public record Loader(String version, String forgeVersion, String group) { }
 
-    public record Inputs(String mcpConfig, String mappings, String initialPatches, Map<String, String> tools) {}
+    public record Inputs(String mcpConfig, String mappings, String initialPatches, Map<String, String> tools) { }
 
     public record Layout(
             String binpatches,
@@ -170,11 +171,11 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
             String sideAnnotationStrippers,
             String patches,
             String loaderSources
-    ) {}
+    ) { }
 
-    public record Runs(Run client, Run server) {}
+    public record Runs(Run client, Run server) { }
 
-    public record Run(String mainClass, String launchClass, String tweakClass, String target) {}
+    public record Run(String mainClass, String launchClass, String tweakClass, String target) { }
 
     public static UserdevConfig read(File file) {
         try {

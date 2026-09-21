@@ -11,10 +11,11 @@
 package com.cleanroommc.gradle;
 
 import org.apache.commons.codec.digest.DigestUtils;
-import org.gradle.testkit.runner.TaskOutcome;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import org.gradle.testkit.runner.TaskOutcome;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

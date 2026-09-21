@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.task.sas;
 
 import com.cleanroommc.gradle.api.util.sas.SideOnlyHandler;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFileProperty;

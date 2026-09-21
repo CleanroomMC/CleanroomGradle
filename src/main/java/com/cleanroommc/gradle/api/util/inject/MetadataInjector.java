@@ -12,6 +12,7 @@ package com.cleanroommc.gradle.api.util.inject;
 
 import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.util.IO;
+
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -53,7 +54,7 @@ import java.util.zip.ZipEntry;
  */
 public final class MetadataInjector {
 
-    public record InjectResult(int classesProcessed, int entriesCopied, int abstractMethodsRecorded) {}
+    public record InjectResult(int classesProcessed, int entriesCopied, int abstractMethodsRecorded) { }
 
     private record Entry(String name, byte[] data, boolean directory) {
 

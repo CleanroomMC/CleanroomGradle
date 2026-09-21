@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.api.util.IO;
+
 import org.gradle.testkit.runner.GradleRunner;
 import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.model.idea.IdeaProject;
@@ -213,6 +214,6 @@ final class PluginBuild {
         assertThat(output).as(() -> "configuration cache was not reused:\n" + output).contains("Reusing configuration cache");
     }
 
-    record IdeaModel(IdeaProject value, String output) {}
+    record IdeaModel(IdeaProject value, String output) { }
 
 }

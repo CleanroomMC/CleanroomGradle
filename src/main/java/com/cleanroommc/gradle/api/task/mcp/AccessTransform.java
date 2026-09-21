@@ -12,6 +12,7 @@ package com.cleanroommc.gradle.api.task.mcp;
 
 import com.cleanroommc.gradle.api.task.MavenJarExec;
 import com.cleanroommc.gradle.api.util.IO;
+
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;

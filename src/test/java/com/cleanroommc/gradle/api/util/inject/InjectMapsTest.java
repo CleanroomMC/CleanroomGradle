@@ -12,6 +12,7 @@ package com.cleanroommc.gradle.api.util.inject;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
 import org.objectweb.asm.Opcodes;
 
 import java.io.IOException;

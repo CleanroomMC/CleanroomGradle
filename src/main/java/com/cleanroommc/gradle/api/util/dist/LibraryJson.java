@@ -12,8 +12,10 @@ package com.cleanroommc.gradle.api.util.dist;
 
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+
 import org.gradle.api.GradleException;
 
 import java.io.IOException;
@@ -209,7 +211,7 @@ public final class LibraryJson {
         return new NativePlatform(os, arch);
     }
 
-    private record NativePlatform(String os, String arch) {}
+    private record NativePlatform(String os, String arch) { }
 
     /**
      * A library entry whose file the installer embeds rather than downloads.
@@ -374,6 +376,6 @@ public final class LibraryJson {
         return value.endsWith("/") ? value : value + "/";
     }
 
-    private LibraryJson() {}
+    private LibraryJson() { }
 
 }

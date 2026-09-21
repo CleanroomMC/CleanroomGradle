@@ -15,13 +15,15 @@ import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.mcp.InjectMetadata;
 import com.cleanroommc.gradle.api.task.mcp.MergeJars;
 import com.cleanroommc.gradle.api.task.mcp.SplitJar;
-import net.minecraftforge.renamer.gradle.RenameJar;
-import net.minecraftforge.renamer.gradle.RenamerExtension;
+
 import org.gradle.api.Project;
 import org.gradle.api.file.RegularFile;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskProvider;
+
+import net.minecraftforge.renamer.gradle.RenameJar;
+import net.minecraftforge.renamer.gradle.RenamerExtension;
 
 import java.util.function.Consumer;
 

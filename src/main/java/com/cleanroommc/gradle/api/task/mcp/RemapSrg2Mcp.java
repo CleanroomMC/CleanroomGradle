@@ -12,8 +12,10 @@ package com.cleanroommc.gradle.api.task.mcp;
 
 import com.cleanroommc.gradle.api.names.NamesSource;
 import com.cleanroommc.gradle.api.names.SourceRenamer;
+
 import de.siegmar.fastcsv.reader.CsvReader;
 import org.apache.commons.io.FileUtils;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.file.ConfigurableFileCollection;
@@ -25,11 +27,11 @@ import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputDirectory;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.InputFiles;
+import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
-import org.gradle.api.tasks.Optional;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;

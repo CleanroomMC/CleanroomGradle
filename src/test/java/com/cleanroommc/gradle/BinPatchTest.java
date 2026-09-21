@@ -10,8 +10,9 @@
 
 package com.cleanroommc.gradle;
 
-import org.gradle.testkit.runner.TaskOutcome;
 import org.junit.jupiter.api.Test;
+
+import org.gradle.testkit.runner.TaskOutcome;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -146,6 +147,6 @@ class BinPatchTest extends BaseFunctionalTest {
         }
     }
 
-    private record ArchiveEntry(String name, String contents) {}
+    private record ArchiveEntry(String name, String contents) { }
 
 }

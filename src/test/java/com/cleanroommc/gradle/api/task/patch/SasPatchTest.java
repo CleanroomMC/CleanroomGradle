@@ -13,14 +13,17 @@ package com.cleanroommc.gradle.api.task.patch;
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.binpatch.BinDelta;
 import com.cleanroommc.gradle.api.util.sas.SideOnlyHandler;
-import net.minecraftforge.fml.relauncher.Side;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+
+import net.minecraftforge.fml.relauncher.Side;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

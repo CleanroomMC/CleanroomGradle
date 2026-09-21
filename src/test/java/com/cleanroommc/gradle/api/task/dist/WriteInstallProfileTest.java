@@ -12,13 +12,15 @@ package com.cleanroommc.gradle.api.task.dist;
 
 import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import org.gradle.api.Project;
-import org.gradle.testfixtures.ProjectBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import org.gradle.api.Project;
+import org.gradle.testfixtures.ProjectBuilder;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

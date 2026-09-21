@@ -13,7 +13,9 @@ package com.cleanroommc.gradle.api.task.names;
 import com.cleanroommc.gradle.api.names.CsvNames;
 import com.cleanroommc.gradle.api.names.JarStructure;
 import com.cleanroommc.gradle.api.names.TinyV2;
+
 import org.apache.commons.io.FileUtils;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.file.ConfigurableFileCollection;

@@ -12,11 +12,14 @@ package com.cleanroommc.gradle.api.source;
 
 import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.util.IO;
+
 import com.google.gson.JsonObject;
+
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.ValueSource;
 import org.gradle.api.provider.ValueSourceParameters;
+
 import java.io.File;
 
 /**

@@ -16,6 +16,7 @@ import com.cleanroommc.gradle.api.task.patch.ApplyBinPatches;
 import com.cleanroommc.gradle.api.util.Execs;
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.inject.MetadataInjector;
+
 import org.gradle.api.artifacts.transform.CacheableTransform;
 import org.gradle.api.artifacts.transform.InputArtifact;
 import org.gradle.api.artifacts.transform.InputArtifactDependencies;
@@ -23,9 +24,9 @@ import org.gradle.api.artifacts.transform.TransformAction;
 import org.gradle.api.artifacts.transform.TransformOutputs;
 import org.gradle.api.artifacts.transform.TransformParameters;
 import org.gradle.api.file.ConfigurableFileCollection;
+import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.file.FileSystemLocation;
-import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Classpath;
@@ -36,7 +37,6 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.process.ExecOperations;
 
-import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -58,6 +58,7 @@ import java.util.TreeMap;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.zip.ZipFile;
+import javax.inject.Inject;
 
 @CacheableTransform
 public abstract class MaterializeUserdevClasses implements TransformAction<MaterializeUserdevClasses.Parameters> {

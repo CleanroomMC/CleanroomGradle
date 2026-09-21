@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.deobf;
 
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
+
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.artifacts.transform.CacheableTransform;
 import org.gradle.api.artifacts.transform.InputArtifact;

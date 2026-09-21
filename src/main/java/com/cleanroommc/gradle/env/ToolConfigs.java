@@ -12,10 +12,12 @@ package com.cleanroommc.gradle.env;
 
 import com.cleanroommc.gradle.api.ext.CleanroomExtension;
 import com.cleanroommc.gradle.api.util.Objects;
+
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.provider.Provider;
+
 import org.objectweb.asm.Opcodes;
 
 import java.util.LinkedHashMap;
@@ -119,6 +121,6 @@ public final class ToolConfigs {
         return version;
     }
 
-    private ToolConfigs() {}
+    private ToolConfigs() { }
 
 }

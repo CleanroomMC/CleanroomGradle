@@ -17,19 +17,20 @@ import com.cleanroommc.gradle.api.source.BundledVersionMetaValueSource;
 import com.cleanroommc.gradle.api.source.VersionMetaValueSource;
 import com.cleanroommc.gradle.api.userdev.UserdevDependency;
 import com.cleanroommc.gradle.api.util.EnumValues;
+
 import org.gradle.api.Action;
-import org.gradle.api.NamedDomainObjectContainer;
 import org.gradle.api.InvalidUserDataException;
+import org.gradle.api.NamedDomainObjectContainer;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.Provider;
 
-import javax.inject.Inject;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import javax.inject.Inject;
 
 public abstract class CleanroomExtension {
 
@@ -113,7 +114,7 @@ public abstract class CleanroomExtension {
                     spec.getParameters().getCacheFile().set(versionMetaCacheFile);
                     spec.getParameters().getVersionMetaUrl().set(url);
                     spec.getParameters().getOffline().set(offline);
-                })).orElse(providers.of(BundledVersionMetaValueSource.class, _ -> {}))
+                })).orElse(providers.of(BundledVersionMetaValueSource.class, _ -> { }))
         );
 
         this.patches.getDevelopInitial().convention(false);
@@ -177,7 +178,7 @@ public abstract class CleanroomExtension {
     }
 
     public UserdevDependency userdev(String version) {
-        return userdev(version, _ -> {});
+        return userdev(version, _ -> { });
     }
 
     public UserdevDependency userdev(String version, Action<? super UserdevDependency> action) {

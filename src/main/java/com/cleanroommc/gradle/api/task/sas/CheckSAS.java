@@ -15,9 +15,11 @@ import com.cleanroommc.gradle.api.util.sas.SideOnlyHandler;
 import com.cleanroommc.gradle.api.util.sas.SideOnlyHandler.SasLine;
 import com.cleanroommc.gradle.api.util.sas.SideOnlyHandler.Target;
 import com.cleanroommc.gradle.api.util.sas.SideOnlyHandler.TargetKind;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.file.ConfigurableFileCollection;
@@ -60,7 +62,7 @@ public abstract class CheckSAS extends DefaultTask {
 
     @TaskAction
     public void check() throws IOException {
-        Map<String, JsonObject> parsed = IO.readJson(this.getInheritance().get().getAsFile(), new TypeToken<Map<String, JsonObject>>() {}.getType());
+        Map<String, JsonObject> parsed = IO.readJson(this.getInheritance().get().getAsFile(), new TypeToken<Map<String, JsonObject>>() { }.getType());
         Map<String, JsonObject> inheritance = parsed == null ? Map.of() : parsed;
 
         var sourceFiles = this.getSideAnnotationStrippers().getFiles().stream().map(File::toPath).toList();

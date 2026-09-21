@@ -62,6 +62,6 @@ public final class SourceSets {
         return sourceSet.map(SourceSet::getOutput).map(SourceSetOutput::getClassesDirs).map(FileCollection::getSingleFile);
     }
 
-    private SourceSets() {}
+    private SourceSets() { }
 
 }

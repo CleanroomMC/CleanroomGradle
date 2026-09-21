@@ -11,11 +11,13 @@
 package com.cleanroommc.gradle.api.util;
 
 import com.cleanroommc.gradle.api.schema.VersionMeta;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import net.minecraftforge.fml.relauncher.Side;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
+
+import net.minecraftforge.fml.relauncher.Side;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -303,6 +305,6 @@ public final class IO {
         return runDir;
     }
 
-    private IO() {}
+    private IO() { }
 
 }

@@ -24,9 +24,9 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.process.ExecOperations;
 
-import javax.inject.Inject;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import javax.inject.Inject;
 
 @CacheableTransform
 public abstract class MaterializeUserdevSources implements TransformAction<MaterializeUserdevSources.Parameters> {

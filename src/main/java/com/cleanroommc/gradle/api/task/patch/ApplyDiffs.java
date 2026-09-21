@@ -11,10 +11,12 @@
 package com.cleanroommc.gradle.api.task.patch;
 
 import com.cleanroommc.gradle.api.util.IO;
+
 import com.github.difflib.DiffUtils;
 import com.github.difflib.UnifiedDiffUtils;
 import com.google.gson.JsonObject;
 import org.apache.commons.io.FileUtils;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.file.DirectoryProperty;
@@ -32,7 +34,6 @@ import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.work.DisableCachingByDefault;
 
-import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -43,6 +44,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import javax.inject.Inject;
 
 @DisableCachingByDefault(because = "Can modify the original source tree in place")
 public abstract class ApplyDiffs extends DefaultTask {

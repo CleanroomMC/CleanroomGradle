@@ -10,10 +10,11 @@
 
 package com.cleanroommc.gradle.api.util.dist;
 
-import org.gradle.api.GradleException;
-import org.gradle.testfixtures.ProjectBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import org.gradle.api.GradleException;
+import org.gradle.testfixtures.ProjectBuilder;
 
 import java.io.IOException;
 import java.nio.file.Files;

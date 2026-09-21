@@ -15,9 +15,9 @@ import org.gradle.api.Named;
 import org.gradle.api.Task;
 import org.gradle.api.provider.Property;
 
-import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
+import javax.inject.Inject;
 
 public abstract class RunConfiguration implements Named {
 

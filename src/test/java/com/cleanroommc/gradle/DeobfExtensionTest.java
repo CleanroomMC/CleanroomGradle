@@ -11,14 +11,17 @@
 package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+
+import org.gradle.tooling.model.idea.IdeaSingleEntryLibraryDependency;
+
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
-import org.gradle.tooling.model.idea.IdeaSingleEntryLibraryDependency;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

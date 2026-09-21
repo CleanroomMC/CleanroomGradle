@@ -16,10 +16,12 @@ import com.cleanroommc.gradle.api.util.dist.Coordinate;
 import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.file.DirectoryProperty;
@@ -42,8 +44,6 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.TaskAction;
 
-import javax.inject.Inject;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -58,6 +58,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import javax.inject.Inject;
 
 /**
  * Writes the two JSON documents a Cleanroom installer jar carries.

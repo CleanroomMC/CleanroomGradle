@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.util;
 
 import com.cleanroommc.gradle.api.schema.VersionMeta;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.junit.jupiter.api.Test;
