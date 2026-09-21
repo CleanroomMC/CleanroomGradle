@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.17.1 - 2026-09-21
+
+## Bug Fix
+
+- Pass lwjgl natives to runtime test classpath *[commit by [@Rongmario](https://github.com/Rongmario) in [39be2f8](https://github.com/CleanroomMC/CleanroomGradle/commit/39be2f87fff8c95b109dd43ce057c8785f946080)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.17.0...0.17.1
+
 ## 0.17.0 - 2026-09-21
 
 ## Feature
