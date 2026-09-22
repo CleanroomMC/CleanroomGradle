@@ -250,13 +250,13 @@ public final class LibraryJson {
 
     /**
      * A library both MultiMC and Prism take from the instance's own {@code libraries/} folder instead of downloading.
-     * The launcher matches it by bare file name, and never issues a download for it, so the entry carries no url.
      *
      * @param artifact the artifact the entry describes
      */
     public static JsonObject localLibrary(Artifact artifact) {
         var download = new JsonObject();
         download.addProperty("path", artifact.coordinate().mavenPath());
+        download.addProperty("url", "");
         download.addProperty("sha1", IO.sha1(artifact.path()));
         download.addProperty("size", size(artifact.path()));
 
