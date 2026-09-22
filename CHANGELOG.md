@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.17.2 - 2026-09-22
+
+## Feature
+
+- Embed the universal jar in the mmc pack unless the build uploads it *[commit by [@Rongmario](https://github.com/Rongmario) in [76357d4](https://github.com/CleanroomMC/CleanroomGradle/commit/76357d465ad0edd61311258b2e52b98979f938df)]*
+- Carry project, included build and file dependencies in distributions *[commit by [@Rongmario](https://github.com/Rongmario) in [a922f67](https://github.com/CleanroomMC/CleanroomGradle/commit/a922f67579e1f610e0a4b29e634a1fd0e6642467)]*
+
+## Bug Fix
+
+- Local dependencies still need url member in mmc patches *[commit by [@Rongmario](https://github.com/Rongmario) in [c330f8d](https://github.com/CleanroomMC/CleanroomGradle/commit/c330f8da949b98d6ba520f4097baa66b4bfa2396)]*
+
+## Testing
+
+- Keep the jdk 28 toolchain test from resolving a compiler *[commit by [@Rongmario](https://github.com/Rongmario) in [df5243e](https://github.com/CleanroomMC/CleanroomGradle/commit/df5243ed094441de80f29e03d7c7e9cc8b04cad3)]*
+- Expect url member on local mmc libraries *[commit by [@Rongmario](https://github.com/Rongmario) in [b59321f](https://github.com/CleanroomMC/CleanroomGradle/commit/b59321f3314f29dd7ff66667bb4bad0216f58d99)]*
+- Consolidate and trim redundant tests *[commit by [@Rongmario](https://github.com/Rongmario) in [7b61a65](https://github.com/CleanroomMC/CleanroomGradle/commit/7b61a65eca159fafffc7d278bf40c3836e85e5c7)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.17.1...0.17.2
+
 ## 0.17.1 - 2026-09-21
 
 ## Bug Fix
