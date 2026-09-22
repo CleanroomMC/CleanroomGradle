@@ -128,7 +128,6 @@ class ProjectModeTest extends BaseFunctionalTest {
         );
 
         this.project.runner("help").build();
-        PluginBuild.notScheduled(this.project.runner("runCleanroomClient", "--dry-run").build().getOutput(), "writeUserdevConfig");
     }
 
     @Test
@@ -156,6 +155,7 @@ class ProjectModeTest extends BaseFunctionalTest {
         PluginBuild.notScheduled(server, "downloadAssets");
 
         this.project.loader("");
+        PluginBuild.notScheduled(this.project.runner("runCleanroomClient", "--dry-run").build().getOutput(), "writeUserdevConfig");
         var missing = this.project.runner("runMcpClient", "--dry-run").buildAndFail().getOutput();
         assertThat(missing).as(missing).contains("Task 'runMcpClient' not found");
     }
