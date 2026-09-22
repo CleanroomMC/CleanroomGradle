@@ -23,64 +23,54 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LaunchArgumentsTest {
 
     private static final Platform LINUX = new Platform(Platform.OperatingSystem.LINUX, Platform.Architecture.X64);
+    private static final Platform WINDOWS = new Platform(Platform.OperatingSystem.WINDOWS, Platform.Architecture.X64);
 
     @Test
     void legacyTemplateIsSplitAndSubstituted() {
-        var meta = meta(null, "--username ${auth_player_name} --version ${version_name}  --tweakClass");
-        var warnings = new ArrayList<String>();
-        var rendered = new LaunchArguments(meta, Map.of("auth_player_name", "Steve", "version_name", "1.12.2"), LINUX, warnings::add).gameArguments();
-        assertThat(rendered).isEqualTo(List.of("--username", "Steve", "--version", "1.12.2", "--tweakClass"));
-        assertThat(warnings).isEmpty();
-        assertThat(new LaunchArguments(meta, Map.of(), LINUX, warnings::add).hasGameArguments()).isTrue();
+        var meta = meta(null, "--username ${auth_player_name}  --tweakClass");
+
+        assertThat(new LaunchArguments(meta, Map.of("auth_player_name", "Steve"), LINUX, warning -> { }).gameArguments()).containsExactly(
+                "--username",
+                "Steve",
+                "--tweakClass"
+        );
     }
 
     @Test
-    void emptyMetaHasNoGameArguments() {
-        var meta = meta(null, null);
-        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> { }).gameArguments()).isEqualTo(List.of());
-        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> { }).jvmArguments()).isEqualTo(List.of());
-        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> { }).hasGameArguments()).isFalse();
+    void rulesKeepTheLastMatchAndFeaturesVeto() {
+        var windowsOnly = new VersionMeta.Argument(List.of(rule("allow", "windows", null), rule("disallow", "osx", null)), List.of("--windows"));
+        var demoOnly = new VersionMeta.Argument(List.of(rule("allow", null, Map.of("is_demo_user", true))), List.of("--demo"));
+        var meta = meta(new VersionMeta.Arguments(List.of(windowsOnly, demoOnly), List.of()), null);
+
+        assertThat(new LaunchArguments(meta, Map.of(), WINDOWS, warning -> { }).gameArguments()).containsExactly("--windows");
+        assertThat(new LaunchArguments(meta, Map.of(), LINUX, warning -> { }).gameArguments()).isEmpty();
     }
 
     @Test
-    void modernRulesKeepLastMatchingRule() {
-        var windowsOnly = argument(List.of(rule("allow", "windows", null), rule("disallow", "osx", null)), List.of("--demo"));
-        var meta = meta(new VersionMeta.Arguments(List.of(windowsOnly), List.of()), null);
-        var windows = new Platform(Platform.OperatingSystem.WINDOWS, Platform.Architecture.X64);
-        assertThat(new LaunchArguments(meta, Map.of(), windows, ignored -> { }).gameArguments()).isEqualTo(List.of("--demo"));
-        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> { }).gameArguments()).isEqualTo(List.of());
-    }
-
-    @Test
-    void featuresVetoAnOtherwiseMatchingRule() {
-        var gated = argument(List.of(rule("allow", null, Map.of("is_demo_user", true))), List.of("--gated"));
-        var meta = meta(new VersionMeta.Arguments(List.of(gated), List.of()), null);
-        assertThat(new LaunchArguments(meta, Map.of(), LINUX, ignored -> { }).gameArguments()).isEqualTo(List.of());
-    }
-
-    @Test
-    void jvmSkipsClasspathAndNativesButKeepsBranding() {
+    void jvmArgumentsDropWhatTheRunSuppliesItself() {
         var jvm = List.of(
-                argument(null, List.of("-Djava.library.path=${natives_directory}")),
-                argument(null, List.of("-cp")),
-                argument(null, List.of("${classpath}")),
-                argument(null, List.of("-Dminecraft.launcher.brand=${launcher_name}")),
-                argument(null, List.of("--class-path")),
-                argument(null, List.of("-Xmx2G"))
+                argument("-Djava.library.path=${natives_directory}"),
+                argument("-cp"),
+                argument("${classpath}"),
+                argument("--class-path"),
+                argument("-Dminecraft.launcher.brand=${launcher_name}"),
+                argument("-Xmx2G")
         );
         var meta = meta(new VersionMeta.Arguments(List.of(), jvm), null);
-        var rendered = new LaunchArguments(meta, Map.of("launcher_name", "cleanroom"), LINUX, ignored -> { }).jvmArguments();
-        assertThat(rendered).isEqualTo(List.of("-Dminecraft.launcher.brand=cleanroom", "-Xmx2G"));
+
+        assertThat(new LaunchArguments(meta, Map.of("launcher_name", "cleanroom"), LINUX, warning -> { }).jvmArguments()).containsExactly(
+                "-Dminecraft.launcher.brand=cleanroom",
+                "-Xmx2G"
+        );
     }
 
     @Test
     void unknownPlaceholderWarnsOnceAndBecomesEmpty() {
-        var meta = meta(new VersionMeta.Arguments(List.of(argument(null, List.of("--a=${missing}", "--b=${missing}"))), List.of()), null);
+        var meta = meta(new VersionMeta.Arguments(List.of(new VersionMeta.Argument(null, List.of("--a=${missing}", "--b=${missing}"))), List.of()), null);
         var warnings = new ArrayList<String>();
-        var rendered = new LaunchArguments(meta, Map.of(), LINUX, warnings::add).gameArguments();
-        assertThat(rendered).isEqualTo(List.of("--a=", "--b="));
-        assertThat(warnings.size()).isEqualTo(1);
-        assertThat(warnings.getFirst()).contains("${missing}");
+
+        assertThat(new LaunchArguments(meta, Map.of(), LINUX, warnings::add).gameArguments()).containsExactly("--a=", "--b=");
+        assertThat(warnings).singleElement().asString().contains("${missing}");
     }
 
     private static VersionMeta meta(VersionMeta.Arguments arguments, String minecraftArguments) {
@@ -103,8 +93,8 @@ class LaunchArgumentsTest {
         );
     }
 
-    private static VersionMeta.Argument argument(List<VersionMeta.ArgRule> rules, List<String> values) {
-        return new VersionMeta.Argument(rules, values);
+    private static VersionMeta.Argument argument(String value) {
+        return new VersionMeta.Argument(null, List.of(value));
     }
 
     private static VersionMeta.ArgRule rule(String action, String os, Map<String, Boolean> features) {

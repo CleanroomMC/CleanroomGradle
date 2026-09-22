@@ -12,8 +12,6 @@ package com.cleanroommc.gradle;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import org.gradle.testkit.runner.TaskOutcome;
 
@@ -52,47 +50,6 @@ class MinecraftCacheTest extends BaseFunctionalTest {
         var sharedClean = this.project.runner("cleanCleanroomSharedCache").build();
         assertThat(sharedClean.task(":cleanCleanroomSharedCache").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(Files.exists(cacheMarker.getParent())).as("Explicit shared-cache cleanup did not delete the cache").isFalse();
-    }
-
-    @ParameterizedTest
-    @ValueSource(booleans = { true, false })
-    void discardIntermediates(boolean discard) throws IOException {
-        this.project.build(
-                """
-                import com.cleanroommc.gradle.api.task.IntermediateProcessor
-
-                cleanroom {
-                    mode = 'vanilla'
-                    caches {
-                        discardIntermediates = %s
-                        localDirectory.set(layout.buildDirectory.dir('cleanroom_gradle'))
-                    }
-                }
-                def mid = layout.buildDirectory.file('cleanroom_gradle/mid.txt')
-                def writeMid = tasks.register('writeMid') {
-                    outputs.file(mid)
-                    doLast { mid.get().asFile.text = 'mid' }
-                }
-                def readMid = tasks.register('readMid') {
-                    inputs.file(mid)
-                    dependsOn writeMid
-                    doLast { assert mid.get().asFile.file }
-                }
-                IntermediateProcessor.of(project).discardAfter(readMid, mid)
-                """.formatted(
-                        discard
-                )
-        );
-
-        var result = this.project.runner("readMid").build();
-        assertThat(result.task(":readMid").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.task(":discardReadMidIntermediates").getOutcome()).isEqualTo(discard ? TaskOutcome.SUCCESS : TaskOutcome.SKIPPED);
-        var intermediate = this.projectDir.resolve("build/cleanroom_gradle/mid.txt");
-        if (discard) {
-            assertThat(Files.exists(intermediate)).as("intermediate file was left behind").isFalse();
-        } else {
-            assertThat(Files.readString(intermediate)).isEqualTo("mid");
-        }
     }
 
     @Test

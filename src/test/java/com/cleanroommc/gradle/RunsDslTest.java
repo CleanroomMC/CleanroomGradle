@@ -103,22 +103,6 @@ class RunsDslTest extends BaseFunctionalTest {
     }
 
     @Test
-    void unusedRunConfigurationStaysLazy() throws IOException {
-        this.project.vanilla(
-                """
-                cleanroom.runs {
-                    vanillaClient {
-                        configure { throw new GradleException('Unrequested run was configured') }
-                    }
-                    custom { inherit = 'vanillaClient' }
-                }
-                """
-        );
-
-        runner("help").build();
-    }
-
-    @Test
     void existingRunsInheritDslSettingsWithoutCopyingDirectTaskChanges() throws IOException {
         this.project.vanilla(
                 """

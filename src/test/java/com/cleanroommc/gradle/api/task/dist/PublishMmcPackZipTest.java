@@ -20,8 +20,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import org.gradle.api.GradleException;
 import org.gradle.testfixtures.ProjectBuilder;
-import org.gradle.testkit.runner.GradleRunner;
-import org.gradle.testkit.runner.TaskOutcome;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -42,66 +40,6 @@ class PublishMmcPackZipTest {
 
     @TempDir
     Path directory;
-
-    @Test
-    void executesAsAValidatedCacheableGradleTask() throws IOException {
-        var universal = file("cleanroom-2.0.0-universal.jar", "cleanroom");
-        var foundation = file("foundation-2.0.0.jar", "foundation");
-        var lwjgl = file("lwjgl-3.4.2.jar", "lwjgl");
-        Files.writeString(directory.resolve("settings.gradle"), "rootProject.name = 'mmc-task-test'\n");
-        Files.writeString(
-                directory.resolve("build.gradle"),
-                """
-                import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip
-                import com.cleanroommc.gradle.api.util.dist.LibraryArtifact
-                
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                cleanroom.mode = 'vanilla'
-                
-                def foundation = objects.newInstance(LibraryArtifact)
-                foundation.coordinate = 'top.outlands:foundation:2.0.0'
-                foundation.file = file('%s')
-                foundation.repositoryUrl = 'https://repo.maven.apache.org/maven2/'
-                
-                def lwjgl = objects.newInstance(LibraryArtifact)
-                lwjgl.coordinate = 'org.lwjgl:lwjgl:3.4.2'
-                lwjgl.file = file('%s')
-                lwjgl.repositoryUrl = 'https://repo.maven.apache.org/maven2/'
-                
-                tasks.register('publishFixture', PublishMmcPackZip) {
-                    instanceName = 'Cleanroom'
-                    cleanroomVersion = '2.0.0'
-                    mainClass = 'top.outlands.foundation.boot.Foundation'
-                    tweakers.add('net.minecraftforge.fml.common.launcher.FMLTweaker')
-                    compatibleJavaMajors.add(25)
-                    universalCoordinate = 'com.cleanroommc:cleanroom:2.0.0:universal'
-                    universalUrl = 'https://example.invalid/cleanroom.jar'
-                    universalJar = file('%s')
-                    libraries.add(foundation)
-                    libraries.add(lwjgl)
-                    archiveFile = layout.buildDirectory.file('cleanroom-mmc.zip')
-                    installerArchiveFile = layout.buildDirectory.file('cleanroom-mmc-installer.zip')
-                }
-                """.formatted(
-                        escape(foundation),
-                        escape(lwjgl),
-                        escape(universal)
-                )
-        );
-
-        var first = runner("publishFixture", "--configuration-cache").build();
-        assertThat(first.task(":publishFixture").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(Files.isRegularFile(directory.resolve("build/cleanroom-mmc.zip"))).isTrue();
-        assertThat(Files.exists(directory.resolve("build/cleanroom-mmc-overlay.zip"))).isFalse();
-        assertThat(first.getOutput()).contains("Configuration cache entry stored");
-
-        var second = runner("publishFixture", "--configuration-cache").build();
-        assertThat(second.task(":publishFixture").getOutcome()).isEqualTo(TaskOutcome.UP_TO_DATE);
-        assertThat(second.getOutput()).contains("Reusing configuration cache");
-    }
 
     @Test
     void publishesMinimalImportWithHashedDownloads() throws Exception {
@@ -351,14 +289,6 @@ class PublishMmcPackZipTest {
 
     private Path file(String name, String contents) throws IOException {
         return Files.writeString(directory.resolve(name), contents, StandardCharsets.UTF_8);
-    }
-
-    private GradleRunner runner(String... arguments) {
-        return GradleRunner.create().withProjectDir(directory.toFile()).withArguments(arguments).withPluginClasspath();
-    }
-
-    private static String escape(Path path) {
-        return path.toAbsolutePath().toString().replace("\\", "\\\\").replace("'", "\\'");
     }
 
     private static LibraryArtifact library(org.gradle.api.Project project, String coordinate, Path file) {

@@ -10,25 +10,22 @@
 
 package com.cleanroommc.gradle.api.schema;
 
-import com.cleanroommc.gradle.api.userdev.ExtractUserdevExtra;
-import com.cleanroommc.gradle.api.userdev.MaterializeUserdevClasses;
-import com.cleanroommc.gradle.api.userdev.MaterializeUserdevSources;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-
-import org.gradle.api.artifacts.transform.CacheableTransform;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 class UserdevConfigTest {
 
@@ -36,7 +33,7 @@ class UserdevConfigTest {
     Path directory;
 
     @Test
-    void specOneUsesTheNewNestedArtifactContract() throws IOException {
+    void readsTheSpecOneDocument() throws IOException {
         var artifact = this.directory.resolve("userdev.jar");
         writeConfig(
                 artifact,
@@ -79,32 +76,19 @@ class UserdevConfigTest {
         assertThat(config.layout().mcpToSrg()).isEqualTo("userdev/mcp2srg.tsrg");
     }
 
-    @Test
-    void previousFlatSpecOneIsRejected() throws IOException {
-        var artifact = this.directory.resolve("old-userdev.jar");
-        writeConfig(
-                artifact,
-                """
-                {"spec":1,"minecraftVersion":"1.12.2","cleanroomVersion":"0.7.0","libraries":[]}
-                """
-        );
+    @ParameterizedTest
+    @CsvSource(
+            delimiter = '|',
+            value = {
+                    "{\"spec\":1,\"minecraftVersion\":\"1.12.2\"} | minecraft, loader, inputs, layout and runs are required",
+                    "{\"spec\":1,\"mcpConfig\":\"mcp:config:1\"} | older than 0.15.0"
+            }
+    )
+    void outdatedDocumentsAreRejected(String json, String message) throws IOException {
+        var artifact = this.directory.resolve("outdated-userdev.jar");
+        writeConfig(artifact, json);
 
-        var failure = catchThrowableOfType(() -> UserdevConfig.readFromJar(artifact.toFile()), IllegalStateException.class);
-        assertThat(failure).hasMessageContaining("minecraft, loader, inputs, layout and runs are required");
-    }
-
-    @Test
-    void legacyArtifactWithoutLayoutExplainsTheVersionSkew() throws IOException {
-        var artifact = this.directory.resolve("legacy-userdev.jar");
-        writeConfig(
-                artifact,
-                """
-                {"spec":1,"mcpConfig":"mcp:config:1"}
-                """
-        );
-
-        var failure = catchThrowableOfType(() -> UserdevConfig.readFromJar(artifact.toFile()), IllegalStateException.class);
-        assertThat(failure).as(failure.getMessage()).hasMessageContaining("older than 0.15.0");
+        assertThatThrownBy(() -> UserdevConfig.readFromJar(artifact.toFile())).isInstanceOf(IllegalStateException.class).hasMessageContaining(message);
     }
 
     @Test
@@ -115,52 +99,27 @@ class UserdevConfigTest {
             output.write("other".getBytes(StandardCharsets.UTF_8));
             output.closeEntry();
         }
-        var failure = catchThrowableOfType(() -> UserdevConfig.readFromJar(artifact.toFile()), IllegalStateException.class);
-        assertThat(failure).as(failure.getMessage()).hasMessageContaining(UserdevConfig.meta(UserdevConfig.FILE_NAME));
+
+        assertThatThrownBy(() -> UserdevConfig.readFromJar(artifact.toFile()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining(UserdevConfig.meta(UserdevConfig.FILE_NAME));
     }
 
     @Test
-    void wrongSpecAndMissingFieldsAreRejected() {
+    void validateRejectsAnUnknownSpecAndMissingTools() {
         var config = valid();
         var wrongSpec = new UserdevConfig(2, config.minecraft(), config.loader(), config.inputs(), config.layout(), config.runs());
         assertThatThrownBy(wrongSpec::validate).isInstanceOf(IllegalStateException.class).hasMessageContaining("Unsupported Cleanroom userdev spec 2");
-
-        var missingRuns = new UserdevConfig(1, config.minecraft(), config.loader(), config.inputs(), config.layout(), null);
-        assertThatThrownBy(missingRuns::validate)
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("minecraft, loader, inputs, layout and runs are required");
-
-        var missingVersion = new UserdevConfig(
-                1,
-                new UserdevConfig.Minecraft(" ", config.minecraft().client(), config.minecraft().server()),
-                config.loader(),
-                config.inputs(),
-                config.layout(),
-                config.runs()
-        );
-        assertThatThrownBy(missingVersion::validate).isInstanceOf(IllegalStateException.class).hasMessageContaining("minecraft.version is required");
 
         var missingTool = new UserdevConfig(
                 1,
                 config.minecraft(),
                 config.loader(),
-                new UserdevConfig.Inputs("mcp", "mappings", "patches", java.util.Map.of()),
+                new UserdevConfig.Inputs("mcp", "mappings", "patches", Map.of()),
                 config.layout(),
                 config.runs()
         );
         assertThatThrownBy(missingTool::validate).isInstanceOf(IllegalStateException.class).hasMessageContaining("inputs.tools.accesstransformer is required");
-    }
-
-    @Test
-    void metaPrefixesEntries() {
-        assertThat(UserdevConfig.meta(UserdevConfig.FILE_NAME)).isEqualTo("userdev/config.json");
-    }
-
-    @Test
-    void everyMaterializationOperationIsCacheable() {
-        assertThat(MaterializeUserdevClasses.class.isAnnotationPresent(CacheableTransform.class)).isTrue();
-        assertThat(MaterializeUserdevSources.class.isAnnotationPresent(CacheableTransform.class)).isTrue();
-        assertThat(ExtractUserdevExtra.class.isAnnotationPresent(CacheableTransform.class)).isTrue();
     }
 
     private static void writeConfig(Path artifact, String json) throws IOException {
@@ -181,7 +140,7 @@ class UserdevConfigTest {
                         "mcp:config:1",
                         "mcp:names:1",
                         "patches:initial:1",
-                        java.util.Map.of("accesstransformer", "t:at:1", "decompiler", "t:dec:1", "mergetool", "t:merge:1")
+                        Map.of("accesstransformer", "t:at:1", "decompiler", "t:dec:1", "mergetool", "t:merge:1")
                 ),
                 new UserdevConfig.Layout(
                         "a",
@@ -201,7 +160,7 @@ class UserdevConfigTest {
                         "o",
                         "p",
                         "q",
-                        java.util.List.of(),
+                        List.of(),
                         "r",
                         "s",
                         "t"

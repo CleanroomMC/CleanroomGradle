@@ -48,21 +48,12 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
         assertThat(entries(file(output, "CLASSES"))).isEqualTo(
                 List.of("com/cleanroommc/Loader.class", "net/minecraft/Block.class", "net/minecraft/Patched.class")
         );
-        assertThat(entries(file(output, "SOURCES"))).as(() -> entries(file(output, "SOURCES")).toString()).contains("net/minecraft/Block.java");
         assertThat(entries(file(output, "CLIENT_EXTRA"))).isEqualTo(List.of("assets/pack.mcmeta"));
         assertThat(entries(file(output, "SERVER_EXTRA"))).isEqualTo(List.of("assets/server.txt"));
         assertThat(read(file(output, "SOURCES"), "decompiler-classpath.txt")).contains("fixture-library-1.jar");
-    }
-
-    @Test
-    void appliesTheArtifactsOwnSourcePatches() throws IOException {
-        UserdevFixture.seed(this.projectDir, "1.1.0");
-        buildScript("1.1.0", "");
-
-        var sources = file(resolve("1.1.0"), "SOURCES");
-
-        assertThat(read(sources, "net/minecraft/Block.java")).isEqualTo("class Block {\n    // patched by the artifact\n}\n");
-        assertThat(read(sources, "com/cleanroommc/Loader.java")).isEqualTo("package com.cleanroommc;\n");
+        assertThat(read(file(output, "SOURCES"), "net/minecraft/Block.java")).as("the artifact's own source patch").isEqualTo(
+                "class Block {\n    // patched by the artifact\n}\n"
+        );
     }
 
     /**

@@ -39,18 +39,6 @@ class WriteInstallProfileTest {
     Path directory;
 
     @Test
-    void installerProfileUsesTheVersionMetadataMinecraftId() throws Exception {
-        var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
-        var task = task(project);
-        task.getUniversalJar().fileValue(file("cleanroom-1.0.0-universal.jar", "cleanroom").toFile());
-        task.getVersionMeta().set(versionMetaWithId("1.12.2-custom", "--username ${auth_player_name}"));
-
-        task.write();
-
-        assertThat(json(task.getInstallProfile().get().getAsFile().toPath()).get("minecraft").getAsString()).isEqualTo("1.12.2-custom");
-    }
-
-    @Test
     void writesResolvedGraphWithPlatformNativeMetadata() throws Exception {
         var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
         var task = task(project);
@@ -84,7 +72,8 @@ class WriteInstallProfileTest {
         task.getNativeLibraries().add(library(project, "net.java.jinput:jinput-platform:2.0.5:natives-windows", jinputWindows));
         task.getVersionMeta()
                 .set(
-                        versionMeta(
+                        versionMetaWithId(
+                                "1.12.2-custom",
                                 "--username ${auth_player_name} --versionType ${version_type}",
                                 "com.google.guava:guava:21.0",
                                 "com.mojang:patchy:1.3.9",
@@ -101,6 +90,7 @@ class WriteInstallProfileTest {
 
         task.write();
 
+        assertThat(json(task.getInstallProfile().get().getAsFile().toPath()).get("minecraft").getAsString()).isEqualTo("1.12.2-custom");
         var version = json(task.getVersionJson().get().getAsFile().toPath());
         var libraries = version.getAsJsonArray("libraries");
         var names = names(libraries);

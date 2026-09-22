@@ -121,14 +121,6 @@ final class PluginBuild {
         );
     }
 
-    /**
-     * A userdev artifact carrying just enough metadata for a workspace to configure against. The pipeline
-     * inputs a workspace resolves come out of this file, so any test in userdev mode needs one.
-     */
-    static void writeUserdevJar(Path jar, String version) throws IOException {
-        UserdevFixture.writeArtifact(jar, version, new UserdevFixture.Spec(), "client", "server");
-    }
-
     /** The spec 1 document the artifact carries, which every consumer reads its layout from. */
     static String userdevConfigJson(String version) {
         return UserdevFixture.config(version, "client", "server");

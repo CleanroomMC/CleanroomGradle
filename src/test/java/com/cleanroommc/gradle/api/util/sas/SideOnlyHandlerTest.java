@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -160,6 +161,35 @@ class SideOnlyHandlerTest {
         assertThatThrownBy(() -> SideOnlyHandler.strip(input, directory.resolve("out.jar"), Side.SERVER, true, List.of("net/minecraft/"))).isInstanceOf(
                 IllegalStateException.class
         );
+    }
+
+    @Test
+    void parsesSasLines() {
+        assertThat(SideOnlyHandler.parseLine("\t# comment only")).isNull();
+        assertThat(SideOnlyHandler.parseLine("net.minecraft.Block # a block")).isEqualTo(
+                new SideOnlyHandler.SasLine(new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.CLASS, "net/minecraft/Block", "", ""), "a block", false)
+        );
+        assertThat(SideOnlyHandler.parseLine("\tnet.minecraft.Block field_1_a").target()).isEqualTo(
+                new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.FIELD, "net/minecraft/Block", "field_1_a", "")
+        );
+        assertThat(SideOnlyHandler.parseLine("net.minecraft.Block func_1_a ()V").target()).isEqualTo(
+                new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.METHOD, "net/minecraft/Block", "func_1_a", "()V")
+        );
+        assertThatThrownBy(() -> SideOnlyHandler.parseLine("net.minecraft.Block field one")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> SideOnlyHandler.parseLine("net.minecraft.Block ()V")).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void applySasStripsTargetsAndFailsOnUnresolvedOnes() throws Exception {
+        var input = directory.resolve("in.jar");
+        writeJar(input, Map.of("demo/Host.class", hostWithSideOnlyFactory("demo/Host", "demo/Host$1", Side.CLIENT)));
+        var factory = new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.METHOD, "demo/Host", "factory", "()V");
+        var missing = new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.METHOD, "demo/Host", "missing", "()V");
+
+        assertThat(SideOnlyHandler.applySas(input, directory.resolve("out.jar"), Set.of(factory)).annotationsRemoved()).isEqualTo(1);
+        assertThatThrownBy(() -> SideOnlyHandler.applySas(input, directory.resolve("missing.jar"), Set.of(missing)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("did not resolve");
     }
 
     private static byte[] outerWithNest(String owner, String inner) {

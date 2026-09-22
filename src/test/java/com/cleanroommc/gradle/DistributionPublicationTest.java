@@ -77,55 +77,15 @@ class DistributionPublicationTest extends BaseFunctionalTest {
     }
 
     /**
-     * A workspace resolves Minecraft's libraries and only its own machine's natives out of this metadata,
-     * and every role reads the one raw archive rather than a classified copy of it.
+     * A workspace resolves Minecraft's libraries and only its own machine's natives out of this metadata.
+     * Every role reads the one raw archive rather than a classified copy of it, and each native classifier
+     * is its own attributed variant so a consumer resolves one platform's rather than all.
      */
     @Test
     void userdevVariantsCarryLibrariesAndPerPlatformNatives() throws IOException {
-        this.project.loader(
-                """
-                group = 'com.cleanroommc'
-                version = '0.1.0'
-                gradle.projectsEvaluated {
-                    def roles = ['ApiElements', 'RuntimeElements', 'SourcesElements',
-                                 'ClientExtraElements', 'ServerExtraElements']
-                    def files = roles.collect { role ->
-                        def artifacts = configurations.getByName('cleanroomUserdev' + role).outgoing.artifacts
-                        assert artifacts.size() == 1 : role
-                        def artifact = artifacts.iterator().next()
-                        assert !artifact.classifier : role + ' publishes a second copy of the raw jar'
-                        artifact.file
-                    } as Set
-                    assert files.size() == 1 : files
-
-                    ['ApiElements', 'RuntimeElements'].each { role ->
-                        assert configurations.getByName('cleanroomUserdev' + role).extendsFrom
-                                .any { it.name == 'cleanroomUserdevMinecraftLibraries' } : role
-                    }
-                    assert configurations.cleanroomUserdevSourcesElements.extendsFrom
-                            .any { it.name == 'cleanroomUserdevMinecraftLibraries' }
-                    // 1.12.2's manifest, minus the LWJGL 2 modules the distribution replaces
-                    def libraries = configurations.cleanroomUserdevMinecraftLibraries.allDependencies
-                    assert libraries.any { it.group == 'com.mojang' && it.name == 'authlib' } : libraries
-                    assert libraries.every { it.group != 'org.lwjgl.lwjgl' } : libraries
-                }
-                """
-        );
-
-        var output = this.project.plainRunner("help", "--offline").build().getOutput();
-        assertThat(output).as(output).contains("BUILD SUCCESSFUL");
-    }
-
-    /**
-     * Each native classifier is its own variant, so a consumer resolves one platform's rather than all.
-     */
-    @Test
-    void everyNativeClassifierIsItsOwnAttributedVariant() throws IOException {
-        var checks = Platform.nativePlatforms()
+        var natives = Platform.nativePlatforms()
                 .stream()
-                .map(platform -> """
-                        assertVariant('%s', '%s', '%s')
-                """.formatted(
+                .map(platform -> "assertNatives('%s', '%s', '%s')\n".formatted(
                         capitalized(platform.lwjglNativesClassifier()),
                         platform.operatingSystemFamily(),
                         platform.machineArchitecture()
@@ -135,24 +95,37 @@ class DistributionPublicationTest extends BaseFunctionalTest {
                 """
                 import org.gradle.nativeplatform.MachineArchitecture
                 import org.gradle.nativeplatform.OperatingSystemFamily
-
                 group = 'com.cleanroommc'
                 version = '0.1.0'
-                ext.assertVariant = { suffix, os, architecture ->
+                ext.assertNatives = { suffix, os, architecture ->
                     def variant = configurations.getByName('cleanroomUserdev' + suffix + 'Elements')
                     assert variant.attributes.getAttribute(OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE).name == os
                     assert variant.attributes.getAttribute(MachineArchitecture.ARCHITECTURE_ATTRIBUTE).name == architecture
                     assert variant.outgoing.artifacts.isEmpty() : suffix + ' should carry dependencies only'
                 }
                 gradle.projectsEvaluated {
-                """ +
-                        checks + """
+                    def roles = ['ApiElements', 'RuntimeElements', 'SourcesElements', 'ClientExtraElements', 'ServerExtraElements']
+                    def files = roles.collect { role ->
+                        def artifacts = configurations.getByName('cleanroomUserdev' + role).outgoing.artifacts
+                        assert artifacts.size() == 1 : role
+                        assert !artifacts.first().classifier : role + ' publishes a second copy of the raw jar'
+                        artifacts.first().file
+                    } as Set
+                    assert files.size() == 1 : files
+                    ['ApiElements', 'RuntimeElements', 'SourcesElements'].each { role ->
+                        assert configurations.getByName('cleanroomUserdev' + role).extendsFrom
+                                .any { it.name == 'cleanroomUserdevMinecraftLibraries' } : role
+                    }
+                    // 1.12.2's manifest, minus the LWJGL 2 modules the distribution replaces
+                    def libraries = configurations.cleanroomUserdevMinecraftLibraries.allDependencies
+                    assert libraries.any { it.group == 'com.mojang' && it.name == 'authlib' } : libraries
+                    assert libraries.every { it.group != 'org.lwjgl.lwjgl' } : libraries
+                """ + natives + """
                 }
                 """
         );
 
-        var output = this.project.plainRunner("help", "--offline").build().getOutput();
-        assertThat(output).as(output).contains("BUILD SUCCESSFUL");
+        this.project.plainRunner("help", "--offline").build();
     }
 
     /**

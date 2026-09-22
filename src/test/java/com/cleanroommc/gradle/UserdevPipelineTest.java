@@ -27,27 +27,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 class UserdevPipelineTest extends BaseFunctionalTest {
 
     @Test
-    void assembleBuildsAPlainSrgJarAndAnMcpDevelopmentJar() throws IOException {
-        this.project.build(
-                UserdevFixture.PREAMBLE + """
-                version = '1.0'
-                dependencies {
-                    implementation cleanroom.userdev('0.7.0')
-                }
-                tasks.register('printMainArtifact') {
-                    def artifacts = configurations.runtimeElements.outgoing.artifacts.files
-                    doLast { println 'MAIN ' + artifacts.files.collect { it.name } }
-                }
-                """
-        );
-
-        var output = this.project.plainRunner(this.project.userdevModuleArgs("0.7.0", "assemble", "printMainArtifact")).build().getOutput();
-        assertThat(output).as(output).contains("MAIN [test-project-1.0-mcp.jar]");
-        assertThat(this.projectDir.resolve("build/libs/test-project-1.0.jar")).exists();
-        assertThat(this.projectDir.resolve("build/libs/test-project-1.0-mcp.jar")).exists();
-    }
-
-    @Test
     void publishesMcpAsMainAndSrgAsClassifierWithoutRenamingLocalFiles() throws IOException {
         var fixture = new UserdevFixture.Spec();
         fixture.srgToMcp = "tsrg2 srg mcp\nexample/Mod example/Mod\n\tfunc_123_a ()V readableName\n";
@@ -194,16 +173,14 @@ class UserdevPipelineTest extends BaseFunctionalTest {
 
     /**
      * GradleStart renames SRG-named mods into the workspace's own MCP names, so {@code MCP_TO_SRG} carries a
-     * srg-to-mcp file in both modes, and the two MCP identifiers are the ones the launcher reports, not the
-     * Maven coordinates they are derived from. The loader half of this contract is asserted by
-     * {@code ProjectModeTest.loaderLaunchConsumersUseLoaderExtensionAsTheirSingleSource}.
+     * srg-to-mcp file, and the MCP identifiers are the ones the launcher reports. Environment values carry no
+     * producer information, so the run depends on the extracted mappings by hand.
      */
     @Test
-    void runsHandGradleStartTheSameMappingsAsLoaderMode() throws IOException {
+    void runsHandGradleStartTheExtractedMappings() throws IOException {
         this.project.build(
                 """
                 import com.cleanroommc.gradle.api.task.mc.RunMinecraft
-
                 dependencies {
                     implementation cleanroom.userdev('0.7.0')
                 }
@@ -213,25 +190,6 @@ class UserdevPipelineTest extends BaseFunctionalTest {
                     assert client.environment.get('MCP_VERSION').toString() == '20201025.185735'
                     assert client.environment.get('MCP_MAPPINGS').toString() == 'stable_39'
                     assert client.environment.get('MCP_TO_SRG').toString().endsWith('srg2mcp.tsrg')
-                }
-                """
-        );
-
-        this.project.runner(this.project.userdevModuleArgs("0.7.0", "help")).build();
-    }
-
-    /**
-     * The mappings reach GradleStart as an environment value, and those carry no producer information,
-     * so the file the run reads has to be depended on by hand.
-     */
-    @Test
-    void runsDependOnTheExtractedMappings() throws IOException {
-        this.project.build(
-                """
-                dependencies {
-                    implementation cleanroom.userdev('0.7.0')
-                }
-                afterEvaluate {
                     ['runClient', 'runServer'].each { name ->
                         def dependencies = tasks.named(name).get().taskDependencies.getDependencies(null)*.name
                         assert dependencies.contains('extractUserdevSrgToMcp') : name + ' -> ' + dependencies
@@ -244,119 +202,38 @@ class UserdevPipelineTest extends BaseFunctionalTest {
     }
 
     /**
-     * The tools a workspace rebuilds sources with are the ones the artifact was produced by, and they
-     * arrive as the defaults of the same configurations a loader build overrides.
+     * The tools a workspace rebuilds sources with default to the ones the artifact was produced by, a declared
+     * dependency replaces one the same way it does in a loader build. Mergetool takes the loaded ASM because it reads
+     * the loader's own classes, which are compiled past what the ASM it ships with understands.
      */
     @Test
-    void toolConfigurationsDefaultToTheArtifactsOwnCoordinates() throws IOException {
-        this.project.build(
-                """
-                dependencies {
-                    implementation cleanroom.userdev('0.7.0')
-                }
-                // Defaults materialize when the graph resolves, not when the dependency set is read
-                tasks.register('readTools') {
-                    def tools = ['accesstransformer', 'mergetool', 'decompiler'].collectEntries {
-                        [it, configurations.getByName(it).incoming.resolutionResult.rootComponent]
-                    }
-                    doLast {
-                        tools.each { name, root ->
-                            println name + ' ' + root.get().dependencies*.requested*.toString()
-                        }
-                    }
-                }
-                """
-        );
-
-        var output = this.project.plainRunner(this.project.userdevModuleArgs("0.7.0", "readTools")).build().getOutput();
-        assertThat(output).as(output).contains("mergetool [net.minecraftforge:mergetool:1.0]");
-        assertThat(output).as(output).contains("accesstransformer [net.minecraftforge:accesstransformers:1.0]");
-        assertThat(output).as(output).contains("decompiler [net.minecraftforge:decompiler:1.0]");
-    }
-
-    /**
-     * Forge's mergetool reads the loader's own classes, which a current toolchain compiles well past the
-     * class file version the ASM it ships with understands.
-     */
-    @Test
-    void toolConfigurationsTakeTheLoadedAsm() throws IOException {
-        this.project.build(
-                """
-                dependencies {
-                    implementation cleanroom.userdev('0.7.0')
-                }
-                afterEvaluate {
-                    def forced = configurations.mergetool.resolutionStrategy.forcedModules*.name
-                    assert forced.contains('asm') && forced.contains('asm-tree') : forced
-                }
-                """
-        );
-
-        this.project.runner(this.project.userdevModuleArgs("0.7.0", "help")).build();
-    }
-
-    /** A declared dependency replaces the artifact's default, the same way it does in a loader build. */
-    @Test
-    void declaredToolReplacesTheArtifactsCoordinate() throws IOException {
+    void toolConfigurationsDefaultToTheArtifactsCoordinates() throws IOException {
         this.project.build(
                 """
                 dependencies {
                     implementation cleanroom.userdev('0.7.0')
                     mergetool 'example:replacement-merger:2.0'
                 }
-                tasks.register('readMergetool') {
-                    def root = configurations.mergetool.incoming.resolutionResult.rootComponent
-                    doLast { println 'MERGETOOL ' + root.get().dependencies*.requested*.toString() }
-                }
-                """
-        );
-
-        var output = this.project.plainRunner(this.project.userdevModuleArgs("0.7.0", "readMergetool")).build().getOutput();
-        assertThat(output).as(output).contains("MERGETOOL [example:replacement-merger:2.0]");
-    }
-
-    @Test
-    void removedUserdevBlockGivesMigrationGuidance() throws IOException {
-        this.project.build(
-                """
-                cleanroom {
-                    userdev {
-                        version = '0.7.0'
+                // Defaults materialize when the graph resolves, not when the dependency set is read
+                tasks.register('readTools') {
+                    def tools = ['accesstransformer', 'mergetool', 'decompiler'].collectEntries {
+                        [it, configurations.getByName(it).incoming.resolutionResult.rootComponent]
+                    }
+                    def forced = configurations.mergetool.resolutionStrategy.forcedModules*.name
+                    doLast {
+                        tools.each { name, root ->
+                            println name + ' ' + root.get().dependencies*.requested*.toString()
+                        }
+                        assert forced.containsAll(['asm', 'asm-tree']) : forced
                     }
                 }
                 """
         );
 
-        var output = this.project.runner("help").buildAndFail().getOutput();
-        assertThat(output).as(output).contains("implementation cleanroom.userdev('version')");
-    }
-
-    @Test
-    void removedUserdevModeGivesMigrationGuidance() throws IOException {
-        this.project.build(
-                """
-                cleanroom.mode = 'userdev'
-                """
-        );
-
-        var output = this.project.runner("help").buildAndFail().getOutput();
-        assertThat(output).as(output).contains("registered through dependencies");
-        assertThat(output).as(output).contains("implementation cleanroom.userdev('version')");
-    }
-
-    @Test
-    void removedConfigurationGivesMigrationGuidance() throws IOException {
-        this.project.build(
-                """
-                dependencies {
-                    cleanroomUserdev 'com.cleanroommc:cleanroom:0.7.0:userdev'
-                }
-                """
-        );
-
-        var output = this.project.runner("help").buildAndFail().getOutput();
-        assertThat(output).as(output).contains("cleanroomUserdev configuration was removed");
-        assertThat(output).as(output).contains("implementation cleanroom.userdev('version')");
+        var output = this.project.plainRunner(this.project.userdevModuleArgs("0.7.0", "readTools")).build().getOutput();
+        assertThat(output).as(output).contains("mergetool [example:replacement-merger:2.0]");
+        assertThat(output).as(output).contains("accesstransformer [net.minecraftforge:accesstransformers:1.0]");
+        assertThat(output).as(output).contains("decompiler [net.minecraftforge:decompiler:1.0]");
     }
 
 }

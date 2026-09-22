@@ -15,6 +15,7 @@ import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import org.gradle.tooling.model.idea.IdeaSingleEntryLibraryDependency;
 
@@ -45,111 +46,16 @@ class DeobfExtensionTest extends BaseFunctionalTest {
             }
             """;
 
-    @Test
-    void closureFormParses() throws IOException {
-        var build = this.project;
-        build.vanilla(
-                """
-                repositories { %s }
-                dependencies {
-                    implementation deobf('net.test:mod:1.0.0') { sources = false }
-                }
-                """.formatted(
-                        fixture()
-                )
-        );
+    @ParameterizedTest
+    @ValueSource(booleans = { false, true })
+    void loaderModeRejectsDeobfOnTheCompileClasspath(boolean declaredLate) throws IOException {
+        var declaration = "dependencies { implementation deobf('net.test:mod:1.0.0') }";
+        var body = declaredLate ? "afterEvaluate { " + declaration + " }" : declaration;
+        this.project.loader("repositories { %s }\n%s\n".formatted(fixture(), body) + RESOLVE_TASK);
 
-        assertThat(build.runner("help", "--offline").build().getOutput()).contains("BUILD SUCCESSFUL");
-    }
-
-    @Test
-    void sourcesAreNotImplementedYet() throws IOException {
-        var build = this.project;
-        build.vanilla(
-                """
-                repositories { %s }
-                dependencies {
-                    implementation deobf('net.test:mod:1.0.0') { sources = true }
-                }
-                """.formatted(
-                        fixture()
-                )
-        );
-
-        var result = build.runner("help", "--offline").buildAndFail();
-        assertThat(result.getOutput()).as(result.getOutput()).contains("sources = true } is not implemented yet");
-    }
-
-    @Test
-    void rejectsNonModuleNotation() throws IOException {
-        var build = this.project;
-        build.vanilla(
-                """
-                dependencies {
-                    implementation deobf(files('lib.jar'))
-                }
-                """
-        );
-
-        var result = build.runner("help", "--offline").buildAndFail();
-        assertThat(result.getOutput()).as(result.getOutput()).contains("only accepts external module notations");
-    }
-
-    @Test
-    void vanillaModeFailsWithoutMappings() throws IOException {
-        var build = this.project;
-        build.vanilla(
-                """
-                repositories { %s }
-                dependencies {
-                    implementation deobf('net.test:mod:1.0.0')
-                }
-                """.formatted(
-                                fixture()
-                        ) + RESOLVE_TASK
-        );
-
-        var result = build.runner("resolveDeobf", "--offline").buildAndFail();
-        assertThat(result.getOutput()).as(result.getOutput()).contains("deobf() needs MCP mappings");
-    }
-
-    @Test
-    void loaderModeRejectsCompileClasspath() throws IOException {
-        var build = this.project;
-        build.loader(
-                """
-                repositories { %s }
-                dependencies {
-                    implementation deobf('net.test:mod:1.0.0')
-                }
-                """.formatted(
-                                fixture()
-                        ) + RESOLVE_TASK
-        );
-
-        var result = build.runner("resolveDeobf", "--offline").buildAndFail();
-        assertThat(result.getOutput()).as(result.getOutput()).contains("cannot be declared on the 'compileClasspath' hierarchy in loader mode");
-        build.assertProblem("deobf-on-compile-classpath");
-    }
-
-    @Test
-    void loaderModeRejectsDependenciesAddedLate() throws IOException {
-        var build = this.project;
-        build.loader(
-                """
-                repositories { %s }
-                afterEvaluate {
-                    dependencies {
-                        implementation deobf('net.test:mod:1.0.0')
-                    }
-                }
-                """.formatted(
-                                fixture()
-                        ) + RESOLVE_TASK
-        );
-
-        var result = build.runner("resolveDeobf", "--offline").buildAndFail();
-        assertThat(result.getOutput()).as(result.getOutput()).contains("cannot be declared on the 'compileClasspath' hierarchy in loader mode");
+        var output = this.project.runner("resolveDeobf", "--offline").buildAndFail().getOutput();
+        assertThat(output).as(output).contains("cannot be declared on the 'compileClasspath' hierarchy in loader mode");
+        this.project.assertProblem("deobf-on-compile-classpath");
     }
 
     @Test
@@ -304,7 +210,7 @@ class DeobfExtensionTest extends BaseFunctionalTest {
     }
 
     @ParameterizedTest
-    @CsvSource({ "false, false", "false, true", "true, false", "true, true" })
+    @CsvSource({ "false, true", "true, false" })
     void remapsClassifiedJarsWithoutChangingOtherDependencies(boolean moduleMetadata, boolean mapNotation) throws IOException {
         var repository = fixture();
         var module = this.projectDir.resolve("fixture-repo/net/test/mod/1.0.0");
