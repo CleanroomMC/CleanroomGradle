@@ -142,29 +142,7 @@ class UserdevConfigTest {
                         "patches:initial:1",
                         Map.of("accesstransformer", "t:at:1", "decompiler", "t:dec:1", "mergetool", "t:merge:1")
                 ),
-                new UserdevConfig.Layout(
-                        "a",
-                        "b",
-                        "c",
-                        "d",
-                        "e",
-                        "f",
-                        "g",
-                        "h",
-                        "i",
-                        "j",
-                        "k",
-                        "l",
-                        "m",
-                        "n",
-                        "o",
-                        "p",
-                        "q",
-                        List.of(),
-                        "r",
-                        "s",
-                        "t"
-                ),
+                new UserdevConfig.Layout("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", List.of(), "r", "s", "t"),
                 new UserdevConfig.Runs(new UserdevConfig.Run("C", "L", "T", "client"), new UserdevConfig.Run("C", "L", "T", "server"))
         );
     }

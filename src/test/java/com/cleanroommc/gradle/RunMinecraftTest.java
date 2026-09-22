@@ -64,7 +64,10 @@ class RunMinecraftTest extends BaseFunctionalTest {
                         args code.toString()
                     }
                 }
-                """.formatted(stopped, crashed)
+                """.formatted(
+                        stopped,
+                        crashed
+                )
         );
 
         this.project.runner(stopped.stream().map(code -> "runExit" + code).toArray(String[]::new)).build();

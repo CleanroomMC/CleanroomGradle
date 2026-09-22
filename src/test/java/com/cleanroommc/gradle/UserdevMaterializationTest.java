@@ -51,9 +51,9 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
         assertThat(entries(file(output, "CLIENT_EXTRA"))).isEqualTo(List.of("assets/pack.mcmeta"));
         assertThat(entries(file(output, "SERVER_EXTRA"))).isEqualTo(List.of("assets/server.txt"));
         assertThat(read(file(output, "SOURCES"), "decompiler-classpath.txt")).contains("fixture-library-1.jar");
-        assertThat(read(file(output, "SOURCES"), "net/minecraft/Block.java")).as("the artifact's own source patch").isEqualTo(
-                "class Block {\n    // patched by the artifact\n}\n"
-        );
+        assertThat(read(file(output, "SOURCES"), "net/minecraft/Block.java"))
+                .as("the artifact's own source patch")
+                .isEqualTo("class Block {\n    // patched by the artifact\n}\n");
     }
 
     /**

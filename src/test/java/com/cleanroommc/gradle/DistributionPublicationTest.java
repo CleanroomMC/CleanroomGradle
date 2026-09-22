@@ -121,7 +121,8 @@ class DistributionPublicationTest extends BaseFunctionalTest {
                     def libraries = configurations.cleanroomUserdevMinecraftLibraries.allDependencies
                     assert libraries.any { it.group == 'com.mojang' && it.name == 'authlib' } : libraries
                     assert libraries.every { it.group != 'org.lwjgl.lwjgl' } : libraries
-                """ + natives + """
+                """ +
+                        natives + """
                 }
                 """
         );
