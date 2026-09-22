@@ -12,6 +12,7 @@ package com.cleanroommc.gradle.api.util.dist;
 
 import org.gradle.api.GradleException;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.result.ResolvedArtifactResult;
@@ -46,31 +47,36 @@ public final class ResolvedLibraries {
     ) {
         return repositoryUrls.flatMap(urls -> resolved.zip(root, (artifacts, component) -> {
             var origins = new HashMap<ComponentIdentifier, String>();
-            collectRepositoryUrls(component, urls, origins, new HashSet<>());
-            return artifactInputs(objects, artifacts, origins);
+            var identities = new HashMap<ComponentIdentifier, ModuleVersionIdentifier>();
+            collectRepositoryUrls(component, urls, origins, identities, new HashSet<>());
+            return artifactInputs(objects, artifacts, origins, identities);
         }));
     }
 
     private static List<LibraryArtifact> artifactInputs(
             ObjectFactory objects,
             Set<ResolvedArtifactResult> artifacts,
-            Map<ComponentIdentifier, String> repositoryUrls
+            Map<ComponentIdentifier, String> repositoryUrls,
+            Map<ComponentIdentifier, ModuleVersionIdentifier> identities
     ) {
-        return artifacts.stream()
-                .filter(artifact -> artifact.getId().getComponentIdentifier() instanceof ModuleComponentIdentifier)
-                .sorted(Comparator.comparing(artifact -> Coordinate.from(artifact).serialized()))
-                .map(artifact -> {
-                    var input = objects.newInstance(LibraryArtifact.class);
-                    input.getCoordinate().set(Coordinate.from(artifact).serialized());
-                    input.getFile().fileValue(artifact.getFile());
-                    var repositoryUrl = repositoryUrls.get(artifact.getId().getComponentIdentifier());
-                    if (repositoryUrl == null) {
-                        throw new GradleException("No repository origin found for " + artifact.getId());
-                    }
-                    input.getRepositoryUrl().set(repositoryUrl);
-                    return input;
-                })
-                .toList();
+        return artifacts.stream().map(artifact -> {
+            var component = artifact.getId().getComponentIdentifier();
+            var input = objects.newInstance(LibraryArtifact.class);
+            input.getFile().fileValue(artifact.getFile());
+            if (component instanceof ModuleComponentIdentifier) {
+                var repositoryUrl = repositoryUrls.get(component);
+                if (repositoryUrl == null) {
+                    throw new GradleException("No repository origin found for " + artifact.getId());
+                }
+                input.getCoordinate().set(Coordinate.from(artifact).serialized());
+                input.getRepositoryUrl().set(repositoryUrl);
+            } else {
+                // Projects, included builds and plain files come from no repository, so their jars travel with the distribution
+                input.getCoordinate().set(Coordinate.local(artifact.getFile(), identities.get(component)).serialized());
+                input.getRepositoryUrl().set(artifact.getFile().getParentFile().toURI().toString());
+            }
+            return input;
+        }).sorted(Comparator.comparing(input -> input.getCoordinate().get())).toList();
     }
 
     public static Provider<List<String>> modules(Provider<ResolvedComponentResult> root) {
@@ -142,11 +148,13 @@ public final class ResolvedLibraries {
             ResolvedComponentResult component,
             Map<String, String> repositories,
             Map<ComponentIdentifier, String> origins,
+            Map<ComponentIdentifier, ModuleVersionIdentifier> identities,
             Set<ComponentIdentifier> seen
     ) {
         if (!seen.add(component.getId())) {
             return;
         }
+        identities.put(component.getId(), component.getModuleVersion());
         if (component.getId() instanceof ModuleComponentIdentifier) {
             if (!(component instanceof ResolvedComponentResultInternal internal)) {
                 throw new GradleException("Gradle did not expose the repository for " + component.getId());
@@ -162,7 +170,7 @@ public final class ResolvedLibraries {
         }
         for (var dependency : component.getDependencies()) {
             if (dependency instanceof ResolvedDependencyResult resolved) {
-                collectRepositoryUrls(resolved.getSelected(), repositories, origins, seen);
+                collectRepositoryUrls(resolved.getSelected(), repositories, origins, identities, seen);
             }
         }
     }

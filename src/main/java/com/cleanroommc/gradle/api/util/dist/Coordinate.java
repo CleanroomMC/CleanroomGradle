@@ -11,15 +11,19 @@
 package com.cleanroommc.gradle.api.util.dist;
 
 import org.gradle.api.GradleException;
+import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 
+import java.io.File;
 import java.util.Locale;
 
 /**
  * A Maven coordinate in {@code group:artifact:version[:classifier][@extension]} form.
  */
 public record Coordinate(String group, String artifact, String version, String classifier, String extension) {
+
+    private static final String LOCAL_GROUP = "local";
 
     public static Coordinate from(ResolvedArtifactResult artifact) {
         if (!(artifact.getId().getComponentIdentifier() instanceof ModuleComponentIdentifier module)) {
@@ -35,6 +39,24 @@ public record Coordinate(String group, String artifact, String version, String c
         }
         var classifier = stem.length() == prefix.length() ? null : stem.substring(prefix.length() + 1);
         return new Coordinate(module.getGroup(), module.getModule(), module.getVersion(), classifier, extension);
+    }
+
+    /**
+     * A coordinate for an artifact no repository serves. A project or an included build keeps its module identity,
+     * a plain file dependency, passed with a {@code null} module, is named after itself.
+     */
+    public static Coordinate local(File file, ModuleVersionIdentifier module) {
+        var fileName = file.getName();
+        var dot = fileName.lastIndexOf('.');
+        var extension = dot == -1 ? "jar" : fileName.substring(dot + 1);
+        var stem = dot == -1 ? fileName : fileName.substring(0, dot);
+        if (module == null) {
+            return new Coordinate(LOCAL_GROUP, stem.replaceAll("[^A-Za-z0-9._-]", "_"), "0", null, extension);
+        }
+        var prefix = module.getName() + "-" + module.getVersion() + "-";
+        var classifier = stem.startsWith(prefix) ? stem.substring(prefix.length()) : null;
+        var group = module.getGroup().isBlank() ? LOCAL_GROUP : module.getGroup();
+        return new Coordinate(group, module.getName(), module.getVersion(), classifier, extension);
     }
 
     public static Coordinate parse(String value) {

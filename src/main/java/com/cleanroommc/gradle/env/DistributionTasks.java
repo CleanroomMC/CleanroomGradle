@@ -450,6 +450,8 @@ public final class DistributionTasks {
             task.getUniversalUrl().set(universalUrl);
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
             task.getLibraries().set(distributionLibraryArtifacts);
+            // Library files arrive as plain values, so the jars of project and included build dependencies need this edge to get built
+            task.dependsOn(distributionLibraries);
             task.getInheritedLibraries().set(minecraft.getVersionMeta().map(meta -> meta.libraries().stream().map(VersionMeta.Library::name).collect(Collectors.toSet())));
             task.getMinecraftExcludeRules().set(distributionLibraries.map(ResolvedLibraries::excludeRules));
             task.getArchiveFile().set(layout.getBuildDirectory().file(version.map(number -> "libs/" + ARTIFACT_ID + "-" + number + ".zip")));
@@ -473,6 +475,7 @@ public final class DistributionTasks {
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
             task.getLibraries().set(distributionLibraryArtifacts);
             task.getNativeLibraries().set(distributionNativeArtifacts);
+            task.dependsOn(distributionLibraries, distributionNatives);
             task.getLibraryExcludeRules().set(distributionLibraries.map(ResolvedLibraries::excludeRules));
             task.getManifestUrls().set(manifestUrls);
             task.getVersionMeta().set(minecraft.getVersionMeta());

@@ -19,6 +19,7 @@ import org.gradle.testkit.runner.TaskOutcome;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
@@ -178,6 +179,34 @@ class DistributionPublicationTest extends BaseFunctionalTest {
 
         var output = this.project.runner("assemble", "--dry-run").build().getOutput();
         PluginBuild.scheduled(output, "universalJar", "userdevJar", "sourcesJar", "javadocJar", "publishMmcPackZip", "installerJar");
+    }
+
+    @Test
+    void distributionsBuildAndCarryProjectDependencies() throws IOException {
+        Files.writeString(this.projectDir.resolve("settings.gradle"), "include 'lib'\n", StandardOpenOption.APPEND);
+        Files.createDirectories(this.projectDir.resolve("lib"));
+        Files.writeString(this.projectDir.resolve("lib/build.gradle"), "plugins { id 'java-library' }\ngroup = 'com.example'\nversion = '1.2'\n");
+        this.project.loader(
+                """
+                group = 'com.cleanroommc'
+                version = '0.1.0'
+                apply plugin: 'maven-publish'
+                publishing.repositories.maven {
+                    url = 'https://maven.example.invalid/'
+                }
+                dependencies {
+                    implementation project(':lib')
+                }
+                gradle.projectsEvaluated {
+                    ['vanilla', 'distributionLibraries', 'distributionNatives'].each { name ->
+                        configurations.named(name) { withDependencies { it.clear() } }
+                    }
+                }
+                """
+        );
+
+        var output = this.project.runner("publishMmcPackZip", "writeInstallProfile", "--dry-run").build().getOutput();
+        PluginBuild.scheduled(output, "lib:jar", "publishMmcPackZip", "writeInstallProfile");
     }
 
 }

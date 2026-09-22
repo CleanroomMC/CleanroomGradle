@@ -14,6 +14,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import org.gradle.api.GradleException;
+import org.gradle.api.attributes.Category;
+import org.gradle.api.attributes.LibraryElements;
+import org.gradle.api.attributes.Usage;
 import org.gradle.testfixtures.ProjectBuilder;
 
 import java.io.IOException;
@@ -57,6 +60,37 @@ class ResolvedLibrariesTest {
         var library = libraries.get().getFirst();
         assertThat(library.getCoordinate().get()).isEqualTo("example.authority:probe:2.0");
         assertThat(library.getRepositoryUrl().get()).isEqualTo(repository.getUrl().toString());
+    }
+
+    @Test
+    void carriesProjectAndFileDependenciesAsLocalLibraries() throws IOException {
+        var root = ProjectBuilder.builder().withProjectDir(this.directory.toFile()).build();
+        var lib = ProjectBuilder.builder().withParent(root).withName("lib").withProjectDir(this.directory.resolve("lib").toFile()).build();
+        lib.getPluginManager().apply("java-library");
+        lib.setGroup("com.example");
+        lib.setVersion("1.2");
+        var extra = this.directory.resolve("libs/extra thing.jar");
+        Files.createDirectories(extra.getParent());
+        Files.writeString(extra, "extra");
+
+        var configuration = root.getConfigurations()
+                .detachedConfiguration(root.getDependencies().project(Map.of("path", ":lib")), root.getDependencies().create(root.files(extra)));
+        configuration.attributes(attributes -> {
+            attributes.attribute(Usage.USAGE_ATTRIBUTE, root.getObjects().named(Usage.class, Usage.JAVA_RUNTIME));
+            attributes.attribute(Category.CATEGORY_ATTRIBUTE, root.getObjects().named(Category.class, Category.LIBRARY));
+            attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, root.getObjects().named(LibraryElements.class, LibraryElements.JAR));
+        });
+
+        var libraries = ResolvedLibraries.artifacts(
+                root.getObjects(),
+                configuration.getIncoming().getArtifacts().getResolvedArtifacts(),
+                configuration.getIncoming().getResolutionResult().getRootComponent(),
+                root.provider(Map::of)
+        )
+                .get();
+
+        assertThat(libraries).extracting(library -> library.getCoordinate().get()).containsExactly("com.example:lib:1.2", "local:extra_thing:0");
+        assertThat(libraries).allSatisfy(library -> assertThat(LibraryJson.isLocalRepository(library.getRepositoryUrl().get())).isTrue());
     }
 
     @Test
