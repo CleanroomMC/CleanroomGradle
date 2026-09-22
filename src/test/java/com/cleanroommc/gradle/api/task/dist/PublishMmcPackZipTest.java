@@ -231,14 +231,15 @@ class PublishMmcPackZipTest {
             var universalLibrary = library(libraries, "com.cleanroommc:cleanroom:1.0.0+local.4:universal", false);
             assertThat(universalLibrary.get("MMC-hint").getAsString()).isEqualTo("local");
             var download = universalLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact");
-            assertThat(download.keySet()).isEqualTo(Set.of("path", "sha1", "size"));
+            assertThat(download.keySet()).isEqualTo(Set.of("path", "url", "sha1", "size"));
+            assertThat(download.get("url").getAsString()).isEmpty();
             assertThat(download.get("path").getAsString()).isEqualTo("com/cleanroommc/cleanroom/1.0.0+local.4/cleanroom-1.0.0+local.4-universal.jar");
             assertThat(download.get("sha1").getAsString()).isEqualTo(DigestUtils.sha1Hex(Files.readAllBytes(universal)));
             assertThat(download.get("size").getAsLong()).isEqualTo(Files.size(universal));
 
             var mcttfLibrary = library(libraries, "com.cleanroommc:mcttf:0.1.0-beta+local.0", false);
             assertThat(mcttfLibrary.get("MMC-hint").getAsString()).isEqualTo("local");
-            assertThat(mcttfLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact").keySet()).isEqualTo(Set.of("path", "sha1", "size"));
+            assertThat(mcttfLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact").keySet()).isEqualTo(Set.of("path", "url", "sha1", "size"));
 
             var foundationLibrary = library(libraries, "top.outlands:foundation:1.2.3", false);
             assertThat(foundationLibrary.has("MMC-hint")).isFalse();
