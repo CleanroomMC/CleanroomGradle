@@ -182,6 +182,32 @@ class DistributionPublicationTest extends BaseFunctionalTest {
     }
 
     @Test
+    void packEmbedsTheUniversalJarUnlessTheBuildUploadsIt() throws IOException {
+        this.project.loader(
+                """
+                group = 'com.cleanroommc'
+                version = '0.1.0'
+                apply plugin: 'maven-publish'
+                publishing.repositories.maven {
+                    url = 'https://maven.example.invalid/'
+                }
+                gradle.projectsEvaluated {
+                    ['vanilla', 'distributionLibraries', 'distributionNatives'].each { name ->
+                        configurations.named(name) { withDependencies { it.clear() } }
+                    }
+                    gradle.taskGraph.whenReady {
+                        println 'embedUniversalJar=' + tasks.named('publishMmcPackZip').get().embedUniversalJar.get()
+                    }
+                }
+                """
+        );
+
+        assertThat(this.project.runner("publishMmcPackZip", "--dry-run").build().getOutput()).contains("embedUniversalJar=true");
+        assertThat(this.project.runner("publishToMavenLocal", "--dry-run").build().getOutput()).contains("embedUniversalJar=true");
+        assertThat(this.project.runner("publishCleanroomPublicationToMavenRepository", "--dry-run").build().getOutput()).contains("embedUniversalJar=false");
+    }
+
+    @Test
     void distributionsBuildAndCarryProjectDependencies() throws IOException {
         Files.writeString(this.projectDir.resolve("settings.gradle"), "include 'lib'\n", StandardOpenOption.APPEND);
         Files.createDirectories(this.projectDir.resolve("lib"));

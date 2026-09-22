@@ -62,6 +62,7 @@ class PublishMmcPackZipTest {
         task.getCompatibleJavaMajors().add(25);
         task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0:universal");
         task.getUniversalUrl().set("https://maven.cleanroommc.com/com/cleanroommc/cleanroom/1.0.0/cleanroom-1.0.0-universal.jar");
+        task.getEmbedUniversalJar().set(false);
         task.getUniversalJar().fileValue(universal.toFile());
         task.getLibraries().add(library(project, "top.outlands:foundation:1.2.3", foundation, "https://packages.cleanroommc.com/releases/"));
         task.getLibraries().add(library(project, "com.google.guava:guava:21.0", inherited));
@@ -184,7 +185,7 @@ class PublishMmcPackZipTest {
     }
 
     @Test
-    void embedsTheUniversalJarForALocalBuild() throws Exception {
+    void embedsTheUniversalJarAndLocalLibraries() throws Exception {
         var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
         var task = project.getTasks().create("publishMmcPackZip", PublishMmcPackZip.class);
 

@@ -60,6 +60,7 @@ import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.publish.PublishingExtension;
 import org.gradle.api.publish.maven.MavenPublication;
+import org.gradle.api.publish.maven.tasks.PublishToMavenRepository;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
@@ -93,6 +94,7 @@ public final class DistributionTasks {
 
     private static final String GROUP_NAME = "cleanroom distribution";
     private static final String ARTIFACT_ID = "cleanroom";
+    private static final String PUBLICATION = "cleanroom";
 
     public final TaskProvider<WriteMappings> writeMcp2Srg;
     public final TaskProvider<WriteMappings> writeObf2SrgTsrg;
@@ -560,7 +562,7 @@ public final class DistributionTasks {
         var version = coordinates.getVersion();
         var runtimeModules = this.runtimeModules;
         var publishing = project.getExtensions().getByType(PublishingExtension.class);
-        publishing.getPublications().register("cleanroom", MavenPublication.class, publication -> {
+        publishing.getPublications().register(PUBLICATION, MavenPublication.class, publication -> {
             publication.setArtifactId(ARTIFACT_ID);
             publication.setVersion(version.get());
             publication.artifact(this.publishMmcPackZip.flatMap(PublishMmcPackZip::getArchiveFile), artifact -> artifact.setExtension("zip"));
@@ -580,6 +582,19 @@ public final class DistributionTasks {
                     dependency.appendNode("scope", "runtime");
                 }
             });
+        });
+
+        // The pack only links the universal jar's Maven url when this same build uploads the jar there
+        var mmcPackZip = this.publishMmcPackZip;
+        project.getGradle().getTaskGraph().whenReady(graph -> {
+            for (var task : graph.getAllTasks()) {
+                if (!(task instanceof PublishToMavenRepository publish) || task.getProject() != project) {
+                    continue;
+                }
+                if (PUBLICATION.equals(publish.getPublication().getName()) && !LibraryJson.isLocalRepository(publish.getRepository().getUrl().toString())) {
+                    mmcPackZip.configure(pack -> pack.getEmbedUniversalJar().set(false));
+                }
+            }
         });
 
         publishing.getPublications().register("cleanroomUserdev", MavenPublication.class, publication -> {

@@ -62,9 +62,9 @@ import javax.inject.Inject;
  * <p>Non-essential Prism Java compatibility hint is ignored by old MultiMC.
  *
  * <p>Downloaded artifacts are referenced through a {@code downloads} object with their locally verified size and SHA-1.
- * A universal coordinate whose version has a {@code +local} SemVer build component embeds that jar under
- * {@code libraries/} with {@code MMC-hint=local}. Artifacts resolved from local Maven repositories are packed
- * the same way.
+ * The universal jar is embedded under {@code libraries/} with {@code MMC-hint=local} unless
+ * {@link #getEmbedUniversalJar()} is turned off for a build that uploads it to {@link #getUniversalUrl()}.
+ * Artifacts resolved from local Maven repositories are packed the same way.
  *
  * <p>Minecraft modules excluded from the resolved distribution are replaced by higher-version empty
  * local libraries so Prism can retain its stock Minecraft metadata.
@@ -134,7 +134,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     @Inject
     public PublishMmcPackZip() {
         getMinecraftVersion().convention(Meta.ONE_TRUE_MINECRAFT_VERSION);
-        getEmbedUniversalJar().convention(getUniversalCoordinate().map(coordinate -> Coordinate.parse(coordinate).hasLocalComponent()));
+        getEmbedUniversalJar().convention(true);
     }
 
     @TaskAction
