@@ -21,6 +21,7 @@ import com.cleanroommc.gradle.api.task.mc.NsightExec;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.task.mcp.SplitJar;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
+import com.cleanroommc.gradle.api.task.patch.ApplyDiffs;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.Property;
 import com.cleanroommc.gradle.api.util.lazy.ProjectCoordinates;
@@ -75,6 +76,7 @@ public final class CleanroomTasks {
 
         mainSourceSet.configure(sourceSet -> {
             sourceSet.getJava().srcDir(mcp.prepareMcpInjectedSources.map(Copy::getDestinationDir));
+            sourceSet.getJava().srcDir(minecraftPatchDev.flatMap(env -> env.getInitializeDiffs().flatMap(ApplyDiffs::getModifiedDirectory)));
             project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class).configure(task -> {
                 task.dependsOn(minecraftPatchDev.map(PatchDevEnvironment::getPrepareEnvironment), mcp.prepareMcpInjectedSources);
                 task.mustRunAfter(minecraftPatchDev.map(PatchDevEnvironment::getApplyDiffs));
