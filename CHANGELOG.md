@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.17.3 - 2026-09-24
+
+## Bug Fix
+
+- Register the minecraft patch dev sources with their producing task *[commit by [@Rongmario](https://github.com/Rongmario) in [b8812f5](https://github.com/CleanroomMC/CleanroomGradle/commit/b8812f5d578265f113c09a58b063393333174f23)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.17.2...0.17.3
+
 ## 0.17.2 - 2026-09-22
 
 ## Feature
