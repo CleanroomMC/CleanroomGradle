@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.17.4 - 2026-09-24
+
+## Bug Fix
+
+- Update installer to fix local malformed builds *[commit by [@Rongmario](https://github.com/Rongmario) in [a405b5e](https://github.com/CleanroomMC/CleanroomGradle/commit/a405b5e6ac9ccc946fcce46d647de5e3d7d7de94)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.17.3...0.17.4
+
 ## 0.17.3 - 2026-09-24
 
 ## Bug Fix
