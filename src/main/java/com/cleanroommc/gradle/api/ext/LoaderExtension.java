@@ -53,7 +53,7 @@ public abstract class LoaderExtension {
 
     public LoaderExtension() {
         getForgeVersion().convention("14.23.5.2864");
-        getInstallerVersion().convention("0.1.2");
+        getInstallerVersion().convention("0.1.3");
         getClientMainClass().convention("com.cleanroommc.boot.MainClient");
         getServerMainClass().convention("com.cleanroommc.boot.MainServer");
         getLaunchClass().convention("top.outlands.foundation.boot.Foundation");
