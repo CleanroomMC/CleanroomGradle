@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.17.5 - 2026-09-25
+
+## Bug Fix
+
+- Give run tasks each directory based on which side it runs on *[commit by [@Rongmario](https://github.com/Rongmario) in [2275031](https://github.com/CleanroomMC/CleanroomGradle/commit/2275031d20ce90c847c1b7a65bee0ebab4a8a43a)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.17.4...0.17.5
+
 ## 0.17.4 - 2026-09-24
 
 ## Bug Fix
