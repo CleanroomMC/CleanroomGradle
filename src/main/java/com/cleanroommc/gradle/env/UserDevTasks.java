@@ -37,6 +37,7 @@ import org.gradle.api.artifacts.type.ArtifactTypeDefinition;
 import org.gradle.api.attributes.Category;
 import org.gradle.api.attributes.LibraryElements;
 import org.gradle.api.attributes.Usage;
+import org.gradle.api.file.Directory;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Provider;
@@ -121,7 +122,7 @@ public final class UserDevTasks {
         this.runServer = RunRegistry.register(project, "runServer", RunMinecraft.class);
 
         var offline = project.getGradle().getStartParameter().isOffline();
-        var runDirectory = project.getLayout().getProjectDirectory().dir("run").getAsFile();
+        var runDirectory = project.getLayout().getProjectDirectory().dir("run");
         var natives = vanilla.extractNatives.map(Copy::getDestinationDir);
         var runtimeClasspath = project.getObjects().fileCollection().from(main.map(SourceSet::getRuntimeClasspath));
         var client = config.map(value -> value.runs().client());
@@ -140,14 +141,14 @@ public final class UserDevTasks {
         RunRegistry.configure(project, this.runClient, task -> {
             task.setGroup(RUNS_GROUP);
             task.dependsOn(main.map(SourceSet::getClassesTaskName), vanilla.downloadAssets);
-            configureRun(task, Side.CLIENT, client, userdev, caches, minecraft, offline, runDirectory, natives);
+            configureRun(task, Side.CLIENT, client, userdev, caches, minecraft, offline, runDirectory.dir("client"), natives);
             task.classpath(runtimeClasspath, this.clientExtra, this.natives);
             MinecraftRuns.fmlEnvironment(task, fml.forSide(true, client.map(UserdevConfig.Run::target), client.map(UserdevConfig.Run::tweakClass), client.map(UserdevConfig.Run::launchClass)));
         });
         RunRegistry.configure(project, this.runServer, task -> {
             task.setGroup(RUNS_GROUP);
             task.dependsOn(main.map(SourceSet::getClassesTaskName));
-            configureRun(task, Side.SERVER, server, userdev, caches, minecraft, offline, runDirectory, natives);
+            configureRun(task, Side.SERVER, server, userdev, caches, minecraft, offline, runDirectory.dir("server"), natives);
             task.classpath(runtimeClasspath, this.serverExtra, this.natives);
             MinecraftRuns.fmlEnvironment(task, fml.forSide(false, server.map(UserdevConfig.Run::target), server.map(UserdevConfig.Run::tweakClass), server.map(UserdevConfig.Run::launchClass)));
         });
@@ -163,7 +164,7 @@ public final class UserDevTasks {
             CachesExtension caches,
             MinecraftExtension minecraft,
             boolean offline,
-            File runDirectory,
+            Directory runDirectory,
             Provider<File> natives
     ) {
         MinecraftRuns.caches(task, caches, minecraft.getVersionMeta(), offline);

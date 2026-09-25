@@ -91,7 +91,7 @@ public final class CleanroomTasks {
             task.doFirst("create the working directory", unused -> testDir.mkdirs());
         });
 
-        var runDir = project.getLayout().getProjectDirectory().dir("run").getAsFile();
+        var runDir = project.getLayout().getProjectDirectory().dir("run");
         var offline = project.getGradle().getStartParameter().isOffline();
         var natives = vanilla.extractNatives.map(Copy::getDestinationDir);
         var srgToMcp = mappings.writeSrg2Mcp.flatMap(WriteMappings::getOutput);
@@ -121,7 +121,7 @@ public final class CleanroomTasks {
             task.getEnv().set(Environment.CLEANROOM);
             task.getMinecraftVersion().set(vanilla.minecraftVersion);
             task.getMainClass().set(loader.getClientMainClass());
-            task.setWorkingDir(runDir);
+            task.setWorkingDir(runDir.dir("client"));
             task.getNatives().fileProvider(natives);
             task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitClientJar.flatMap(SplitJar::getExtraJar));
             MinecraftRuns.fmlEnvironment(task, fml.forSide(true, loader.getClientTarget(), loader.getClientTweakClass(), fml.launchClass));
@@ -134,7 +134,7 @@ public final class CleanroomTasks {
             task.getEnv().set(Environment.CLEANROOM);
             task.getMinecraftVersion().set(vanilla.minecraftVersion);
             task.getMainClass().set(loader.getServerMainClass());
-            task.setWorkingDir(runDir);
+            task.setWorkingDir(runDir.dir("server"));
             task.getNatives().fileProvider(natives);
             task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitServerJar.flatMap(SplitJar::getExtraJar));
             MinecraftRuns.fmlEnvironment(task, fml.forSide(false, loader.getServerTarget(), loader.getServerTweakClass(), fml.launchClass));
