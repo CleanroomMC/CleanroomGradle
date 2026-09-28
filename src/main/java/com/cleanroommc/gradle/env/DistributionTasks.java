@@ -242,8 +242,10 @@ public final class DistributionTasks {
         this.universalJar = Tasks.register(project, "universalJar", Jar.class);
         this.userdevJar = Tasks.register(project, "userdevJar", Jar.class);
         this.userdevSourcesJar = Tasks.register(project, "userdevSourcesJar", MaterializeUserdevSourcesJar.class);
-        this.sourcesJar = Tasks.register(project, "sourcesJar", Jar.class);
-        this.javadocJar = Tasks.register(project, "javadocJar", Jar.class);
+        javaExtension.withSourcesJar();
+        javaExtension.withJavadocJar();
+        this.sourcesJar = project.getTasks().named("sourcesJar", Jar.class);
+        this.javadocJar = project.getTasks().named("javadocJar", Jar.class);
         this.writeUserdevConfig = Tasks.register(project, "writeUserdevConfig", WriteUserdevConfig.class);
         this.publishMmcPackZip = Tasks.register(project, "publishMmcPackZip", PublishMmcPackZip.class);
         this.writeInstallProfile = Tasks.register(project, "writeInstallProfile", WriteInstallProfile.class);
@@ -527,7 +529,8 @@ public final class DistributionTasks {
             task.getArchiveVersion().set(version);
             task.getArchiveClassifier().set("sources");
 
-            task.from(mainSourceSet.map(SourceSet::getAllJava), spec -> spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**"));
+            task.include("**/*.java");
+            task.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**");
         });
 
         this.javadocJar.configure(task -> {
@@ -538,8 +541,6 @@ public final class DistributionTasks {
             task.getArchiveBaseName().set(ARTIFACT_ID);
             task.getArchiveVersion().set(version);
             task.getArchiveClassifier().set("javadoc");
-
-            task.from(javadocTask.map(Javadoc::getDestinationDir));
         });
 
         this.runtimeModules = ResolvedLibraries.modules(runtimeClasspath.flatMap(config -> config.getIncoming().getResolutionResult().getRootComponent()));
