@@ -42,7 +42,7 @@ class DistributionPublicationTest extends BaseFunctionalTest {
                     patches.developInitial = false
                 }
                 gradle.projectsEvaluated {
-                    def publication = publishing.publications.getByName('cleanroom')
+                    def publication = publishing.publications.getByName('maven')
                     assert publication.artifactId == 'cleanroom'
                     assert publication.version == '0.1.0'
                     def artifacts = publication.artifacts.collect {
@@ -63,11 +63,11 @@ class DistributionPublicationTest extends BaseFunctionalTest {
                 """
         );
 
-        var result = this.project.plainRunner("generatePomFileForCleanroomPublication", "generatePomFileForCleanroomUserdevPublication").build();
-        assertThat(result.task(":generatePomFileForCleanroomPublication").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        var result = this.project.plainRunner("generatePomFileForMavenPublication", "generatePomFileForCleanroomUserdevPublication").build();
+        assertThat(result.task(":generatePomFileForMavenPublication").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(result.task(":generatePomFileForCleanroomUserdevPublication").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
 
-        var pom = Files.readString(this.projectDir.resolve("build/publications/cleanroom/pom-default.xml"));
+        var pom = Files.readString(this.projectDir.resolve("build/publications/maven/pom-default.xml"));
         assertThat(pom).as(pom).contains("<groupId>com.cleanroommc</groupId>");
         assertThat(pom).as(pom).contains("<artifactId>cleanroom</artifactId>");
         assertThat(pom).as(pom).contains("<version>0.1.0</version>");
@@ -205,7 +205,7 @@ class DistributionPublicationTest extends BaseFunctionalTest {
 
         assertThat(this.project.runner("publishMmcPackZip", "--dry-run").build().getOutput()).contains("embedUniversalJar=true");
         assertThat(this.project.runner("publishToMavenLocal", "--dry-run").build().getOutput()).contains("embedUniversalJar=true");
-        assertThat(this.project.runner("publishCleanroomPublicationToMavenRepository", "--dry-run").build().getOutput()).contains("embedUniversalJar=false");
+        assertThat(this.project.runner("publishMavenPublicationToMavenRepository", "--dry-run").build().getOutput()).contains("embedUniversalJar=false");
     }
 
     @Test

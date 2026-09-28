@@ -94,7 +94,7 @@ public final class DistributionTasks {
 
     private static final String GROUP_NAME = "cleanroom distribution";
     private static final String ARTIFACT_ID = "cleanroom";
-    private static final String PUBLICATION = "cleanroom";
+    private static final String PUBLICATION = "maven";
 
     public final TaskProvider<WriteMappings> writeMcp2Srg;
     public final TaskProvider<WriteMappings> writeObf2SrgTsrg;
