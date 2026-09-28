@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.17.6 - 2026-09-28
+
+## Bug Fix
+
+- Name the loader publication maven *[commit by [@Rongmario](https://github.com/Rongmario) in [76f1462](https://github.com/CleanroomMC/CleanroomGradle/commit/76f146205bf1a2f7b77b148e89c9c69762ff7fed)]*
+- Share Gradle's sourcesJar and javadocJar in loader mode *[commit by [@Rongmario](https://github.com/Rongmario) in [dad0296](https://github.com/CleanroomMC/CleanroomGradle/commit/dad02969e3cdd8d57280840a334d9e1e47437b9c)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.17.5...0.17.6
+
 ## 0.17.5 - 2026-09-25
 
 ## Bug Fix
