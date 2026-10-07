@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.17.7 - 2026-10-07
+
+## Bug Fix
+
+- **patch**: Initially set empty source for minecraft patch dev *[commit by [@Rongmario](https://github.com/Rongmario) in [688626f](https://github.com/CleanroomMC/CleanroomGradle/commit/688626f9d6a86b7efda32878801fa4f3b2f82e63)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.17.6...0.17.7
+
 ## 0.17.6 - 2026-09-28
 
 ## Bug Fix
