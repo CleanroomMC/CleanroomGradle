@@ -45,6 +45,7 @@ class ProjectModeTest extends BaseFunctionalTest {
                     assert minecraft.input.get().asFile == layout.buildDirectory.dir('cleanroom_gradle/sourceSets/mcp/sources').get().asFile
                     assert minecraft.patches.get().asFile == layout.projectDirectory.dir('module/minecraft/patches').asFile
                     assert minecraft.output.get().asFile == layout.projectDirectory.dir('module/minecraft/src/main/java').asFile
+                    assert sourceSets.minecraftPatchDev.java.srcDirs.empty
                 }
                 """
         );

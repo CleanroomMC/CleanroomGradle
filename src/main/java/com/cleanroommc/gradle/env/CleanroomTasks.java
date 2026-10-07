@@ -38,6 +38,8 @@ import org.gradle.api.tasks.testing.Test;
 
 import net.minecraftforge.fml.relauncher.Side;
 
+import java.util.List;
+
 public final class CleanroomTasks {
 
     private static final String GROUP_NAME = "cleanroom";
@@ -67,7 +69,9 @@ public final class CleanroomTasks {
             env.getPatches().set(module.dir("patches"));
             env.getOutput().set(module.dir("src/main/java"));
             env.dependsOn(mcp.remapSrg2Mcp.getName());
+            env.getSourceSet().configure(sourceSet -> sourceSet.getJava().setSrcDirs(List.of()));
         });
+
         this.setup = Tasks.register(project, "setup");
         this.setup.configure(task -> {
             task.setDescription("Creates the loader environment by decompiling Minecraft and applying current patches.");
