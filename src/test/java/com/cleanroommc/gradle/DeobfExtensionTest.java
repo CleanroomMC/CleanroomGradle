@@ -209,6 +209,45 @@ class DeobfExtensionTest extends BaseFunctionalTest {
         assertThat(methods).as(methods.toString()).doesNotContain("func_123_a");
     }
 
+    @Test
+    void remapsFileDependencies() throws IOException {
+        var build = this.project;
+        Files.writeString(
+                this.projectDir.resolve("srg2mcp.tsrg"),
+                """
+                tsrg2 srg mcp
+                net/test/local net/test/local
+                \tfunc_123_a ()V readableName
+                """
+        );
+        var libs = Files.createDirectories(this.projectDir.resolve("libs"));
+        try (var jar = new JarOutputStream(Files.newOutputStream(libs.resolve("local.jar")))) {
+            jar.putNextEntry(new ZipEntry("net/test/local.class"));
+            jar.write(classBytes("net/test/local"));
+            jar.closeEntry();
+        }
+        build.vanilla(
+                """
+                deobf.mappings.from(file('srg2mcp.tsrg'))
+                dependencies {
+                    implementation deobf(fileTree('libs') { include '*.jar' })
+                }
+                """ + RESOLVE_TASK
+        );
+
+        var result = build.runner("resolveDeobf", "--offline").build();
+        var transformed = result.getOutput()
+                .lines()
+                .filter(line -> line.startsWith("PATH ") && line.endsWith("local-deobf.jar"))
+                .map(line -> Path.of(line.substring("PATH ".length())))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(result.getOutput()));
+
+        var methods = methodsIn(transformed, "net/test/local.class");
+        assertThat(methods).as(methods.toString()).contains("readableName");
+        assertThat(methods).as(methods.toString()).doesNotContain("func_123_a");
+    }
+
     @ParameterizedTest
     @CsvSource({ "false, true", "true, false" })
     void remapsClassifiedJarsWithoutChangingOtherDependencies(boolean moduleMetadata, boolean mapNotation) throws IOException {

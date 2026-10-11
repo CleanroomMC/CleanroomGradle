@@ -12,7 +12,6 @@ package com.cleanroommc.gradle.api.ext;
 
 import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.deobf.DeobfHandler;
-import com.cleanroommc.gradle.api.deobf.DeobfSpec;
 import com.cleanroommc.gradle.api.source.BundledVersionMetaValueSource;
 import com.cleanroommc.gradle.api.source.VersionMetaValueSource;
 import com.cleanroommc.gradle.api.userdev.UserdevDependency;
@@ -131,10 +130,6 @@ public abstract class CleanroomExtension {
      */
     public Dependency deobf(Object notation) {
         return deobfHandler().call(notation);
-    }
-
-    public Dependency deobf(Object notation, Action<? super DeobfSpec> action) {
-        return deobfHandler().call(notation, action);
     }
 
     public CachesExtension getCaches() {

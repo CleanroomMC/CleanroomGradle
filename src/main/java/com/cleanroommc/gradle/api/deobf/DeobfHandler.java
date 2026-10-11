@@ -10,13 +10,13 @@
 
 package com.cleanroommc.gradle.api.deobf;
 
-import groovy.lang.Closure;
-
-import org.gradle.api.Action;
 import org.gradle.api.InvalidUserDataException;
+import org.gradle.api.artifacts.ConfigurationContainer;
 import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ExternalModuleDependency;
+import org.gradle.api.artifacts.FileCollectionDependency;
 import org.gradle.api.artifacts.dsl.DependencyHandler;
+import org.gradle.api.file.FileCollection;
 import org.gradle.api.model.ObjectFactory;
 
 import java.util.HashSet;
@@ -29,42 +29,33 @@ import javax.inject.Inject;
 public class DeobfHandler {
 
     private final DependencyHandler dependencies;
+    private final ConfigurationContainer configurations;
     private final ObjectFactory objects;
+    private final FileCollection transformInputs;
     private final Set<String> classifiedModules = new HashSet<>();
+    private final Set<Dependency> fileDependencies = new HashSet<>();
 
     @Inject
-    public DeobfHandler(DependencyHandler dependencies, ObjectFactory objects) {
+    public DeobfHandler(DependencyHandler dependencies, ConfigurationContainer configurations, ObjectFactory objects, FileCollection transformInputs) {
         this.dependencies = dependencies;
+        this.configurations = configurations;
         this.objects = objects;
+        this.transformInputs = transformInputs;
+    }
+
+    public boolean isDeobfuscated(Dependency dependency) {
+        return this.fileDependencies.contains(dependency) ||
+                dependency instanceof ExternalModuleDependency module && DeobfAttributes.MCP.equals(module.getAttributes().getAttribute(DeobfAttributes.DEOBFUSCATED));
     }
 
     public Dependency call(Object notation) {
-        return call(notation, _ -> { });
-    }
-
-    public Dependency call(Object notation, Action<? super DeobfSpec> action) {
-        var spec = this.objects.newInstance(DeobfSpec.class);
-        spec.getSources().convention(false);
-        action.execute(spec);
-        if (spec.getSources().get()) {
-            throw new InvalidUserDataException("deobf(...) { sources = true } is not implemented yet");
-        }
-        return dependency(notation);
-    }
-
-    public Dependency call(Object notation, Closure<?> closure) {
-        return call(notation, spec -> {
-            closure.setDelegate(spec);
-            closure.setResolveStrategy(Closure.DELEGATE_FIRST);
-            closure.call(spec);
-        });
-    }
-
-    private ExternalModuleDependency dependency(Object notation) {
         var dependency = this.dependencies.create(notation);
+        if (dependency instanceof FileCollectionDependency files) {
+            return fileDependency(files);
+        }
         if (!(dependency instanceof ExternalModuleDependency module)) {
             throw new InvalidUserDataException(
-                    "deobf(...) only accepts external module notations, got " + notation + " which resolves to " + dependency.getClass().getSimpleName() + "."
+                    "deobf(...) only accepts external module and file notations, got " + notation + " which resolves to " + dependency.getClass().getSimpleName() + "."
             );
         }
         if (!module.getArtifacts().isEmpty()) {
@@ -90,6 +81,20 @@ public class DeobfHandler {
         }
         module.attributes(attributes -> attributes.attribute(DeobfAttributes.DEOBFUSCATED, DeobfAttributes.MCP));
         return module;
+    }
+
+    /**
+     * A file dependency cannot carry attributes of its own, so its jars are renamed through a detached
+     * configuration and handed back as the files that view resolves to.
+     */
+    private Dependency fileDependency(FileCollectionDependency files) {
+        var renamed = this.configurations.detachedConfiguration(files)
+                .getIncoming()
+                .artifactView(view -> view.getAttributes().attribute(DeobfAttributes.DEOBFUSCATED, DeobfAttributes.MCP))
+                .getFiles();
+        var dependency = this.dependencies.create(this.objects.fileCollection().from(renamed).builtBy(this.transformInputs));
+        this.fileDependencies.add(dependency);
+        return dependency;
     }
 
 }

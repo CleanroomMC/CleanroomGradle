@@ -22,7 +22,6 @@ public final class DeobfAttributes {
     public static final String NONE = "none";
     public static final String MCP = "mcp";
     public static final String USERDEV_INPUTS_TYPE = "cleanroom-userdev-deobf-inputs";
-    public static final String MCP_SOURCES = "mcp-sources";
 
     private DeobfAttributes() { }
 

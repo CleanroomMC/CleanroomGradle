@@ -55,7 +55,15 @@ public abstract class DeobfExtension {
         var dependencies = project.getDependencies();
         dependencies.getArtifactTypes()
                 .named(ArtifactTypeDefinition.JAR_TYPE, type -> type.getAttributes().attribute(DeobfAttributes.DEOBFUSCATED, DeobfAttributes.NONE));
-        dependencies.getExtensions().create("deobf", DeobfHandler.class, dependencies, objects);
+        dependencies.getExtensions()
+                .create(
+                        "deobf",
+                        DeobfHandler.class,
+                        dependencies,
+                        project.getConfigurations(),
+                        objects,
+                        project.files().builtBy(getMappings(), getSrgLibraries(), getRenamerClasspath())
+                );
 
         // The renamer tool classpath is owned by the renamer plugin. Reading it off a never-executed
         // RenameJar keeps the transform on the exact artifact every other remap task uses.
@@ -123,11 +131,12 @@ public abstract class DeobfExtension {
             return;
         }
         // Checked at resolution rather than now, so dependencies added by any later callback are seen too
+        var handler = project.getDependencies().getExtensions().getByType(DeobfHandler.class);
         compileClasspath.withDependencies(_ -> {
             for (var dependency : compileClasspath.getAllDependencies()) {
-                if (dependency instanceof ExternalModuleDependency module &&
-                        DeobfAttributes.MCP.equals(module.getAttributes().getAttribute(DeobfAttributes.DEOBFUSCATED))) {
-                    var message = "deobf(" + module.getGroup() + ":" + module.getName() + ") cannot be declared on the '" + compileClasspath.getName() +
+                if (handler.isDeobfuscated(dependency)) {
+                    var described = dependency instanceof ExternalModuleDependency module ? module.getGroup() + ":" + module.getName() : "files";
+                    var message = "deobf(" + described + ") cannot be declared on the '" + compileClasspath.getName() +
                             "' hierarchy in loader mode, because remapping it needs the " + "SRG-named Cleanroom jar that is built from this project's own compile classpath.";
                     throw CleanroomProblems.throwing(
                             problems,
