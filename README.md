@@ -218,8 +218,14 @@ Wrap a SRG-named dependency in `deobf(...)` to have it deobfuscated before reach
 ```groovy
 dependencies {
     implementation deobf('net.test:other-artifact:1.0.0')
+    // Local jars work the same way
+    implementation deobf(files('libs/other-mod.jar'))
+    implementation deobf(fileTree('libs') { include '*.jar' })
 }
 ```
+
+Any repository Gradle can resolve a module from is supported, as are `files(...)` and `fileTree(...)`.
+A local jar is renamed against Minecraft and Cleanroom only, since a file carries no dependencies of its own.
 
 In `loader` mode `deobf(...)` cannot be declared on the main compile classpath, that is `implementation`,`compileOnly` or `api`.
 
@@ -227,8 +233,6 @@ Renaming there needs the SRG-named Cleanroom jar, which is built from the main c
 Use a runtime or test configuration instead, such as `runtimeOnly`.
 
 Kotlin DSL cannot see `deobf(...)` as a bare function inside a `dependencies` block. Use `cleanroom.deobf(...)` there instead.
-
-`sources = true` is reserved for decompiling the renamed jar and is not implemented yet.
 
 
 ## Toolchain
