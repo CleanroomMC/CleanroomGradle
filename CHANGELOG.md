@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.19.0 - 2026-10-12
+
+> [!WARNING]
+> This version has breaking changes! More details below.
+
+### Breaking Changes
+
+- **userdev**: Split userdev jar into patched minecraft and loader jars *[commit by [@Rongmario](https://github.com/Rongmario) in [c9c6b48](https://github.com/CleanroomMC/CleanroomGradle/commit/c9c6b48f946c3a08caf66646f7fee6bb397efb4c)]*
+  - Userdev config layout changes while staying at spec 1.
+
+### Feature
+
+- Show client-extras jar as a separate dependency *[commit by [@Rongmario](https://github.com/Rongmario) in [7e7158e](https://github.com/CleanroomMC/CleanroomGradle/commit/7e7158e040db7e139086a285bca9cfdf7185b443)]*
+- Keep LWJGL 2 out of the published userdev *[commit by [@Rongmario](https://github.com/Rongmario) in [dee584e](https://github.com/CleanroomMC/CleanroomGradle/commit/dee584eec2ca910f6b98d679bd606bb94b98d47d)]*
+- Mirror userdev into a project repository so IDEs find Minecraft sources *[commit by [@Rongmario](https://github.com/Rongmario) in [bdfb086](https://github.com/CleanroomMC/CleanroomGradle/commit/bdfb086c938f5fa489a26d5878e5d4bbc38b6c66)]*
+
+### Bug Fix
+
+- Buffer decompilation logging *[commit by [@Rongmario](https://github.com/Rongmario) in [8d2ca7b](https://github.com/CleanroomMC/CleanroomGradle/commit/8d2ca7bd7e5ffddd553eeffca34bf43d3f7ca939)]*
+- Stop binpatches from obfuscating calls made through loader classes *[commit by [@Rongmario](https://github.com/Rongmario) in [6fbadab](https://github.com/CleanroomMC/CleanroomGradle/commit/6fbadab3390c01e6ebfa7046b1e09a0e7efde8da)]*
+- Keep excluded modules out of the published userdev dependencies *[commit by [@Rongmario](https://github.com/Rongmario) in [c323e1f](https://github.com/CleanroomMC/CleanroomGradle/commit/c323e1f90f30b50853de0dc768135ed8e7b8b940)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.18.0...0.19.0
+
 ## 0.18.0 - 2026-10-12
 
 > [!WARNING]
