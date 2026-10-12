@@ -16,6 +16,7 @@ import org.gradle.api.provider.ProviderFactory;
 public enum Property {
 
     ENABLE_EXCLUSIVE_LOCAL_MAVENS("cg.repos.enableLocal"),
+    USERDEV_SOURCES("cg.userdev.sources"),
     NSIGHT_ACTIVITY("cg.run.nsight_activity"),
     NSIGHT_NGFX_PATH("cg.run.nsight_ngfx_path");
 

@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.gradle.tooling.model.idea.IdeaSingleEntryLibraryDependency;
 
 import java.io.IOException;
+import java.util.zip.ZipFile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,7 +33,7 @@ class UserdevModulesTest extends BaseFunctionalTest {
                 """
         );
 
-        var model = this.project.ideaModel("--offline", "-Pcg.repos.enableLocal=true",
+        var model = this.project.ideaModel("--offline", "-Pcg.repos.enableLocal=true", "-Pcg.userdev.sources=true",
             "-Dmaven.repo.local=" + this.projectDir.resolve("local-maven")
         );
         var dependencies = model.value()
@@ -51,6 +52,11 @@ class UserdevModulesTest extends BaseFunctionalTest {
         for (var dependency : dependencies) {
             assertThat(dependency.getGradleModuleVersion().getGroup()).isEqualTo("com.cleanroommc");
             assertThat(dependency.getGradleModuleVersion().getVersion()).isEqualTo("0.7.0");
+            assertThat(dependency.getSource()).as(model::output).isNotNull();
+            try (var sources = new ZipFile(dependency.getSource())) {
+                assertThat(sources.getEntry("net/minecraft/Block.java")).isNotNull();
+                assertThat(sources.getEntry("com/cleanroommc/Loader.java")).isNotNull();
+            }
         }
         assertThat(model.output()).as(model::output).doesNotContain(":setup");
     }

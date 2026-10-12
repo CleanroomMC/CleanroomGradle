@@ -25,7 +25,14 @@ import com.cleanroommc.gradle.api.userdev.UserdevAttributes;
 import com.cleanroommc.gradle.api.userdev.UserdevDependency;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.Objects;
+import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.Platform;
+import com.cleanroommc.gradle.api.util.Property;
+import com.cleanroommc.gradle.api.util.dist.Repository;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -36,6 +43,7 @@ import org.gradle.api.artifacts.ExternalModuleDependency;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition;
 import org.gradle.api.attributes.Category;
+import org.gradle.api.attributes.DocsType;
 import org.gradle.api.attributes.LibraryElements;
 import org.gradle.api.attributes.Usage;
 import org.gradle.api.file.Directory;
@@ -55,6 +63,9 @@ import net.minecraftforge.renamer.gradle.RenameJar;
 import net.minecraftforge.renamer.gradle.RenamerExtension;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.util.List;
 
 public final class UserDevTasks {
@@ -151,6 +162,83 @@ public final class UserDevTasks {
             configureRun(task, Side.SERVER, userdev, caches, minecraft, offline, runDirectory.dir("server"), natives);
             task.classpath(runtimeClasspath, this.serverExtra, this.natives);
             MinecraftRuns.fml(task, false, server.map(UserdevConfig.Run::launchClass), server.map(UserdevConfig.Run::tweakClass), srgToMcp);
+        });
+
+        // The transforms cannot reach an IDE, which takes sources by classifier from a repository
+        var wantsSources = project.getProviders()
+            .systemProperty("idea.sync.active")
+            .map(Boolean::parseBoolean)
+            .orElse(Property.USERDEV_SOURCES.bool(project.getProviders()));
+        project.afterEvaluate(_ -> {
+            var raw = userdev.getRawArtifact().get().getAsFile();
+            var name = raw.getName().substring(0, raw.getName().length() - ".jar".length());
+            var mirror = Repository.userdevSourcesMirror(project)
+                .dir("com/cleanroommc/cleanroom-userdev/" + name.substring("cleanroom-userdev-".length()))
+                .getAsFile()
+                .toPath();
+            var marker = mirror.resolve("raw.sha1");
+            var sha1 = IO.sha1(raw);
+            try {
+                var current = Files.isRegularFile(marker) && Files.readString(marker).equals(sha1);
+                if (!current) {
+                    // A republished artifact must not be shadowed by the copy made from the old one
+                    project.delete(mirror);
+                }
+                if (current || !wantsSources.getOrElse(false)) {
+                    return;
+                }
+                var sources = (ExternalModuleDependency) userdev.getModuleDependency().copy();
+                sources.attributes(attributes -> attributes.attribute(UserdevAttributes.ROLE,
+                    UserdevAttributes.SOURCES
+                ));
+                var configuration = project.getConfigurations().create(Repository.USERDEV_SOURCES_CONFIGURATION);
+                configuration.setCanBeConsumed(false);
+                configuration.getDependencies().add(sources);
+                configuration.attributes(attributes -> {
+                    attributes.attribute(Category.CATEGORY_ATTRIBUTE,
+                        project.getObjects().named(Category.class, Category.DOCUMENTATION)
+                    );
+                    attributes.attribute(DocsType.DOCS_TYPE_ATTRIBUTE,
+                        project.getObjects().named(DocsType.class, DocsType.SOURCES)
+                    );
+                });
+                var metadata = new File(raw.getParentFile(), name + ".module");
+                // Gradle's module cache keeps each file of a version under its own hash directory
+                var hashes = raw.getParentFile().getParentFile().listFiles(File::isDirectory);
+                for (var i = 0; !metadata.isFile() && i < hashes.length; i++) {
+                    metadata = new File(hashes[i], name + ".module");
+                }
+                if (!metadata.isFile()) {
+                    project.getLogger().warn("Userdev sources were not attached: {}.module was not found.", name);
+                    return;
+                }
+                // IntelliJ drops sources that come out of a transform, so the sources variant points at the finished jar
+                var module = JsonParser.parseString(Files.readString(metadata.toPath())).getAsJsonObject();
+                for (var variant : module.getAsJsonArray("variants")) {
+                    var attributes = variant.getAsJsonObject().getAsJsonObject("attributes");
+                    var role = attributes.get(UserdevAttributes.ROLE.getName());
+                    if (role != null && role.getAsString().equals(UserdevAttributes.SOURCES)) {
+                        attributes.addProperty(UserdevAttributes.STAGE.getName(), UserdevAttributes.MATERIALIZED);
+                        var file = new JsonObject();
+                        file.addProperty("name", name + "-sources.jar");
+                        file.addProperty("url", name + "-sources.jar");
+                        var files = new JsonArray();
+                        files.add(file);
+                        variant.getAsJsonObject().add("files", files);
+                    }
+                }
+                Files.createDirectories(mirror);
+                Files.writeString(mirror.resolve(name + ".module"), module.toString());
+                Files.copy(raw.toPath(), mirror.resolve(raw.getName()));
+                // Resolved past the mirror, whose metadata no longer leads to the transform. The mirror already
+                // has to exist here: this resolves other configurations, and Gradle remembers a miss for the build.
+                var materialized = configuration.filter(file -> file.getName().equals(MaterializeUserdevSources.OUTPUT))
+                    .getSingleFile();
+                Files.copy(materialized.toPath(), mirror.resolve(name + "-sources.jar"));
+                Files.writeString(marker, sha1);
+            } catch (IOException e) {
+                throw new UncheckedIOException("Failed to mirror userdev sources into " + mirror, e);
+            }
         });
 
         project.getPluginManager()

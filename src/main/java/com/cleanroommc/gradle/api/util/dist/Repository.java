@@ -13,6 +13,7 @@ package com.cleanroommc.gradle.api.util.dist;
 import com.cleanroommc.gradle.api.util.Property;
 
 import org.gradle.api.Project;
+import org.gradle.api.file.Directory;
 import org.gradle.api.artifacts.dsl.RepositoryHandler;
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 
@@ -43,6 +44,16 @@ public enum Repository {
         this.groups = groups;
     }
 
+    /** Resolves the userdev artifact as published, past the sources mirror. */
+    public static final String USERDEV_RAW_CONFIGURATION = "_cleanroomUserdevRaw";
+    /** Builds the sources the mirror is filled with, so it has to resolve past the mirror too. */
+    public static final String USERDEV_SOURCES_CONFIGURATION = "_cleanroomUserdevSources";
+
+    // A project-local copy of the userdev module that adds the sources built on this machine
+    public static Directory userdevSourcesMirror(Project project) {
+        return project.getLayout().getProjectDirectory().dir(".gradle/cleanroom-userdev-sources");
+    }
+
     public static void addTo(Project project) {
         RepositoryHandler repos = project.getRepositories();
         boolean local = Property.ENABLE_EXCLUSIVE_LOCAL_MAVENS.bool(project.getProviders()).getOrElse(Boolean.FALSE);
@@ -56,6 +67,17 @@ public enum Repository {
                 continue;
             }
             repos.exclusiveContent(exclusive -> {
+                if (repo == CLEANROOM) {
+                    // IDEs fetch sources by classifier from the repository a module came from
+                    exclusive.forRepository(() -> repos.maven(maven -> {
+                        maven.setName("CleanroomUserdevSources");
+                        maven.setUrl(userdevSourcesMirror(project));
+                        maven.getMetadataSources().gradleMetadata();
+                        maven.content(content -> content.notForConfigurations(USERDEV_RAW_CONFIGURATION,
+                            USERDEV_SOURCES_CONFIGURATION
+                        ));
+                    }));
+                }
                 if (local) {
                     exclusive.forRepository(() -> repos.mavenLocal(maven -> {
                         maven.getMetadataSources().gradleMetadata(); // Userdev

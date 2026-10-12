@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.userdev;
 
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
+import com.cleanroommc.gradle.api.util.dist.Repository;
 import com.cleanroommc.gradle.api.source.UserdevConfigValueSource;
 
 import org.gradle.api.Project;
@@ -54,7 +55,9 @@ public final class UserdevDependency implements ProviderConvertible<ExternalModu
             attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW);
             attributes.attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES);
         });
-        Configuration metadata = project.getConfigurations().detachedConfiguration(rawDependency);
+        Configuration metadata = project.getConfigurations().create(Repository.USERDEV_RAW_CONFIGURATION);
+        metadata.setCanBeConsumed(false);
+        metadata.getDependencies().add(rawDependency);
         metadata.setTransitive(false);
         metadata.attributes(attributes -> {
             attributes.attribute(Usage.USAGE_ATTRIBUTE, project.getObjects().named(Usage.class, Usage.JAVA_RUNTIME));
