@@ -17,9 +17,10 @@ import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.task.userdev.ExtractUserdevFile;
-import com.cleanroommc.gradle.api.userdev.ExtractUserdevExtra;
 import com.cleanroommc.gradle.api.userdev.MaterializeUserdevClasses;
 import com.cleanroommc.gradle.api.userdev.MaterializeUserdevSources;
+import com.cleanroommc.gradle.api.userdev.PrepareUserdev;
+import com.cleanroommc.gradle.api.userdev.SelectPrepared;
 import com.cleanroommc.gradle.api.userdev.UserdevAttributes;
 import com.cleanroommc.gradle.api.userdev.UserdevDependency;
 import com.cleanroommc.gradle.api.util.Environment;
@@ -108,6 +109,12 @@ public final class UserDevTasks {
         var deobf = project.getExtensions().getByType(DeobfExtension.class);
         deobf.useUserdev(userdev.getRawConfiguration());
         deobf.getSrgLibraries().from(hierarchy);
+        deobf.getSrgLibraries()
+            .from(userdev.getRawConfiguration()
+                .getIncoming()
+                .artifactView(view -> view.getAttributes()
+                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, UserdevAttributes.SRG_TYPE))
+                .getFiles());
 
         this.reobfJar = Tasks.register(project, "reobfJar", RenameJar.class, renamer);
         this.reobfJar.configure(task -> {
@@ -262,30 +269,45 @@ public final class UserDevTasks {
         var accessTransformer = ToolConfigs.get(project, "accesstransformer");
         var mergeTool = ToolConfigs.get(project, "mergetool");
         var decompiler = ToolConfigs.get(project, "decompiler");
-        dependencies.registerTransform(MaterializeUserdevClasses.class, transform -> {
-            transform.getFrom().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW).attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE);
-            transform.getTo().attribute(UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED).attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE);
-            transform.getParameters().getAccessTransformers().from(userdev.getAccessTransformers());
+        // Every role starts from the same prepared directory, so Minecraft is rebuilt once per userdev artifact
+        dependencies.registerTransform(PrepareUserdev.class, transform -> {
+            transform.getFrom().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE);
+            transform.getTo().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, UserdevAttributes.PREPARED_TYPE);
+            transform.getParameters().getUniversal().from(userdev.getUniversal());
+            transform.getParameters().getLibraries().from(libraries);
             transform.getParameters().getRenamerClasspath().from(deobf.getRenamerClasspath());
             transform.getParameters().getAccessTransformerClasspath().from(accessTransformer);
             transform.getParameters().getMergeToolClasspath().from(mergeTool);
             transform.getParameters().getSharedCacheDirectory().set(caches.getDirectory());
             transform.getParameters().getOffline().set(project.getGradle().getStartParameter().isOffline());
         });
+        dependencies.registerTransform(MaterializeUserdevClasses.class, transform -> {
+            transform.getFrom().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW).attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, UserdevAttributes.PREPARED_TYPE);
+            transform.getTo().attribute(UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED).attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE);
+            transform.getParameters().getAccessTransformers().from(userdev.getAccessTransformers());
+            transform.getParameters().getLibraries().from(libraries);
+            transform.getParameters().getRenamerClasspath().from(deobf.getRenamerClasspath());
+            transform.getParameters().getAccessTransformerClasspath().from(accessTransformer);
+        });
         dependencies.registerTransform(MaterializeUserdevSources.class, transform -> {
-            transform.getFrom().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW).attribute(UserdevAttributes.ROLE, UserdevAttributes.SOURCES).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE);
+            transform.getFrom().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW).attribute(UserdevAttributes.ROLE, UserdevAttributes.SOURCES).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, UserdevAttributes.PREPARED_TYPE);
             transform.getTo().attribute(UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED).attribute(UserdevAttributes.ROLE, UserdevAttributes.SOURCES).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE);
             transform.getParameters().getDecompilerClasspath().from(decompiler);
             transform.getParameters().getLibraries().from(libraries);
         });
         for (var side : List.of("client", "server")) {
             var role = side + "-extra";
-            dependencies.registerTransform(ExtractUserdevExtra.class, transform -> {
-                transform.getFrom().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW).attribute(UserdevAttributes.ROLE, role).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE);
+            dependencies.registerTransform(SelectPrepared.class, transform -> {
+                transform.getFrom().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW).attribute(UserdevAttributes.ROLE, role).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, UserdevAttributes.PREPARED_TYPE);
                 transform.getTo().attribute(UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED).attribute(UserdevAttributes.ROLE, role).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE);
-                transform.getParameters().getSide().set(side);
+                transform.getParameters().getFile().set(role + ".jar");
             });
         }
+        dependencies.registerTransform(SelectPrepared.class, transform -> {
+            transform.getFrom().attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, UserdevAttributes.PREPARED_TYPE);
+            transform.getTo().attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, UserdevAttributes.SRG_TYPE);
+            transform.getParameters().getFile().set(PrepareUserdev.MINECRAFT_SRG);
+        });
     }
 
 }

@@ -28,6 +28,11 @@ public final class UserdevAttributes {
     /** Carries no artifact of its own, only the platform's native library dependencies. */
     public static final String NATIVES = "natives";
 
+    /** Artifact type of the directory {@link PrepareUserdev} produces. */
+    public static final String PREPARED_TYPE = "cleanroom-userdev-prepared";
+    /** Artifact type of patched Minecraft in SRG names. */
+    public static final String SRG_TYPE = "cleanroom-userdev-srg";
+
     private UserdevAttributes() { }
 
     public abstract static class PreferClasses implements AttributeDisambiguationRule<String> {

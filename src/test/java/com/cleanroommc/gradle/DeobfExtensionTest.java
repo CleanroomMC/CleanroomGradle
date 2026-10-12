@@ -485,12 +485,6 @@ class DeobfExtensionTest extends BaseFunctionalTest {
     }
 
     private Path packagedUserdev() throws IOException {
-        var library = this.projectDir.resolve("cleanroom-srg.jar");
-        try (var jar = new JarOutputStream(Files.newOutputStream(library))) {
-            jar.putNextEntry(new ZipEntry("net/test/library.class"));
-            jar.write(classBytes("net/test/library"));
-            jar.closeEntry();
-        }
 
         var userdev = this.projectDir.resolve("cleanroom-userdev.jar");
         try (var jar = new JarOutputStream(Files.newOutputStream(userdev))) {
@@ -506,9 +500,6 @@ class DeobfExtensionTest extends BaseFunctionalTest {
                     \tfunc_123_a ()V readableName
                     """.getBytes(StandardCharsets.UTF_8
                 ));
-            jar.closeEntry();
-            jar.putNextEntry(new ZipEntry(UserdevConfig.meta(UserdevConfig.DEOBF_LIBRARY)));
-            jar.write(Files.readAllBytes(library));
             jar.closeEntry();
         }
         return userdev;

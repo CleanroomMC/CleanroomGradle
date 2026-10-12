@@ -37,6 +37,7 @@ public final class UserdevDependency implements ProviderConvertible<ExternalModu
     private final Provider<RegularFile> rawArtifact;
     private final Provider<UserdevConfig> config;
     private final Configuration rawConfiguration;
+    private final Configuration universal;
 
     public UserdevDependency(Project project, String version) {
         Objects.requireNonNull(version, "version");
@@ -75,6 +76,10 @@ public final class UserdevDependency implements ProviderConvertible<ExternalModu
         this.config = this.rawArtifact.flatMap(artifact -> project.getProviders()
             .of(UserdevConfigValueSource.class, spec -> spec.getParameters().getUserdevJar().set(artifact)));
         this.rawConfiguration = metadata;
+        this.universal = project.getConfigurations()
+            .detachedConfiguration(project.getDependencies()
+                .create("com.cleanroommc:cleanroom:" + version + ":universal"));
+        this.universal.setTransitive(false);
     }
 
     @Override
@@ -116,6 +121,11 @@ public final class UserdevDependency implements ProviderConvertible<ExternalModu
 
     public Configuration getRawConfiguration() {
         return this.rawConfiguration;
+    }
+
+    /** The universal jar of the same version, which carries the binpatches. */
+    public Configuration getUniversal() {
+        return this.universal;
     }
 
 }

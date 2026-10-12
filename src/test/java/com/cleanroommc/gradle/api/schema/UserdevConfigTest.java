@@ -46,15 +46,15 @@ class UserdevConfigTest {
             new UserdevConfig.Inputs("mcp:config:1", "mcp:names:1", "patches:initial:1",
                 Map.of("accesstransformer", "t:at:1", "decompiler", "t:dec:1", "mergetool", "t:merge:1")
             ),
-            new UserdevConfig.Layout("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p",
-                "q", List.of(), "r", "s", "t"
+            new UserdevConfig.Layout("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "q", List.of(), "r",
+                "s", "t"
             ),
             new UserdevConfig.Runs(new UserdevConfig.Run("L", "T"), new UserdevConfig.Run("L", "T"))
         );
     }
 
     @Test
-    void readsTheSpecOneDocument() throws IOException {
+    void readsTheSpecDocument() throws IOException {
         var artifact = this.directory.resolve("userdev.jar");
         writeConfig(artifact,
             """
@@ -73,12 +73,10 @@ class UserdevConfigTest {
                     "tools": {"accesstransformer":"tools:at:1", "decompiler":"tools:decompiler:1", "mergetool":"tools:merge:1"}
                   },
                   "layout": {
-                    "binpatches":"userdev/binpatches.zip","clientBinpatches":"binpatch/client/","serverBinpatches":"binpatch/server/",
+                    "binpatches":"binpatches.zip","clientBinpatches":"binpatch/client/","serverBinpatches":"binpatch/server/",
                     "obfToSrg":"userdev/obf2srg.tsrg","srgToMcp":"userdev/srg2mcp.tsrg","mcpToSrg":"userdev/mcp2srg.tsrg",
                     "access":"userdev/access.txt","constructors":"userdev/constructors.txt","exceptions":"userdev/exceptions.txt",
                     "methods":"userdev/methods.csv","fields":"userdev/fields.csv","params":"userdev/params.csv",
-                    "deobfLibrary":"userdev/deobf-library.jar","sourceInput":"userdev/source-input.jar",
-                    "clientExtra":"userdev/client-extra","serverExtra":"userdev/server-extra",
                     "initialPatches":"userdev/initial-patches","accessTransformers":[],"sideAnnotationStrippers":"userdev/cleanroom.sas",
                     "patches":"userdev/patches","loaderSources":"userdev/loader-sources"
                   },

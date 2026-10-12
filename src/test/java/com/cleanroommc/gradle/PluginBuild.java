@@ -38,7 +38,7 @@ final class PluginBuild {
         this.projectDir = projectDir;
     }
 
-    /** The spec 1 document the artifact carries, which every consumer reads its layout from. */
+    /** The spec document the artifact carries, which every consumer reads its layout from. */
     static String userdevConfigJson(String version) {
         return UserdevFixture.config(version, "client", "server");
     }

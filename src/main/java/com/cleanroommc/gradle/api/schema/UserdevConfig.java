@@ -38,8 +38,6 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
     public static final String OBF2SRG = "obf2srg.tsrg";
     public static final String SRG2MCP = "srg2mcp.tsrg";
     public static final String MCP2SRG = "mcp2srg.tsrg";
-    public static final String DEOBF_LIBRARY = "deobf-library.jar";
-    public static final String SOURCE_INPUT = "source-input.jar";
     public static final String ACCESS = "access.txt";
     public static final String CONSTRUCTORS = "constructors.txt";
     public static final String EXCEPTIONS = "exceptions.txt";
@@ -79,7 +77,7 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
     }
 
     private static IllegalStateException invalid(String field) {
-        return new IllegalStateException("Invalid Cleanroom userdev spec 1: " + field + " is required.");
+        return new IllegalStateException("Invalid Cleanroom userdev spec " + SPEC + ": " + field + " is required.");
     }
 
     public static UserdevConfig read(File file) {
@@ -94,7 +92,7 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
         try (var zip = new ZipFile(jar)) {
             var entry = zip.getEntry(meta(FILE_NAME));
             if (entry == null) {
-                throw new IllegalStateException(jar + " is not a Cleanroom userdev spec 1 artifact: missing " +
+                throw new IllegalStateException(jar + " is not a Cleanroom userdev spec " + SPEC + " artifact: missing " +
                         meta(FILE_NAME) + "."
                 );
             }
@@ -133,7 +131,7 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
             );
         }
         if (minecraft == null || loader == null || inputs == null || layout == null || runs == null) {
-            throw new IllegalStateException("Invalid Cleanroom userdev spec 1: minecraft, loader, inputs, layout and runs are required."
+            throw new IllegalStateException("Invalid Cleanroom userdev spec " + SPEC + ": minecraft, loader, inputs, layout and runs are required."
             );
         }
         require("minecraft.version", minecraft.version());
@@ -163,10 +161,6 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
         require("layout.methods", layout.methods());
         require("layout.fields", layout.fields());
         require("layout.params", layout.params());
-        require("layout.deobfLibrary", layout.deobfLibrary());
-        require("layout.sourceInput", layout.sourceInput());
-        require("layout.clientExtra", layout.clientExtra());
-        require("layout.serverExtra", layout.serverExtra());
         require("layout.initialPatches", layout.initialPatches());
         require("layout.sideAnnotationStrippers", layout.sideAnnotationStrippers());
         require("layout.patches", layout.patches());
@@ -198,10 +192,6 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
         String methods,
         String fields,
         String params,
-        String deobfLibrary,
-        String sourceInput,
-        String clientExtra,
-        String serverExtra,
         String initialPatches,
         List<String> accessTransformers,
         String sideAnnotationStrippers,

@@ -91,7 +91,6 @@ public abstract class DeobfuscateJar implements TransformAction<DeobfuscateJar.P
         var libraries = new ArrayList<>(parameters.getSrgLibraries().getFiles());
         for (var directory : parameters.getUserdevInputs()) {
             mappings.add(new File(directory, UserdevConfig.SRG2MCP));
-            libraries.add(new File(directory, UserdevConfig.DEOBF_LIBRARY));
         }
         if (declared.isEmpty() && mappings.isEmpty()) {
             throw new InvalidUserDataException("deobf() needs MCP mappings, which this project does not build. " +

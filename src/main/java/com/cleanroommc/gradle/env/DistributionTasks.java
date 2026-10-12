@@ -27,7 +27,6 @@ import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.task.patch.GenerateBinPatches;
 import com.cleanroommc.gradle.api.task.sas.CheckSAS;
 import com.cleanroommc.gradle.api.task.sas.StripSideOnlyJar;
-import com.cleanroommc.gradle.api.task.userdev.MaterializeUserdevSourcesJar;
 import com.cleanroommc.gradle.api.userdev.UserdevAttributes;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
@@ -101,7 +100,6 @@ public final class DistributionTasks {
     public final TaskProvider<WriteMappings> writeMcp2Notch;
     public final TaskProvider<RenameJar> reobfJar;
     public final TaskProvider<RenameJar> reobfMinecraftJar;
-    public final TaskProvider<Jar> deobfLibraryJar;
     public final TaskProvider<Jar> universalJar;
     public final TaskProvider<Jar> userdevJar;
     public final TaskProvider<Jar> sourcesJar;
@@ -110,7 +108,7 @@ public final class DistributionTasks {
     public final TaskProvider<StripSideOnlyJar> stripServerMinecraftJar;
     public final TaskProvider<GenerateBinPatches> genBinPatches;
     public final TaskProvider<WriteUserdevConfig> writeUserdevConfig;
-    public final TaskProvider<MaterializeUserdevSourcesJar> userdevSourcesJar;
+    public final TaskProvider<Jar> userdevSourcesJar;
     public final TaskProvider<PublishMmcPackZip> publishMmcPackZip;
     public final TaskProvider<WriteInstallProfile> writeInstallProfile;
     public final TaskProvider<Jar> installerJar;
@@ -236,7 +234,6 @@ public final class DistributionTasks {
         this.reobfJar = Tasks.register(project, "reobfJar", RenameJar.class,
             project.getExtensions().getByType(RenamerExtension.class)
         );
-        this.deobfLibraryJar = Tasks.register(project, "deobfLibraryJar", Jar.class);
         this.reobfMinecraftJar = Tasks.register(project, "reobfMinecraftJar", RenameJar.class,
             project.getExtensions().getByType(RenamerExtension.class)
         );
@@ -245,7 +242,7 @@ public final class DistributionTasks {
         this.genBinPatches = Tasks.register(project, "genBinPatches", GenerateBinPatches.class);
         this.universalJar = Tasks.register(project, "universalJar", Jar.class);
         this.userdevJar = Tasks.register(project, "userdevJar", Jar.class);
-        this.userdevSourcesJar = Tasks.register(project, "userdevSourcesJar", MaterializeUserdevSourcesJar.class);
+        this.userdevSourcesJar = Tasks.register(project, "userdevSourcesJar", Jar.class);
         javaExtension.withSourcesJar();
         javaExtension.withJavadocJar();
         this.sourcesJar = project.getTasks().named("sourcesJar", Jar.class);
@@ -273,17 +270,6 @@ public final class DistributionTasks {
             task.getMap().setFrom(this.writeMcp2Srg.flatMap(WriteMappings::getOutput));
             task.getLibraries().setFrom(vanilla.vanillaConfig, mainSourceSet.map(SourceSet::getCompileClasspath));
             task.getOutput().set(caches.getLocalDirectory().file("dist/reobf/" + ARTIFACT_ID + "-srg.jar"));
-        });
-        this.deobfLibraryJar.configure(task -> {
-            task.setDescription("Packages the SRG Minecraft hierarchy used to deobfuscate mod dependencies.");
-            task.setPreserveFileTimestamps(false);
-            task.setReproducibleFileOrder(true);
-
-            task.from(archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)),
-                spec -> spec.include(Meta.MINECRAFT_PACKAGE_PATH + "**")
-            );
-            task.getDestinationDirectory().set(caches.getLocalDirectory().dir("dist/reobf"));
-            task.getArchiveFileName().set(UserdevConfig.DEOBF_LIBRARY);
         });
         this.reobfMinecraftJar.configure(task -> {
             // genBinPatches only looks at net/minecraft, so the loader classes riding along are harmless
@@ -380,7 +366,8 @@ public final class DistributionTasks {
             task.getMcpMappings().set(mappings.mcpMappings.map(Objects::fullNotation));
             task.getInitialPatches().set(mcp.initialPatches.map(Objects::fullNotation));
             task.getTools().set(ToolConfigs.sourceToolNotations(project));
-            task.getBinpatches().set(UserdevConfig.meta(UserdevConfig.BINPATCHES));
+            // Read out of the universal jar, which is the only artifact that ships them
+            task.getBinpatches().set(UserdevConfig.BINPATCHES);
             task.getClientBinpatches().set(UserdevConfig.CLIENT_BINPATCHES);
             task.getServerBinpatches().set(UserdevConfig.SERVER_BINPATCHES);
             task.getSrg2Mcp().set(UserdevConfig.meta(UserdevConfig.SRG2MCP));
@@ -417,9 +404,7 @@ public final class DistributionTasks {
             task.from(archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)),
                 spec -> spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**")
             );
-            task.from(this.genBinPatches.flatMap(GenerateBinPatches::getBinpatches),
-                spec -> spec.into(UserdevConfig.META)
-            );
+
             task.from(loader.getAccessTransformers(), spec -> spec.into(UserdevConfig.meta(UserdevConfig.ATS)));
             task.from(mcp.checkSAS.flatMap(CheckSAS::getOutput),
                 spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.SAS)
@@ -453,18 +438,6 @@ public final class DistributionTasks {
                 spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**");
                 spec.into(UserdevConfig.meta(UserdevConfig.LOADER_SOURCES));
             });
-            task.from(archives.zipTree(
-                    mcp.splitClientJar.flatMap(com.cleanroommc.gradle.api.task.mcp.SplitJar::getExtraJar)),
-                spec -> spec.into(UserdevConfig.meta("client-extra"))
-            );
-            task.from(archives.zipTree(
-                    mcp.splitServerJar.flatMap(com.cleanroommc.gradle.api.task.mcp.SplitJar::getExtraJar)),
-                spec -> spec.into(UserdevConfig.meta("server-extra"))
-            );
-            task.from(this.deobfLibraryJar.flatMap(Jar::getArchiveFile), spec -> spec.into(UserdevConfig.META));
-            task.from(mcp.decompileSrg.flatMap(com.cleanroommc.gradle.api.task.common.Decompile::getCompiledJar),
-                spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.SOURCE_INPUT)
-            );
             task.from(this.writeMcp2Srg.flatMap(WriteMappings::getOutput),
                 spec -> spec.into(UserdevConfig.META).rename(name -> UserdevConfig.MCP2SRG)
             );
@@ -473,14 +446,13 @@ public final class DistributionTasks {
             );
         });
         this.userdevSourcesJar.configure(task -> {
-            task.setDescription("Builds the conventional sources artifact IDEs request for cleanroom-userdev.");
-            task.getUserdevArtifact().set(this.userdevJar.flatMap(Jar::getArchiveFile));
-            task.getLibraries().from(vanilla.vanillaConfig);
-            task.getDecompilerClasspath().from(ToolConfigs.get(project, "decompiler"));
-            task.getOutput()
-                .set(layout.getBuildDirectory()
-                        .file(version.map(number -> "libs/cleanroom-userdev-" + number + "-sources.jar"))
-                );
+            task.setDescription("Packages the loader sources. Minecraft sources are built by each workspace.");
+            task.setPreserveFileTimestamps(false);
+            task.setReproducibleFileOrder(true);
+            task.from(mainSourceSet.map(SourceSet::getAllJava), spec -> spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**"));
+            task.getArchiveBaseName().set("cleanroom-userdev");
+            task.getArchiveVersion().set(version);
+            task.getArchiveClassifier().set("sources");
         });
         this.publishMmcPackZip.configure(task -> {
             task.setDescription("Publishes a minimal MultiMC/PrismLauncher import ZIP.");
@@ -731,7 +703,7 @@ public final class DistributionTasks {
             publication.setArtifactId("cleanroom-userdev");
             publication.setVersion(version.get());
             publication.from(this.userdevComponent);
-            publication.artifact(this.userdevSourcesJar.flatMap(MaterializeUserdevSourcesJar::getOutput), artifact -> {
+            publication.artifact(this.userdevSourcesJar.flatMap(Jar::getArchiveFile), artifact -> {
                 artifact.setClassifier("sources");
                 artifact.setExtension("jar");
             });

@@ -59,7 +59,6 @@ public abstract class ExtractUserdevDeobfInputs implements TransformAction<Trans
         var output = outputs.dir("userdev-deobf-inputs");
         try (var zip = new ZipFile(input)) {
             extract(zip, input, layout.srgToMcp(), UserdevConfig.SRG2MCP, output);
-            extract(zip, input, layout.deobfLibrary(), UserdevConfig.DEOBF_LIBRARY, output);
         } catch (IOException e) {
             throw new UncheckedIOException("Could not extract deobf inputs from " + input, e);
         }

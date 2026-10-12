@@ -137,8 +137,9 @@ class ProjectModeTest extends BaseFunctionalTest {
 
         var first = this.project.runner("remapSrg2Mcp", "userdevJar", "--dry-run").build().getOutput();
         PluginBuild.scheduled(first, "mergeJars", "splitClientJar", "decompileSrg", "remapSrg2Mcp", "reobfJar",
-            "writeUserdevConfig", "genBinPatches"
+            "writeUserdevConfig"
         );
+        PluginBuild.notScheduled(first, "genBinPatches");
         assertThat(first).contains("Configuration cache entry stored");
         PluginBuild.reused(this.project.runner("remapSrg2Mcp", "userdevJar", "--dry-run").build().getOutput());
     }

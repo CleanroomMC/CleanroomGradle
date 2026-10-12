@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.gradle.tooling.model.idea.IdeaSingleEntryLibraryDependency;
 
 import java.io.IOException;
-import java.util.zip.ZipFile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -36,7 +35,7 @@ class UserdevModulesTest extends BaseFunctionalTest {
         var model = this.project.ideaModel("--offline", "-Pcg.repos.enableLocal=true",
             "-Dmaven.repo.local=" + this.projectDir.resolve("local-maven")
         );
-        var dependency = model.value()
+        var dependencies = model.value()
             .getModules()
             .stream()
             .flatMap(module -> module.getDependencies().stream())
@@ -44,18 +43,14 @@ class UserdevModulesTest extends BaseFunctionalTest {
             .map(IdeaSingleEntryLibraryDependency.class::cast)
             .filter(entry -> entry.getGradleModuleVersion() != null &&
                 "cleanroom-userdev".equals(entry.getGradleModuleVersion().getName()))
-            .findFirst()
-            .orElseThrow(() -> new AssertionError(model.output()));
-        assertThat(dependency.getGradleModuleVersion().getGroup()).isEqualTo("com.cleanroommc");
-        assertThat(dependency.getGradleModuleVersion().getVersion()).isEqualTo("0.7.0");
-        // The classes transform runs during the sync itself, so what the IDE lists is the combined jar
-        assertThat(dependency.getFile().getName())
-            .as(() -> dependency.getFile() + "\n" + model.output())
-            .endsWith("materialized.jar");
-        assertThat(dependency.getSource()).as(model::output).isNotNull();
-        try (var sources = new ZipFile(dependency.getSource())) {
-            assertThat(sources.getEntry("net/minecraft/Block.java")).isNotNull();
-            assertThat(sources.getEntry("com/cleanroommc/Loader.java")).isNotNull();
+            .toList();
+        // The classes transform runs during the sync itself, so what the IDE lists is its two jars
+        assertThat(dependencies).as(model::output)
+            .extracting(entry -> entry.getFile().getName())
+            .containsExactlyInAnyOrder("minecraft-patched.jar", "cleanroom-userdev.jar");
+        for (var dependency : dependencies) {
+            assertThat(dependency.getGradleModuleVersion().getGroup()).isEqualTo("com.cleanroommc");
+            assertThat(dependency.getGradleModuleVersion().getVersion()).isEqualTo("0.7.0");
         }
         assertThat(model.output()).as(model::output).doesNotContain(":setup");
     }

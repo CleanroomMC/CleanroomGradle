@@ -157,7 +157,7 @@ class UserdevPipelineTest extends BaseFunctionalTest {
      */
     @Test
     void nativesAndHierarchyResolveFromThePublishedModule() throws IOException {
-        this.project.build("""
+        this.project.build(UserdevFixture.PREAMBLE + """
                 dependencies {
                     implementation cleanroom.userdev('0.9.9')
                 }
@@ -178,7 +178,7 @@ class UserdevPipelineTest extends BaseFunctionalTest {
             .getOutput();
         assertThat(output).as(output).contains("NATIVES [fixture-native-current-1.jar]");
         assertThat(output).as(output).doesNotContain("fixture-native-foreign-1.jar");
-        assertThat(output).as(output).contains("HIERARCHY [fixture-library-1.jar]");
+        assertThat(output).as(output).contains("HIERARCHY [fixture-library-1.jar, minecraft-srg.jar]");
     }
 
     /**

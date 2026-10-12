@@ -38,13 +38,12 @@ public final class UserdevSourceMaterializer {
 
     private UserdevSourceMaterializer() { }
 
-    public static void materialize(File input, Path output, Path work, Iterable<File> dependencies,
+    public static void materialize(File input, File srgJar, Path output, Path work, Iterable<File> dependencies,
         FileCollection decompilerClasspath, ExecOperations execOperations
     ) throws IOException {
         var config = UserdevConfig.readFromJar(input);
         delete(work);
         Files.createDirectories(work);
-        var srgJar = extractFile(input, config.layout().sourceInput(), work.resolve("minecraft-srg.jar"));
         var decompiled = work.resolve("decompiled.jar");
         var arguments = new ArrayList<String>();
         arguments.add("--new-line-separator=1");
@@ -56,7 +55,7 @@ public final class UserdevSourceMaterializer {
         for (var dependency : dependencies) {
             arguments.add("-e=" + dependency.getAbsolutePath());
         }
-        arguments.add(srgJar.toAbsolutePath().toString());
+        arguments.add(srgJar.getAbsolutePath());
         arguments.add(decompiled.toAbsolutePath().toString());
         execOperations.javaexec(spec -> {
             spec.setClasspath(decompilerClasspath);

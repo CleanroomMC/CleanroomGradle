@@ -24,6 +24,7 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.process.ExecOperations;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import javax.inject.Inject;
@@ -31,8 +32,10 @@ import javax.inject.Inject;
 @CacheableTransform
 public abstract class MaterializeUserdevSources implements TransformAction<MaterializeUserdevSources.Parameters> {
 
+    public static final String OUTPUT = "cleanroom-userdev-materialized-sources.jar";
+
     @InputArtifact
-    @PathSensitive(PathSensitivity.NONE)
+    @PathSensitive(PathSensitivity.RELATIVE)
     public abstract Provider<FileSystemLocation> getInputArtifact();
 
     @Inject
@@ -40,11 +43,13 @@ public abstract class MaterializeUserdevSources implements TransformAction<Mater
 
     @Override
     public void transform(TransformOutputs outputs) {
-        var input = getInputArtifact().get().getAsFile();
-        var output = outputs.file("cleanroom-userdev-materialized-sources.jar");
+        var prepared = getInputArtifact().get().getAsFile();
+        var input = new File(prepared, PrepareUserdev.USERDEV);
+        var output = outputs.file(OUTPUT);
         var work = output.toPath().resolveSibling("sources-work");
         try {
-            UserdevSourceMaterializer.materialize(input, output.toPath(), work, getParameters().getLibraries(),
+            UserdevSourceMaterializer.materialize(input, new File(prepared, PrepareUserdev.SOURCE_INPUT),
+                output.toPath(), work, getParameters().getLibraries(),
                 getParameters().getDecompilerClasspath(), getExecOperations()
             );
         } catch (IOException e) {

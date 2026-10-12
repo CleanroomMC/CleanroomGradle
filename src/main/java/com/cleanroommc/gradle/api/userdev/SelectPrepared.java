@@ -10,8 +10,6 @@
 
 package com.cleanroommc.gradle.api.userdev;
 
-import com.cleanroommc.gradle.api.schema.UserdevConfig;
-
 import org.gradle.api.artifacts.transform.CacheableTransform;
 import org.gradle.api.artifacts.transform.InputArtifact;
 import org.gradle.api.artifacts.transform.TransformAction;
@@ -24,30 +22,34 @@ import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+
+/** Takes one jar out of the directory {@link PrepareUserdev} produced. */
 @CacheableTransform
-public abstract class ExtractUserdevExtra implements TransformAction<ExtractUserdevExtra.Parameters> {
+public abstract class SelectPrepared implements TransformAction<SelectPrepared.Parameters> {
 
     @InputArtifact
-    @PathSensitive(PathSensitivity.NONE)
+    @PathSensitive(PathSensitivity.RELATIVE)
     public abstract Provider<FileSystemLocation> getInputArtifact();
 
     @Override
     public void transform(TransformOutputs outputs) {
-        var input = getInputArtifact().get().getAsFile();
-        var config = UserdevConfig.readFromJar(input);
-        var prefix = (getParameters().getSide().get().equals("client")
-                ? config.layout().clientExtra()
-                : config.layout().serverExtra()) +
-            "/";
-        UserdevArchive.select(input, outputs.file(getParameters().getSide().get() + "-extra.jar"),
-            name -> name.startsWith(prefix), prefix
-        );
+        var name = getParameters().getFile().get();
+        var source = new File(getInputArtifact().get().getAsFile(), name);
+        try {
+            Files.copy(source.toPath(), outputs.file(name).toPath());
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to copy " + source, e);
+        }
     }
 
     public interface Parameters extends TransformParameters {
 
         @Input
-        Property<String> getSide();
+        Property<String> getFile();
 
     }
 

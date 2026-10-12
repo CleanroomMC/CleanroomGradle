@@ -44,7 +44,10 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
             var index = line.indexOf(" -> ");
             if (index > 0 && line.startsWith("USERDEV ")) {
                 var path = Path.of(line.substring(index + 4));
-                if (!path.getFileName().toString().startsWith("fixture-")) {
+                var name = path.getFileName().toString();
+                if (name.equals("cleanroom-userdev.jar")) {
+                    files.put("LOADER", path);
+                } else if (!name.startsWith("fixture-")) {
                     files.put(line.substring("USERDEV ".length(), index), path);
                 }
             }
@@ -85,9 +88,11 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
 
         var output = resolve("1.0.0");
 
-        assertThat(entries(file(output, "CLASSES"))).isEqualTo(List.of("com/cleanroommc/Loader.class",
-            "net/minecraft/Block.class", "net/minecraft/Patched.class"
+        assertThat(file(output, "CLASSES").getFileName()).hasToString("minecraft-patched.jar");
+        assertThat(entries(file(output, "CLASSES"))).isEqualTo(List.of("net/minecraft/Block.class",
+            "net/minecraft/Patched.class"
         ));
+        assertThat(entries(file(output, "LOADER"))).isEqualTo(List.of("com/cleanroommc/Loader.class"));
         assertThat(entries(file(output, "CLIENT_EXTRA"))).isEqualTo(List.of("assets/pack.mcmeta"));
         assertThat(entries(file(output, "SERVER_EXTRA"))).isEqualTo(List.of("assets/server.txt"));
         assertThat(read(file(output, "SOURCES"), "decompiler-classpath.txt")).contains("fixture-library-1.jar");

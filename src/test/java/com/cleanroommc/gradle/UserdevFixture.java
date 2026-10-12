@@ -77,12 +77,24 @@ final class UserdevFixture {
             spec.clientSha1 == null ? IO.sha1(client) : spec.clientSha1, IO.sha1(server)
         );
         Files.write(module.resolve("cleanroom-userdev-" + version + "-sources.jar"),
-            archive(Map.of("net/minecraft/Block.java", "class Block {\n    // patched by the artifact\n}\n",
-                "com/cleanroommc/Loader.java", "package com.cleanroommc;\n"
-            ))
+            archive("com/cleanroommc/Loader.java", "package com.cleanroommc;\n")
         );
         Files.writeString(module.resolve("cleanroom-userdev-" + version + ".pom"),
             pom("com.cleanroommc", "cleanroom-userdev", version)
+        );
+
+        var universal = Files.createDirectories(projectDir.resolve("local-maven/com/cleanroommc/cleanroom/" + version));
+        Files.write(universal.resolve("cleanroom-" + version + "-universal.jar"),
+            binaryArchive(Map.of(UserdevConfig.BINPATCHES,
+                binaryArchive(Map.of(UserdevConfig.CLIENT_BINPATCHES + "net/minecraft/Patched.class.add",
+                    classBytes("net/minecraft/Patched"),
+                    UserdevConfig.SERVER_BINPATCHES + "net/minecraft/Patched.class.add",
+                    classBytes("net/minecraft/Patched")
+                ))
+            ))
+        );
+        Files.writeString(universal.resolve("cleanroom-" + version + ".pom"),
+            pom("com.cleanroommc", "cleanroom", version).replace("<!-- do_not_remove: published-with-gradle-metadata -->\n", "")
         );
 
         var platform = Platform.CURRENT.canonicalNativePlatform();
@@ -121,12 +133,6 @@ final class UserdevFixture {
         entries.put(UserdevConfig.meta(UserdevConfig.FILE_NAME),
             config(version, clientSha1, serverSha1).getBytes(StandardCharsets.UTF_8)
         );
-        entries.put(UserdevConfig.meta(UserdevConfig.BINPATCHES),
-            binaryArchive(Map.of(UserdevConfig.CLIENT_BINPATCHES + "net/minecraft/Patched.class.add",
-                classBytes("net/minecraft/Patched"),
-                UserdevConfig.SERVER_BINPATCHES + "net/minecraft/Patched.class.add", classBytes("net/minecraft/Patched")
-            ))
-        );
         entries.put(UserdevConfig.meta(UserdevConfig.OBF2SRG), tsrg());
         entries.put(UserdevConfig.meta(UserdevConfig.SRG2MCP),
             spec.srgToMcp == null ? tsrg() : spec.srgToMcp.getBytes(StandardCharsets.UTF_8)
@@ -138,11 +144,7 @@ final class UserdevFixture {
         entries.put(UserdevConfig.meta(UserdevConfig.METHODS), csv("searge,name,side,desc"));
         entries.put(UserdevConfig.meta(UserdevConfig.FIELDS), csv("searge,name,side,desc"));
         entries.put(UserdevConfig.meta(UserdevConfig.PARAMS), csv("param,name,side"));
-        entries.put(UserdevConfig.meta(UserdevConfig.DEOBF_LIBRARY), archive("README", "empty"));
-        entries.put(UserdevConfig.meta(UserdevConfig.SOURCE_INPUT), classArchive());
-        entries.put(UserdevConfig.meta("client-extra") + "/assets/pack.mcmeta", "{}".getBytes(StandardCharsets.UTF_8));
-        entries.put(UserdevConfig.meta("server-extra") + "/assets/server.txt", "server".getBytes(StandardCharsets.UTF_8)
-        );
+        entries.put(UserdevConfig.meta(UserdevConfig.SAS), new byte[0]);
         entries.put(UserdevConfig.meta(UserdevConfig.PATCHES) + "/net/minecraft/Block.java.patch",
             """
                 --- a/net/minecraft/Block.java
@@ -169,7 +171,7 @@ final class UserdevFixture {
         }
     }
 
-    /** The spec 1 document the artifact carries, which every consumer reads its layout from. */
+    /** The spec document the artifact carries, which every consumer reads its layout from. */
     static String config(String version, String clientSha1, String serverSha1) {
         return """
                 {
@@ -191,7 +193,7 @@ final class UserdevFixture {
                     }
                   },
                   "layout": {
-                    "binpatches": "userdev/binpatches.zip",
+                    "binpatches": "binpatches.zip",
                     "clientBinpatches": "binpatch/client/",
                     "serverBinpatches": "binpatch/server/",
                     "obfToSrg": "userdev/obf2srg.tsrg",
@@ -203,10 +205,6 @@ final class UserdevFixture {
                     "methods": "userdev/methods.csv",
                     "fields": "userdev/fields.csv",
                     "params": "userdev/params.csv",
-                    "deobfLibrary": "userdev/deobf-library.jar",
-                    "sourceInput": "userdev/source-input.jar",
-                    "clientExtra": "userdev/client-extra",
-                    "serverExtra": "userdev/server-extra",
                     "initialPatches": "userdev/initial-patches",
                     "accessTransformers": [],
                     "sideAnnotationStrippers": "userdev/cleanroom.sas",
@@ -378,10 +376,6 @@ final class UserdevFixture {
             out.closeEntry();
         }
         return jar;
-    }
-
-    private static byte[] classArchive() {
-        return archive("net/minecraft/Block.class", null);
     }
 
     private static byte[] archive(String entry, String content) {

@@ -135,8 +135,6 @@ public abstract class WriteUserdevConfig extends DefaultTask {
                 UserdevConfig.meta(UserdevConfig.ACCESS), UserdevConfig.meta(UserdevConfig.CONSTRUCTORS),
                 UserdevConfig.meta(UserdevConfig.EXCEPTIONS), UserdevConfig.meta(UserdevConfig.METHODS),
                 UserdevConfig.meta(UserdevConfig.FIELDS), UserdevConfig.meta(UserdevConfig.PARAMS),
-                UserdevConfig.meta(UserdevConfig.DEOBF_LIBRARY), UserdevConfig.meta(UserdevConfig.SOURCE_INPUT),
-                UserdevConfig.meta("client-extra"), UserdevConfig.meta("server-extra"),
                 UserdevConfig.meta(UserdevConfig.INITIAL_PATCHES), getAccessTransformers().get(),
                 getSideAnnotationStrippers().get(), getPatches().get(), UserdevConfig.meta(UserdevConfig.LOADER_SOURCES)
             ),
