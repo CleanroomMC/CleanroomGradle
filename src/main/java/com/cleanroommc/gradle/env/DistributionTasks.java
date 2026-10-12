@@ -97,7 +97,6 @@ public final class DistributionTasks {
 
     public final TaskProvider<WriteMappings> writeMcp2Srg;
     public final TaskProvider<WriteMappings> writeObf2SrgTsrg;
-    public final TaskProvider<WriteMappings> writeMcp2Notch;
     public final TaskProvider<RenameJar> reobfJar;
     public final TaskProvider<RenameJar> reobfMinecraftJar;
     public final TaskProvider<Jar> universalJar;
@@ -228,9 +227,6 @@ public final class DistributionTasks {
         this.writeObf2SrgTsrg = mappings.write(project, caches, "writeObf2SrgTsrg", WriteMappings.Direction.OBF_TO_SRG,
             "obf2srg.tsrg"
         );
-        this.writeMcp2Notch = mappings.write(project, caches, "writeMcp2Notch", WriteMappings.Direction.MCP_TO_NOTCH,
-            "mcp2notch.tsrg"
-        );
         this.reobfJar = Tasks.register(project, "reobfJar", RenameJar.class,
             project.getExtensions().getByType(RenamerExtension.class)
         );
@@ -271,11 +267,24 @@ public final class DistributionTasks {
             task.getLibraries().setFrom(vanilla.vanillaConfig, mainSourceSet.map(SourceSet::getCompileClasspath));
             task.getOutput().set(caches.getLocalDirectory().file("dist/reobf/" + ARTIFACT_ID + "-srg.jar"));
         });
+        var srgMinecraftJar = Tasks.register(project, "srgMinecraftJar", Jar.class);
+        srgMinecraftJar.configure(task -> {
+            task.setDescription("Assembles the Minecraft classes of the SRG named jar, for binpatch generation.");
+            task.setPreserveFileTimestamps(false);
+            task.setReproducibleFileOrder(true);
+            task.from(archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)),
+                spec -> spec.include(Meta.MINECRAFT_PACKAGE_PATH + "**")
+            );
+            task.getDestinationDirectory().set(caches.getLocalDirectory().dir("dist/reobf"));
+            task.getArchiveFileName().set("minecraft-srg.jar");
+        });
         this.reobfMinecraftJar.configure(task -> {
-            // genBinPatches only looks at net/minecraft, so the loader classes riding along are harmless
-            task.setDescription("Renames the main jar back to obfuscated names, for binpatch generation.");
-            task.getInput().set(jarTask.flatMap(Jar::getArchiveFile));
-            task.getMap().setFrom(this.writeMcp2Notch.flatMap(WriteMappings::getOutput));
+            // The loader classes are left out, so no member is renamed through one of them. They ship in SRG
+            // names, and the runtime remapper only resolves an inherited name through obfuscated parents.
+            task.setDescription("Renames the Minecraft classes back to obfuscated names, for binpatch generation.");
+            task.getInput().set(srgMinecraftJar.flatMap(Jar::getArchiveFile));
+            task.getMap().setFrom(this.writeObf2SrgTsrg.flatMap(WriteMappings::getOutput));
+            task.getReverse().set(true);
             task.getLibraries().setFrom(vanilla.vanillaConfig, mainSourceSet.map(SourceSet::getCompileClasspath));
             task.getOutput().set(caches.getLocalDirectory().file("dist/reobf/minecraft-notch.jar"));
         });
