@@ -48,6 +48,7 @@ import org.gradle.api.attributes.LibraryElements;
 import org.gradle.api.attributes.Usage;
 import org.gradle.api.file.Directory;
 import org.gradle.api.file.FileCollection;
+import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
@@ -93,6 +94,9 @@ public final class UserDevTasks {
 
         var java = project.getExtensions().getByType(JavaPluginExtension.class);
         var main = java.getSourceSets().named(SourceSet.MAIN_SOURCE_SET_NAME);
+
+        project.getDependencies().add(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME, project.files(this.clientExtra));
+
         var jar = project.getTasks().named("jar", Jar.class);
         jar.configure(task -> task.getArchiveClassifier().convention("mcp"));
         for (var name : new String[] { "apiElements", "runtimeElements" }) {
