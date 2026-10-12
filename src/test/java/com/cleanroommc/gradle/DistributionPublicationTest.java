@@ -128,6 +128,8 @@ class DistributionPublicationTest extends BaseFunctionalTest {
                     assert libraries.any { it.group == 'com.mojang' && it.name == 'authlib' } : libraries
                     assert libraries.every { it.group != 'org.lwjgl.lwjgl' } : libraries
                     assert libraries.every { it.name != 'patchy' } : 'an excluded module is still published'
+                    assert configurations.cleanroomUserdevRuntimeElements.allDependencies
+                            .every { it.group != 'org.lwjgl.lwjgl' } : 'LWJGL 2 is published to userdev'
                 """ +
                 natives + """
                 }

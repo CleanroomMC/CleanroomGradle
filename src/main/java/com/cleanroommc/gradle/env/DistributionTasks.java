@@ -629,6 +629,9 @@ public final class DistributionTasks {
     ) {
         configuration.setCanBeConsumed(true);
         configuration.setCanBeResolved(false);
+        // LWJGL 2 only belongs to a production runtime. Published under every dependency, the exclude keeps
+        // other libraries from bringing it into a workspace transitively.
+        configuration.exclude(Map.of("group", VanillaTasks.LWJGL2_GROUP));
         configuration.getAttributes().attribute(Usage.USAGE_ATTRIBUTE, project.getObjects().named(Usage.class, usage));
         configuration.getAttributes()
             .attribute(Category.CATEGORY_ATTRIBUTE, project.getObjects().named(Category.class, category));
@@ -737,7 +740,29 @@ public final class DistributionTasks {
         });
         var runtimeElements = configurations.register("cleanroomUserdevRuntimeElements", configuration -> {
             userdevVariant(project, configuration, Usage.JAVA_RUNTIME, Category.LIBRARY, UserdevAttributes.CLASSES, targetJavaMajor);
-            configuration.extendsFrom(javaRuntimeElements.get(), minecraftLibraries.get());
+            configuration.extendsFrom(minecraftLibraries.get());
+            // The project's runtime is copied rather than extended. It carries LWJGL 2 through the vanilla
+            // libraries, and an inherited dependency cannot be dropped.
+            configuration.getDependencies().addAllLater(project.provider(() -> javaRuntimeElements.get()
+                .getAllDependencies()
+                .stream()
+                .filter(dependency -> !VanillaTasks.LWJGL2_GROUP.equals(dependency.getGroup()))
+                .toList()));
+            configuration.getDependencyConstraints().addAllLater(project.provider(() -> List.copyOf(javaRuntimeElements.get().getAllDependencyConstraints())));
+            project.afterEvaluate(evaluated -> {
+                for (var parent : javaRuntimeElements.get().getHierarchy()) {
+                    for (var rule : parent.getExcludeRules()) {
+                        var exclude = new HashMap<String, String>();
+                        if (rule.getGroup() != null) {
+                            exclude.put("group", rule.getGroup());
+                        }
+                        if (rule.getModule() != null) {
+                            exclude.put("module", rule.getModule());
+                        }
+                        configuration.exclude(exclude);
+                    }
+                }
+            });
         });
         var sourcesElements = configurations.register("cleanroomUserdevSourcesElements", configuration -> {
             userdevVariant(project, configuration, Usage.JAVA_RUNTIME, Category.DOCUMENTATION, UserdevAttributes.SOURCES, targetJavaMajor);
