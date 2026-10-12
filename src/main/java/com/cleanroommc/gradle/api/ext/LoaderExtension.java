@@ -26,13 +26,11 @@ public abstract class LoaderExtension {
     public LoaderExtension() {
         getForgeVersion().convention("14.23.5.2864");
         getInstallerVersion().convention("0.2.0");
-        getClientMainClass().convention("com.cleanroommc.boot.MainClient");
-        getServerMainClass().convention("com.cleanroommc.boot.MainServer");
         getLaunchClass().convention("top.outlands.foundation.boot.Foundation");
+        getClientLaunchClass().convention(getLaunchClass());
+        getServerLaunchClass().convention(getLaunchClass());
         getClientTweakClass().convention("net.minecraftforge.fml.common.launcher.FMLTweaker");
         getServerTweakClass().convention("net.minecraftforge.fml.common.launcher.FMLServerTweaker");
-        getClientTarget().convention("fmldevclient");
-        getServerTarget().convention("fmldevserver");
         getInstallerJvmArgs().convention(List.of());
         getLwjglNativesClassifiers().convention(LwjglNatives.CLASSIFIERS);
         getIntermediateRuns().convention(false);
@@ -42,19 +40,15 @@ public abstract class LoaderExtension {
 
     public abstract Property<String> getInstallerVersion();
 
-    public abstract Property<String> getClientMainClass();
-
-    public abstract Property<String> getServerMainClass();
-
     public abstract Property<String> getLaunchClass();
+
+    public abstract Property<String> getClientLaunchClass();
+
+    public abstract Property<String> getServerLaunchClass();
 
     public abstract Property<String> getClientTweakClass();
 
     public abstract Property<String> getServerTweakClass();
-
-    public abstract Property<String> getClientTarget();
-
-    public abstract Property<String> getServerTarget();
 
     public abstract ListProperty<String> getInstallerJvmArgs();
 

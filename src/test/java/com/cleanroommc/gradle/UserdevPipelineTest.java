@@ -182,12 +182,12 @@ class UserdevPipelineTest extends BaseFunctionalTest {
     }
 
     /**
-     * GradleStart renames SRG-named mods into the workspace's own MCP names, so {@code MCP_TO_SRG} carries a
-     * srg-to-mcp file, and the MCP identifiers are the ones the launcher reports. Environment values carry no
-     * producer information, so the run depends on the extracted mappings by hand.
+     * FML renames SRG-named mods into the workspace's own MCP names with the srg-to-mcp file, and the launch
+     * class and tweaker come from the artifact. System property values carry no producer information, so the
+     * run depends on the extracted mappings by hand.
      */
     @Test
-    void runsHandGradleStartTheExtractedMappings() throws IOException {
+    void runsLaunchTheLoaderWithTheExtractedMappings() throws IOException {
         this.project.build("""
                 import com.cleanroommc.gradle.api.task.mc.RunMinecraft
                 dependencies {
@@ -196,9 +196,9 @@ class UserdevPipelineTest extends BaseFunctionalTest {
                 // Resolving the artifact-owned config needs the project lock, so not projectsEvaluated
                 afterEvaluate {
                     def client = tasks.named('runClient', RunMinecraft).get()
-                    assert client.environment.get('MCP_VERSION').toString() == '20201025.185735'
-                    assert client.environment.get('MCP_MAPPINGS').toString() == 'stable_39'
-                    assert client.environment.get('MCP_TO_SRG').toString().endsWith('srg2mcp.tsrg')
+                    assert client.mainClass.get() == 'net.minecraft.launchwrapper.Launch'
+                    assert client.args == ['--tweakClass', 'net.minecraftforge.fml.common.launcher.FMLTweaker']
+                    assert client.systemProperties.get('net.minecraftforge.gradle.GradleStart.srg.srg-mcp').toString().endsWith('srg2mcp.tsrg')
                     ['runClient', 'runServer'].each { name ->
                         def dependencies = tasks.named(name).get().taskDependencies.getDependencies(null)*.name
                         assert dependencies.contains('extractUserdevSrgToMcp') : name + ' -> ' + dependencies

@@ -114,8 +114,8 @@ public abstract class CleanroomGradle implements Plugin<Project> {
                     mcpTasks.configureLoaderPipeline(project, ext.getCaches(), ext.getLoader(), vanillaTasks,
                         intermediates
                     );
-                    new CleanroomTasks(project, coordinates, ext.getCaches(), ext.getMinecraft(), ext.getLoader(),
-                        ext.getPatches(), vanillaTasks, mcpTasks, mappings
+                    new CleanroomTasks(project, ext.getCaches(), ext.getMinecraft(), ext.getLoader(), ext.getPatches(),
+                        vanillaTasks, mcpTasks, mappings
                     );
                     var distributionTasks = new DistributionTasks(project, coordinates, ext.getCaches(),
                         ext.getMinecraft(), ext.getLoader(), ext.getPatches(), vanillaTasks, mappings, mcpTasks,

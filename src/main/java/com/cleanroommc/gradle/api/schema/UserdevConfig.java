@@ -68,10 +68,8 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
         if (run == null) {
             throw invalid(name);
         }
-        require(name + ".mainClass", run.mainClass());
         require(name + ".launchClass", run.launchClass());
         require(name + ".tweakClass", run.tweakClass());
-        require(name + ".target", run.target());
     }
 
     private static void require(String name, String value) {
@@ -213,6 +211,6 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
 
     public record Runs(Run client, Run server) { }
 
-    public record Run(String mainClass, String launchClass, String tweakClass, String target) { }
+    public record Run(String launchClass, String tweakClass) { }
 
 }

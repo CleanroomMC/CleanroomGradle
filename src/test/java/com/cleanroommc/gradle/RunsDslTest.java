@@ -294,9 +294,9 @@ class RunsDslTest extends BaseFunctionalTest {
                 afterEvaluate {
                     def custom = tasks.named('runCustom').get()
                     assert custom.username.get() == 'Modder'
-                    assert custom.environment.get('MCP_VERSION').toString() == '20201025.185735'
-                    assert custom.environment.get('MCP_MAPPINGS').toString() == 'stable_39'
-                    assert custom.environment.get('MCP_TO_SRG').toString().endsWith('srg2mcp.tsrg')
+                    assert custom.mainClass.get() == 'net.minecraft.launchwrapper.Launch'
+                    assert custom.args == ['--tweakClass', 'net.minecraftforge.fml.common.launcher.FMLTweaker']
+                    assert custom.systemProperties.get('net.minecraftforge.gradle.GradleStart.srg.srg-mcp').toString().endsWith('srg2mcp.tsrg')
                     assert tasks.named('runServer').get().username.get() == 'Server'
                 }
                 """

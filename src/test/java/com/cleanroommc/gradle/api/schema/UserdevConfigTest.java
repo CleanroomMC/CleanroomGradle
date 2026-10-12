@@ -49,9 +49,7 @@ class UserdevConfigTest {
             new UserdevConfig.Layout("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p",
                 "q", List.of(), "r", "s", "t"
             ),
-            new UserdevConfig.Runs(new UserdevConfig.Run("C", "L", "T", "client"),
-                new UserdevConfig.Run("C", "L", "T", "server")
-            )
+            new UserdevConfig.Runs(new UserdevConfig.Run("L", "T"), new UserdevConfig.Run("L", "T"))
         );
     }
 
@@ -85,8 +83,8 @@ class UserdevConfigTest {
                     "patches":"userdev/patches","loaderSources":"userdev/loader-sources"
                   },
                   "runs": {
-                    "client": {"mainClass": "Client", "launchClass": "Launch", "tweakClass": "ClientTweaker", "target": "client"},
-                    "server": {"mainClass": "Server", "launchClass": "Launch", "tweakClass": "ServerTweaker", "target": "server"}
+                    "client": {"launchClass": "Launch", "tweakClass": "ClientTweaker"},
+                    "server": {"launchClass": "Launch", "tweakClass": "ServerTweaker"}
                   }
                 }
                 """

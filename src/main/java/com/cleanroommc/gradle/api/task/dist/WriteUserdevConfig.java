@@ -100,13 +100,10 @@ public abstract class WriteUserdevConfig extends DefaultTask {
     public abstract Property<String> getServerSha1();
 
     @Input
-    public abstract Property<String> getClientMainClass();
+    public abstract Property<String> getClientLaunchClass();
 
     @Input
-    public abstract Property<String> getServerMainClass();
-
-    @Input
-    public abstract Property<String> getLaunchClass();
+    public abstract Property<String> getServerLaunchClass();
 
     @Input
     public abstract Property<String> getClientTweakClass();
@@ -114,23 +111,15 @@ public abstract class WriteUserdevConfig extends DefaultTask {
     @Input
     public abstract Property<String> getServerTweakClass();
 
-    @Input
-    public abstract Property<String> getClientTarget();
-
-    @Input
-    public abstract Property<String> getServerTarget();
-
     @OutputFile
     public abstract RegularFileProperty getOutput();
 
     @TaskAction
     public void write() {
-        var runs = new UserdevConfig.Runs(new UserdevConfig.Run(getClientMainClass().get(), getLaunchClass().get(),
-                getClientTweakClass().get(), getClientTarget().get()
+        var runs = new UserdevConfig.Runs(new UserdevConfig.Run(getClientLaunchClass().get(),
+                getClientTweakClass().get()
             ),
-            new UserdevConfig.Run(getServerMainClass().get(), getLaunchClass().get(), getServerTweakClass().get(),
-                getServerTarget().get()
-            )
+            new UserdevConfig.Run(getServerLaunchClass().get(), getServerTweakClass().get())
         );
         var config = new UserdevConfig(UserdevConfig.SPEC,
             new UserdevConfig.Minecraft(getMinecraftVersion().get(),

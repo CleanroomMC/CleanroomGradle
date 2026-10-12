@@ -59,8 +59,6 @@ public final class McpMappings {
     public final Provider<RegularFile> constructors;
     public final Provider<RegularFile> exceptions;
     public final Provider<String> activeNamesId;
-    public final Provider<String> mcpVersionId;
-    public final Provider<String> mcpMappingsId;
     public final Provider<String> mcpConfigVersion;
 
     public McpMappings(Project project, CachesExtension caches, MappingsExtension mappings) {
@@ -77,8 +75,6 @@ public final class McpMappings {
         });
         this.activeNamesId = this.tinyFileWhenPresent.map(NamesSource::tiny2Id).orElse(mcpNamesId);
         this.mcpConfigVersion = this.mcpConfig.map(cfg -> Objects.firstDependency(cfg).getVersion());
-        this.mcpVersionId = this.mcpConfig.map(McpMappings::deriveMcpVersion);
-        this.mcpMappingsId = this.mcpMappings.map(McpMappings::deriveMcpMappings);
 
         this.extractMcpConfig = Tasks.unzip(project, "extractMcpConfig", this.mcpConfig,
             caches.getVersionDirectory().dir("mcp_config")
@@ -100,51 +96,6 @@ public final class McpMappings {
         this.writeSrg2Mcp = write(project, caches, "writeSrg2Mcp", WriteMappings.Direction.SRG_TO_MCP,
             UserdevConfig.SRG2MCP
         );
-    }
-
-    /**
-     * The {@code MCP_VERSION} GradleStart expects.
-     * {@code 20201025.185735} for an mcpConfig coordinate of{@code de.oceanlabs.mcp:mcp_config:1.12.2-20201025.185735}.
-     * Userdev derives it from the notation the artifact records rather than from a resolved configuration.
-     *
-     * @param notation the mcpConfig dependency notation
-     */
-    public static String mcpVersionId(String notation) {
-        var version = coordinates(notation)[2];
-        var dash = version.indexOf('-');
-        return dash < 0 ? version : version.substring(dash + 1);
-    }
-
-    /**
-     * The {@code MCP_MAPPINGS} GradleStart expects.
-     * {@code stable_39} for a mappings coordinate of {@code de.oceanlabs.mcp:mcp_stable:39-1.12@zip}.
-     *
-     * @param notation the mappings dependency notation
-     */
-    public static String mcpMappingsId(String notation) {
-        var coordinates = coordinates(notation);
-        var name = coordinates[1];
-        var channel = name.startsWith("mcp_") ? name.substring("mcp_".length()) : name;
-        var version = coordinates[2];
-        var dash = version.indexOf('-');
-        return channel + "_" + (dash < 0 ? version : version.substring(0, dash));
-    }
-
-    private static String[] coordinates(String notation) {
-        var at = notation.indexOf('@');
-        var coordinates = (at < 0 ? notation : notation.substring(0, at)).split(":");
-        if (coordinates.length < 3) {
-            throw new IllegalStateException("'" + notation + "' is not a group:name:version coordinate.");
-        }
-        return coordinates;
-    }
-
-    private static String deriveMcpVersion(Configuration config) {
-        return mcpVersionId(Objects.notation(config));
-    }
-
-    private static String deriveMcpMappings(Configuration config) {
-        return mcpMappingsId(Objects.fullNotation(config));
     }
 
     public TaskProvider<WriteMappings> write(Project project, CachesExtension caches, String name,

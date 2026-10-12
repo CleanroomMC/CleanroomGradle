@@ -256,7 +256,8 @@ public final class DistributionTasks {
         this.installerJar = Tasks.register(project, "installerJar", Jar.class);
         var clientTweakClass = loader.getClientTweakClass();
         var serverTweakClass = loader.getServerTweakClass();
-        var launchClass = loader.getLaunchClass();
+        var clientLaunchClass = loader.getClientLaunchClass();
+        var serverLaunchClass = loader.getServerLaunchClass();
         Tasks.group("build", this.reobfJar);
         Tasks.group(GROUP_NAME, this.universalJar, this.userdevJar, this.userdevSourcesJar, this.sourcesJar,
             this.javadocJar, this.publishMmcPackZip, this.installerJar
@@ -398,13 +399,10 @@ public final class DistributionTasks {
             task.getServerUrl().set(minecraft.getVersionMeta().map(VersionMeta::serverUrl));
             task.getServerSha1().set(minecraft.getVersionMeta().map(VersionMeta::serverSha1));
             task.getLoaderGroup().set(group);
-            task.getClientMainClass().set(loader.getClientMainClass());
-            task.getServerMainClass().set(loader.getServerMainClass());
-            task.getLaunchClass().set(launchClass);
+            task.getClientLaunchClass().set(clientLaunchClass);
+            task.getServerLaunchClass().set(serverLaunchClass);
             task.getClientTweakClass().set(clientTweakClass);
             task.getServerTweakClass().set(serverTweakClass);
-            task.getClientTarget().set(loader.getClientTarget());
-            task.getServerTarget().set(loader.getServerTarget());
             task.getOutput().set(caches.getLocalDirectory().file("dist/" + UserdevConfig.FILE_NAME));
         });
         this.userdevJar.configure(task -> {
@@ -489,7 +487,7 @@ public final class DistributionTasks {
 
             task.getInstanceName().set(titleProperty);
             task.getCleanroomVersion().set(version);
-            task.getMainClass().set(launchClass);
+            task.getMainClass().set(clientLaunchClass);
             task.getTweakers().set(clientTweakClass.map(List::of));
             task.getCompatibleJavaMajors().set(targetJavaMajor.map(List::of));
             task.getUniversalCoordinate().set(universal.map(Coordinate::serialized));
@@ -518,8 +516,8 @@ public final class DistributionTasks {
             task.getProfileName().set(titleProperty);
             task.getCleanroomVersion().set(version);
             task.getVersionId().set(version.map(number -> titleProperty + "-" + number));
-            task.getMainClass().set(launchClass);
-            task.getServerMainClass().set(launchClass);
+            task.getMainClass().set(clientLaunchClass);
+            task.getServerMainClass().set(serverLaunchClass);
             task.getTweakers().set(clientTweakClass.map(List::of));
             task.getServerTweakers().set(serverTweakClass.map(List::of));
             task.getJvmArgs().set(loader.getInstallerJvmArgs());

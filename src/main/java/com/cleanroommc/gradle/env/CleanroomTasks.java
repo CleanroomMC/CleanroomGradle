@@ -15,7 +15,6 @@ import com.cleanroommc.gradle.api.ext.LoaderExtension;
 import com.cleanroommc.gradle.api.ext.MinecraftExtension;
 import com.cleanroommc.gradle.api.ext.PatchDevEnvironment;
 import com.cleanroommc.gradle.api.ext.PatchesExtension;
-import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.mc.NsightExec;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
@@ -24,7 +23,6 @@ import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.task.patch.ApplyDiffs;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.Property;
-import com.cleanroommc.gradle.api.util.lazy.ProjectCoordinates;
 import com.cleanroommc.gradle.api.util.lazy.SourceSets;
 
 import org.gradle.api.DefaultTask;
@@ -50,9 +48,8 @@ public final class CleanroomTasks {
     public final TaskProvider<RunMinecraft> runCleanroomServer;
     public final TaskProvider<NsightExec> runCleanroomNsightClient;
 
-    public CleanroomTasks(Project project, ProjectCoordinates coordinates, CachesExtension caches,
-        MinecraftExtension minecraft, LoaderExtension loader, PatchesExtension patches, VanillaTasks vanilla,
-        MCPTasks mcp, McpMappings mappings
+    public CleanroomTasks(Project project, CachesExtension caches, MinecraftExtension minecraft, LoaderExtension loader,
+        PatchesExtension patches, VanillaTasks vanilla, MCPTasks mcp, McpMappings mappings
     ) {
         var mainSourceSet = project.getExtensions()
             .getByType(SourceSetContainer.class)
@@ -98,18 +95,6 @@ public final class CleanroomTasks {
         var natives = vanilla.extractNatives.map(Copy::getDestinationDir);
         var srgToMcp = mappings.writeSrg2Mcp.flatMap(WriteMappings::getOutput);
 
-        var fml = new MinecraftRuns.Fml();
-        fml.minecraftVersion = vanilla.minecraftVersion;
-        fml.mcpVersion = mappings.mcpVersionId;
-        fml.mcpMappings = mappings.mcpMappingsId;
-        fml.srgToMcp = srgToMcp;
-        fml.forgeGroup = coordinates.getGroup();
-        fml.forgeVersion = loader.getForgeVersion();
-        fml.assetIndex = minecraft.getVersionMeta().map(VersionMeta::assetIndexId);
-        fml.assets = caches.getDirectory().dir("assets");
-        fml.natives = natives;
-        fml.launchClass = loader.getLaunchClass();
-
         this.runCleanroomClient = RunRegistry.register(project, "runCleanroomClient", RunMinecraft.class);
         this.runCleanroomServer = RunRegistry.register(project, "runCleanroomServer", RunMinecraft.class);
         this.runCleanroomNsightClient = RunRegistry.register(project, "runCleanroomNsightClient", NsightExec.class);
@@ -122,11 +107,10 @@ public final class CleanroomTasks {
             task.getSide().set(Side.CLIENT);
             task.getEnv().set(Environment.CLEANROOM);
             task.getMinecraftVersion().set(vanilla.minecraftVersion);
-            task.getMainClass().set(loader.getClientMainClass());
             task.setWorkingDir(runDir.dir("client"));
             task.getNatives().fileProvider(natives);
             task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitClientJar.flatMap(SplitJar::getExtraJar));
-            MinecraftRuns.fmlEnvironment(task, fml.forSide(true, loader.getClientTarget(), loader.getClientTweakClass(), fml.launchClass));
+            MinecraftRuns.fml(task, true, loader.getClientLaunchClass(), loader.getClientTweakClass(), srgToMcp);
         });
 
         RunRegistry.configure(project, this.runCleanroomServer, task -> {
@@ -135,11 +119,10 @@ public final class CleanroomTasks {
             task.getSide().set(Side.SERVER);
             task.getEnv().set(Environment.CLEANROOM);
             task.getMinecraftVersion().set(vanilla.minecraftVersion);
-            task.getMainClass().set(loader.getServerMainClass());
             task.setWorkingDir(runDir.dir("server"));
             task.getNatives().fileProvider(natives);
             task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitServerJar.flatMap(SplitJar::getExtraJar));
-            MinecraftRuns.fmlEnvironment(task, fml.forSide(false, loader.getServerTarget(), loader.getServerTweakClass(), fml.launchClass));
+            MinecraftRuns.fml(task, false, loader.getServerLaunchClass(), loader.getServerTweakClass(), srgToMcp);
         });
 
         RunRegistry.configure(project, this.runCleanroomNsightClient, task -> {

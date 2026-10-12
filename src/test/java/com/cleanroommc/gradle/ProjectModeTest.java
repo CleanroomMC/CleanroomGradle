@@ -85,35 +85,26 @@ class ProjectModeTest extends BaseFunctionalTest {
                 cleanroom {
                     mode = 'loader'
                     loader {
-                        clientMainClass = 'example.ClientMain'
-                        serverMainClass = 'example.ServerMain'
                         launchClass = 'example.Launch'
+                        serverLaunchClass = 'example.ServerLaunch'
                         clientTweakClass = 'example.ClientTweaker'
                         serverTweakClass = 'example.ServerTweaker'
-                        clientTarget = 'exampleClient'
-                        serverTarget = 'exampleServer'
                     }
                 }
                 gradle.projectsEvaluated {
                     def client = tasks.named('runCleanroomClient', RunMinecraft).get()
                     def server = tasks.named('runCleanroomServer', RunMinecraft).get()
-                    assert client.mainClass.get() == 'example.ClientMain'
-                    assert server.mainClass.get() == 'example.ServerMain'
-                    assert client.environment.get('mainClass').toString() == 'example.Launch'
-                    assert client.environment.get('tweakClass').toString() == 'example.ClientTweaker'
-                    assert server.environment.get('tweakClass').toString() == 'example.ServerTweaker'
-                    assert client.environment.get('target').toString() == 'exampleClient'
-                    assert server.environment.get('target').toString() == 'exampleServer'
-                    // GradleStart renames SRG-named mods into MCP, so MCP_TO_SRG carries a srg-to-mcp file
-                    assert client.environment.get('MCP_TO_SRG').toString().endsWith('srg2mcp.tsrg')
-                    assert client.environment.get('MCP_VERSION').toString() == '20201025.185735'
-                    assert client.environment.get('MCP_MAPPINGS').toString() == 'stable_39'
+                    assert client.mainClass.get() == 'example.Launch'
+                    assert server.mainClass.get() == 'example.ServerLaunch'
+                    assert client.args == ['--tweakClass', 'example.ClientTweaker']
+                    assert server.args == ['--tweakClass', 'example.ServerTweaker']
+                    // FML renames SRG-named mods into MCP with the srg-to-mcp file
+                    assert client.systemProperties.get('net.minecraftforge.gradle.GradleStart.srg.srg-mcp').toString().endsWith('srg2mcp.tsrg')
 
                     def userdev = tasks.named('writeUserdevConfig', WriteUserdevConfig).get()
-                    assert userdev.clientMainClass.get() == 'example.ClientMain'
-                    assert userdev.launchClass.get() == 'example.Launch'
+                    assert userdev.clientLaunchClass.get() == 'example.Launch'
+                    assert userdev.serverLaunchClass.get() == 'example.ServerLaunch'
                     assert userdev.serverTweakClass.get() == 'example.ServerTweaker'
-                    assert userdev.serverTarget.get() == 'exampleServer'
 
                     def pack = tasks.named('publishMmcPackZip', PublishMmcPackZip).get()
                     assert pack.mainClass.get() == 'example.Launch'
@@ -122,7 +113,7 @@ class ProjectModeTest extends BaseFunctionalTest {
 
                     def installer = tasks.named('writeInstallProfile', WriteInstallProfile).get()
                     assert installer.mainClass.get() == 'example.Launch'
-                    assert installer.serverMainClass.get() == 'example.Launch'
+                    assert installer.serverMainClass.get() == 'example.ServerLaunch'
                     assert installer.tweakers.get() == ['example.ClientTweaker']
                     assert installer.serverTweakers.get() == ['example.ServerTweaker']
                     assert installer.minimumJava.get() == 28

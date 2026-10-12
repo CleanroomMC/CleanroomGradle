@@ -214,8 +214,8 @@ final class UserdevFixture {
                     "loaderSources": "userdev/loader-sources"
                   },
                   "runs": {
-                    "client": {"mainClass": "GradleStart", "launchClass": "net.minecraft.launchwrapper.Launch", "tweakClass": "net.minecraftforge.fml.common.launcher.FMLTweaker", "target": "fmluserdevclient"},
-                    "server": {"mainClass": "GradleStartServer", "launchClass": "net.minecraft.launchwrapper.Launch", "tweakClass": "net.minecraftforge.fml.common.launcher.FMLServerTweaker", "target": "fmluserdevserver"}
+                    "client": {"launchClass": "net.minecraft.launchwrapper.Launch", "tweakClass": "net.minecraftforge.fml.common.launcher.FMLTweaker"},
+                    "server": {"launchClass": "net.minecraft.launchwrapper.Launch", "tweakClass": "net.minecraftforge.fml.common.launcher.FMLServerTweaker"}
                   }
                 }
                 """.formatted(clientSha1,

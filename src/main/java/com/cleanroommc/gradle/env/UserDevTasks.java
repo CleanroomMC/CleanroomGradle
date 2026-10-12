@@ -129,30 +129,21 @@ public final class UserDevTasks {
         var runtimeClasspath = project.getObjects().fileCollection().from(main.map(SourceSet::getRuntimeClasspath));
         var client = config.map(value -> value.runs().client());
         var server = config.map(value -> value.runs().server());
-        var fml = new MinecraftRuns.Fml();
-        fml.minecraftVersion = userdev.getMinecraftVersion();
-        fml.mcpVersion = config.map(value -> McpMappings.mcpVersionId(value.inputs().mcpConfig()));
-        fml.mcpMappings = config.map(value -> McpMappings.mcpMappingsId(value.inputs().mappings()));
-        fml.srgToMcp = this.extractSrgToMcp.flatMap(ExtractUserdevFile::getOutput);
-        fml.forgeGroup = config.map(value -> value.loader().group());
-        fml.forgeVersion = config.map(value -> value.loader().forgeVersion());
-        fml.assetIndex = minecraft.getVersionMeta().map(meta -> meta.assetIndexId());
-        fml.assets = caches.getDirectory().dir("assets");
-        fml.natives = natives;
+        var srgToMcp = this.extractSrgToMcp.flatMap(ExtractUserdevFile::getOutput);
 
         RunRegistry.configure(project, this.runClient, task -> {
             task.setGroup(RUNS_GROUP);
             task.dependsOn(main.map(SourceSet::getClassesTaskName), vanilla.downloadAssets);
-            configureRun(task, Side.CLIENT, client, userdev, caches, minecraft, offline, runDirectory.dir("client"), natives);
+            configureRun(task, Side.CLIENT, userdev, caches, minecraft, offline, runDirectory.dir("client"), natives);
             task.classpath(runtimeClasspath, this.clientExtra, this.natives);
-            MinecraftRuns.fmlEnvironment(task, fml.forSide(true, client.map(UserdevConfig.Run::target), client.map(UserdevConfig.Run::tweakClass), client.map(UserdevConfig.Run::launchClass)));
+            MinecraftRuns.fml(task, true, client.map(UserdevConfig.Run::launchClass), client.map(UserdevConfig.Run::tweakClass), srgToMcp);
         });
         RunRegistry.configure(project, this.runServer, task -> {
             task.setGroup(RUNS_GROUP);
             task.dependsOn(main.map(SourceSet::getClassesTaskName));
-            configureRun(task, Side.SERVER, server, userdev, caches, minecraft, offline, runDirectory.dir("server"), natives);
+            configureRun(task, Side.SERVER, userdev, caches, minecraft, offline, runDirectory.dir("server"), natives);
             task.classpath(runtimeClasspath, this.serverExtra, this.natives);
-            MinecraftRuns.fmlEnvironment(task, fml.forSide(false, server.map(UserdevConfig.Run::target), server.map(UserdevConfig.Run::tweakClass), server.map(UserdevConfig.Run::launchClass)));
+            MinecraftRuns.fml(task, false, server.map(UserdevConfig.Run::launchClass), server.map(UserdevConfig.Run::tweakClass), srgToMcp);
         });
 
         project.getPluginManager()
@@ -161,15 +152,13 @@ public final class UserDevTasks {
             );
     }
 
-    private static void configureRun(RunMinecraft task, Side side, Provider<UserdevConfig.Run> run,
-        UserdevDependency userdev, CachesExtension caches, MinecraftExtension minecraft, boolean offline,
-        Directory runDirectory, Provider<File> natives
+    private static void configureRun(RunMinecraft task, Side side, UserdevDependency userdev, CachesExtension caches,
+        MinecraftExtension minecraft, boolean offline, Directory runDirectory, Provider<File> natives
     ) {
         MinecraftRuns.caches(task, caches, minecraft.getVersionMeta(), offline);
         task.getSide().set(side);
         task.getEnv().set(Environment.CLEANROOM);
         task.getMinecraftVersion().set(userdev.getMinecraftVersion());
-        task.getMainClass().set(run.map(UserdevConfig.Run::mainClass));
         task.setWorkingDir(runDirectory);
         task.getNatives().fileProvider(natives);
     }
