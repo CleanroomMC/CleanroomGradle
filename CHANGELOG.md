@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.18.0 - 2026-10-12
+
+> [!WARNING]
+> This version has breaking changes! More details below.
+
+### Breaking Changes
+
+- Launch the loader directly instead of through boot classes *[commit by [@Rongmario](https://github.com/Rongmario) in [1019b00](https://github.com/CleanroomMC/CleanroomGradle/commit/1019b00b715575855f2c70a4fb759ec91e325a57)]*
+  - Loader.clientMainClass, serverMainClass, clientTarget and serverTarget are removed, along with the matching `WriteUserdevConfig` inputs. Runs no longer set the target, tweakClass, mainClass, MC_VERSION, MCP_VERSION, MCP_MAPPINGS, MCP_TO_SRG, FORGE_GROUP, FORGE_VERSION, assetIndex, assetDirectory and nativesDirectory environment variables.
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.17.8...0.18.0
+
 ## 0.17.8 - 2026-10-12
 
 ### Feature
