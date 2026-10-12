@@ -12,6 +12,7 @@ package com.cleanroommc.gradle.api.userdev;
 
 import com.cleanroommc.gradle.api.names.SourceRenamer;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
+import com.cleanroommc.gradle.api.util.Execs;
 import com.cleanroommc.gradle.api.util.IO;
 
 import com.github.difflib.DiffUtils;
@@ -57,7 +58,7 @@ public final class UserdevSourceMaterializer {
         }
         arguments.add(srgJar.getAbsolutePath());
         arguments.add(decompiled.toAbsolutePath().toString());
-        execOperations.javaexec(spec -> {
+        Execs.quietJavaExec(execOperations, spec -> {
             spec.setClasspath(decompilerClasspath);
             spec.getMainClass().set("org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler");
             spec.setArgs(arguments);
