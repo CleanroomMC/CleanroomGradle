@@ -21,6 +21,19 @@ public final class Platform {
 
     public static final Platform CURRENT = new Platform();
 
+    private final OperatingSystem operatingSystem;
+    private final Architecture architecture;
+
+    private Platform() {
+        this.operatingSystem = OperatingSystem.determine();
+        this.architecture = Architecture.determine();
+    }
+
+    Platform(OperatingSystem operatingSystem, Architecture architecture) {
+        this.operatingSystem = operatingSystem;
+        this.architecture = architecture;
+    }
+
     public static String fixCommandLine(String cmdlineArg) {
         return CURRENT.getOperatingSystem().isWindows() ? cmdlineArg.replace("\"", "\\\"") : cmdlineArg;
     }
@@ -34,7 +47,9 @@ public final class Platform {
 
     public static List<Platform> nativePlatforms() {
         var platforms = new LinkedHashMap<String, Platform>();
-        for (var os : List.of(OperatingSystem.WINDOWS, OperatingSystem.LINUX, OperatingSystem.MAC_OS, OperatingSystem.FREE_BSD)) {
+        for (var os : List.of(OperatingSystem.WINDOWS, OperatingSystem.LINUX, OperatingSystem.MAC_OS,
+            OperatingSystem.FREE_BSD
+        )) {
             for (var architecture : Architecture.values()) {
                 var platform = new Platform(os, architecture);
                 platforms.putIfAbsent(platform.lwjglNativesClassifier(), platform);
@@ -57,19 +72,6 @@ public final class Platform {
         return existing + File.pathSeparator + added;
     }
 
-    private final OperatingSystem operatingSystem;
-    private final Architecture architecture;
-
-    private Platform() {
-        this.operatingSystem = OperatingSystem.determine();
-        this.architecture = Architecture.determine();
-    }
-
-    Platform(OperatingSystem operatingSystem, Architecture architecture) {
-        this.operatingSystem = operatingSystem;
-        this.architecture = architecture;
-    }
-
     public OperatingSystem getOperatingSystem() {
         return operatingSystem;
     }
@@ -80,7 +82,11 @@ public final class Platform {
 
     public Platform canonicalNativePlatform() {
         var classifier = lwjglNativesClassifier();
-        return nativePlatforms().stream().filter(platform -> platform.lwjglNativesClassifier().equals(classifier)).findFirst().orElseThrow();
+        return nativePlatforms()
+            .stream()
+            .filter(platform -> platform.lwjglNativesClassifier().equals(classifier))
+            .findFirst()
+            .orElseThrow();
     }
 
     public String operatingSystemFamily() {
@@ -106,20 +112,20 @@ public final class Platform {
     public String lwjglNativesClassifier() {
         return switch (this.operatingSystem) {
             case WINDOWS ->
-                    switch (this.architecture) {
-                        case X86 -> "natives-windows-x86";
-                        case ARM64 -> "natives-windows-arm64";
-                        default -> "natives-windows";
-                    };
+                switch (this.architecture) {
+                    case X86 -> "natives-windows-x86";
+                    case ARM64 -> "natives-windows-arm64";
+                    default -> "natives-windows";
+                };
             case MAC_OS -> this.architecture == Architecture.ARM64 ? "natives-macos-arm64" : "natives-macos";
             case LINUX ->
-                    switch (this.architecture) {
-                        case ARM32 -> "natives-linux-arm32";
-                        case ARM64 -> "natives-linux-arm64";
-                        case PPC64LE -> "natives-linux-ppc64le";
-                        case RISCV64 -> "natives-linux-riscv64";
-                        default -> "natives-linux";
-                    };
+                switch (this.architecture) {
+                    case ARM32 -> "natives-linux-arm32";
+                    case ARM64 -> "natives-linux-arm64";
+                    case PPC64LE -> "natives-linux-ppc64le";
+                    case RISCV64 -> "natives-linux-riscv64";
+                    default -> "natives-linux";
+                };
             // LWJGL builds FreeBSD natives for x64 only
             case FREE_BSD -> "natives-freebsd";
         };
@@ -172,6 +178,14 @@ public final class Platform {
         PPC64LE(true, false),
         RISCV64(true, false);
 
+        private final boolean is64Bit;
+        private final boolean isArm;
+
+        Architecture(boolean is64Bit, boolean isArm) {
+            this.is64Bit = is64Bit;
+            this.isArm = isArm;
+        }
+
         private static Architecture determine() {
             var arch = System.getProperty("os.arch").toLowerCase();
             return switch (arch) {
@@ -187,14 +201,6 @@ public final class Platform {
                     yield arch.startsWith("arm") ? ARM32 : X64;
                 }
             };
-        }
-
-        private final boolean is64Bit;
-        private final boolean isArm;
-
-        Architecture(boolean is64Bit, boolean isArm) {
-            this.is64Bit = is64Bit;
-            this.isArm = isArm;
         }
 
         public boolean is64Bit() {

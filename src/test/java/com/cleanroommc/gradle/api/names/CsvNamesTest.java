@@ -24,14 +24,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class CsvNamesTest {
 
+    private static void entry(ZipOutputStream out, String name, String content) throws IOException {
+        out.putNextEntry(new ZipEntry(name));
+        out.write(content.getBytes(StandardCharsets.UTF_8));
+        out.closeEntry();
+    }
+
     @Test
     void readsQuotedDescsAndSkipsUnnamedRows(@TempDir Path directory) throws IOException {
         var zip = directory.resolve("names.zip");
         try (var out = new ZipOutputStream(Files.newOutputStream(zip))) {
-            entry(
-                    out,
-                    "fields.csv",
-                    "searge,name,side,desc\nfield_1_a,readableField,2,\"A, quoted \"\"field\"\" desc\"\n\n,ignored,2,desc\nfield_2_b,,2,desc\n"
+            entry(out, "fields.csv",
+                "searge,name,side,desc\nfield_1_a,readableField,2,\"A, quoted \"\"field\"\" desc\"\n\n,ignored,2,desc\nfield_2_b,,2,desc\n"
             );
             entry(out, "methods.csv", "searge,name,side,desc\nfunc_1_a,readableMethod,2,Does things.\n");
             entry(out, "params.csv", "param,name,side\np_1_0_,firstArg,2\n");
@@ -42,13 +46,9 @@ class CsvNamesTest {
         assertThat(names.fields()).containsOnlyKeys("field_1_a").containsEntry("field_1_a", "readableField");
         assertThat(names.methods()).containsEntry("func_1_a", "readableMethod");
         assertThat(names.params()).containsEntry("p_1_0_", "firstArg");
-        assertThat(names.docs()).containsEntry("field_1_a", "A, quoted \"field\" desc").containsEntry("func_1_a", "Does things.");
-    }
-
-    private static void entry(ZipOutputStream out, String name, String content) throws IOException {
-        out.putNextEntry(new ZipEntry(name));
-        out.write(content.getBytes(StandardCharsets.UTF_8));
-        out.closeEntry();
+        assertThat(names.docs())
+            .containsEntry("field_1_a", "A, quoted \"field\" desc")
+            .containsEntry("func_1_a", "Does things.");
     }
 
 }

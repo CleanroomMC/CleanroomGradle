@@ -25,8 +25,7 @@ class MinecraftCacheTest extends BaseFunctionalTest {
 
     @Test
     void cleanPreservesSharedCache() throws IOException {
-        this.project.vanilla(
-                """
+        this.project.vanilla("""
                 cleanroom {
                     caches {
                         directory.set(layout.projectDirectory.dir('cleanroom-cache'))
@@ -45,17 +44,20 @@ class MinecraftCacheTest extends BaseFunctionalTest {
 
         assertThat(this.project.runner("clean").build().task(":clean").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(Files.exists(cacheMarker)).as("Ordinary clean deleted the shared CleanroomGradle cache").isTrue();
-        assertThat(Files.exists(localCacheMarker.getParent())).as("Local CleanroomGradle cache was not deleted").isFalse();
+        assertThat(Files.exists(localCacheMarker.getParent()))
+            .as("Local CleanroomGradle cache was not deleted")
+            .isFalse();
 
         var sharedClean = this.project.runner("cleanCleanroomSharedCache").build();
         assertThat(sharedClean.task(":cleanCleanroomSharedCache").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(Files.exists(cacheMarker.getParent())).as("Explicit shared-cache cleanup did not delete the cache").isFalse();
+        assertThat(Files.exists(cacheMarker.getParent()))
+            .as("Explicit shared-cache cleanup did not delete the cache")
+            .isFalse();
     }
 
     @Test
     void sharedIntermediatesSurviveUntilEveryConsumerHasRun() throws IOException {
-        this.project.build(
-                """
+        this.project.build("""
                 import com.cleanroommc.gradle.api.task.IntermediateProcessor
 
                 cleanroom {
@@ -105,8 +107,7 @@ class MinecraftCacheTest extends BaseFunctionalTest {
 
     @Test
     void upToDateConsumerStillDiscards() throws IOException {
-        this.project.build(
-                """
+        this.project.build("""
                 import com.cleanroommc.gradle.api.task.IntermediateProcessor
 
                 cleanroom {
@@ -154,10 +155,8 @@ class MinecraftCacheTest extends BaseFunctionalTest {
         var serverBytes = "cached-server".getBytes(StandardCharsets.UTF_8);
         var indexBytes = "{\"objects\":{}}".getBytes(StandardCharsets.UTF_8);
         var cache = this.projectDir.resolve("cg-cache");
-        this.project.seedLauncherMeta(
-                cache,
-                "1.12.2",
-                """
+        this.project.seedLauncherMeta(cache, "1.12.2",
+            """
                         {
                           "assetIndex": {
                             "id": "1.12",
@@ -171,17 +170,13 @@ class MinecraftCacheTest extends BaseFunctionalTest {
                           },
                           "id": "1.12.2"
                         }
-                        """.formatted(
-                        DigestUtils.sha1Hex(indexBytes),
-                        indexBytes.length,
-                        DigestUtils.sha1Hex(clientBytes),
-                        clientBytes.length,
-                        DigestUtils.sha1Hex(serverBytes),
-                        serverBytes.length
-                )
+                        """.formatted(DigestUtils.sha1Hex(indexBytes
+                ),
+                indexBytes.length, DigestUtils.sha1Hex(clientBytes), clientBytes.length,
+                DigestUtils.sha1Hex(serverBytes), serverBytes.length
+            )
         );
-        this.project.build(
-                """
+        this.project.build("""
                 import de.undercouch.gradle.tasks.download.Download
 
                 cleanroom {
@@ -200,7 +195,9 @@ class MinecraftCacheTest extends BaseFunctionalTest {
         Files.write(versionCache.resolve("server.jar"), serverBytes);
         Files.write(indexCache.resolve("1.12.json"), indexBytes);
 
-        var cached = this.project.runner("downloadClientJar", "downloadServerJar", "downloadAssetIndex", "--offline").build();
+        var cached = this.project
+            .runner("downloadClientJar", "downloadServerJar", "downloadAssetIndex", "--offline")
+            .build();
         assertThat(cached.task(":downloadClientJar").getOutcome()).isEqualTo(TaskOutcome.SKIPPED);
         assertThat(cached.task(":downloadServerJar").getOutcome()).isEqualTo(TaskOutcome.SKIPPED);
         assertThat(cached.task(":downloadAssetIndex").getOutcome()).isEqualTo(TaskOutcome.SKIPPED);
@@ -211,18 +208,19 @@ class MinecraftCacheTest extends BaseFunctionalTest {
         var assetBytes = "cached-asset".getBytes(StandardCharsets.UTF_8);
         var assetSha1 = DigestUtils.sha1Hex(assetBytes);
         var assetPath = "objects/" + assetSha1.substring(0, 2) + "/" + assetSha1;
-        Files.writeString(
-                this.projectDir.resolve("asset-index.json"),
-                """
+        Files.writeString(this.projectDir.resolve("asset-index.json"),
+            """
                 {"objects":{"example":{"hash":"%s","size":%d}}}
-                """.formatted(assetSha1, assetBytes.length)
+                """.formatted(assetSha1,
+                assetBytes.length
+            )
         );
         var cachedAsset = this.projectDir.resolve(assetPath);
         Files.createDirectories(cachedAsset.getParent());
         Files.write(cachedAsset, assetBytes);
 
         this.project.vanilla(
-                """
+            """
                 def expected = file('%s')
                 gradle.projectsEvaluated {
                     tasks.named('downloadAssets') {
@@ -234,10 +232,8 @@ class MinecraftCacheTest extends BaseFunctionalTest {
                         }
                     }
                 }
-                """.formatted(
-                        assetPath
-                )
-        );
+                """.formatted(assetPath
+            ));
 
         assertThat(this.project.runner("downloadAssets").build().getOutput()).contains("ASSET_TASK_EXECUTED");
 
@@ -251,25 +247,22 @@ class MinecraftCacheTest extends BaseFunctionalTest {
     void offlineAssetValidationReportsProblems() throws IOException {
         var missingHash = "1111111111111111111111111111111111111111";
         var corruptHash = "2222222222222222222222222222222222222222";
-        Files.writeString(
-                this.projectDir.resolve("asset-index.json"),
-                """
+        Files.writeString(this.projectDir.resolve("asset-index.json"),
+            """
                 {
                   "objects": {
                     "minecraft/sounds/missing.ogg": {"hash":"%s","size":4},
                     "minecraft/textures/corrupt.png": {"hash":"%s","size":7}
                   }
                 }
-                """.formatted(
-                        missingHash,
-                        corruptHash
-                )
+                """.formatted(missingHash,
+                corruptHash
+            )
         );
         var corruptAsset = this.projectDir.resolve("objects/22/" + corruptHash);
         Files.createDirectories(corruptAsset.getParent());
         Files.writeString(corruptAsset, "corrupt");
-        this.project.vanilla(
-                """
+        this.project.vanilla("""
                 gradle.projectsEvaluated {
                     tasks.named('downloadAssets') {
                         assetIndexFile = layout.projectDirectory.file('asset-index.json')
@@ -283,7 +276,8 @@ class MinecraftCacheTest extends BaseFunctionalTest {
         assertThat(result.getOutput()).contains("2 Minecraft asset(s) are missing or invalid");
         assertThat(result.getOutput()).contains("minecraft/sounds/missing.ogg: object is missing");
         assertThat(result.getOutput()).contains("minecraft/textures/corrupt.png: SHA-1 does not match");
-        assertThat(result.getOutput()).contains("Run downloadAssets once without --offline to repair the shared asset cache");
+        assertThat(result.getOutput()
+        ).contains("Run downloadAssets once without --offline to repair the shared asset cache");
         this.project.assertProblem("offline-assets");
     }
 

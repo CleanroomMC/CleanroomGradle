@@ -120,7 +120,8 @@ public abstract class LazilyConstructedJavaExec extends JavaExec {
 
     @Override
     public JavaExec environment(Map<String, ?> environmentVariables) {
-        return super.environment(Streams.convertValues(environmentVariables, LazilyConstructedJavaExec::mapToLazyString));
+        return super.environment(Streams.convertValues(environmentVariables, LazilyConstructedJavaExec::mapToLazyString
+        ));
     }
 
     @Override

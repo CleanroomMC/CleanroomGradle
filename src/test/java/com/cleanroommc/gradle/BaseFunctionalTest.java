@@ -23,8 +23,7 @@ import java.nio.file.Path;
  */
 abstract class BaseFunctionalTest {
 
-    @TempDir
-    Path projectDir;
+    @TempDir Path projectDir;
 
     PluginBuild project;
 

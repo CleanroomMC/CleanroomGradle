@@ -61,49 +61,7 @@ public final class SideOnlyHandler {
     public static final String SIDE_ONLY_DESCRIPTOR = "Lnet/minecraftforge/fml/relauncher/SideOnly;";
     private static final String MANIFEST = "META-INF/MANIFEST.MF";
 
-    public enum TargetKind {
-
-        CLASS,
-        FIELD,
-        METHOD
-
-    }
-
-    public record Target(TargetKind kind, String owner, String name, String descriptor) implements Comparable<Target> {
-
-        private static final Comparator<Target> ORDER = Comparator
-                .comparing(Target::owner)
-                .thenComparing(Target::name)
-                .thenComparing(Target::kind)
-                .thenComparing(Target::descriptor);
-
-        public Target {
-            if (owner == null || owner.isBlank()) {
-                throw new IllegalArgumentException("SAS target has no class name");
-            }
-            owner = owner.replace('.', '/');
-            name = name == null ? "" : name;
-            descriptor = descriptor == null ? "" : descriptor;
-        }
-
-        public String format() {
-            return switch (this.kind) {
-                case CLASS -> this.owner;
-                case FIELD -> this.owner + " " + this.name;
-                case METHOD -> this.owner + " " + this.name + this.descriptor;
-            };
-        }
-
-        @Override
-        public int compareTo(Target other) {
-            return ORDER.compare(this, other);
-        }
-
-    }
-
-    public record SasLine(Target target, String comment, boolean generated) { }
-
-    public record TransformResult(int classesRemoved, int fieldsRemoved, int methodsRemoved, int annotationsRemoved) { }
+    private SideOnlyHandler() { }
 
     public static List<SasLine> readSas(Collection<Path> files) throws IOException {
         var sortedFiles = files.stream().map(Path::toAbsolutePath).sorted().toList();
@@ -176,20 +134,23 @@ public final class SideOnlyHandler {
             }
             var node = readClass(entry.getValue());
             var classTarget = new Target(TargetKind.CLASS, node.name, "", "");
-            if (targets.contains(classTarget) && removeSideOnly(node.visibleAnnotations, node.invisibleAnnotations) > 0) {
+            if (targets.contains(classTarget) &&
+                removeSideOnly(node.visibleAnnotations, node.invisibleAnnotations) > 0) {
                 found.add(classTarget);
                 annotationsRemoved[0]++;
             }
             for (var field : node.fields) {
                 var target = new Target(TargetKind.FIELD, node.name, field.name, "");
-                if (targets.contains(target) && removeSideOnly(field.visibleAnnotations, field.invisibleAnnotations) > 0) {
+                if (targets.contains(target) &&
+                    removeSideOnly(field.visibleAnnotations, field.invisibleAnnotations) > 0) {
                     found.add(target);
                     annotationsRemoved[0]++;
                 }
             }
             for (var method : node.methods) {
                 var target = new Target(TargetKind.METHOD, node.name, method.name, method.desc);
-                if (targets.contains(target) && removeSideOnly(method.visibleAnnotations, method.invisibleAnnotations) > 0) {
+                if (targets.contains(target) &&
+                    removeSideOnly(method.visibleAnnotations, method.invisibleAnnotations) > 0) {
                     found.add(target);
                     annotationsRemoved[0]++;
                 }
@@ -200,8 +161,8 @@ public final class SideOnlyHandler {
         var missing = new TreeSet<>(targets);
         missing.removeAll(found);
         if (!missing.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "SAS targets did not resolve to legacy @SideOnly annotations:\n  " + String.join("\n  ", missing.stream().map(Target::format).toList())
+            throw new IllegalArgumentException("SAS targets did not resolve to legacy @SideOnly annotations:\n  " +
+                    String.join("\n  ", missing.stream().map(Target::format).toList())
             );
         }
 
@@ -209,12 +170,14 @@ public final class SideOnlyHandler {
         return new TransformResult(0, 0, 0, annotationsRemoved[0]);
     }
 
-    public static TransformResult strip(Path input, Path output, Side targetSide, boolean validateReferences) throws IOException {
+    public static TransformResult strip(Path input, Path output, Side targetSide, boolean validateReferences)
+        throws IOException {
         return strip(input, output, targetSide, validateReferences, Set.of());
     }
 
-    public static TransformResult strip(Path input, Path output, Side targetSide, boolean validateReferences, Collection<String> validatedPrefixes)
-            throws IOException {
+    public static TransformResult strip(Path input, Path output, Side targetSide, boolean validateReferences,
+        Collection<String> validatedPrefixes
+    ) throws IOException {
         var entries = readArchive(input);
         var classes = new TreeMap<String, ClassNode>();
         for (var entry : entries.entrySet()) {
@@ -298,7 +261,9 @@ public final class SideOnlyHandler {
         }
 
         if (validateReferences) {
-            validateNoRemovedReferences(entries, removedClasses, removedFields, removedMethods, targetSide, validatedPrefixes);
+            validateNoRemovedReferences(entries, removedClasses, removedFields, removedMethods, targetSide,
+                validatedPrefixes
+            );
         }
         writeArchive(output, entries);
         return new TransformResult(removedClasses.size(), fieldsRemoved, methodsRemoved, annotationsRemoved);
@@ -349,7 +314,8 @@ public final class SideOnlyHandler {
         while (changed) {
             changed = false;
             for (var className : classNames) {
-                if (!removedClasses.contains(className) && removedClasses.stream().anyMatch(parent -> className.startsWith(parent + "$"))) {
+                if (!removedClasses.contains(className) &&
+                    removedClasses.stream().anyMatch(parent -> className.startsWith(parent + "$"))) {
                     removedClasses.add(className);
                     changed = true;
                 }
@@ -417,7 +383,10 @@ public final class SideOnlyHandler {
         if (values == null) {
             return;
         }
-        values.stream().filter(String.class::isInstance).map(String.class::cast).forEach(value -> collectTypeLike(value, out));
+        values.stream()
+            .filter(String.class::isInstance)
+            .map(String.class::cast)
+            .forEach(value -> collectTypeLike(value, out));
     }
 
     private static void collectConstant(Object value, Set<String> out) {
@@ -531,13 +500,9 @@ public final class SideOnlyHandler {
         return removed.get();
     }
 
-    private static void validateNoRemovedReferences(
-            Map<String, byte[]> entries,
-            Set<String> removedClasses,
-            Set<FieldKey> removedFields,
-            Set<MethodKey> removedMethods,
-            Side targetSide,
-            Collection<String> validatedPrefixes
+    private static void validateNoRemovedReferences(Map<String, byte[]> entries, Set<String> removedClasses,
+        Set<FieldKey> removedFields, Set<MethodKey> removedMethods, Side targetSide,
+        Collection<String> validatedPrefixes
     ) {
         var errors = new TreeSet<String>();
         for (var entry : entries.entrySet()) {
@@ -550,17 +515,24 @@ public final class SideOnlyHandler {
             checkReference(node.name, "nest host", node.nestHostClass, removedClasses, errors);
             node.interfaces.forEach(type -> checkReference(node.name, "interface", type, removedClasses, errors));
             if (node.nestMembers != null) {
-                node.nestMembers.forEach(type -> checkReference(node.name, "nest member", type, removedClasses, errors));
+                node.nestMembers.forEach(type -> checkReference(node.name, "nest member", type, removedClasses, errors
+                ));
             }
             if (node.permittedSubclasses != null) {
-                node.permittedSubclasses.forEach(type -> checkReference(node.name, "permitted subclass", type, removedClasses, errors));
+                node.permittedSubclasses.forEach(type -> checkReference(node.name, "permitted subclass", type,
+                    removedClasses, errors
+                ));
             }
-            node.fields.forEach(field -> checkDescriptor(node.name + "." + field.name, field.desc, removedClasses, errors));
+            node.fields.forEach(field -> checkDescriptor(node.name + "." + field.name, field.desc, removedClasses,
+                errors
+            ));
             for (var method : node.methods) {
                 var location = node.name + "." + method.name + method.desc;
                 checkDescriptor(location, method.desc, removedClasses, errors);
                 method.exceptions.forEach(type -> checkReference(location, "exception", type, removedClasses, errors));
-                method.tryCatchBlocks.forEach(block -> checkReference(location, "catch type", block.type, removedClasses, errors));
+                method.tryCatchBlocks.forEach(block -> checkReference(location, "catch type", block.type,
+                    removedClasses, errors
+                ));
                 for (var instruction : method.instructions) {
                     switch (instruction) {
                         case TypeInsnNode type -> checkTypeLike(location, type.desc, removedClasses, errors);
@@ -568,7 +540,8 @@ public final class SideOnlyHandler {
                             checkReference(location, "field owner", field.owner, removedClasses, errors);
                             checkDescriptor(location, field.desc, removedClasses, errors);
                             if (removedFields.contains(new FieldKey(field.owner, field.name, field.desc))) {
-                                errors.add(location + " -> removed field " + field.owner + "." + field.name + field.desc);
+                                errors.add(location + " -> removed field " + field.owner + "." + field.name + field.desc
+                                );
                             }
                         }
                         case MethodInsnNode call -> {
@@ -582,11 +555,14 @@ public final class SideOnlyHandler {
                             checkDescriptor(location, dynamic.desc, removedClasses, errors);
                             checkHandle(location, dynamic.bsm, removedClasses, removedFields, removedMethods, errors);
                             for (var argument : dynamic.bsmArgs) {
-                                checkConstant(location, argument, removedClasses, removedFields, removedMethods, errors);
+                                checkConstant(location, argument, removedClasses, removedFields, removedMethods, errors
+                                );
                             }
                         }
-                        case LdcInsnNode ldc -> checkConstant(location, ldc.cst, removedClasses, removedFields, removedMethods, errors);
-                        case MultiANewArrayInsnNode array -> checkDescriptor(location, array.desc, removedClasses, errors);
+                        case LdcInsnNode ldc ->
+                            checkConstant(location, ldc.cst, removedClasses, removedFields, removedMethods, errors);
+                        case MultiANewArrayInsnNode array ->
+                            checkDescriptor(location, array.desc, removedClasses, errors);
                         case FrameNode frame -> {
                             checkFrame(location, frame.local, removedClasses, errors);
                             checkFrame(location, frame.stack, removedClasses, errors);
@@ -600,11 +576,9 @@ public final class SideOnlyHandler {
         if (!errors.isEmpty()) {
             var shown = errors.stream().limit(50).toList();
             var suffix = errors.size() > shown.size() ? "\n  ... and " + (errors.size() - shown.size()) + " more" : "";
-            throw new IllegalStateException(
-                    "Invalid " + targetSide.name().toLowerCase(Locale.ROOT) + " jar: retained bytecode references classes removed by @SideOnly:\n  " + String.join(
-                                    "\n  ",
-                                    shown
-                            ) + suffix
+            throw new IllegalStateException("Invalid " + targetSide.name().toLowerCase(Locale.ROOT) +
+                    " jar: retained bytecode references classes removed by @SideOnly:\n  " +
+                    String.join("\n  ", shown) + suffix
             );
         }
     }
@@ -625,16 +599,14 @@ public final class SideOnlyHandler {
         if (values == null) {
             return;
         }
-        values.stream().filter(String.class::isInstance).map(String.class::cast).forEach(value -> checkTypeLike(location, value, removed, errors));
+        values.stream()
+            .filter(String.class::isInstance)
+            .map(String.class::cast)
+            .forEach(value -> checkTypeLike(location, value, removed, errors));
     }
 
-    private static void checkConstant(
-            String location,
-            Object value,
-            Set<String> removedClasses,
-            Set<FieldKey> removedFields,
-            Set<MethodKey> removedMethods,
-            Set<String> errors
+    private static void checkConstant(String location, Object value, Set<String> removedClasses,
+        Set<FieldKey> removedFields, Set<MethodKey> removedMethods, Set<String> errors
     ) {
         if (value instanceof Type type) {
             checkType(location, type, removedClasses, errors);
@@ -644,27 +616,28 @@ public final class SideOnlyHandler {
             checkDescriptor(location, dynamic.getDescriptor(), removedClasses, errors);
             checkHandle(location, dynamic.getBootstrapMethod(), removedClasses, removedFields, removedMethods, errors);
             for (var index = 0; index < dynamic.getBootstrapMethodArgumentCount(); index++) {
-                checkConstant(location, dynamic.getBootstrapMethodArgument(index), removedClasses, removedFields, removedMethods, errors);
+                checkConstant(location, dynamic.getBootstrapMethodArgument(index), removedClasses, removedFields,
+                    removedMethods, errors
+                );
             }
         }
     }
 
-    private static void checkHandle(
-            String location,
-            Handle handle,
-            Set<String> removedClasses,
-            Set<FieldKey> removedFields,
-            Set<MethodKey> removedMethods,
-            Set<String> errors
+    private static void checkHandle(String location, Handle handle, Set<String> removedClasses,
+        Set<FieldKey> removedFields, Set<MethodKey> removedMethods, Set<String> errors
     ) {
         checkReference(location, "handle owner", handle.getOwner(), removedClasses, errors);
         checkDescriptor(location, handle.getDesc(), removedClasses, errors);
         if (handle.getTag() >= Opcodes.H_GETFIELD && handle.getTag() <= Opcodes.H_PUTSTATIC) {
             if (removedFields.contains(new FieldKey(handle.getOwner(), handle.getName(), handle.getDesc()))) {
-                errors.add(location + " -> removed field handle " + handle.getOwner() + "." + handle.getName() + handle.getDesc());
+                errors.add(location + " -> removed field handle " + handle.getOwner() + "." + handle.getName() +
+                        handle.getDesc()
+                );
             }
         } else if (removedMethods.contains(new MethodKey(handle.getOwner(), handle.getName(), handle.getDesc()))) {
-            errors.add(location + " -> removed method handle " + handle.getOwner() + "." + handle.getName() + handle.getDesc());
+            errors.add(location + " -> removed method handle " + handle.getOwner() + "." + handle.getName() +
+                    handle.getDesc()
+            );
         }
     }
 
@@ -708,7 +681,9 @@ public final class SideOnlyHandler {
         }
     }
 
-    private static void checkReference(String location, String kind, String referenced, Set<String> removed, Set<String> errors) {
+    private static void checkReference(String location, String kind, String referenced, Set<String> removed,
+        Set<String> errors
+    ) {
         if (referenced != null && removed.contains(referenced)) {
             errors.add(location + " -> " + kind + " " + referenced);
         }
@@ -716,7 +691,9 @@ public final class SideOnlyHandler {
 
     private static MethodNode findSyntheticMethod(ClassNode owner, MethodKey key) {
         for (var method : owner.methods) {
-            if ((method.access & Opcodes.ACC_SYNTHETIC) != 0 && method.name.equals(key.name()) && method.desc.equals(key.descriptor())) {
+            if ((method.access & Opcodes.ACC_SYNTHETIC) != 0 &&
+                method.name.equals(key.name()) &&
+                method.desc.equals(key.descriptor())) {
                 return method;
             }
         }
@@ -731,7 +708,7 @@ public final class SideOnlyHandler {
             var bootstrapOwner = dynamic.bsm.getOwner();
             var bootstrapName = dynamic.bsm.getName();
             if (!"java/lang/invoke/LambdaMetafactory".equals(bootstrapOwner) ||
-                    !("metafactory".equals(bootstrapName) || "altMetafactory".equals(bootstrapName))) {
+                !("metafactory".equals(bootstrapName) || "altMetafactory".equals(bootstrapName))) {
                 continue;
             }
             for (var argument : dynamic.bsmArgs) {
@@ -831,10 +808,10 @@ public final class SideOnlyHandler {
                 ordered.put(MANIFEST, entries.get(MANIFEST));
             }
             entries.entrySet()
-                    .stream()
-                    .filter(entry -> !MANIFEST.equals(entry.getKey()))
-                    .sorted(Map.Entry.comparingByKey())
-                    .forEach(entry -> ordered.put(entry.getKey(), entry.getValue()));
+                .stream()
+                .filter(entry -> !MANIFEST.equals(entry.getKey()))
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(entry -> ordered.put(entry.getKey(), entry.getValue()));
             try (var outputStream = IO.zipOut(temporary.toFile())) {
                 for (var entry : ordered.entrySet()) {
                     IO.writeEntry(outputStream, entry.getKey(), entry.getValue());
@@ -852,7 +829,11 @@ public final class SideOnlyHandler {
             return false;
         }
         var leaf = upper.substring("META-INF/".length());
-        return leaf.endsWith(".SF") || leaf.endsWith(".RSA") || leaf.endsWith(".DSA") || leaf.endsWith(".EC") || leaf.startsWith("SIG-");
+        return leaf.endsWith(".SF") ||
+            leaf.endsWith(".RSA") ||
+            leaf.endsWith(".DSA") ||
+            leaf.endsWith(".EC") ||
+            leaf.startsWith("SIG-");
     }
 
     private static int firstWhitespace(String value) {
@@ -864,10 +845,52 @@ public final class SideOnlyHandler {
         return -1;
     }
 
+    public enum TargetKind {
+
+        CLASS,
+        FIELD,
+        METHOD
+
+    }
+
+    public record Target(TargetKind kind, String owner, String name, String descriptor) implements Comparable<Target> {
+
+        private static final Comparator<Target> ORDER = Comparator
+            .comparing(Target::owner)
+            .thenComparing(Target::name)
+            .thenComparing(Target::kind)
+            .thenComparing(Target::descriptor);
+
+        public Target {
+            if (owner == null || owner.isBlank()) {
+                throw new IllegalArgumentException("SAS target has no class name");
+            }
+            owner = owner.replace('.', '/');
+            name = name == null ? "" : name;
+            descriptor = descriptor == null ? "" : descriptor;
+        }
+
+        public String format() {
+            return switch (this.kind) {
+                case CLASS -> this.owner;
+                case FIELD -> this.owner + " " + this.name;
+                case METHOD -> this.owner + " " + this.name + this.descriptor;
+            };
+        }
+
+        @Override
+        public int compareTo(Target other) {
+            return ORDER.compare(this, other);
+        }
+
+    }
+
+    public record SasLine(Target target, String comment, boolean generated) { }
+
+    public record TransformResult(int classesRemoved, int fieldsRemoved, int methodsRemoved, int annotationsRemoved) { }
+
     private record FieldKey(String owner, String name, String descriptor) { }
 
     private record MethodKey(String owner, String name, String descriptor) { }
-
-    private SideOnlyHandler() { }
 
 }

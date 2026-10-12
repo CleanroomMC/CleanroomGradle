@@ -56,6 +56,70 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
         return META + "/" + name;
     }
 
+    private static void requireDownload(String name, Download download) {
+        if (download == null) {
+            throw invalid(name);
+        }
+        require(name + ".url", download.url());
+        require(name + ".sha1", download.sha1());
+    }
+
+    private static void requireRun(String name, Run run) {
+        if (run == null) {
+            throw invalid(name);
+        }
+        require(name + ".mainClass", run.mainClass());
+        require(name + ".launchClass", run.launchClass());
+        require(name + ".tweakClass", run.tweakClass());
+        require(name + ".target", run.target());
+    }
+
+    private static void require(String name, String value) {
+        if (value == null || value.isBlank()) {
+            throw invalid(name);
+        }
+    }
+
+    private static IllegalStateException invalid(String field) {
+        return new IllegalStateException("Invalid Cleanroom userdev spec 1: " + field + " is required.");
+    }
+
+    public static UserdevConfig read(File file) {
+        try {
+            return parse(Files.readString(file.toPath(), StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read " + file, e);
+        }
+    }
+
+    public static UserdevConfig readFromJar(File jar) {
+        try (var zip = new ZipFile(jar)) {
+            var entry = zip.getEntry(meta(FILE_NAME));
+            if (entry == null) {
+                throw new IllegalStateException(jar + " is not a Cleanroom userdev spec 1 artifact: missing " +
+                        meta(FILE_NAME) + "."
+                );
+            }
+            try (var input = zip.getInputStream(entry)) {
+                return parse(new String(input.readAllBytes(), StandardCharsets.UTF_8));
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read " + meta(FILE_NAME) + " from " + jar, e);
+        }
+    }
+
+    private static UserdevConfig parse(String json) {
+        var root = JsonParser.parseString(json).getAsJsonObject();
+        if (root.has("mcpConfig") && !root.has("layout")) {
+            throw new IllegalStateException("This userdev artifact was produced by CleanroomGradle older than 0.15.0. " +
+                    "Rebuild it with 0.15.0 or newer, or use the plugin version that produced it."
+            );
+        }
+        var config = IO.readJson(json, UserdevConfig.class);
+        config.validate();
+        return config;
+    }
+
     public String minecraftVersion() {
         return minecraft.version();
     }
@@ -66,10 +130,13 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
 
     public void validate() {
         if (spec != SPEC) {
-            throw new IllegalStateException("Unsupported Cleanroom userdev spec " + spec + "; expected spec " + SPEC + ".");
+            throw new IllegalStateException("Unsupported Cleanroom userdev spec " + spec + "; expected spec " + SPEC +
+                    "."
+            );
         }
         if (minecraft == null || loader == null || inputs == null || layout == null || runs == null) {
-            throw new IllegalStateException("Invalid Cleanroom userdev spec 1: minecraft, loader, inputs, layout and runs are required.");
+            throw new IllegalStateException("Invalid Cleanroom userdev spec 1: minecraft, loader, inputs, layout and runs are required."
+            );
         }
         require("minecraft.version", minecraft.version());
         requireDownload("minecraft.client", minecraft.client());
@@ -113,34 +180,6 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
         requireRun("runs.server", runs.server());
     }
 
-    private static void requireDownload(String name, Download download) {
-        if (download == null) {
-            throw invalid(name);
-        }
-        require(name + ".url", download.url());
-        require(name + ".sha1", download.sha1());
-    }
-
-    private static void requireRun(String name, Run run) {
-        if (run == null) {
-            throw invalid(name);
-        }
-        require(name + ".mainClass", run.mainClass());
-        require(name + ".launchClass", run.launchClass());
-        require(name + ".tweakClass", run.tweakClass());
-        require(name + ".target", run.target());
-    }
-
-    private static void require(String name, String value) {
-        if (value == null || value.isBlank()) {
-            throw invalid(name);
-        }
-    }
-
-    private static IllegalStateException invalid(String field) {
-        return new IllegalStateException("Invalid Cleanroom userdev spec 1: " + field + " is required.");
-    }
-
     public record Minecraft(String version, Download client, Download server) { }
 
     public record Download(String url, String sha1) { }
@@ -149,66 +188,31 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
 
     public record Inputs(String mcpConfig, String mappings, String initialPatches, Map<String, String> tools) { }
 
-    public record Layout(
-            String binpatches,
-            String clientBinpatches,
-            String serverBinpatches,
-            String obfToSrg,
-            String srgToMcp,
-            String mcpToSrg,
-            String access,
-            String constructors,
-            String exceptions,
-            String methods,
-            String fields,
-            String params,
-            String deobfLibrary,
-            String sourceInput,
-            String clientExtra,
-            String serverExtra,
-            String initialPatches,
-            List<String> accessTransformers,
-            String sideAnnotationStrippers,
-            String patches,
-            String loaderSources
+    public record Layout(String binpatches,
+        String clientBinpatches,
+        String serverBinpatches,
+        String obfToSrg,
+        String srgToMcp,
+        String mcpToSrg,
+        String access,
+        String constructors,
+        String exceptions,
+        String methods,
+        String fields,
+        String params,
+        String deobfLibrary,
+        String sourceInput,
+        String clientExtra,
+        String serverExtra,
+        String initialPatches,
+        List<String> accessTransformers,
+        String sideAnnotationStrippers,
+        String patches,
+        String loaderSources
     ) { }
 
     public record Runs(Run client, Run server) { }
 
     public record Run(String mainClass, String launchClass, String tweakClass, String target) { }
-
-    public static UserdevConfig read(File file) {
-        try {
-            return parse(Files.readString(file.toPath(), StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to read " + file, e);
-        }
-    }
-
-    public static UserdevConfig readFromJar(File jar) {
-        try (var zip = new ZipFile(jar)) {
-            var entry = zip.getEntry(meta(FILE_NAME));
-            if (entry == null) {
-                throw new IllegalStateException(jar + " is not a Cleanroom userdev spec 1 artifact: missing " + meta(FILE_NAME) + ".");
-            }
-            try (var input = zip.getInputStream(entry)) {
-                return parse(new String(input.readAllBytes(), StandardCharsets.UTF_8));
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to read " + meta(FILE_NAME) + " from " + jar, e);
-        }
-    }
-
-    private static UserdevConfig parse(String json) {
-        var root = JsonParser.parseString(json).getAsJsonObject();
-        if (root.has("mcpConfig") && !root.has("layout")) {
-            throw new IllegalStateException(
-                    "This userdev artifact was produced by CleanroomGradle older than 0.15.0. " + "Rebuild it with 0.15.0 or newer, or use the plugin version that produced it."
-            );
-        }
-        var config = IO.readJson(json, UserdevConfig.class);
-        config.validate();
-        return config;
-    }
 
 }

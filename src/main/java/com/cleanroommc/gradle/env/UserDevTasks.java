@@ -69,7 +69,9 @@ public final class UserDevTasks {
     public final TaskProvider<RunMinecraft> runClient;
     public final TaskProvider<RunMinecraft> runServer;
 
-    public UserDevTasks(Project project, CachesExtension caches, MinecraftExtension minecraft, UserdevDependency userdev, VanillaTasks vanilla) {
+    public UserDevTasks(Project project, CachesExtension caches, MinecraftExtension minecraft,
+        UserdevDependency userdev, VanillaTasks vanilla
+    ) {
         var hierarchy = hierarchyConfiguration(project, userdev);
         registerTransforms(project, userdev, caches, hierarchy);
 
@@ -153,19 +155,15 @@ public final class UserDevTasks {
             MinecraftRuns.fmlEnvironment(task, fml.forSide(false, server.map(UserdevConfig.Run::target), server.map(UserdevConfig.Run::tweakClass), server.map(UserdevConfig.Run::launchClass)));
         });
 
-        project.getPluginManager().withPlugin("idea", _ -> project.getExtensions().getByType(IdeaModel.class).getModule().setDownloadSources(true));
+        project.getPluginManager()
+            .withPlugin("idea",
+                _ -> project.getExtensions().getByType(IdeaModel.class).getModule().setDownloadSources(true)
+            );
     }
 
-    private static void configureRun(
-            RunMinecraft task,
-            Side side,
-            Provider<UserdevConfig.Run> run,
-            UserdevDependency userdev,
-            CachesExtension caches,
-            MinecraftExtension minecraft,
-            boolean offline,
-            Directory runDirectory,
-            Provider<File> natives
+    private static void configureRun(RunMinecraft task, Side side, Provider<UserdevConfig.Run> run,
+        UserdevDependency userdev, CachesExtension caches, MinecraftExtension minecraft, boolean offline,
+        Directory runDirectory, Provider<File> natives
     ) {
         MinecraftRuns.caches(task, caches, minecraft.getVersionMeta(), offline);
         task.getSide().set(side);
@@ -176,8 +174,12 @@ public final class UserDevTasks {
         task.getNatives().fileProvider(natives);
     }
 
-    private static NamedDomainObjectProvider<Configuration> sideConfiguration(Project project, UserdevDependency userdev, String role) {
-        var configuration = Objects.config(project, "_cleanroomUserdev" + capitalized(role), "Internal " + role + " userdev resources.");
+    private static NamedDomainObjectProvider<Configuration> sideConfiguration(Project project,
+        UserdevDependency userdev, String role
+    ) {
+        var configuration = Objects.config(project, "_cleanroomUserdev" + capitalized(role),
+            "Internal " + role + " userdev resources."
+        );
         configuration.configure(value -> value.attributes(attributes -> {
             attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED);
             attributes.attribute(UserdevAttributes.ROLE, role);
@@ -192,18 +194,23 @@ public final class UserDevTasks {
      * The natives the published module lists for this machine's platform. LWJGL 3 loads them off the
      * classpath, and the module publishes one variant per classifier so only this platform's are resolved.
      */
-    private static NamedDomainObjectProvider<Configuration> nativesConfiguration(Project project, UserdevDependency userdev) {
+    private static NamedDomainObjectProvider<Configuration> nativesConfiguration(Project project,
+        UserdevDependency userdev
+    ) {
         var platform = Platform.CURRENT.canonicalNativePlatform();
         var objects = project.getObjects();
-        var configuration = Objects.config(project, "_cleanroomUserdevNatives", "Internal native libraries for " + platform.lwjglNativesClassifier() + ".");
+        var configuration = Objects.config(project, "_cleanroomUserdevNatives",
+            "Internal native libraries for " + platform.lwjglNativesClassifier() + "."
+        );
         configuration.configure(value -> value.attributes(attributes -> {
             attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW);
             attributes.attribute(UserdevAttributes.ROLE, UserdevAttributes.NATIVES);
-            attributes.attribute(
-                    OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
-                    objects.named(OperatingSystemFamily.class, platform.operatingSystemFamily())
+            attributes.attribute(OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
+                objects.named(OperatingSystemFamily.class, platform.operatingSystemFamily())
             );
-            attributes.attribute(MachineArchitecture.ARCHITECTURE_ATTRIBUTE, objects.named(MachineArchitecture.class, platform.machineArchitecture()));
+            attributes.attribute(MachineArchitecture.ARCHITECTURE_ATTRIBUTE,
+                objects.named(MachineArchitecture.class, platform.machineArchitecture())
+            );
         }));
         project.getDependencies().add(configuration.getName(), rawDependency(userdev, UserdevAttributes.NATIVES));
         return configuration;
@@ -216,23 +223,25 @@ public final class UserDevTasks {
      */
     private static FileCollection hierarchyConfiguration(Project project, UserdevDependency userdev) {
         var objects = project.getObjects();
-        var configuration = Objects.config(project, "_cleanroomUserdevHierarchy", "Internal libraries the deobf renamer resolves types against.");
+        var configuration = Objects.config(project, "_cleanroomUserdevHierarchy",
+            "Internal libraries the deobf renamer resolves types against."
+        );
         configuration.configure(value -> value.attributes(attributes -> {
             attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.class, Usage.JAVA_RUNTIME));
             attributes.attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.class, Category.LIBRARY));
-            attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.class, LibraryElements.JAR));
+            attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE,
+                objects.named(LibraryElements.class, LibraryElements.JAR)
+            );
             attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW);
             attributes.attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES);
         }));
         project.getDependencies().add(configuration.getName(), rawDependency(userdev, UserdevAttributes.CLASSES));
         var declared = userdev.getModuleDependency();
         return objects.fileCollection()
-                .from(
-                        configuration.map(value -> value.getIncoming()
-                                .artifactView(view -> view.componentFilter(id -> !(id instanceof ModuleComponentIdentifier module) ||
-                                        !(declared.getName().equals(module.getModule()) && declared.getGroup().equals(module.getGroup()))))
-                                .getFiles())
-                );
+            .from(configuration.map(value -> value.getIncoming()
+                .artifactView(view -> view.componentFilter(id -> !(id instanceof ModuleComponentIdentifier module) ||
+                    !(declared.getName().equals(module.getModule()) && declared.getGroup().equals(module.getGroup()))))
+                .getFiles()));
     }
 
     private static ExternalModuleDependency rawDependency(UserdevDependency userdev, String role) {
@@ -252,10 +261,14 @@ public final class UserDevTasks {
         return name.toString();
     }
 
-    public static void registerTransforms(Project project, UserdevDependency userdev, CachesExtension caches, FileCollection libraries) {
+    public static void registerTransforms(Project project, UserdevDependency userdev, CachesExtension caches,
+        FileCollection libraries
+    ) {
         var dependencies = project.getDependencies();
         dependencies.getArtifactTypes()
-                .named(ArtifactTypeDefinition.JAR_TYPE, type -> type.getAttributes().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW));
+            .named(ArtifactTypeDefinition.JAR_TYPE,
+                type -> type.getAttributes().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW)
+            );
         var deobf = project.getExtensions().getByType(DeobfExtension.class);
         var accessTransformer = ToolConfigs.get(project, "accesstransformer");
         var mergeTool = ToolConfigs.get(project, "mergetool");

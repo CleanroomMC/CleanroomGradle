@@ -36,7 +36,9 @@ public class DeobfHandler {
     private final Set<Dependency> fileDependencies = new HashSet<>();
 
     @Inject
-    public DeobfHandler(DependencyHandler dependencies, ConfigurationContainer configurations, ObjectFactory objects, FileCollection transformInputs) {
+    public DeobfHandler(DependencyHandler dependencies, ConfigurationContainer configurations, ObjectFactory objects,
+        FileCollection transformInputs
+    ) {
         this.dependencies = dependencies;
         this.configurations = configurations;
         this.objects = objects;
@@ -45,7 +47,8 @@ public class DeobfHandler {
 
     public boolean isDeobfuscated(Dependency dependency) {
         return this.fileDependencies.contains(dependency) ||
-                dependency instanceof ExternalModuleDependency module && DeobfAttributes.MCP.equals(module.getAttributes().getAttribute(DeobfAttributes.DEOBFUSCATED));
+            dependency instanceof ExternalModuleDependency module &&
+                DeobfAttributes.MCP.equals(module.getAttributes().getAttribute(DeobfAttributes.DEOBFUSCATED));
     }
 
     public Dependency call(Object notation) {
@@ -54,8 +57,8 @@ public class DeobfHandler {
             return fileDependency(files);
         }
         if (!(dependency instanceof ExternalModuleDependency module)) {
-            throw new InvalidUserDataException(
-                    "deobf(...) only accepts external module and file notations, got " + notation + " which resolves to " + dependency.getClass().getSimpleName() + "."
+            throw new InvalidUserDataException("deobf(...) only accepts external module and file notations, got " +
+                    notation + " which resolves to " + dependency.getClass().getSimpleName() + "."
             );
         }
         if (!module.getArtifacts().isEmpty()) {
@@ -73,10 +76,13 @@ public class DeobfHandler {
                 var coordinate = module.getGroup() + ":" + module.getName();
                 if (this.classifiedModules.add(coordinate + ":" + capability)) {
                     this.dependencies
-                            .getComponents()
-                            .withModule(coordinate, ClassifiedDeobfRule.class, spec -> spec.params(artifact.getName(), classifier, capability));
+                        .getComponents()
+                        .withModule(coordinate, ClassifiedDeobfRule.class,
+                            spec -> spec.params(artifact.getName(), classifier, capability)
+                        );
                 }
-                module.capabilities(capabilities -> capabilities.requireCapability(module.getGroup() + ":" + capability));
+                module.capabilities(capabilities -> capabilities.requireCapability(module.getGroup() + ":" + capability
+                ));
             }
         }
         module.attributes(attributes -> attributes.attribute(DeobfAttributes.DEOBFUSCATED, DeobfAttributes.MCP));
@@ -88,11 +94,16 @@ public class DeobfHandler {
      * configuration and handed back as the files that view resolves to.
      */
     private Dependency fileDependency(FileCollectionDependency files) {
-        var renamed = this.configurations.detachedConfiguration(files)
-                .getIncoming()
-                .artifactView(view -> view.getAttributes().attribute(DeobfAttributes.DEOBFUSCATED, DeobfAttributes.MCP))
-                .getFiles();
-        var dependency = this.dependencies.create(this.objects.fileCollection().from(renamed).builtBy(this.transformInputs));
+        var renamed = this.configurations
+            .detachedConfiguration(files)
+            .getIncoming()
+            .artifactView(view -> view.getAttributes().attribute(DeobfAttributes.DEOBFUSCATED, DeobfAttributes.MCP))
+            .getFiles();
+        var dependency = this.dependencies.create(this.objects
+                .fileCollection()
+                .from(renamed)
+                .builtBy(this.transformInputs)
+        );
         this.fileDependencies.add(dependency);
         return dependency;
     }

@@ -47,11 +47,21 @@ public final class LaunchArguments {
     private final Consumer<String> warn;
     private final Set<String> warnedPlaceholders = new HashSet<>();
 
-    public LaunchArguments(VersionMeta meta, Map<String, String> substitutions, Platform platform, Consumer<String> warn) {
+    public LaunchArguments(VersionMeta meta, Map<String, String> substitutions, Platform platform, Consumer<String> warn
+    ) {
         this.meta = meta;
         this.substitutions = substitutions;
         this.platform = platform;
         this.warn = warn;
+    }
+
+    // Broad, but meh
+    private static boolean shouldSkipJvmArgument(String raw) {
+        return raw.equals("-cp") ||
+            raw.equals("-classpath") ||
+            raw.equals("--class-path") ||
+            raw.contains("${classpath}") ||
+            raw.startsWith("-Djava.library.path=");
     }
 
     /**
@@ -125,15 +135,6 @@ public final class LaunchArguments {
         return allowed;
     }
 
-    // Broad, but meh
-    private static boolean shouldSkipJvmArgument(String raw) {
-        return raw.equals("-cp") ||
-                raw.equals("-classpath") ||
-                raw.equals("--class-path") ||
-                raw.contains("${classpath}") ||
-                raw.startsWith("-Djava.library.path=");
-    }
-
     private String substitute(String value) {
         Matcher matcher = PLACEHOLDER.matcher(value);
         StringBuilder builder = new StringBuilder();
@@ -142,7 +143,9 @@ public final class LaunchArguments {
             String replacement = this.substitutions.get(name);
             if (replacement == null) {
                 if (this.warnedPlaceholders.add(name)) {
-                    this.warn.accept("No substitution for launch argument placeholder ${" + name + "}; using an empty string.");
+                    this.warn.accept("No substitution for launch argument placeholder ${" + name +
+                            "}; using an empty string."
+                    );
                 }
                 replacement = "";
             }

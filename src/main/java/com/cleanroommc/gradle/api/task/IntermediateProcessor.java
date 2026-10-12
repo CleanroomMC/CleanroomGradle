@@ -38,18 +38,18 @@ public abstract class IntermediateProcessor {
 
     public static final String EXTENSION_NAME = "cleanroomIntermediates";
 
-    public static IntermediateProcessor of(Project project) {
-        return project.getExtensions().getByType(IntermediateProcessor.class);
-    }
-
     private final TaskContainer tasks;
-
-    public abstract Property<Boolean> getDiscardIntermediates();
 
     @Inject
     public IntermediateProcessor(Project project) {
         this.tasks = project.getTasks();
     }
+
+    public static IntermediateProcessor of(Project project) {
+        return project.getExtensions().getByType(IntermediateProcessor.class);
+    }
+
+    public abstract Property<Boolean> getDiscardIntermediates();
 
     /**
      * Deletes {@code files} after {@code consumer} has run. Skipped when discard is disabled.
@@ -58,7 +58,9 @@ public abstract class IntermediateProcessor {
      * @param files the intermediates to delete
      */
     public Discard discardAfter(TaskProvider<?> consumer, Object... files) {
-        return discardAfterAll("discard" + StringUtils.capitalize(consumer.getName()) + "Intermediates", List.of(consumer), files);
+        return discardAfterAll("discard" + StringUtils.capitalize(consumer.getName()) + "Intermediates",
+            List.of(consumer), files
+        );
     }
 
     /**
@@ -69,7 +71,8 @@ public abstract class IntermediateProcessor {
      */
     public Discard discardAfterAll(Collection<? extends TaskProvider<?>> consumers, Object... files) {
         var consumerNames = consumers.stream().map(TaskProvider::getName).toList();
-        var taskName = "discard" + consumerNames.stream().map(StringUtils::capitalize).collect(Collectors.joining("And")) + "Intermediates";
+        var taskName = "discard" +
+            consumerNames.stream().map(StringUtils::capitalize).collect(Collectors.joining("And")) + "Intermediates";
         return discardAfterAll(taskName, consumers, files);
     }
 

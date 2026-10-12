@@ -51,6 +51,28 @@ public abstract class ApplyDiffs extends DefaultTask {
 
     private static final int DIRTY_FILES_LISTED = 10;
 
+    public ApplyDiffs() {
+        this.getInPlace().convention(false);
+        this.getCleanOutput().convention(false);
+    }
+
+    private static boolean isDirty(File modifiedFile, File originalFile, File patchFile) {
+        if (!originalFile.isFile()) {
+            return true;
+        }
+        try {
+            var originalLines = FileUtils.readLines(originalFile, StandardCharsets.UTF_8);
+            var expectedLines = patchFile == null
+                ? originalLines
+                : DiffUtils.patch(originalLines,
+                    UnifiedDiffUtils.parseUnifiedDiff(FileUtils.readLines(patchFile, StandardCharsets.UTF_8))
+                );
+            return !expectedLines.equals(FileUtils.readLines(modifiedFile, StandardCharsets.UTF_8));
+        } catch (Throwable t) {
+            return true;
+        }
+    }
+
     @Inject
     public abstract FileSystemOperations getFileSystemOperations();
 
@@ -87,11 +109,6 @@ public abstract class ApplyDiffs extends DefaultTask {
 
     @Internal
     public abstract DirectoryProperty getDirtyDirectory();
-
-    public ApplyDiffs() {
-        this.getInPlace().convention(false);
-        this.getCleanOutput().convention(false);
-    }
 
     @TaskAction
     public void applyDiffs() {
@@ -131,18 +148,20 @@ public abstract class ApplyDiffs extends DefaultTask {
 
                 if (!targetFile.exists()) {
                     this.getLogger()
-                            .lifecycle(
-                                    "Skipping {} as original file is not found. {}/{} patches applied.",
-                                    relativePath,
-                                    counter.incrementAndGet(),
-                                    totalPatches
-                            );
+                        .lifecycle("Skipping {} as original file is not found. {}/{} patches applied.", relativePath,
+                            counter.incrementAndGet(), totalPatches
+                        );
                 } else {
                     try {
-                        var patch = UnifiedDiffUtils.parseUnifiedDiff(FileUtils.readLines(patchFile, StandardCharsets.UTF_8));
+                        var patch = UnifiedDiffUtils.parseUnifiedDiff(FileUtils.readLines(patchFile,
+                            StandardCharsets.UTF_8
+                        ));
                         var originalLines = FileUtils.readLines(originalFile, StandardCharsets.UTF_8);
                         var patchedLines = DiffUtils.patch(originalLines, patch);
-                        this.getLogger().lifecycle("Patching {}. {}/{} patches applied.", relativePath, counter.incrementAndGet(), totalPatches);
+                        this.getLogger()
+                            .lifecycle("Patching {}. {}/{} patches applied.", relativePath, counter.incrementAndGet(),
+                                totalPatches
+                            );
                         FileUtils.writeLines(targetFile, StandardCharsets.UTF_8.name(), patchedLines, "\n", false);
                     } catch (Throwable t) {
                         throw new RuntimeException("Unexpected error when patching %s".formatted(relativePath), t); // TODO: skip and log error?
@@ -191,21 +210,6 @@ public abstract class ApplyDiffs extends DefaultTask {
         return dirtyFiles;
     }
 
-    private static boolean isDirty(File modifiedFile, File originalFile, File patchFile) {
-        if (!originalFile.isFile()) {
-            return true;
-        }
-        try {
-            var originalLines = FileUtils.readLines(originalFile, StandardCharsets.UTF_8);
-            var expectedLines = patchFile == null
-                    ? originalLines
-                    : DiffUtils.patch(originalLines, UnifiedDiffUtils.parseUnifiedDiff(FileUtils.readLines(patchFile, StandardCharsets.UTF_8)));
-            return !expectedLines.equals(FileUtils.readLines(modifiedFile, StandardCharsets.UTF_8));
-        } catch (Throwable t) {
-            return true;
-        }
-    }
-
     private void warnAboutDirtyFiles(List<String> dirtyFiles) {
         if (dirtyFiles.isEmpty()) {
             return;
@@ -245,25 +249,22 @@ public abstract class ApplyDiffs extends DefaultTask {
         var stamp = new File(this.getPatchesDirectory().get().getAsFile(), ".mappings.json");
         if (!stamp.isFile()) {
             this.getLogger()
-                    .warn(
-                            "Patch set {} has no .mappings.json (legacy patch set); applying against names '{}' without verification.",
-                            this.getPatchesDirectory().get().getAsFile(),
-                            activeId
-                    );
+                .warn("Patch set {} has no .mappings.json (legacy patch set); applying against names '{}' without verification.",
+                    this.getPatchesDirectory().get().getAsFile(), activeId
+                );
             return;
         }
         var json = IO.readJson(stamp, JsonObject.class);
         var patchId = json.has("names") ? json.get("names").getAsString() : null;
         if (patchId == null || !patchId.equals(activeId)) {
-            throw new InvalidUserDataException(
-                    ("Mapping identity mismatch for patch set %s:%n" + "  patches were generated in names: %s%n" +
-                            "  the active names source is:       %s%n" + "Regenerate the patches (generate*Diffs) against the active names, " +
-                            "or switch the names source back (cleanroom.namesDirectory) to match.").formatted(
-                            this.getPatchesDirectory().get().getAsFile(),
-                            patchId,
-                            activeId
-                    )
-            );
+            throw new InvalidUserDataException(("Mapping identity mismatch for patch set %s:%n" +
+                "  patches were generated in names: %s%n" + "  the active names source is:       %s%n" +
+                "Regenerate the patches (generate*Diffs) against the active names, " +
+                "or switch the names source back (cleanroom.namesDirectory) to match.").formatted(this.getPatchesDirectory()
+                    .get()
+                    .getAsFile(),
+                patchId, activeId
+            ));
         }
     }
 

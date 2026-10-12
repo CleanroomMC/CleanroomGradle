@@ -43,6 +43,21 @@ import java.util.Map;
 @CacheableTask
 public abstract class Decompile extends MavenJarExec {
 
+    public Decompile() {
+        this.getMainClass().convention("org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler");
+        Map<String, Object> defaults = new LinkedHashMap<>();
+        defaults.put("new-line-separator", true);
+        defaults.put("ascii-strings", true);
+        defaults.put("include-classpath", true);
+        defaults.put("jad-style-variable-naming", true);
+        defaults.put("thread-count", -1);
+        defaults.put("indent-string", "    ");
+        this.getOptions().convention(defaults);
+        this.getOnlyClasses().convention(List.of());
+        this.getSilent().convention(false);
+        this.getExtraArgs().convention(List.of());
+    }
+
     private static String argValue(Object value) {
         return value instanceof Boolean bool ? (bool ? "1" : "0") : value.toString();
     }
@@ -172,24 +187,10 @@ public abstract class Decompile extends MavenJarExec {
     @OutputFile
     public abstract RegularFileProperty getDecompiledJar();
 
-    public Decompile() {
-        this.getMainClass().convention("org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler");
-        Map<String, Object> defaults = new LinkedHashMap<>();
-        defaults.put("new-line-separator", true);
-        defaults.put("ascii-strings", true);
-        defaults.put("include-classpath", true);
-        defaults.put("jad-style-variable-naming", true);
-        defaults.put("thread-count", -1);
-        defaults.put("indent-string", "    ");
-        this.getOptions().convention(defaults);
-        this.getOnlyClasses().convention(List.of());
-        this.getSilent().convention(false);
-        this.getExtraArgs().convention(List.of());
-    }
-
     @Override
     protected void beforeExec() {
-        this.getLogger().lifecycle("Using Java {} to decompile", this.getJavaLauncher().get().getMetadata().getLanguageVersion());
+        this.getLogger()
+            .lifecycle("Using Java {} to decompile", this.getJavaLauncher().get().getMetadata().getLanguageVersion());
         if (!this.getUseDefaultToolArguments().get()) {
             return;
         }

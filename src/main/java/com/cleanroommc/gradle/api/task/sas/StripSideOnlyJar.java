@@ -40,6 +40,12 @@ public abstract class StripSideOnlyJar extends DefaultTask {
     // Held by hand: Gradle will not generate a managed property alongside a setter of another type
     private final Property<Side> targetSide;
 
+    @Inject
+    public StripSideOnlyJar(ObjectFactory objects) {
+        this.targetSide = objects.property(Side.class);
+        this.getValidateReferences().convention(true);
+    }
+
     @InputFile
     @PathSensitive(PathSensitivity.RELATIVE)
     public abstract RegularFileProperty getInputJar();
@@ -62,31 +68,18 @@ public abstract class StripSideOnlyJar extends DefaultTask {
     @OutputFile
     public abstract RegularFileProperty getOutputJar();
 
-    @Inject
-    public StripSideOnlyJar(ObjectFactory objects) {
-        this.targetSide = objects.property(Side.class);
-        this.getValidateReferences().convention(true);
-    }
-
     @TaskAction
     public void strip() throws IOException {
         var side = this.getTargetSide().get();
-        var result = SideOnlyHandler.strip(
-                this.getInputJar().get().getAsFile().toPath(),
-                this.getOutputJar().get().getAsFile().toPath(),
-                side,
-                this.getValidateReferences().get(),
-                this.getValidatedPrefixes().get()
+        var result = SideOnlyHandler.strip(this.getInputJar().get().getAsFile().toPath(),
+            this.getOutputJar().get().getAsFile().toPath(), side, this.getValidateReferences().get(),
+            this.getValidatedPrefixes().get()
         );
         this.getLogger()
-                .lifecycle(
-                        "Built {} jar: removed {} classes, {} fields, {} methods. Cleared {} @SideOnly annotations",
-                        side.name().toLowerCase(),
-                        result.classesRemoved(),
-                        result.fieldsRemoved(),
-                        result.methodsRemoved(),
-                        result.annotationsRemoved()
-                );
+            .lifecycle("Built {} jar: removed {} classes, {} fields, {} methods. Cleared {} @SideOnly annotations",
+                side.name().toLowerCase(), result.classesRemoved(), result.fieldsRemoved(), result.methodsRemoved(),
+                result.annotationsRemoved()
+            );
     }
 
 }

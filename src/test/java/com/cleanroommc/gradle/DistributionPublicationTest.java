@@ -31,10 +31,13 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class DistributionPublicationTest extends BaseFunctionalTest {
 
+    private static String capitalized(String classifier) {
+        return Arrays.stream(classifier.split("-")).map(StringUtils::capitalize).collect(Collectors.joining());
+    }
+
     @Test
     void userdevIsPublishedAsItsOwnModule() throws IOException {
-        this.project.build(
-                """
+        this.project.build("""
                 group = 'com.cleanroommc'
                 version = '0.1.0'
                 cleanroom {
@@ -63,15 +66,19 @@ class DistributionPublicationTest extends BaseFunctionalTest {
                 """
         );
 
-        var result = this.project.plainRunner("generatePomFileForMavenPublication", "generatePomFileForCleanroomUserdevPublication").build();
+        var result = this.project
+            .plainRunner("generatePomFileForMavenPublication", "generatePomFileForCleanroomUserdevPublication")
+            .build();
         assertThat(result.task(":generatePomFileForMavenPublication").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
-        assertThat(result.task(":generatePomFileForCleanroomUserdevPublication").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(result.task(":generatePomFileForCleanroomUserdevPublication").getOutcome()
+        ).isEqualTo(TaskOutcome.SUCCESS);
 
         var pom = Files.readString(this.projectDir.resolve("build/publications/maven/pom-default.xml"));
         assertThat(pom).as(pom).contains("<groupId>com.cleanroommc</groupId>");
         assertThat(pom).as(pom).contains("<artifactId>cleanroom</artifactId>");
         assertThat(pom).as(pom).contains("<version>0.1.0</version>");
-        var userdevPom = Files.readString(this.projectDir.resolve("build/publications/cleanroomUserdev/pom-default.xml"));
+        var userdevPom = Files.readString(this.projectDir.resolve("build/publications/cleanroomUserdev/pom-default.xml"
+        ));
         assertThat(userdevPom).as(userdevPom).contains("<artifactId>cleanroom-userdev</artifactId>");
         assertThat(userdevPom).as(userdevPom).contains("<artifactId>authlib</artifactId>");
 
@@ -85,15 +92,13 @@ class DistributionPublicationTest extends BaseFunctionalTest {
     @Test
     void userdevVariantsCarryLibrariesAndPerPlatformNatives() throws IOException {
         var natives = Platform.nativePlatforms()
-                .stream()
-                .map(platform -> "assertNatives('%s', '%s', '%s')\n".formatted(
-                        capitalized(platform.lwjglNativesClassifier()),
-                        platform.operatingSystemFamily(),
-                        platform.machineArchitecture()
-                ))
-                .collect(Collectors.joining());
-        this.project.loader(
-                """
+            .stream()
+            .map(platform -> "assertNatives('%s', '%s', '%s')\n".formatted(capitalized(platform.lwjglNativesClassifier()
+                ),
+                platform.operatingSystemFamily(), platform.machineArchitecture()
+            ))
+            .collect(Collectors.joining());
+        this.project.loader("""
                 import org.gradle.nativeplatform.MachineArchitecture
                 import org.gradle.nativeplatform.OperatingSystemFamily
                 group = 'com.cleanroommc'
@@ -122,7 +127,7 @@ class DistributionPublicationTest extends BaseFunctionalTest {
                     assert libraries.any { it.group == 'com.mojang' && it.name == 'authlib' } : libraries
                     assert libraries.every { it.group != 'org.lwjgl.lwjgl' } : libraries
                 """ +
-                        natives + """
+                natives + """
                 }
                 """
         );
@@ -136,8 +141,7 @@ class DistributionPublicationTest extends BaseFunctionalTest {
      */
     @Test
     void nativesWithoutAVersionAreRejected() throws IOException {
-        this.project.loader(
-                """
+        this.project.loader("""
                 group = 'com.cleanroommc'
                 version = '0.1.0'
                 dependencies {
@@ -155,14 +159,9 @@ class DistributionPublicationTest extends BaseFunctionalTest {
         assertThat(output).as(output).contains("org.lwjgl:lwjgl is declared in lwjglNative without a version");
     }
 
-    private static String capitalized(String classifier) {
-        return Arrays.stream(classifier.split("-")).map(StringUtils::capitalize).collect(Collectors.joining());
-    }
-
     @Test
     void assembleBuildsTheInstallerAndThePack() throws IOException {
-        this.project.loader(
-                """
+        this.project.loader("""
                 group = 'com.cleanroommc'
                 version = '0.1.0'
                 apply plugin: 'maven-publish'
@@ -179,13 +178,14 @@ class DistributionPublicationTest extends BaseFunctionalTest {
         );
 
         var output = this.project.runner("assemble", "--dry-run").build().getOutput();
-        PluginBuild.scheduled(output, "universalJar", "userdevJar", "sourcesJar", "javadocJar", "publishMmcPackZip", "installerJar");
+        PluginBuild.scheduled(output, "universalJar", "userdevJar", "sourcesJar", "javadocJar", "publishMmcPackZip",
+            "installerJar"
+        );
     }
 
     @Test
     void packEmbedsTheUniversalJarUnlessTheBuildUploadsIt() throws IOException {
-        this.project.loader(
-                """
+        this.project.loader("""
                 group = 'com.cleanroommc'
                 version = '0.1.0'
                 apply plugin: 'maven-publish'
@@ -203,18 +203,22 @@ class DistributionPublicationTest extends BaseFunctionalTest {
                 """
         );
 
-        assertThat(this.project.runner("publishMmcPackZip", "--dry-run").build().getOutput()).contains("embedUniversalJar=true");
-        assertThat(this.project.runner("publishToMavenLocal", "--dry-run").build().getOutput()).contains("embedUniversalJar=true");
-        assertThat(this.project.runner("publishMavenPublicationToMavenRepository", "--dry-run").build().getOutput()).contains("embedUniversalJar=false");
+        assertThat(this.project.runner("publishMmcPackZip", "--dry-run").build().getOutput()
+        ).contains("embedUniversalJar=true");
+        assertThat(this.project.runner("publishToMavenLocal", "--dry-run").build().getOutput()
+        ).contains("embedUniversalJar=true");
+        assertThat(this.project.runner("publishMavenPublicationToMavenRepository", "--dry-run").build().getOutput()
+        ).contains("embedUniversalJar=false");
     }
 
     @Test
     void distributionsBuildAndCarryProjectDependencies() throws IOException {
         Files.writeString(this.projectDir.resolve("settings.gradle"), "include 'lib'\n", StandardOpenOption.APPEND);
         Files.createDirectories(this.projectDir.resolve("lib"));
-        Files.writeString(this.projectDir.resolve("lib/build.gradle"), "plugins { id 'java-library' }\ngroup = 'com.example'\nversion = '1.2'\n");
-        this.project.loader(
-                """
+        Files.writeString(this.projectDir.resolve("lib/build.gradle"),
+            "plugins { id 'java-library' }\ngroup = 'com.example'\nversion = '1.2'\n"
+        );
+        this.project.loader("""
                 group = 'com.cleanroommc'
                 version = '0.1.0'
                 apply plugin: 'maven-publish'

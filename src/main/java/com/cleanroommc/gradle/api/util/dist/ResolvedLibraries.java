@@ -39,11 +39,11 @@ public final class ResolvedLibraries {
 
     private static final String EXCLUDE_WILDCARD = "*";
 
-    public static Provider<List<LibraryArtifact>> artifacts(
-            ObjectFactory objects,
-            Provider<Set<ResolvedArtifactResult>> resolved,
-            Provider<ResolvedComponentResult> root,
-            Provider<Map<String, String>> repositoryUrls
+    private ResolvedLibraries() { }
+
+    public static Provider<List<LibraryArtifact>> artifacts(ObjectFactory objects,
+        Provider<Set<ResolvedArtifactResult>> resolved, Provider<ResolvedComponentResult> root,
+        Provider<Map<String, String>> repositoryUrls
     ) {
         return repositoryUrls.flatMap(urls -> resolved.zip(root, (artifacts, component) -> {
             var origins = new HashMap<ComponentIdentifier, String>();
@@ -53,11 +53,8 @@ public final class ResolvedLibraries {
         }));
     }
 
-    private static List<LibraryArtifact> artifactInputs(
-            ObjectFactory objects,
-            Set<ResolvedArtifactResult> artifacts,
-            Map<ComponentIdentifier, String> repositoryUrls,
-            Map<ComponentIdentifier, ModuleVersionIdentifier> identities
+    private static List<LibraryArtifact> artifactInputs(ObjectFactory objects, Set<ResolvedArtifactResult> artifacts,
+        Map<ComponentIdentifier, String> repositoryUrls, Map<ComponentIdentifier, ModuleVersionIdentifier> identities
     ) {
         return artifacts.stream().map(artifact -> {
             var component = artifact.getId().getComponentIdentifier();
@@ -104,7 +101,7 @@ public final class ResolvedLibraries {
                 throw new GradleException("Invalid library exclude rule: " + value);
             }
             if ((parts[0].equals(EXCLUDE_WILDCARD) || parts[0].equals(coordinate.group())) &&
-                    (parts[1].equals(EXCLUDE_WILDCARD) || parts[1].equals(coordinate.artifact()))) {
+                (parts[1].equals(EXCLUDE_WILDCARD) || parts[1].equals(coordinate.artifact()))) {
                 return true;
             }
         }
@@ -130,7 +127,9 @@ public final class ResolvedLibraries {
         return List.copyOf(libraries);
     }
 
-    private static void collectModules(ResolvedComponentResult component, Set<String> coordinates, Set<ComponentIdentifier> seen) {
+    private static void collectModules(ResolvedComponentResult component, Set<String> coordinates,
+        Set<ComponentIdentifier> seen
+    ) {
         if (!seen.add(component.getId())) {
             return;
         }
@@ -144,12 +143,9 @@ public final class ResolvedLibraries {
         }
     }
 
-    private static void collectRepositoryUrls(
-            ResolvedComponentResult component,
-            Map<String, String> repositories,
-            Map<ComponentIdentifier, String> origins,
-            Map<ComponentIdentifier, ModuleVersionIdentifier> identities,
-            Set<ComponentIdentifier> seen
+    private static void collectRepositoryUrls(ResolvedComponentResult component, Map<String, String> repositories,
+        Map<ComponentIdentifier, String> origins, Map<ComponentIdentifier, ModuleVersionIdentifier> identities,
+        Set<ComponentIdentifier> seen
     ) {
         if (!seen.add(component.getId())) {
             return;
@@ -162,8 +158,8 @@ public final class ResolvedLibraries {
             var repositoryId = internal.getRepositoryId();
             var repositoryUrl = repositories.get(repositoryId);
             if (repositoryUrl == null) {
-                throw new GradleException(
-                        "Resolved " + component.getId() + " from unknown repository '" + repositoryId + "'. Configured Maven repositories: " + repositories.keySet()
+                throw new GradleException("Resolved " + component.getId() + " from unknown repository '" +
+                        repositoryId + "'. Configured Maven repositories: " + repositories.keySet()
                 );
             }
             origins.put(component.getId(), repositoryUrl);
@@ -194,7 +190,5 @@ public final class ResolvedLibraries {
     private static String excludePart(String value) {
         return value == null ? EXCLUDE_WILDCARD : value;
     }
-
-    private ResolvedLibraries() { }
 
 }

@@ -35,16 +35,6 @@ import java.util.zip.ZipFile;
 public record JarStructure(Map<String, ClassEntry> classes) {
 
     /**
-     * A method or field: its name and JVM descriptor.
-     */
-    public record Member(String name, String descriptor) { }
-
-    /**
-     * One class's SRG-named members.
-     */
-    public record ClassEntry(String internalName, List<Member> methods, List<Member> fields) { }
-
-    /**
      * Scans a jar, keeping only members whose names look like SRG ids (func_/field_).
      */
     public static JarStructure scan(File jarFile) {
@@ -60,7 +50,9 @@ public record JarStructure(Map<String, ClassEntry> classes) {
                 Collector collector = new Collector();
                 reader.accept(collector, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
                 if (!collector.methods.isEmpty() || !collector.fields.isEmpty()) {
-                    classes.put(collector.internalName, new ClassEntry(collector.internalName, collector.methods, collector.fields));
+                    classes.put(collector.internalName,
+                        new ClassEntry(collector.internalName, collector.methods, collector.fields)
+                    );
                 }
             }
         } catch (IOException e) {
@@ -68,6 +60,16 @@ public record JarStructure(Map<String, ClassEntry> classes) {
         }
         return new JarStructure(classes);
     }
+
+    /**
+     * A method or field: its name and JVM descriptor.
+     */
+    public record Member(String name, String descriptor) { }
+
+    /**
+     * One class's SRG-named members.
+     */
+    public record ClassEntry(String internalName, List<Member> methods, List<Member> fields) { }
 
     private static final class Collector extends ClassVisitor {
 
@@ -81,12 +83,15 @@ public record JarStructure(Map<String, ClassEntry> classes) {
         }
 
         @Override
-        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces
+        ) {
             this.internalName = name;
         }
 
         @Override
-        public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
+        public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
+            String[] exceptions
+        ) {
             if (name.startsWith("func_")) {
                 methods.add(new Member(name, descriptor));
             }

@@ -35,12 +35,6 @@ import javax.inject.Inject;
 
 public abstract class PatchDevEnvironment implements Named {
 
-    public abstract DirectoryProperty getInput();
-
-    public abstract DirectoryProperty getPatches();
-
-    public abstract DirectoryProperty getOutput();
-
     private final String name;
 
     private String dependsOn;
@@ -58,6 +52,22 @@ public abstract class PatchDevEnvironment implements Named {
         this.getPatches().convention(layout.getProjectDirectory().dir("patches").dir(name));
         this.getOutput().convention(layout.getProjectDirectory().dir("src/" + name + "PatchDev/java"));
     }
+
+    private static void createDirectory(File directory, String property, String environment) {
+        if (directory.isDirectory()) {
+            return;
+        }
+        if (directory.exists() || !directory.mkdirs()) {
+            throw new InvalidUserDataException(
+                "%s for %s is not a directory and could not be created!".formatted(property, environment));
+        }
+    }
+
+    public abstract DirectoryProperty getInput();
+
+    public abstract DirectoryProperty getPatches();
+
+    public abstract DirectoryProperty getOutput();
 
     @Override
     public String getName() {
@@ -115,7 +125,9 @@ public abstract class PatchDevEnvironment implements Named {
         this.prepareEnvironment = Tasks.register(project, "prepare" + capitalizedName + "PatchDevEnvironment");
         var applyTaskName = name.equals("initial") ? "applyInitialPatchDevDiffs" : "apply" + capitalizedName + "Diffs";
         this.applyDiffs = Tasks.register(project, applyTaskName, ApplyDiffs.class);
-        this.initializeDiffs = Tasks.register(project, "initialize" + capitalizedName + "PatchDevSources", ApplyDiffs.class);
+        this.initializeDiffs = Tasks.register(project, "initialize" + capitalizedName + "PatchDevSources",
+            ApplyDiffs.class
+        );
         this.generateDiffs = Tasks.register(project, "generate" + capitalizedName + "Diffs", GenerateDiffs.class);
         var zipPatches = Tasks.register(project, "zip" + capitalizedName + "Patches", Zip.class);
         zipPatches.configure(task -> {
@@ -144,7 +156,9 @@ public abstract class PatchDevEnvironment implements Named {
         this.prepareSources.configure(task -> task.dependsOn(this.initializeEnvironment));
         this.applyDiffs.configure(task -> {
             task.dependsOn(this.prepareSources);
-            task.setDescription("Recreates the " + name + " patch-development sources and applies the current patch set.");
+            task.setDescription("Recreates the " + name +
+                    " patch-development sources and applies the current patch set."
+            );
             task.getOriginalDirectory().fileProvider(input);
             task.getPatchesDirectory().set(patches);
             task.getModifiedDirectory().set(output);
@@ -172,15 +186,6 @@ public abstract class PatchDevEnvironment implements Named {
             task.getModifiedDirectory().set(output);
             task.getPatchesDirectory().set(patches);
         });
-    }
-
-    private static void createDirectory(File directory, String property, String environment) {
-        if (directory.isDirectory()) {
-            return;
-        }
-        if (directory.exists() || !directory.mkdirs()) {
-            throw new InvalidUserDataException("%s for %s is not a directory and could not be created!".formatted(property, environment));
-        }
     }
 
 }

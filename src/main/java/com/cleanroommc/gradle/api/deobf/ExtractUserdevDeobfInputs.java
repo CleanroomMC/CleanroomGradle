@@ -35,6 +35,19 @@ import java.util.zip.ZipFile;
 @CacheableTransform
 public abstract class ExtractUserdevDeobfInputs implements TransformAction<TransformParameters.None> {
 
+    private static void extract(ZipFile zip, File input, String entryName, String name, File output)
+        throws IOException {
+        var entry = zip.getEntry(entryName);
+        if (entry == null) {
+            throw new InvalidUserDataException(input + " does not contain " + entryName +
+                    ". Use a userdev artifact produced by a CleanroomGradle version that supports native deobf()."
+            );
+        }
+        try (var stream = zip.getInputStream(entry)) {
+            Files.copy(stream, output.toPath().resolve(name));
+        }
+    }
+
     @InputArtifact
     @PathSensitive(PathSensitivity.NAME_ONLY)
     public abstract Provider<FileSystemLocation> getInputArtifact();
@@ -49,18 +62,6 @@ public abstract class ExtractUserdevDeobfInputs implements TransformAction<Trans
             extract(zip, input, layout.deobfLibrary(), UserdevConfig.DEOBF_LIBRARY, output);
         } catch (IOException e) {
             throw new UncheckedIOException("Could not extract deobf inputs from " + input, e);
-        }
-    }
-
-    private static void extract(ZipFile zip, File input, String entryName, String name, File output) throws IOException {
-        var entry = zip.getEntry(entryName);
-        if (entry == null) {
-            throw new InvalidUserDataException(
-                    input + " does not contain " + entryName + ". Use a userdev artifact produced by a CleanroomGradle version that supports native deobf()."
-            );
-        }
-        try (var stream = zip.getInputStream(entry)) {
-            Files.copy(stream, output.toPath().resolve(name));
         }
     }
 

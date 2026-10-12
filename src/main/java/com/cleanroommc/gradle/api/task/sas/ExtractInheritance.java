@@ -28,6 +28,14 @@ import org.gradle.api.tasks.PathSensitivity;
 @CacheableTask
 public abstract class ExtractInheritance extends MavenJarExec {
 
+    public ExtractInheritance() {
+        this.defaultLogFile("extractInheritance.log");
+        this.getMainClass().set("net.minecraftforge.installertools.ConsoleTool");
+        this.args("--task", "extract_inheritance", "--input", this.getInputJar(), "--output", this.getOutput(),
+            "--annotations"
+        );
+    }
+
     @InputFile
     @PathSensitive(PathSensitivity.RELATIVE)
     public abstract RegularFileProperty getInputJar();
@@ -37,12 +45,6 @@ public abstract class ExtractInheritance extends MavenJarExec {
 
     @OutputFile
     public abstract RegularFileProperty getOutput();
-
-    public ExtractInheritance() {
-        this.defaultLogFile("extractInheritance.log");
-        this.getMainClass().set("net.minecraftforge.installertools.ConsoleTool");
-        this.args("--task", "extract_inheritance", "--input", this.getInputJar(), "--output", this.getOutput(), "--annotations");
-    }
 
     @Override
     protected void beforeExec() {

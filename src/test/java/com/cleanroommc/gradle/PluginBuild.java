@@ -29,7 +29,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 final class PluginBuild {
 
-    static final String PLUGIN_DIR = System.getProperty("plugin.project.dir", new File("").getAbsolutePath()).replace("\\", "/");
+    static final String PLUGIN_DIR = System.getProperty("plugin.project.dir", new File("").getAbsolutePath())
+        .replace("\\", "/");
 
     final Path projectDir;
 
@@ -37,10 +38,32 @@ final class PluginBuild {
         this.projectDir = projectDir;
     }
 
+    /** The spec 1 document the artifact carries, which every consumer reads its layout from. */
+    static String userdevConfigJson(String version) {
+        return UserdevFixture.config(version, "client", "server");
+    }
+
+    static void scheduled(String output, String... tasks) {
+        for (var task : tasks) {
+            assertThat(output).as(() -> "missing :" + task + " in\n" + output).contains(":" + task);
+        }
+    }
+
+    static void notScheduled(String output, String... tasks) {
+        for (var task : tasks) {
+            assertThat(output).as(() -> "unexpected :" + task + " in\n" + output).doesNotContain(":" + task);
+        }
+    }
+
+    static void reused(String output) {
+        assertThat(output)
+            .as(() -> "configuration cache was not reused:\n" + output)
+            .contains("Reusing configuration cache");
+    }
+
     PluginBuild settings() throws IOException {
-        Files.writeString(
-                this.projectDir.resolve("settings.gradle"),
-                """
+        Files.writeString(this.projectDir.resolve("settings.gradle"),
+            """
                 pluginManagement {
                     includeBuild '%s'
                     repositories {
@@ -56,19 +79,19 @@ final class PluginBuild {
                     id 'com.cleanroommc.cleanroomgradle.settings'
                 }
                 rootProject.name = 'test-project'
-                """.formatted(
-                        PLUGIN_DIR
-                )
+                """.formatted(PLUGIN_DIR
+            )
         );
 
-        Files.writeString(this.projectDir.resolve("gradle.properties"), "org.gradle.jvmargs=-Xmx1g -XX:MaxMetaspaceSize=768m\n");
+        Files.writeString(this.projectDir.resolve("gradle.properties"),
+            "org.gradle.jvmargs=-Xmx1g -XX:MaxMetaspaceSize=768m\n"
+        );
         return this;
     }
 
     PluginBuild build(String body) throws IOException {
-        Files.writeString(
-                this.projectDir.resolve("build.gradle"),
-                """
+        Files.writeString(this.projectDir.resolve("build.gradle"),
+            """
                 plugins {
                     id 'java'
                     id 'com.cleanroommc.cleanroomgradle'
@@ -76,20 +99,19 @@ final class PluginBuild {
                 group = 'com.example'
                 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
                 """ +
-                        body
+                body
         );
         return this;
     }
 
     PluginBuild vanilla(String extra) throws IOException {
-        return build(
-                """
+        return build("""
                 cleanroom {
                     mode = 'vanilla'
                     patches.developInitial = false
                 }
                 """ +
-                        extra
+                extra
         );
     }
 
@@ -97,33 +119,24 @@ final class PluginBuild {
         var metaFile = cacheDirectory.resolve("versions").resolve(version).resolve("meta.json");
         Files.createDirectories(metaFile.getParent());
         Files.writeString(metaFile, metaJson);
-        Files.writeString(
-                cacheDirectory.resolve("version_manifest_v2.json"),
-                """
+        Files.writeString(cacheDirectory.resolve("version_manifest_v2.json"),
+            """
                         {"versions":[{"id":"%s","url":"https://example.invalid/%s.json","sha1":"%s"}]}
-                        """.formatted(
-                        version,
-                        version,
-                        IO.sha1(metaFile)
-                )
+                        """.formatted(version,
+                version, IO.sha1(metaFile)
+            )
         );
     }
 
     PluginBuild loader(String extra) throws IOException {
-        return build(
-                """
+        return build("""
                 cleanroom {
                     mode = 'loader'
                     patches.developInitial = false
                 }
                 """ +
-                        extra
+                extra
         );
-    }
-
-    /** The spec 1 document the artifact carries, which every consumer reads its layout from. */
-    static String userdevConfigJson(String version) {
-        return UserdevFixture.config(version, "client", "server");
     }
 
     void seedUserdevModule(String version) throws IOException {
@@ -171,15 +184,15 @@ final class PluginBuild {
         allArgs.add("--configuration-cache-problems=fail");
         var output = new ByteArrayOutputStream();
         try (var connection = GradleConnector.newConnector()
-                .useInstallation(new File(System.getProperty("test.gradle.home")))
-                .useGradleUserHomeDir(new File(System.getProperty("testkit.gradle.user.home")))
-                .forProjectDirectory(this.projectDir.toFile())
-                .connect()) {
+            .useInstallation(new File(System.getProperty("test.gradle.home")))
+            .useGradleUserHomeDir(new File(System.getProperty("testkit.gradle.user.home")))
+            .forProjectDirectory(this.projectDir.toFile())
+            .connect()) {
             var model = connection.model(IdeaProject.class)
-                    .withArguments(allArgs.toArray(String[]::new))
-                    .setStandardOutput(output)
-                    .setStandardError(output)
-                    .get();
+                .withArguments(allArgs.toArray(String[]::new))
+                .setStandardOutput(output)
+                .setStandardError(output)
+                .get();
             return new IdeaModel(model, output.toString(StandardCharsets.UTF_8));
         }
     }
@@ -187,23 +200,9 @@ final class PluginBuild {
     void assertProblem(String problemId) throws IOException {
         var report = this.projectDir.resolve("build/reports/problems/problems-report.html");
         assertThat(Files.isRegularFile(report)).as("Gradle Problems report was not generated").isTrue();
-        assertThat(Files.readString(report)).as("Problems report does not contain '" + problemId + "'").contains(problemId);
-    }
-
-    static void scheduled(String output, String... tasks) {
-        for (var task : tasks) {
-            assertThat(output).as(() -> "missing :" + task + " in\n" + output).contains(":" + task);
-        }
-    }
-
-    static void notScheduled(String output, String... tasks) {
-        for (var task : tasks) {
-            assertThat(output).as(() -> "unexpected :" + task + " in\n" + output).doesNotContain(":" + task);
-        }
-    }
-
-    static void reused(String output) {
-        assertThat(output).as(() -> "configuration cache was not reused:\n" + output).contains("Reusing configuration cache");
+        assertThat(Files.readString(report))
+            .as("Problems report does not contain '" + problemId + "'")
+            .contains(problemId);
     }
 
     record IdeaModel(IdeaProject value, String output) { }

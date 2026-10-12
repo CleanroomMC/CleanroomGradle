@@ -38,6 +38,46 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class UserdevMaterializationTest extends BaseFunctionalTest {
 
+    private static Map<String, Path> resolvedFiles(String output) {
+        var files = new LinkedHashMap<String, Path>();
+        for (var line : output.lines().toList()) {
+            var index = line.indexOf(" -> ");
+            if (index > 0 && line.startsWith("USERDEV ")) {
+                var path = Path.of(line.substring(index + 4));
+                if (!path.getFileName().toString().startsWith("fixture-")) {
+                    files.put(line.substring("USERDEV ".length(), index), path);
+                }
+            }
+        }
+        return files;
+    }
+
+    private static Path file(Map<String, Path> resolved, String role) {
+        var file = resolved.get(role);
+        assertThat(file != null && Files.isRegularFile(file))
+            .as(() -> role + " was not resolved: " + resolved)
+            .isTrue();
+        return file;
+    }
+
+    private static List<String> entries(Path jar) {
+        try (var zip = new ZipFile(jar.toFile())) {
+            return zip.stream().map(ZipEntry::getName).filter(name -> !name.endsWith("/")).sorted().toList();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static String read(Path jar, String entry) throws IOException {
+        try (var zip = new ZipFile(jar.toFile())) {
+            var found = zip.getEntry(entry);
+            assertThat(found == null).as(() -> entry + " is missing from " + jar + ": " + entries(jar)).isFalse();
+            try (var stream = zip.getInputStream(found)) {
+                return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            }
+        }
+    }
+
     @Test
     void materializesClassesSourcesAndExtras() throws IOException {
         UserdevFixture.seed(this.projectDir, "1.0.0");
@@ -45,15 +85,15 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
 
         var output = resolve("1.0.0");
 
-        assertThat(entries(file(output, "CLASSES"))).isEqualTo(
-                List.of("com/cleanroommc/Loader.class", "net/minecraft/Block.class", "net/minecraft/Patched.class")
-        );
+        assertThat(entries(file(output, "CLASSES"))).isEqualTo(List.of("com/cleanroommc/Loader.class",
+            "net/minecraft/Block.class", "net/minecraft/Patched.class"
+        ));
         assertThat(entries(file(output, "CLIENT_EXTRA"))).isEqualTo(List.of("assets/pack.mcmeta"));
         assertThat(entries(file(output, "SERVER_EXTRA"))).isEqualTo(List.of("assets/server.txt"));
         assertThat(read(file(output, "SOURCES"), "decompiler-classpath.txt")).contains("fixture-library-1.jar");
         assertThat(read(file(output, "SOURCES"), "net/minecraft/Block.java"))
-                .as("the artifact's own source patch")
-                .isEqualTo("class Block {\n    // patched by the artifact\n}\n");
+            .as("the artifact's own source patch")
+            .isEqualTo("class Block {\n    // patched by the artifact\n}\n");
     }
 
     /**
@@ -116,37 +156,17 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
         return resolvedFiles(runner(version, extra).build().getOutput());
     }
 
-    private static Map<String, Path> resolvedFiles(String output) {
-        var files = new LinkedHashMap<String, Path>();
-        for (var line : output.lines().toList()) {
-            var index = line.indexOf(" -> ");
-            if (index > 0 && line.startsWith("USERDEV ")) {
-                var path = Path.of(line.substring(index + 4));
-                if (!path.getFileName().toString().startsWith("fixture-")) {
-                    files.put(line.substring("USERDEV ".length(), index), path);
-                }
-            }
-        }
-        return files;
-    }
-
     private GradleRunner runner(String version, String... extra) {
-        var arguments = new ArrayList<>(
-                List.of("resolveUserdev", "-Pcg.repos.enableLocal=true", "-Dmaven.repo.local=" + this.projectDir.resolve("local-maven"))
-        );
+        var arguments = new ArrayList<>(List.of("resolveUserdev", "-Pcg.repos.enableLocal=true",
+            "-Dmaven.repo.local=" + this.projectDir.resolve("local-maven")
+        ));
         arguments.addAll(List.of(extra));
         return this.project.runner(arguments.toArray(String[]::new));
     }
 
-    private static Path file(Map<String, Path> resolved, String role) {
-        var file = resolved.get(role);
-        assertThat(file != null && Files.isRegularFile(file)).as(() -> role + " was not resolved: " + resolved).isTrue();
-        return file;
-    }
-
     private void buildScript(String version, String userdevBody) throws IOException {
-        this.project.build(
-                UserdevFixture.PREAMBLE + """
+        this.project.build(UserdevFixture.PREAMBLE +
+                """
                 import org.gradle.api.attributes.Category
                 import org.gradle.api.attributes.DocsType
                 import com.cleanroommc.gradle.api.userdev.UserdevAttributes
@@ -187,26 +207,10 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
                         resolved.each { name, files -> files.each { println 'USERDEV ' + name + ' -> ' + it } }
                     }
                 }
-                """.formatted(version, userdevBody)
+                """.formatted(version,
+                    userdevBody
+                )
         );
-    }
-
-    private static List<String> entries(Path jar) {
-        try (var zip = new ZipFile(jar.toFile())) {
-            return zip.stream().map(ZipEntry::getName).filter(name -> !name.endsWith("/")).sorted().toList();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    private static String read(Path jar, String entry) throws IOException {
-        try (var zip = new ZipFile(jar.toFile())) {
-            var found = zip.getEntry(entry);
-            assertThat(found == null).as(() -> entry + " is missing from " + jar + ": " + entries(jar)).isFalse();
-            try (var stream = zip.getInputStream(found)) {
-                return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-            }
-        }
     }
 
 }

@@ -27,15 +27,13 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
  */
 class MaterializeUserdevSourcesTest {
 
-    @TempDir
-    Path directory;
+    @TempDir Path directory;
 
     @Test
     void appliesAPatchWithLineFeedsOnly() throws IOException {
         var source = write("source/net/minecraft/Block.java", "class Block {\nvoid a() { }\n}\n");
-        write(
-                "patches/net/minecraft/Block.java.patch",
-                """
+        write("patches/net/minecraft/Block.java.patch",
+            """
                 --- a/net/minecraft/Block.java
                 +++ b/net/minecraft/Block.java
                 @@ -1,3 +1,3 @@
@@ -54,9 +52,8 @@ class MaterializeUserdevSourcesTest {
     @Test
     void failsWhenAPatchHasNoTarget() throws IOException {
         write("source/net/minecraft/Block.java", "class Block {\n}\n");
-        write(
-                "patches/net/minecraft/Missing.java.patch",
-                """
+        write("patches/net/minecraft/Missing.java.patch",
+            """
                 --- a/net/minecraft/Missing.java
                 +++ b/net/minecraft/Missing.java
                 @@ -1,1 +1,1 @@
@@ -65,14 +62,18 @@ class MaterializeUserdevSourcesTest {
                 """
         );
 
-        var failure = catchThrowableOfType(
-                () -> UserdevSourceMaterializer.applyPatches(this.directory.resolve("source"), this.directory.resolve("patches")),
-                IllegalStateException.class
+        var failure = catchThrowableOfType(() -> UserdevSourceMaterializer.applyPatches(this.directory.resolve("source"
+                ),
+                this.directory.resolve("patches")
+            ),
+            IllegalStateException.class
         );
         assertThat(failure).as(failure.getMessage()).hasMessageContaining("Missing.java.patch");
-        assertThat(failure.getMessage().contains("net" + java.io.File.separator + "minecraft" + java.io.File.separator + "Missing.java"))
-                .as(failure.getMessage())
-                .isTrue();
+        assertThat(failure.getMessage()
+                .contains("net" + java.io.File.separator + "minecraft" + java.io.File.separator + "Missing.java")
+        )
+            .as(failure.getMessage())
+            .isTrue();
     }
 
     private Path write(String path, String content) throws IOException {

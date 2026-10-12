@@ -45,10 +45,9 @@ public abstract class ApplySAS extends DefaultTask {
 
     @TaskAction
     public void apply() throws IOException {
-        var result = SideOnlyHandler.applySas(
-                this.getInputJar().get().getAsFile().toPath(),
-                this.getOutputJar().get().getAsFile().toPath(),
-                this.getSideAnnotationStrippers().getFiles().stream().map(File::toPath).toList()
+        var result = SideOnlyHandler.applySas(this.getInputJar().get().getAsFile().toPath(),
+            this.getOutputJar().get().getAsFile().toPath(),
+            this.getSideAnnotationStrippers().getFiles().stream().map(File::toPath).toList()
         );
         this.getLogger().lifecycle("Removed {} legacy @SideOnly annotations", result.annotationsRemoved());
     }

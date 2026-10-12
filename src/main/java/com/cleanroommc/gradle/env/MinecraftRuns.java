@@ -25,7 +25,11 @@ import java.io.File;
  */
 public final class MinecraftRuns {
 
-    public static void caches(RunMinecraft task, CachesExtension caches, Provider<VersionMeta> versionMeta, boolean offline) {
+    private MinecraftRuns() { }
+
+    public static void caches(RunMinecraft task, CachesExtension caches, Provider<VersionMeta> versionMeta,
+        boolean offline
+    ) {
         var assets = caches.getDirectory().dir("assets");
         var uuidCache = caches.getDirectory().file("uuid_cache.properties");
         task.getVanillaAssetsLocation().set(assets);
@@ -33,7 +37,10 @@ public final class MinecraftRuns {
         task.getOffline().set(offline);
         task.getVersionMeta().convention(versionMeta);
         task.getAssetIndexVersion().convention(versionMeta.map(VersionMeta::assetIndexId));
-        task.getUUID().convention(task.getUsername().zip(uuidCache, (user, cache) -> Objects.resolveUuid(offline, cache.getAsFile(), user).toString()));
+        task.getUUID()
+            .convention(task.getUsername()
+                    .zip(uuidCache, (user, cache) -> Objects.resolveUuid(offline, cache.getAsFile(), user).toString())
+            );
     }
 
     public static void fmlEnvironment(RunMinecraft task, Fml env) {
@@ -90,7 +97,5 @@ public final class MinecraftRuns {
         }
 
     }
-
-    private MinecraftRuns() { }
 
 }

@@ -34,6 +34,10 @@ import java.util.List;
 @DisableCachingByDefault(because = "Launches an external profiler")
 public abstract class NsightExec extends Exec {
 
+    public NsightExec() {
+        this.doFirst(task -> ((NsightExec) task).configureCommandLine());
+    }
+
     @Input
     @Optional
     public abstract Property<String> getActivity();
@@ -54,10 +58,6 @@ public abstract class NsightExec extends Exec {
 
     @Internal
     public abstract RegularFileProperty getGradleWrapperJar();
-
-    public NsightExec() {
-        this.doFirst(task -> ((NsightExec) task).configureCommandLine());
-    }
 
     private void configureCommandLine() {
         var os = Platform.CURRENT.getOperatingSystem();
@@ -83,25 +83,14 @@ public abstract class NsightExec extends Exec {
         logger.lifecycle("\nJava Executable: " + javaExecutable);
         logger.lifecycle("Nsight Graphics NGFX Path: " + ngfxPath + "\n");
 
-        var wrapperArgv = new ArrayList<>(List.of("-classpath", wrapperJar, "org.gradle.wrapper.GradleWrapperMain", this.getRunTaskName().get()));
+        var wrapperArgv = new ArrayList<>(List.of("-classpath", wrapperJar, "org.gradle.wrapper.GradleWrapperMain",
+            this.getRunTaskName().get()
+        ));
         wrapperArgv.addAll(this.getRunTaskArguments().getOrElse(List.of()));
         var wrapperArgs = String.join(" ", wrapperArgv);
 
-        this.commandLine(
-                ngfxPath,
-                "--activity",
-                activity,
-                "--platform",
-                platform,
-                "--wait-hotkey",
-                "--dir",
-                workingDir,
-                "--output-dir",
-                workingDir,
-                "--exe",
-                javaExecutable,
-                "--args",
-                wrapperArgs
+        this.commandLine(ngfxPath, "--activity", activity, "--platform", platform, "--wait-hotkey", "--dir", workingDir,
+            "--output-dir", workingDir, "--exe", javaExecutable, "--args", wrapperArgs
         );
     }
 

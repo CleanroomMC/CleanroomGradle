@@ -21,6 +21,12 @@ import java.util.function.Supplier;
 
 public final class LazyStringable {
 
+    private final Object object;
+
+    private LazyStringable(Object object) {
+        this.object = object;
+    }
+
     public static LazyStringable of(Provider<?> property) {
         return new LazyStringable(property);
     }
@@ -35,12 +41,6 @@ public final class LazyStringable {
 
     public static LazyStringable of(Function0<?> function) {
         return new LazyStringable(function);
-    }
-
-    private final Object object;
-
-    private LazyStringable(Object object) {
-        this.object = object;
     }
 
     @Override

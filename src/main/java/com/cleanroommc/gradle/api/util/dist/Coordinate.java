@@ -35,7 +35,8 @@ public record Coordinate(String group, String artifact, String version, String c
         var stem = dot == -1 ? fileName : fileName.substring(0, dot);
         var prefix = module.getModule() + "-" + module.getVersion();
         if (!stem.equals(prefix) && !stem.startsWith(prefix + "-")) {
-            throw new GradleException("Cannot derive the classifier for " + artifact.getId() + " from file " + fileName);
+            throw new GradleException("Cannot derive the classifier for " + artifact.getId() + " from file " + fileName
+            );
         }
         var classifier = stem.length() == prefix.length() ? null : stem.substring(prefix.length() + 1);
         return new Coordinate(module.getGroup(), module.getModule(), module.getVersion(), classifier, extension);
@@ -63,17 +64,21 @@ public record Coordinate(String group, String artifact, String version, String c
         var extensionSplit = value.split("@", -1);
         var parts = extensionSplit[0].split(":", -1);
         if (extensionSplit.length > 2 ||
-                (extensionSplit.length == 2 && extensionSplit[1].isBlank()) ||
-                parts.length < 3 ||
-                parts.length > 4 ||
-                parts[0].isBlank() ||
-                parts[1].isBlank() ||
-                parts[2].isBlank()) {
+            (extensionSplit.length == 2 && extensionSplit[1].isBlank()) ||
+            parts.length < 3 ||
+            parts.length > 4 ||
+            parts[0].isBlank() ||
+            parts[1].isBlank() ||
+            parts[2].isBlank()) {
             throw new GradleException("Invalid Maven coordinate: " + value);
         }
         var extension = extensionSplit.length == 2 ? extensionSplit[1] : "jar";
         var classifier = parts.length == 4 && !parts[3].isBlank() ? parts[3] : null;
         return new Coordinate(parts[0], parts[1], parts[2], classifier, extension);
+    }
+
+    private static boolean classifierEquals(String left, String right) {
+        return left == null ? right == null : left.equals(right);
     }
 
     public String serialized() {
@@ -97,10 +102,10 @@ public record Coordinate(String group, String artifact, String version, String c
 
     public boolean sameArtifact(Coordinate other) {
         return group.equals(other.group) &&
-                artifact.equals(other.artifact) &&
-                version.equals(other.version) &&
-                classifierEquals(classifier, other.classifier) &&
-                extension.equals(other.extension);
+            artifact.equals(other.artifact) &&
+            version.equals(other.version) &&
+            classifierEquals(classifier, other.classifier) &&
+            extension.equals(other.extension);
     }
 
     public String mavenPath() {
@@ -113,10 +118,6 @@ public record Coordinate(String group, String artifact, String version, String c
             fileName += "-" + classifier;
         }
         return fileName + "." + extension.toLowerCase(Locale.ROOT);
-    }
-
-    private static boolean classifierEquals(String left, String right) {
-        return left == null ? right == null : left.equals(right);
     }
 
 }

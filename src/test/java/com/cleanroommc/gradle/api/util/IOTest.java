@@ -23,20 +23,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class IOTest {
 
-    @Test
-    void normalizeZipProducesIdenticalBytes(@TempDir Path directory) throws Exception {
-        var first = directory.resolve("first.zip");
-        var second = directory.resolve("second.zip");
-
-        writeZip(first, 1_000L);
-        writeZip(second, 2_000_000_000_000L);
-
-        IO.normalizeZip(first);
-        IO.normalizeZip(second);
-
-        assertThat(Files.readAllBytes(second)).isEqualTo(Files.readAllBytes(first));
-    }
-
     private static void writeZip(Path path, long timestamp) throws Exception {
         try (var output = IO.zipOut(path.toFile())) {
             writeEntry(output, "z.txt", "last", timestamp);
@@ -50,6 +36,20 @@ class IOTest {
         output.putNextEntry(entry);
         output.write(value.getBytes(StandardCharsets.UTF_8));
         output.closeEntry();
+    }
+
+    @Test
+    void normalizeZipProducesIdenticalBytes(@TempDir Path directory) throws Exception {
+        var first = directory.resolve("first.zip");
+        var second = directory.resolve("second.zip");
+
+        writeZip(first, 1_000L);
+        writeZip(second, 2_000_000_000_000L);
+
+        IO.normalizeZip(first);
+        IO.normalizeZip(second);
+
+        assertThat(Files.readAllBytes(second)).isEqualTo(Files.readAllBytes(first));
     }
 
 }

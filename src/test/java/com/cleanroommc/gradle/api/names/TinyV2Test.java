@@ -24,14 +24,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TinyV2Test {
 
-    @TempDir
-    Path directory;
+    @TempDir Path directory;
+
+    private static JarStructure structure(List<JarStructure.Member> methods, List<JarStructure.Member> fields) {
+        return new JarStructure(Map.of("a/B", new JarStructure.ClassEntry("a/B", methods, fields)));
+    }
 
     @Test
     void roundTripsNamesAndEscapedDocs() throws IOException {
         var doc = "back\\slash and\ttab and\nnewline";
-        var structure = structure(List.of(new JarStructure.Member("func_1_a", "(I)V")), List.of(new JarStructure.Member("field_1_b", "I")));
-        var names = new CsvNames(Map.of("field_1_b", "field"), Map.of("func_1_a", "method"), Map.of("p_1_1_", "arg"), Map.of("func_1_a", doc));
+        var structure = structure(List.of(new JarStructure.Member("func_1_a", "(I)V")),
+            List.of(new JarStructure.Member("field_1_b", "I"))
+        );
+        var names = new CsvNames(Map.of("field_1_b", "field"), Map.of("func_1_a", "method"), Map.of("p_1_1_", "arg"),
+            Map.of("func_1_a", doc)
+        );
 
         var flat = read(TinyV2.write(structure, names, Map.of()));
 
@@ -43,19 +50,20 @@ class TinyV2Test {
 
     @Test
     void writesOnlyMembersThatCarryAName() {
-        var structure = structure(
-                List.of(new JarStructure.Member("func_1_a", "()V"), new JarStructure.Member("func_2_b", "()V")),
-                List.of(new JarStructure.Member("field_9_z", "I"))
+        var structure = structure(List.of(new JarStructure.Member("func_1_a", "()V"),
+                new JarStructure.Member("func_2_b", "()V")
+            ),
+            List.of(new JarStructure.Member("field_9_z", "I"))
         );
         var names = new CsvNames(Map.of(), Map.of(), Map.of("p_1_0_", "only", "p_5_1_", "value"), Map.of());
 
-        var text = TinyV2.write(structure, names, Map.of("a/B", List.of(new TinyV2.Constructor("5", "(I)V"), new TinyV2.Constructor("6", "()V"))));
+        var text = TinyV2.write(structure, names,
+            Map.of("a/B", List.of(new TinyV2.Constructor("5", "(I)V"), new TinyV2.Constructor("6", "()V")))
+        );
 
-        assertThat(text).contains("func_1_a", "\tm\t(I)V\t<init>\t<init>\n").doesNotContain("func_2_b", "field_9_z", "()V\t<init>");
-    }
-
-    private static JarStructure structure(List<JarStructure.Member> methods, List<JarStructure.Member> fields) {
-        return new JarStructure(Map.of("a/B", new JarStructure.ClassEntry("a/B", methods, fields)));
+        assertThat(text)
+            .contains("func_1_a", "\tm\t(I)V\t<init>\t<init>\n")
+            .doesNotContain("func_2_b", "field_9_z", "()V\t<init>");
     }
 
     private TinyV2.FlatNames read(String text) throws IOException {

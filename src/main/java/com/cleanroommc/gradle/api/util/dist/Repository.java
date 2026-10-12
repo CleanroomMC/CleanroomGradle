@@ -22,8 +22,26 @@ import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
 public enum Repository {
 
     CENTRAL("Maven Central", "https://repo.maven.apache.org/maven2/"),
-    CLEANROOM("CleanroomMC", "https://maven.cleanroommc.com/", true, "com.cleanroommc", "top.outlands", "zone.rong", "net.minecraftforge", "de.oceanlabs.mcp"),
+    CLEANROOM("CleanroomMC", "https://maven.cleanroommc.com/", true, "com.cleanroommc", "top.outlands", "zone.rong",
+        "net.minecraftforge", "de.oceanlabs.mcp"
+    ),
     MOJANG("Mojang", "https://libraries.minecraft.net/");
+
+    private final String id;
+    private final String url;
+    private final boolean hasZips;
+    private final String[] groups;
+
+    Repository(String id, String url, String... groups) {
+        this(id, url, false, groups);
+    }
+
+    Repository(String id, String url, boolean hasZips, String... groups) {
+        this.id = id;
+        this.url = url;
+        this.hasZips = hasZips;
+        this.groups = groups;
+    }
 
     public static void addTo(Project project) {
         RepositoryHandler repos = project.getRepositories();
@@ -53,22 +71,6 @@ public enum Repository {
                 });
             });
         }
-    }
-
-    private final String id;
-    private final String url;
-    private final boolean hasZips;
-    private final String[] groups;
-
-    Repository(String id, String url, String... groups) {
-        this(id, url, false, groups);
-    }
-
-    Repository(String id, String url, boolean hasZips, String... groups) {
-        this.id = id;
-        this.url = url;
-        this.hasZips = hasZips;
-        this.groups = groups;
     }
 
     public String id() {

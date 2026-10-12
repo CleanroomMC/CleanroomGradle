@@ -80,7 +80,94 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     private static final String LWJGL_PATCH_PATH = "patches/" + LWJGL_UID + ".json";
     private static final String LOCAL_LIBRARIES = "libraries/";
     private static final String BLOCKED_LIBRARY_VERSION = "999999.0-empty";
-    private static final byte[] EMPTY_JAR = { 0x50, 0x4b, 0x05, 0x06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    private static final byte[] EMPTY_JAR = {
+        0x50,
+        0x4B,
+        0x05,
+        0x06,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    };
+
+    @Inject
+    public PublishMmcPackZip() {
+        getMinecraftVersion().convention(Meta.ONE_TRUE_MINECRAFT_VERSION);
+        getEmbedUniversalJar().convention(true);
+    }
+
+    private static void addBlockedLibraries(JsonArray libraries, Set<String> blockedMinecraftModules) {
+        for (var module : blockedMinecraftModules) {
+            var library = new JsonObject();
+            library.addProperty("name", module + ":" + BLOCKED_LIBRARY_VERSION);
+            library.addProperty("MMC-hint", "local");
+            libraries.add(library);
+        }
+    }
+
+    private static String blockedLibraryFileName(String module) {
+        validateBlockedModule(module);
+        var parts = module.split(":", -1);
+        return parts[1] + "-" + BLOCKED_LIBRARY_VERSION + ".jar";
+    }
+
+    private static void validateBlockedModule(String module) {
+        var parts = module.split(":", -1);
+        if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
+            throw new GradleException("Invalid blocked Minecraft module: " + module);
+        }
+    }
+
+    private static JsonObject requirement(String uid, String version) {
+        var requirement = new JsonObject();
+        requirement.addProperty("uid", uid);
+        requirement.addProperty("equals", version);
+        return requirement;
+    }
+
+    private static byte[] read(Path path) {
+        try {
+            return Files.readAllBytes(path);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read " + path, e);
+        }
+    }
+
+    private static byte[] json(JsonObject object) {
+        return (GSON.toJson(object) + "\n").getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static void writeZip(File output, Map<String, byte[]> files) {
+        try {
+            Files.createDirectories(output.toPath().getParent());
+            try (var zip = IO.zipOut(output)) {
+                for (var file : files.entrySet()) {
+                    var entry = new ZipEntry(file.getKey());
+                    entry.setTime(0L);
+                    zip.putNextEntry(entry);
+                    zip.write(file.getValue());
+                    zip.closeEntry();
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to write MMC archive " + output, e);
+        }
+    }
 
     @Input
     public abstract Property<String> getInstanceName();
@@ -131,12 +218,6 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     @OutputFile
     public abstract RegularFileProperty getInstallerArchiveFile();
 
-    @Inject
-    public PublishMmcPackZip() {
-        getMinecraftVersion().convention(Meta.ONE_TRUE_MINECRAFT_VERSION);
-        getEmbedUniversalJar().convention(true);
-    }
-
     @TaskAction
     public void publish() {
         var universal = universalArtifact();
@@ -167,10 +248,8 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     }
 
     private Artifact universalArtifact() {
-        return LibraryJson.artifact(
-                Coordinate.parse(getUniversalCoordinate().get()),
-                getUniversalJar().get().getAsFile().toPath(),
-                getEmbedUniversalJar().get() ? "" : getUniversalUrl().get()
+        return LibraryJson.artifact(Coordinate.parse(getUniversalCoordinate().get()),
+            getUniversalJar().get().getAsFile().toPath(), getEmbedUniversalJar().get() ? "" : getUniversalUrl().get()
         );
     }
 
@@ -236,15 +315,6 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         return patch;
     }
 
-    private static void addBlockedLibraries(JsonArray libraries, Set<String> blockedMinecraftModules) {
-        for (var module : blockedMinecraftModules) {
-            var library = new JsonObject();
-            library.addProperty("name", module + ":" + BLOCKED_LIBRARY_VERSION);
-            library.addProperty("MMC-hint", "local");
-            libraries.add(library);
-        }
-    }
-
     private Set<String> blockedMinecraftModules() {
         var rules = getMinecraftExcludeRules().get();
         var blocked = new TreeSet<String>();
@@ -255,19 +325,6 @@ public abstract class PublishMmcPackZip extends DefaultTask {
             }
         }
         return blocked;
-    }
-
-    private static String blockedLibraryFileName(String module) {
-        validateBlockedModule(module);
-        var parts = module.split(":", -1);
-        return parts[1] + "-" + BLOCKED_LIBRARY_VERSION + ".jar";
-    }
-
-    private static void validateBlockedModule(String module) {
-        var parts = module.split(":", -1);
-        if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
-            throw new GradleException("Invalid blocked Minecraft module: " + module);
-        }
     }
 
     private ComponentLibraries librariesJson(Artifact universal) {
@@ -284,7 +341,9 @@ public abstract class PublishMmcPackZip extends DefaultTask {
             }
         }
         if (lwjglVersions.size() != 1) {
-            throw new GradleException("Cleanroom's MMC component requires exactly one LWJGL version. Found " + lwjglVersions);
+            throw new GradleException("Cleanroom's MMC component requires exactly one LWJGL version. Found " +
+                    lwjglVersions
+            );
         }
 
         var cleanroom = LibraryJson.resolve(universal, cleanroomInputs, getInheritedLibraries().get());
@@ -292,49 +351,20 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         var local = new ArrayList<Artifact>();
         cleanroom.stream().filter(LibraryJson::isLocal).forEach(local::add);
         lwjgl.stream().filter(LibraryJson::isLocal).forEach(local::add);
-        return new ComponentLibraries(lwjglVersions.iterator().next(), LibraryJson.mmcLibraries(cleanroom), LibraryJson.mmcLibraries(lwjgl), local);
-    }
-
-    private static JsonObject requirement(String uid, String version) {
-        var requirement = new JsonObject();
-        requirement.addProperty("uid", uid);
-        requirement.addProperty("equals", version);
-        return requirement;
-    }
-
-    private record ComponentLibraries(String lwjglVersion, JsonArray cleanroom, JsonArray lwjgl, List<Artifact> local) { }
-
-    private static byte[] read(Path path) {
-        try {
-            return Files.readAllBytes(path);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to read " + path, e);
-        }
+        return new ComponentLibraries(lwjglVersions.iterator().next(), LibraryJson.mmcLibraries(cleanroom),
+            LibraryJson.mmcLibraries(lwjgl), local
+        );
     }
 
     private String instanceCfg() {
-        return "InstanceType=OneSix\n" + "name=" + getInstanceName().get() + " " + getCleanroomVersion().get() + "\n" + "iconKey=default\n";
+        return "InstanceType=OneSix\n" + "name=" + getInstanceName().get() + " " + getCleanroomVersion().get() + "\n" +
+            "iconKey=default\n";
     }
 
-    private static byte[] json(JsonObject object) {
-        return (GSON.toJson(object) + "\n").getBytes(StandardCharsets.UTF_8);
-    }
-
-    private static void writeZip(File output, Map<String, byte[]> files) {
-        try {
-            Files.createDirectories(output.toPath().getParent());
-            try (var zip = IO.zipOut(output)) {
-                for (var file : files.entrySet()) {
-                    var entry = new ZipEntry(file.getKey());
-                    entry.setTime(0L);
-                    zip.putNextEntry(entry);
-                    zip.write(file.getValue());
-                    zip.closeEntry();
-                }
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to write MMC archive " + output, e);
-        }
-    }
+    private record ComponentLibraries(String lwjglVersion,
+        JsonArray cleanroom,
+        JsonArray lwjgl,
+        List<Artifact> local
+    ) { }
 
 }

@@ -24,7 +24,8 @@ public final class Meta {
     public static final String MOJANG_PLAYER_API = "https://api.mojang.com/users/profiles/minecraft/";
 
     // RegEx's
-    public static final Pattern NATIVES_PATTERN = Pattern.compile("^(?<group>.*)/(.*?)/(?<version>.*)/((?<name>.*?)-(\\k<version>)-)(?<classifier>.*).jar$");
+    public static final Pattern NATIVES_PATTERN = Pattern.compile("^(?<group>.*)/(.*?)/(?<version>.*)/((?<name>.*?)-(\\k<version>)-)(?<classifier>.*).jar$"
+    );
 
     private Meta() { }
 

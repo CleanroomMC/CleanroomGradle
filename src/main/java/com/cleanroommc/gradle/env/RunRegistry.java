@@ -38,20 +38,9 @@ import javax.inject.Inject;
 
 public abstract class RunRegistry {
 
-    private static final Set<String> CONDITIONAL_TASKS = Set.of(
-            "runClient",
-            "runServer",
-            "runVanillaClient",
-            "runVanillaServer",
-            "runCleanroomClient",
-            "runCleanroomServer",
-            "runCleanroomNsightClient",
-            "runSrgClient",
-            "runSrgServer",
-            "runReobfSrgClient",
-            "runReobfSrgServer",
-            "runMcpClient",
-            "runMcpServer"
+    private static final Set<String> CONDITIONAL_TASKS = Set.of("runClient", "runServer", "runVanillaClient",
+        "runVanillaServer", "runCleanroomClient", "runCleanroomServer", "runCleanroomNsightClient", "runSrgClient",
+        "runSrgServer", "runReobfSrgClient", "runReobfSrgServer", "runMcpClient", "runMcpServer"
     );
     private static final String RUNS_GROUP = "minecraft runs";
     private static final Pattern VALID_NAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
@@ -59,9 +48,6 @@ public abstract class RunRegistry {
     private final Project project;
     private final NamedDomainObjectContainer<RunConfiguration> runs;
     private final Map<String, Builtin> builtins = new HashMap<>();
-
-    @Inject
-    protected abstract Problems getProblems();
 
     @Inject
     public RunRegistry(Project project, NamedDomainObjectContainer<RunConfiguration> runs) {
@@ -94,6 +80,9 @@ public abstract class RunRegistry {
         project.getExtensions().getByType(RunRegistry.class).builtins.get(task.getName()).consumers.add(action);
     }
 
+    @Inject
+    protected abstract Problems getProblems();
+
     public void configureRuns() {
         // Evaluate lazy declarations to discover inheritance while leaving their tasks unrealized
         var declarations = new LinkedHashMap<String, RunConfiguration>();
@@ -103,7 +92,9 @@ public abstract class RunRegistry {
         var taskNames = new HashMap<String, String>();
         for (var name : declarations.keySet()) {
             if (!VALID_NAME.matcher(name).matches()) {
-                throw invalid("Invalid run name '" + name + "'. Use letters, numbers, dots, underscores or hyphens, starting with a letter or number.");
+                throw invalid("Invalid run name '" + name +
+                        "'. Use letters, numbers, dots, underscores or hyphens, starting with a letter or number."
+                );
             }
             var taskName = "run" + StringUtils.capitalize(name);
             var previous = taskNames.put(taskName, name);
@@ -153,7 +144,9 @@ public abstract class RunRegistry {
             var declaration = declarations.get(current);
             if (declaration == null) {
                 if (builtin == null) {
-                    throw invalid("Unknown inherited run '" + current + "'. Use a built-in run or declare it in cleanroom.runs.");
+                    throw invalid("Unknown inherited run '" + current +
+                            "'. Use a built-in run or declare it in cleanroom.runs."
+                    );
                 }
                 break;
             }
@@ -165,12 +158,16 @@ public abstract class RunRegistry {
             }
         }
         if (types.size() > 1) {
-            throw invalid("Runs in inheritance chain '" + String.join(" -> ", path) + "' cannot be combined because their task types differ.");
+            throw invalid("Runs in inheritance chain '" + String.join(" -> ", path) +
+                    "' cannot be combined because their task types differ."
+            );
         }
 
         var taskName = "run" + StringUtils.capitalize(name);
         var builtin = this.builtins.get(taskName);
-        var task = builtin == null ? this.project.getTasks().register(taskName, types.getFirst(), value -> value.setGroup(RUNS_GROUP)) : builtin.task;
+        var task = builtin == null
+            ? this.project.getTasks().register(taskName, types.getFirst(), value -> value.setGroup(RUNS_GROUP))
+            : builtin.task;
         var consumers = new LinkedHashSet<Action<TaskProvider<?>>>();
         for (var ancestor : ancestors) {
             ancestor.actions.forEach(task::configure);
@@ -186,16 +183,16 @@ public abstract class RunRegistry {
     }
 
     private RuntimeException invalid(String message) {
-        return CleanroomProblems.throwing(
-                getProblems(),
-                new InvalidUserDataException(message),
-                CleanroomProblems.INVALID_RUN,
-                message,
-                "Check the declarations in cleanroom.runs."
+        return CleanroomProblems.throwing(getProblems(), new InvalidUserDataException(message),
+            CleanroomProblems.INVALID_RUN, message, "Check the declarations in cleanroom.runs."
         );
     }
 
-    private record Builtin(Class<? extends Task> type, TaskProvider<?> task, List<Action<? super Task>> actions, Set<Action<TaskProvider<?>>> consumers) {
+    private record Builtin(Class<? extends Task> type,
+        TaskProvider<?> task,
+        List<Action<? super Task>> actions,
+        Set<Action<TaskProvider<?>>> consumers
+    ) {
 
         private Builtin(Class<? extends Task> type, TaskProvider<?> task) {
             this(type, task, new ArrayList<>(), new LinkedHashSet<>());

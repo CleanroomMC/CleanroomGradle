@@ -39,7 +39,8 @@ class CoordinateTest {
 
     @Test
     void mavenPathLowersTheExtension() {
-        assertThat(Coordinate.parse("com.example:mod:1.0:natives-linux@ZIP").mavenPath()).isEqualTo("com/example/mod/1.0/mod-1.0-natives-linux.zip");
+        assertThat(Coordinate.parse("com.example:mod:1.0:natives-linux@ZIP").mavenPath()
+        ).isEqualTo("com/example/mod/1.0/mod-1.0-natives-linux.zip");
     }
 
 }

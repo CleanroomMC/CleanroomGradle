@@ -47,30 +47,25 @@ import javax.inject.Inject;
 @CacheableTransform
 public abstract class DeobfuscateJar implements TransformAction<DeobfuscateJar.Parameters> {
 
-    public interface Parameters extends TransformParameters {
-
-        @InputFiles
-        @PathSensitive(PathSensitivity.NONE)
-        ConfigurableFileCollection getMappings();
-
-        @InputFiles
-        @CompileClasspath
-        ConfigurableFileCollection getSrgLibraries();
-
-        @InputFiles
-        @PathSensitive(PathSensitivity.RELATIVE)
-        ConfigurableFileCollection getUserdevInputs();
-
-        @Classpath
-        ConfigurableFileCollection getRenamerClasspath();
-
-        /** JVM identity rather than its executable path, so cached entries stay relocatable. */
-        @Input
-        Property<Integer> getJavaLanguageVersion();
-
-        @Input
-        Property<String> getJavaVendor();
-
+    /**
+     * The renamer ships as an executable fat jar, so its entry point comes from the manifest rather than
+     * from any property the renamer plugin exposes.
+     */
+    private static String mainClassOf(Iterable<File> classpath) {
+        for (var file : classpath) {
+            try (var jar = new JarFile(file)) {
+                var manifest = jar.getManifest();
+                if (manifest != null) {
+                    var mainClass = manifest.getMainAttributes().getValue(Attributes.Name.MAIN_CLASS);
+                    if (mainClass != null) {
+                        return mainClass;
+                    }
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException("Could not read " + file, e);
+            }
+        }
+        throw new InvalidUserDataException("No Main-Class found on the renamer classpath: " + classpath);
     }
 
     @InputArtifact
@@ -99,13 +94,13 @@ public abstract class DeobfuscateJar implements TransformAction<DeobfuscateJar.P
             libraries.add(new File(directory, UserdevConfig.DEOBF_LIBRARY));
         }
         if (declared.isEmpty() && mappings.isEmpty()) {
-            throw new InvalidUserDataException(
-                    "deobf() needs MCP mappings, which this project does not build. " + "Declare a Cleanroom userdev dependency, or set cleanroom.mode to 'loader'."
+            throw new InvalidUserDataException("deobf() needs MCP mappings, which this project does not build. " +
+                    "Declare a Cleanroom userdev dependency, or set cleanroom.mode to 'loader'."
             );
         }
         if (mappings.stream().noneMatch(File::isFile)) {
-            throw new InvalidUserDataException(
-                    "The MCP mappings have not been written yet: " + declared + ". " + "Run './gradlew prepareDeobf' before importing or refreshing the project in an IDE."
+            throw new InvalidUserDataException("The MCP mappings have not been written yet: " + declared + ". " +
+                    "Run './gradlew prepareDeobf' before importing or refreshing the project in an IDE."
             );
         }
 
@@ -140,25 +135,30 @@ public abstract class DeobfuscateJar implements TransformAction<DeobfuscateJar.P
         });
     }
 
-    /**
-     * The renamer ships as an executable fat jar, so its entry point comes from the manifest rather than
-     * from any property the renamer plugin exposes.
-     */
-    private static String mainClassOf(Iterable<File> classpath) {
-        for (var file : classpath) {
-            try (var jar = new JarFile(file)) {
-                var manifest = jar.getManifest();
-                if (manifest != null) {
-                    var mainClass = manifest.getMainAttributes().getValue(Attributes.Name.MAIN_CLASS);
-                    if (mainClass != null) {
-                        return mainClass;
-                    }
-                }
-            } catch (IOException e) {
-                throw new UncheckedIOException("Could not read " + file, e);
-            }
-        }
-        throw new InvalidUserDataException("No Main-Class found on the renamer classpath: " + classpath);
+    public interface Parameters extends TransformParameters {
+
+        @InputFiles
+        @PathSensitive(PathSensitivity.NONE)
+        ConfigurableFileCollection getMappings();
+
+        @InputFiles
+        @CompileClasspath
+        ConfigurableFileCollection getSrgLibraries();
+
+        @InputFiles
+        @PathSensitive(PathSensitivity.RELATIVE)
+        ConfigurableFileCollection getUserdevInputs();
+
+        @Classpath
+        ConfigurableFileCollection getRenamerClasspath();
+
+        /** JVM identity rather than its executable path, so cached entries stay relocatable. */
+        @Input
+        Property<Integer> getJavaLanguageVersion();
+
+        @Input
+        Property<String> getJavaVendor();
+
     }
 
 }

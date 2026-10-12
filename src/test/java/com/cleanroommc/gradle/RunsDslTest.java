@@ -26,9 +26,8 @@ class RunsDslTest extends BaseFunctionalTest {
 
     @BeforeEach
     void usePluginClasspath() throws IOException {
-        Files.writeString(
-                this.projectDir.resolve("settings.gradle"),
-                """
+        Files.writeString(this.projectDir.resolve("settings.gradle"),
+            """
                 plugins { id 'com.cleanroommc.cleanroomgradle.settings' }
                 rootProject.name = 'test-project'
                 """
@@ -41,8 +40,7 @@ class RunsDslTest extends BaseFunctionalTest {
 
     @Test
     void inheritancePrecedesChildConfigurationAndSupportsForwardReferences() throws IOException {
-        this.project.build(
-                """
+        this.project.build("""
                 cleanroom {
                     runs {
                         custom {
@@ -104,8 +102,7 @@ class RunsDslTest extends BaseFunctionalTest {
 
     @Test
     void existingRunsInheritDslSettingsWithoutCopyingDirectTaskChanges() throws IOException {
-        this.project.vanilla(
-                """
+        this.project.vanilla("""
                 tasks.named('runVanillaClient') { systemProperty 'direct', 'parent only' }
                 cleanroom.runs {
                     named('vanillaClient') {
@@ -146,9 +143,8 @@ class RunsDslTest extends BaseFunctionalTest {
 
     @Test
     void kotlinDslSupportsTypedTaskConfiguration() throws IOException {
-        Files.writeString(
-                this.projectDir.resolve("build.gradle.kts"),
-                """
+        Files.writeString(this.projectDir.resolve("build.gradle.kts"),
+            """
                 import com.cleanroommc.gradle.api.task.mc.RunMinecraft
 
                 plugins {
@@ -182,7 +178,7 @@ class RunsDslTest extends BaseFunctionalTest {
     @ValueSource(booleans = { false, true })
     void conditionalRunsAndTheirChildrenFollowAvailability(boolean enabled) throws IOException {
         this.project.loader(
-                """
+            """
                 cleanroom {
                     runs {
                         ['srgClient', 'srgServer', 'reobfSrgClient', 'reobfSrgServer', 'mcpClient', 'mcpServer'].each { runName ->
@@ -218,21 +214,16 @@ class RunsDslTest extends BaseFunctionalTest {
                         assert cleanup.mustRunAfter.getDependencies(cleanup).containsAll([child, descendant])
                     }
                 }
-                """.formatted(
-                        enabled,
-                        enabled,
-                        enabled,
-                        enabled
-                )
-        );
+                """.formatted(enabled,
+                enabled, enabled, enabled
+            ));
 
         runner("help").build();
     }
 
     @Test
     void loaderAndNsightRunsRetainTheirTaskTypes() throws IOException {
-        this.project.loader(
-                """
+        this.project.loader("""
                 import com.cleanroommc.gradle.api.task.mc.NsightExec
 
                 cleanroom.runs {
@@ -267,8 +258,7 @@ class RunsDslTest extends BaseFunctionalTest {
 
     @Test
     void namedVanillaRunsCanBeConfiguredAndInherited() throws IOException {
-        this.project.build(
-                """
+        this.project.build("""
                 cleanroom {
                     runs {
                         legacyClient { configure { username = 'Legacy' } }
@@ -294,8 +284,7 @@ class RunsDslTest extends BaseFunctionalTest {
 
     @Test
     void userdevInheritanceRetainsLaunchWiringAndSchedulesOnlyTheChild() throws IOException {
-        this.project.build(
-                """
+        this.project.build("""
                 cleanroom.runs {
                     client { configure { username = 'Modder' } }
                     server { configure { username = 'Server' } }
@@ -328,7 +317,8 @@ class RunsDslTest extends BaseFunctionalTest {
             case "cycle" -> "cleanroom.runs { first { inherit = 'second' }; second { inherit = 'first' } }";
             case "collision" -> "tasks.register('runCustom'); cleanroom.runs { custom { } }";
             case "type" -> "cleanroom.runs { cleanroomClient { inherit = 'cleanroomNsightClient' } }";
-            case "standaloneType" -> "cleanroom.runs { cleanroomNsightClient { inherit = 'standalone' }; standalone { } }";
+            case "standaloneType" ->
+                "cleanroom.runs { cleanroomNsightClient { inherit = 'standalone' }; standalone { } }";
             default -> throw new IllegalArgumentException(scenario);
         };
         this.project.loader(body);
@@ -348,9 +338,8 @@ class RunsDslTest extends BaseFunctionalTest {
     void standaloneRunExecutesWithInheritedSettingsAndReusesConfigurationCache() throws IOException {
         var source = this.projectDir.resolve("src/main/java/example/Main.java");
         Files.createDirectories(source.getParent());
-        Files.writeString(
-                source,
-                """
+        Files.writeString(source,
+            """
                 package example;
                 public class Main {
                     public static void main(String[] args) {
@@ -359,8 +348,7 @@ class RunsDslTest extends BaseFunctionalTest {
                 }
                 """
         );
-        this.project.build(
-                """
+        this.project.build("""
                 def runtime = sourceSets.main.runtimeClasspath
                 cleanroom.runs {
                     base {

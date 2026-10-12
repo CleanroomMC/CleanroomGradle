@@ -20,8 +20,7 @@ class ProjectModeTest extends BaseFunctionalTest {
 
     @Test
     void pluginIsInertUntilAnEnvironmentIsRegistered() throws IOException {
-        this.project.build(
-                """
+        this.project.build("""
                 gradle.projectsEvaluated {
                     assert tasks.findByName('runClient') == null
                     assert tasks.findByName('runVanillaClient') == null
@@ -35,8 +34,7 @@ class ProjectModeTest extends BaseFunctionalTest {
 
     @Test
     void loaderPreparesPatchDevSourcesBeforeCompiling() throws IOException {
-        this.project.build(
-                """
+        this.project.build("""
                 group = 'com.cleanroommc'
                 version = '0.1.0'
                 cleanroom.mode = 'loader'
@@ -50,16 +48,24 @@ class ProjectModeTest extends BaseFunctionalTest {
                 """
         );
 
-        var output = this.project.runner("userdevJar", "runCleanroomClient", "genBinPatches", "--dry-run").build().getOutput();
-        PluginBuild.scheduled(output, "remapSrg2Mcp", "decompileSrg", "initializeMinecraftPatchDevSources", "applySAS", "genBinPatches");
+        var output = this.project
+            .runner("userdevJar", "runCleanroomClient", "genBinPatches", "--dry-run")
+            .build()
+            .getOutput();
+        PluginBuild.scheduled(output, "remapSrg2Mcp", "decompileSrg", "initializeMinecraftPatchDevSources", "applySAS",
+            "genBinPatches"
+        );
         PluginBuild.notScheduled(output, "genClientBinPatches", "genRuntimeBinPatches");
-        assertThat(output.indexOf(":prepareMinecraftPatchDevEnvironment")).isLessThan(output.lastIndexOf(":compileJava"));
+        assertThat(output.indexOf(":prepareMinecraftPatchDevEnvironment")).isLessThan(output.lastIndexOf(":compileJava"
+        ));
         assertThat(output.indexOf(":prepareMcpInjectedSources")).isLessThan(output.lastIndexOf(":compileJava"));
 
         output = this.project.runner("setup", "compileJava", "--parallel", "--dry-run").build().getOutput();
         assertThat(output.indexOf(":applyMinecraftDiffs")).as(output).isLessThan(output.lastIndexOf(":compileJava"));
 
-        PluginBuild.notScheduled(this.project.runner("compileJava", "--dry-run").build().getOutput(), "applyMinecraftDiffs");
+        PluginBuild.notScheduled(this.project.runner("compileJava", "--dry-run").build().getOutput(),
+            "applyMinecraftDiffs"
+        );
     }
 
     /**
@@ -68,8 +74,7 @@ class ProjectModeTest extends BaseFunctionalTest {
      */
     @Test
     void loaderLaunchConsumersReadTheLoaderExtension() throws IOException {
-        this.project.build(
-                """
+        this.project.build("""
                 import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip
                 import com.cleanroommc.gradle.api.task.dist.WriteInstallProfile
                 import com.cleanroommc.gradle.api.task.dist.WriteUserdevConfig
@@ -133,15 +138,16 @@ class ProjectModeTest extends BaseFunctionalTest {
 
     @Test
     void loaderPipelineReusesConfigurationCache() throws IOException {
-        this.project.loader(
-                """
+        this.project.loader("""
                 group = 'com.cleanroommc'
                 version = '0.1.0'
                 """
         );
 
         var first = this.project.runner("remapSrg2Mcp", "userdevJar", "--dry-run").build().getOutput();
-        PluginBuild.scheduled(first, "mergeJars", "splitClientJar", "decompileSrg", "remapSrg2Mcp", "reobfJar", "writeUserdevConfig", "genBinPatches");
+        PluginBuild.scheduled(first, "mergeJars", "splitClientJar", "decompileSrg", "remapSrg2Mcp", "reobfJar",
+            "writeUserdevConfig", "genBinPatches"
+        );
         assertThat(first).contains("Configuration cache entry stored");
         PluginBuild.reused(this.project.runner("remapSrg2Mcp", "userdevJar", "--dry-run").build().getOutput());
     }
@@ -156,7 +162,9 @@ class ProjectModeTest extends BaseFunctionalTest {
         PluginBuild.notScheduled(server, "downloadAssets");
 
         this.project.loader("");
-        PluginBuild.notScheduled(this.project.runner("runCleanroomClient", "--dry-run").build().getOutput(), "writeUserdevConfig");
+        PluginBuild.notScheduled(this.project.runner("runCleanroomClient", "--dry-run").build().getOutput(),
+            "writeUserdevConfig"
+        );
         var missing = this.project.runner("runMcpClient", "--dry-run").buildAndFail().getOutput();
         assertThat(missing).as(missing).contains("Task 'runMcpClient' not found");
     }
@@ -167,8 +175,7 @@ class ProjectModeTest extends BaseFunctionalTest {
      */
     @Test
     void loaderTasksAreConfigurableFromTheBuildscriptBody() throws IOException {
-        this.project.build(
-                """
+        this.project.build("""
                 cleanroom.mode = 'loader'
                 tasks.named('runCleanroomClient') {
                     description = 'set from the body'
@@ -190,8 +197,7 @@ class ProjectModeTest extends BaseFunctionalTest {
 
     @Test
     void selectingTwoDifferentEnvironmentsFails() throws IOException {
-        this.project.build(
-                """
+        this.project.build("""
                 cleanroom.mode = 'loader'
                 dependencies {
                     implementation cleanroom.userdev('0.7.0')
@@ -205,8 +211,7 @@ class ProjectModeTest extends BaseFunctionalTest {
 
     @Test
     void vanillaEnvironmentNameCannotEscapeItsDirectory() throws IOException {
-        this.project.vanilla(
-                """
+        this.project.vanilla("""
                 cleanroom.vanilla {
                     "../escape" { }
                 }

@@ -33,10 +33,6 @@ import javax.inject.Inject;
 
 public abstract class CleanroomExtension {
 
-    public static CleanroomExtension get(Project project) {
-        return project.getExtensions().getByType(CleanroomExtension.class);
-    }
-
     private final Project project;
     private final CachesExtension caches;
     private final MinecraftExtension minecraft;
@@ -45,6 +41,58 @@ public abstract class CleanroomExtension {
     private final LoaderExtension loader;
     private final Property<ProjectMode> mode;
     private final List<Action<? super ProjectMode>> modeActions = new ArrayList<>();
+
+    @Inject
+    public CleanroomExtension(Project project, ObjectFactory objects) {
+        this.project = project;
+        this.caches = objects.newInstance(CachesExtension.class);
+        this.minecraft = objects.newInstance(MinecraftExtension.class);
+        this.mappings = objects.newInstance(MappingsExtension.class);
+        this.patches = objects.newInstance(PatchesExtension.class);
+        this.loader = objects.newInstance(LoaderExtension.class);
+        this.mode = objects.property(ProjectMode.class);
+
+        final var providers = project.getProviders();
+
+        this.caches
+            .getDirectory()
+            .fileValue(new File(project.getGradle().getGradleUserHomeDir(), "caches/" + Meta.CG_FOLDER));
+        this.caches
+            .getVersionDirectory()
+            .convention(this.caches.getDirectory().dir("versions/" + Meta.ONE_TRUE_MINECRAFT_VERSION));
+        this.caches.getLocalDirectory().convention(project.getLayout().getBuildDirectory().dir(Meta.CG_FOLDER));
+
+        this.caches
+            .getDiscardIntermediates()
+            .convention(this.getMode().map(mode -> mode != ProjectMode.LOADER).orElse(true));
+
+        var versionMetaCacheFile = this.caches.getVersionDirectory().file("meta.json");
+        var offline = project.getGradle().getStartParameter().isOffline();
+        this.minecraft.getVersionMeta().convention(this.minecraft
+                .getVersionMetaUrl()
+                .flatMap(url -> providers.of(VersionMetaValueSource.class, spec -> {
+                    spec.getParameters().getCacheFile().set(versionMetaCacheFile);
+                    spec.getParameters().getVersionMetaUrl().set(url);
+                    spec.getParameters().getOffline().set(offline);
+                }))
+                .orElse(providers.of(BundledVersionMetaValueSource.class, _ -> { }))
+        );
+
+        this.patches.getDevelopInitial().convention(false);
+        this.patches.getPatchDev().all(env -> env.registerTasks(project, this.caches.getLocalDirectory()));
+
+        this.getVanilla().all(env -> env.register(project, this.caches, this.minecraft));
+    }
+
+    public static CleanroomExtension get(Project project) {
+        return project.getExtensions().getByType(CleanroomExtension.class);
+    }
+
+    private static InvalidUserDataException removedUserdevContract() {
+        return new InvalidUserDataException("The old cleanroom.userdev block was removed. Declare " +
+                "dependencies { implementation cleanroom.userdev('version') { accessTransformers.from(...) } } instead."
+        );
+    }
 
     public Provider<ProjectMode> getMode() {
         return mode;
@@ -68,8 +116,8 @@ public abstract class CleanroomExtension {
             if (current == selected) {
                 return;
             }
-            throw new InvalidUserDataException(
-                    "Cleanroom environment '" + current.name().toLowerCase() + "' is already registered. A project can register only one Cleanroom environment."
+            throw new InvalidUserDataException("Cleanroom environment '" + current.name().toLowerCase() +
+                    "' is already registered. A project can register only one Cleanroom environment."
             );
         }
         this.mode.set(selected);
@@ -86,40 +134,6 @@ public abstract class CleanroomExtension {
 
     public void runs(Action<? super NamedDomainObjectContainer<RunConfiguration>> action) {
         action.execute(getRuns());
-    }
-
-    @Inject
-    public CleanroomExtension(Project project, ObjectFactory objects) {
-        this.project = project;
-        this.caches = objects.newInstance(CachesExtension.class);
-        this.minecraft = objects.newInstance(MinecraftExtension.class);
-        this.mappings = objects.newInstance(MappingsExtension.class);
-        this.patches = objects.newInstance(PatchesExtension.class);
-        this.loader = objects.newInstance(LoaderExtension.class);
-        this.mode = objects.property(ProjectMode.class);
-
-        final var providers = project.getProviders();
-
-        this.caches.getDirectory().fileValue(new File(project.getGradle().getGradleUserHomeDir(), "caches/" + Meta.CG_FOLDER));
-        this.caches.getVersionDirectory().convention(this.caches.getDirectory().dir("versions/" + Meta.ONE_TRUE_MINECRAFT_VERSION));
-        this.caches.getLocalDirectory().convention(project.getLayout().getBuildDirectory().dir(Meta.CG_FOLDER));
-
-        this.caches.getDiscardIntermediates().convention(this.getMode().map(mode -> mode != ProjectMode.LOADER).orElse(true));
-
-        var versionMetaCacheFile = this.caches.getVersionDirectory().file("meta.json");
-        var offline = project.getGradle().getStartParameter().isOffline();
-        this.minecraft.getVersionMeta().convention(
-                this.minecraft.getVersionMetaUrl().flatMap(url -> providers.of(VersionMetaValueSource.class, spec -> {
-                    spec.getParameters().getCacheFile().set(versionMetaCacheFile);
-                    spec.getParameters().getVersionMetaUrl().set(url);
-                    spec.getParameters().getOffline().set(offline);
-                })).orElse(providers.of(BundledVersionMetaValueSource.class, _ -> { }))
-        );
-
-        this.patches.getDevelopInitial().convention(false);
-        this.patches.getPatchDev().all(env -> env.registerTasks(project, this.caches.getLocalDirectory()));
-
-        this.getVanilla().all(env -> env.register(project, this.caches, this.minecraft));
     }
 
     /**
@@ -196,12 +210,6 @@ public abstract class CleanroomExtension {
 
     private DeobfHandler deobfHandler() {
         return this.project.getDependencies().getExtensions().getByType(DeobfHandler.class);
-    }
-
-    private static InvalidUserDataException removedUserdevContract() {
-        return new InvalidUserDataException(
-                "The old cleanroom.userdev block was removed. Declare " + "dependencies { implementation cleanroom.userdev('version') { accessTransformers.from(...) } } instead."
-        );
     }
 
 }

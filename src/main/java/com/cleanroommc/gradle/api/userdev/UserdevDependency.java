@@ -40,11 +40,12 @@ public final class UserdevDependency implements ProviderConvertible<ExternalModu
 
     public UserdevDependency(Project project, String version) {
         Objects.requireNonNull(version, "version");
-        this.dependency = (ExternalModuleDependency) project.getDependencies().create("com.cleanroommc:cleanroom-userdev:" + version);
+        this.dependency = (ExternalModuleDependency) project.getDependencies()
+            .create("com.cleanroommc:cleanroom-userdev:" + version);
         this.dependencyProvider = project.provider(() -> this.dependency);
-        this.dependency.attributes(attributes -> {
-            attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED);
-        });
+        this.dependency.attributes(attributes -> attributes.attribute(UserdevAttributes.STAGE,
+            UserdevAttributes.MATERIALIZED
+        ));
         this.accessTransformers = project.getObjects().fileCollection();
 
         var rawDependency = this.dependency.copy();
@@ -56,8 +57,12 @@ public final class UserdevDependency implements ProviderConvertible<ExternalModu
         metadata.setTransitive(false);
         metadata.attributes(attributes -> {
             attributes.attribute(Usage.USAGE_ATTRIBUTE, project.getObjects().named(Usage.class, Usage.JAVA_RUNTIME));
-            attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.getObjects().named(Category.class, Category.LIBRARY));
-            attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, project.getObjects().named(LibraryElements.class, LibraryElements.JAR));
+            attributes.attribute(Category.CATEGORY_ATTRIBUTE,
+                project.getObjects().named(Category.class, Category.LIBRARY)
+            );
+            attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE,
+                project.getObjects().named(LibraryElements.class, LibraryElements.JAR)
+            );
             attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW);
             attributes.attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES);
         });
@@ -67,8 +72,8 @@ public final class UserdevDependency implements ProviderConvertible<ExternalModu
             }
             return project.getLayout().file(project.provider(() -> artifacts.iterator().next().getFile())).get();
         });
-        this.config = this.rawArtifact
-                .flatMap(artifact -> project.getProviders().of(UserdevConfigValueSource.class, spec -> spec.getParameters().getUserdevJar().set(artifact)));
+        this.config = this.rawArtifact.flatMap(artifact -> project.getProviders()
+            .of(UserdevConfigValueSource.class, spec -> spec.getParameters().getUserdevJar().set(artifact)));
         this.rawConfiguration = metadata;
     }
 

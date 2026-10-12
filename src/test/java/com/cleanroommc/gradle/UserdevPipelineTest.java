@@ -26,6 +26,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class UserdevPipelineTest extends BaseFunctionalTest {
 
+    private static List<String> methodsIn(Path path) throws IOException {
+        try (var jar = new JarFile(path.toFile()); var input = jar.getInputStream(jar.getJarEntry("example/Mod.class"
+        ))) {
+            var node = new ClassNode();
+            new ClassReader(input).accept(node, ClassReader.SKIP_CODE);
+            return node.methods.stream().map(method -> method.name).toList();
+        }
+    }
+
     @Test
     void publishesMcpAsMainAndSrgAsClassifierWithoutRenamingLocalFiles() throws IOException {
         var fixture = new UserdevFixture.Spec();
@@ -33,16 +42,15 @@ class UserdevPipelineTest extends BaseFunctionalTest {
         var source = this.projectDir.resolve("src/main/java/example/Mod.java");
         Files.createDirectories(source.getParent());
         Files.writeString(source, "package example; public class Mod { public void readableName() {} }");
-        Files.writeString(
-                this.projectDir.resolve("mcp2srg.tsrg"),
-                """
+        Files.writeString(this.projectDir.resolve("mcp2srg.tsrg"),
+            """
                 tsrg2 mcp srg
                 example/Mod example/Mod
                 \treadableName ()V func_123_a
                 """
         );
-        this.project.build(
-                UserdevFixture.PREAMBLE + """
+        this.project.build(UserdevFixture.PREAMBLE +
+                """
                 apply plugin: 'maven-publish'
                 version = '1.0.0'
                 base.archivesName = 'modid'
@@ -80,24 +88,28 @@ class UserdevPipelineTest extends BaseFunctionalTest {
         assertThat(Files.readAllBytes(published.resolve("published-mod-1.0.0-srg.jar"))).isEqualTo(srgBytes);
         assertThat(Files.readAllBytes(localMcp)).isEqualTo(mcpBytes);
         assertThat(Files.readAllBytes(localSrg)).isEqualTo(srgBytes);
-        var metadata = JsonParser.parseString(Files.readString(published.resolve("published-mod-1.0.0.module"))).getAsJsonObject();
-        assertThat(metadata.getAsJsonArray("variants").asList().stream().map(variant -> variant.getAsJsonObject().get("name").getAsString())).contains(
-                "apiElements",
-                "runtimeElements"
-        );
+        var metadata = JsonParser.parseString(Files.readString(published.resolve("published-mod-1.0.0.module")))
+            .getAsJsonObject();
+        assertThat(metadata.getAsJsonArray("variants")
+                .asList()
+                .stream()
+                .map(variant -> variant.getAsJsonObject().get("name").getAsString())
+        ).contains("apiElements", "runtimeElements");
         for (var variant : metadata.getAsJsonArray("variants")) {
             var value = variant.getAsJsonObject();
             if (List.of("apiElements", "runtimeElements").contains(value.get("name").getAsString())) {
-                assertThat(value.getAsJsonArray("files").get(0).getAsJsonObject().get("url").getAsString()).isEqualTo("published-mod-1.0.0.jar");
+                assertThat(value.getAsJsonArray("files").get(0).getAsJsonObject().get("url").getAsString()
+                ).isEqualTo("published-mod-1.0.0.jar");
             }
         }
 
-        Files.writeString(this.projectDir.resolve("settings.gradle"), "\ninclude 'consumer'\n", java.nio.file.StandardOpenOption.APPEND);
+        Files.writeString(this.projectDir.resolve("settings.gradle"), "\ninclude 'consumer'\n",
+            java.nio.file.StandardOpenOption.APPEND
+        );
         var consumer = this.projectDir.resolve("consumer");
         Files.createDirectories(consumer);
-        Files.writeString(
-                consumer.resolve("build.gradle"),
-                """
+        Files.writeString(consumer.resolve("build.gradle"),
+            """
                 plugins { id 'java'; id 'com.cleanroommc.cleanroomgradle' }
                 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
                 cleanroom.caches.directory = rootProject.file('shared-cache')
@@ -123,24 +135,20 @@ class UserdevPipelineTest extends BaseFunctionalTest {
         );
         var consumerSource = consumer.resolve("src/main/java/example/Consumer.java");
         Files.createDirectories(consumerSource.getParent());
-        Files.writeString(consumerSource, "package example; public class Consumer { void use(Mod mod) { mod.readableName(); } }");
-        var consumerArgs = this.project.userdevModuleArgs("0.7.0", "consumer:compileJava", "consumer:resolveModArtifacts", "--offline");
+        Files.writeString(consumerSource,
+            "package example; public class Consumer { void use(Mod mod) { mod.readableName(); } }"
+        );
+        var consumerArgs = this.project.userdevModuleArgs("0.7.0", "consumer:compileJava",
+            "consumer:resolveModArtifacts", "--offline"
+        );
         UserdevFixture.seed(this.projectDir, "0.7.0", fixture);
         var output = this.project.runner(consumerArgs).build().getOutput();
         var remapped = output.lines()
-                .filter(line -> line.startsWith("REMAPPED ") && line.endsWith("published-mod-1.0.0-srg-deobf.jar"))
-                .map(line -> Path.of(line.substring("REMAPPED ".length())))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError(output));
+            .filter(line -> line.startsWith("REMAPPED ") && line.endsWith("published-mod-1.0.0-srg-deobf.jar"))
+            .map(line -> Path.of(line.substring("REMAPPED ".length())))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError(output));
         assertThat(methodsIn(remapped)).contains("readableName").doesNotContain("func_123_a");
-    }
-
-    private static List<String> methodsIn(Path path) throws IOException {
-        try (var jar = new JarFile(path.toFile()); var input = jar.getInputStream(jar.getJarEntry("example/Mod.class"))) {
-            var node = new ClassNode();
-            new ClassReader(input).accept(node, ClassReader.SKIP_CODE);
-            return node.methods.stream().map(method -> method.name).toList();
-        }
     }
 
     /**
@@ -149,8 +157,7 @@ class UserdevPipelineTest extends BaseFunctionalTest {
      */
     @Test
     void nativesAndHierarchyResolveFromThePublishedModule() throws IOException {
-        this.project.build(
-                """
+        this.project.build("""
                 dependencies {
                     implementation cleanroom.userdev('0.9.9')
                 }
@@ -165,7 +172,10 @@ class UserdevPipelineTest extends BaseFunctionalTest {
                 """
         );
 
-        var output = this.project.plainRunner(this.project.userdevModuleArgs("0.9.9", "resolveUserdevGraph")).build().getOutput();
+        var output = this.project
+            .plainRunner(this.project.userdevModuleArgs("0.9.9", "resolveUserdevGraph"))
+            .build()
+            .getOutput();
         assertThat(output).as(output).contains("NATIVES [fixture-native-current-1.jar]");
         assertThat(output).as(output).doesNotContain("fixture-native-foreign-1.jar");
         assertThat(output).as(output).contains("HIERARCHY [fixture-library-1.jar]");
@@ -178,8 +188,7 @@ class UserdevPipelineTest extends BaseFunctionalTest {
      */
     @Test
     void runsHandGradleStartTheExtractedMappings() throws IOException {
-        this.project.build(
-                """
+        this.project.build("""
                 import com.cleanroommc.gradle.api.task.mc.RunMinecraft
                 dependencies {
                     implementation cleanroom.userdev('0.7.0')
@@ -208,8 +217,7 @@ class UserdevPipelineTest extends BaseFunctionalTest {
      */
     @Test
     void toolConfigurationsDefaultToTheArtifactsCoordinates() throws IOException {
-        this.project.build(
-                """
+        this.project.build("""
                 dependencies {
                     implementation cleanroom.userdev('0.7.0')
                     mergetool 'example:replacement-merger:2.0'

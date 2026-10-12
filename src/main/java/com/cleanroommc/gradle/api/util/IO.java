@@ -61,11 +61,13 @@ public final class IO {
 
     static {
         GSON = new GsonBuilder()
-                .disableHtmlEscaping()
-                .setPrettyPrinting()
-                .registerTypeAdapter(VersionMeta.Argument.class, new VersionMeta.ArgumentDeserializer())
-                .create();
+            .disableHtmlEscaping()
+            .setPrettyPrinting()
+            .registerTypeAdapter(VersionMeta.Argument.class, new VersionMeta.ArgumentDeserializer())
+            .create();
     }
+
+    private IO() { }
 
     public static <T> T readJson(InputStream stream, Class<T> type) {
         try (var reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
@@ -264,17 +266,20 @@ public final class IO {
                     }
                 });
             } else if (response.statusCode() != 304) {
-                throw new RuntimeException(
-                        "HTTP " + response.statusCode() + " downloading " + url + " to " + dest + ". Check the URL, proxy, and repository availability."
+                throw new RuntimeException("HTTP " + response.statusCode() + " downloading " + url + " to " + dest +
+                        ". Check the URL, proxy, and repository availability."
                 );
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("Interrupted while downloading " + url + " to " + dest + ". Rerun the task to retry.", e);
+            throw new RuntimeException("Interrupted while downloading " + url + " to " + dest +
+                    ". Rerun the task to retry.",
+                e
+            );
         } catch (IOException e) {
-            throw new RuntimeException(
-                    "Failed to download " + url + " to " + dest + ". Check network access and filesystem permissions, then rerun the task.",
-                    e
+            throw new RuntimeException("Failed to download " + url + " to " + dest +
+                    ". Check network access and filesystem permissions, then rerun the task.",
+                e
             );
         }
     }
@@ -282,7 +287,10 @@ public final class IO {
     static HttpClient httpClient() {
         synchronized (HTTP_CLIENT_LOCK) {
             if (httpClient == null) {
-                httpClient = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(Duration.ofSeconds(30)).build();
+                httpClient = HttpClient.newBuilder()
+                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .connectTimeout(Duration.ofSeconds(30))
+                    .build();
             }
             return httpClient;
         }
@@ -300,11 +308,11 @@ public final class IO {
     }
 
     public static File runDir(File projectDir, String version, Environment env, Side side) {
-        var runDir = FileUtils.getFile(projectDir, "run", version, env.toString(), side.name().toLowerCase(Locale.ENGLISH));
+        var runDir = FileUtils.getFile(projectDir, "run", version, env.toString(),
+            side.name().toLowerCase(Locale.ENGLISH)
+        );
         runDir.mkdirs();
         return runDir;
     }
-
-    private IO() { }
 
 }

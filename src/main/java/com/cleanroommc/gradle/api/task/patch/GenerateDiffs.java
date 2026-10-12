@@ -39,6 +39,11 @@ import javax.inject.Inject;
 @DisableCachingByDefault(because = "Generates committed patches from a mutable development tree")
 public abstract class GenerateDiffs extends DefaultTask {
 
+    public GenerateDiffs() {
+        this.getContextLines().convention(3);
+        this.getCleanOutput().convention(true);
+    }
+
     @Inject
     public abstract FileSystemOperations getFileSystemOperations();
 
@@ -75,11 +80,6 @@ public abstract class GenerateDiffs extends DefaultTask {
 
     @OutputDirectory
     public abstract DirectoryProperty getPatchesDirectory();
-
-    public GenerateDiffs() {
-        this.getContextLines().convention(3);
-        this.getCleanOutput().convention(true);
-    }
 
     @TaskAction
     public void generateDiffs() {
@@ -142,7 +142,9 @@ public abstract class GenerateDiffs extends DefaultTask {
         var stamp = new File(patchesDir, ".mappings.json");
         try {
             patchesDir.mkdirs();
-            FileUtils.writeStringToFile(stamp, new GsonBuilder().setPrettyPrinting().create().toJson(json), StandardCharsets.UTF_8);
+            FileUtils.writeStringToFile(stamp, new GsonBuilder().setPrettyPrinting().create().toJson(json),
+                StandardCharsets.UTF_8
+            );
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to write mapping-identity stamp " + stamp, e);
         }

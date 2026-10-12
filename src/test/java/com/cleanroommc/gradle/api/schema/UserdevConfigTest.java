@@ -29,15 +29,37 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class UserdevConfigTest {
 
-    @TempDir
-    Path directory;
+    @TempDir Path directory;
+
+    private static void writeConfig(Path artifact, String json) throws IOException {
+        try (var output = new JarOutputStream(Files.newOutputStream(artifact))) {
+            output.putNextEntry(new ZipEntry(UserdevConfig.meta(UserdevConfig.FILE_NAME)));
+            output.write(json.getBytes(StandardCharsets.UTF_8));
+            output.closeEntry();
+        }
+    }
+
+    private static UserdevConfig valid() {
+        var download = new UserdevConfig.Download("https://example.invalid/a.jar", "sha1");
+        return new UserdevConfig(1, new UserdevConfig.Minecraft("1.12.2", download, download),
+            new UserdevConfig.Loader("0.7.0", "14.23.5.2860", "com.cleanroommc"),
+            new UserdevConfig.Inputs("mcp:config:1", "mcp:names:1", "patches:initial:1",
+                Map.of("accesstransformer", "t:at:1", "decompiler", "t:dec:1", "mergetool", "t:merge:1")
+            ),
+            new UserdevConfig.Layout("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p",
+                "q", List.of(), "r", "s", "t"
+            ),
+            new UserdevConfig.Runs(new UserdevConfig.Run("C", "L", "T", "client"),
+                new UserdevConfig.Run("C", "L", "T", "server")
+            )
+        );
+    }
 
     @Test
     void readsTheSpecOneDocument() throws IOException {
         var artifact = this.directory.resolve("userdev.jar");
-        writeConfig(
-                artifact,
-                """
+        writeConfig(artifact,
+            """
                 {
                   "spec": 1,
                   "minecraft": {
@@ -77,18 +99,19 @@ class UserdevConfigTest {
     }
 
     @ParameterizedTest
-    @CsvSource(
-            delimiter = '|',
-            value = {
-                    "{\"spec\":1,\"minecraftVersion\":\"1.12.2\"} | minecraft, loader, inputs, layout and runs are required",
-                    "{\"spec\":1,\"mcpConfig\":\"mcp:config:1\"} | older than 0.15.0"
-            }
+    @CsvSource(delimiter = '|',
+        value = {
+            "{\"spec\":1,\"minecraftVersion\":\"1.12.2\"} | minecraft, loader, inputs, layout and runs are required",
+            "{\"spec\":1,\"mcpConfig\":\"mcp:config:1\"} | older than 0.15.0"
+        }
     )
     void outdatedDocumentsAreRejected(String json, String message) throws IOException {
         var artifact = this.directory.resolve("outdated-userdev.jar");
         writeConfig(artifact, json);
 
-        assertThatThrownBy(() -> UserdevConfig.readFromJar(artifact.toFile())).isInstanceOf(IllegalStateException.class).hasMessageContaining(message);
+        assertThatThrownBy(() -> UserdevConfig.readFromJar(artifact.toFile()))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining(message);
     }
 
     @Test
@@ -101,50 +124,26 @@ class UserdevConfigTest {
         }
 
         assertThatThrownBy(() -> UserdevConfig.readFromJar(artifact.toFile()))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining(UserdevConfig.meta(UserdevConfig.FILE_NAME));
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining(UserdevConfig.meta(UserdevConfig.FILE_NAME));
     }
 
     @Test
     void validateRejectsAnUnknownSpecAndMissingTools() {
         var config = valid();
-        var wrongSpec = new UserdevConfig(2, config.minecraft(), config.loader(), config.inputs(), config.layout(), config.runs());
-        assertThatThrownBy(wrongSpec::validate).isInstanceOf(IllegalStateException.class).hasMessageContaining("Unsupported Cleanroom userdev spec 2");
-
-        var missingTool = new UserdevConfig(
-                1,
-                config.minecraft(),
-                config.loader(),
-                new UserdevConfig.Inputs("mcp", "mappings", "patches", Map.of()),
-                config.layout(),
-                config.runs()
+        var wrongSpec = new UserdevConfig(2, config.minecraft(), config.loader(), config.inputs(), config.layout(),
+            config.runs()
         );
-        assertThatThrownBy(missingTool::validate).isInstanceOf(IllegalStateException.class).hasMessageContaining("inputs.tools.accesstransformer is required");
-    }
+        assertThatThrownBy(wrongSpec::validate)
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("Unsupported Cleanroom userdev spec 2");
 
-    private static void writeConfig(Path artifact, String json) throws IOException {
-        try (var output = new JarOutputStream(Files.newOutputStream(artifact))) {
-            output.putNextEntry(new ZipEntry(UserdevConfig.meta(UserdevConfig.FILE_NAME)));
-            output.write(json.getBytes(StandardCharsets.UTF_8));
-            output.closeEntry();
-        }
-    }
-
-    private static UserdevConfig valid() {
-        var download = new UserdevConfig.Download("https://example.invalid/a.jar", "sha1");
-        return new UserdevConfig(
-                1,
-                new UserdevConfig.Minecraft("1.12.2", download, download),
-                new UserdevConfig.Loader("0.7.0", "14.23.5.2860", "com.cleanroommc"),
-                new UserdevConfig.Inputs(
-                        "mcp:config:1",
-                        "mcp:names:1",
-                        "patches:initial:1",
-                        Map.of("accesstransformer", "t:at:1", "decompiler", "t:dec:1", "mergetool", "t:merge:1")
-                ),
-                new UserdevConfig.Layout("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", List.of(), "r", "s", "t"),
-                new UserdevConfig.Runs(new UserdevConfig.Run("C", "L", "T", "client"), new UserdevConfig.Run("C", "L", "T", "server"))
+        var missingTool = new UserdevConfig(1, config.minecraft(), config.loader(),
+            new UserdevConfig.Inputs("mcp", "mappings", "patches", Map.of()), config.layout(), config.runs()
         );
+        assertThatThrownBy(missingTool::validate)
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("inputs.tools.accesstransformer is required");
     }
 
 }

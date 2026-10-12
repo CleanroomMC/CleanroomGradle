@@ -32,6 +32,11 @@ public abstract class CleanroomInfo extends DefaultTask {
     // Held by hand: Gradle will not generate a managed property alongside a setter of another type
     private final Property<ProjectMode> mode;
 
+    @Inject
+    public CleanroomInfo(ObjectFactory objects) {
+        this.mode = objects.property(ProjectMode.class);
+    }
+
     @Input
     public abstract Property<String> getPluginVersion();
 
@@ -71,11 +76,6 @@ public abstract class CleanroomInfo extends DefaultTask {
     @Internal
     public abstract MapProperty<String, String> getOfflineCacheFiles();
 
-    @Inject
-    public CleanroomInfo(ObjectFactory objects) {
-        this.mode = objects.property(ProjectMode.class);
-    }
-
     @TaskAction
     public void printInfo() {
         var logger = getLogger();
@@ -91,7 +91,11 @@ public abstract class CleanroomInfo extends DefaultTask {
         logger.lifecycle("  tools:");
         getTools().get().forEach((name, notation) -> logger.lifecycle("    {}: {}", name, notation));
         logger.lifecycle("  offline client readiness:");
-        getOfflineCacheFiles().get().forEach((name, path) -> logger.lifecycle("    {}: {} ({})", name, new File(path).isFile() ? "ready" : "missing", path));
+        getOfflineCacheFiles()
+            .get()
+            .forEach((name, path) -> logger.lifecycle("    {}: {} ({})", name,
+                new File(path).isFile() ? "ready" : "missing", path
+            ));
     }
 
 }

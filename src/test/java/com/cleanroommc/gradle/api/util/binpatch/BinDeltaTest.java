@@ -23,6 +23,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class BinDeltaTest {
 
+    private static void assertRoundTrip(byte[] original, byte[] revised) {
+        assertThat(BinDelta.decode(original, BinDelta.encode(original, revised))).isEqualTo(revised);
+    }
+
     @Test
     void roundTripsEdgeCases() {
         var counting = new byte[256];
@@ -54,30 +58,27 @@ class BinDeltaTest {
             if (original.length > 16 && revised.length > 16) {
                 var offset = random.nextInt(original.length - 16);
                 var at = random.nextInt(revised.length - 16);
-                System.arraycopy(original, offset, revised, at, Math.min(48, Math.min(original.length - offset, revised.length - at)));
+                System.arraycopy(original, offset, revised, at,
+                    Math.min(48, Math.min(original.length - offset, revised.length - at))
+                );
             }
             assertRoundTrip(original, revised);
         }
     }
 
     @ParameterizedTest
-    @CsvSource(
-            {
-                    "00800101,   COPY range is outside the original buffer",
-                    "010a0102,   INSERT length exceeds the remaining delta",
-                    "07,         unknown operation tag",
-                    "00,         Truncated VarInt",
-                    "01ffffffff08, VarInt exceeds signed int range"
-            }
+    @CsvSource({
+            "00800101,   COPY range is outside the original buffer",
+            "010a0102,   INSERT length exceeds the remaining delta",
+            "07,         unknown operation tag",
+            "00,         Truncated VarInt",
+            "01ffffffff08, VarInt exceeds signed int range"
+        }
     )
     void rejectsMalformedDeltas(String delta, String message) {
         assertThatThrownBy(() -> BinDelta.decode(new byte[16], HexFormat.of().parseHex(delta)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(message);
-    }
-
-    private static void assertRoundTrip(byte[] original, byte[] revised) {
-        assertThat(BinDelta.decode(original, BinDelta.encode(original, revised))).isEqualTo(revised);
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining(message);
     }
 
 }

@@ -33,23 +33,15 @@ public final class TinyV2 {
     private TinyV2() { }
 
     /**
-     * Flat SRG -> named lookups parsed from a Tiny2 file, plus member javadocs keyed by SRG id.
-     */
-    public record FlatNames(Map<String, String> methods, Map<String, String> fields, Map<String, String> params, Map<String, String> docs) { }
-
-    /**
-     * A constructor from {@code constructors.txt}: its param-number key ({@code i<id>}) and SRG descriptor.
-     */
-    public record Constructor(String numberKey, String descriptor) { }
-
-    /**
      * Builds Tiny2 text mapping SRG ids to MCP names, using {@code structure} for descriptors.
      *
      * @param structure the jar structure the descriptors come from
      * @param names the MCP names to map onto
      * @param constructorsByClass constructors keyed by owning class
      */
-    public static String write(JarStructure structure, CsvNames names, Map<String, List<Constructor>> constructorsByClass) {
+    public static String write(JarStructure structure, CsvNames names,
+        Map<String, List<Constructor>> constructorsByClass
+    ) {
         var paramsByMethodNum = groupParams(names.params());
         var out = new StringBuilder(1 << 20);
         out.append(HEADER).append('\n');
@@ -64,27 +56,27 @@ public final class TinyV2 {
                 }
                 wroteClass = ensureClass(out, cls, wroteClass);
                 out.append('\t')
-                        .append('m')
-                        .append('\t')
-                        .append(method.descriptor())
-                        .append('\t')
-                        .append(method.name())
-                        .append('\t')
-                        .append(named != null ? named : method.name())
-                        .append('\n');
+                    .append('m')
+                    .append('\t')
+                    .append(method.descriptor())
+                    .append('\t')
+                    .append(method.name())
+                    .append('\t')
+                    .append(named != null ? named : method.name())
+                    .append('\n');
                 appendComment(out, names.docs().get(method.name()));
                 if (hasParams) {
                     for (var param : params) {
                         out.append('\t')
-                                .append('\t')
-                                .append('p')
-                                .append('\t')
-                                .append(param.lvIndex())
-                                .append('\t')
-                                .append(param.srg())
-                                .append('\t')
-                                .append(param.named())
-                                .append('\n');
+                            .append('\t')
+                            .append('p')
+                            .append('\t')
+                            .append(param.lvIndex())
+                            .append('\t')
+                            .append(param.srg())
+                            .append('\t')
+                            .append(param.named())
+                            .append('\n');
                     }
                 }
             }
@@ -94,7 +86,15 @@ public final class TinyV2 {
                     continue;
                 }
                 wroteClass = ensureClass(out, cls, wroteClass);
-                out.append('\t').append('f').append('\t').append(field.descriptor()).append('\t').append(field.name()).append('\t').append(named).append('\n');
+                out.append('\t')
+                    .append('f')
+                    .append('\t')
+                    .append(field.descriptor())
+                    .append('\t')
+                    .append(field.name())
+                    .append('\t')
+                    .append(named)
+                    .append('\n');
                 appendComment(out, names.docs().get(field.name()));
             }
             // Constructors: emit <init> + their p_i parameters (they have no func_ parent)
@@ -104,18 +104,26 @@ public final class TinyV2 {
                     continue;
                 }
                 wroteClass = ensureClass(out, cls, wroteClass);
-                out.append('\t').append('m').append('\t').append(ctor.descriptor()).append('\t').append("<init>").append('\t').append("<init>").append('\n');
+                out.append('\t')
+                    .append('m')
+                    .append('\t')
+                    .append(ctor.descriptor())
+                    .append('\t')
+                    .append("<init>")
+                    .append('\t')
+                    .append("<init>")
+                    .append('\n');
                 for (var p : params) {
                     out.append('\t')
-                            .append('\t')
-                            .append('p')
-                            .append('\t')
-                            .append(p.lvIndex())
-                            .append('\t')
-                            .append(p.srg())
-                            .append('\t')
-                            .append(p.named())
-                            .append('\n');
+                        .append('\t')
+                        .append('p')
+                        .append('\t')
+                        .append(p.lvIndex())
+                        .append('\t')
+                        .append(p.srg())
+                        .append('\t')
+                        .append(p.named())
+                        .append('\n');
                 }
             }
         }
@@ -153,12 +161,15 @@ public final class TinyV2 {
 
     private static boolean ensureClass(StringBuilder out, JarStructure.ClassEntry cls, boolean wroteClass) {
         if (!wroteClass) {
-            out.append('c').append('\t').append(cls.internalName()).append('\t').append(cls.internalName()).append('\n');
+            out.append('c')
+                .append('\t')
+                .append(cls.internalName())
+                .append('\t')
+                .append(cls.internalName())
+                .append('\n');
         }
         return true;
     }
-
-    private record ParamEntry(int lvIndex, String srg, String named) { }
 
     /**
      * Groups {@code p_<methodNum>_<slot>_} params by their method number.
@@ -247,5 +258,21 @@ public final class TinyV2 {
         }
         return null;
     }
+
+    /**
+     * Flat SRG -> named lookups parsed from a Tiny2 file, plus member javadocs keyed by SRG id.
+     */
+    public record FlatNames(Map<String, String> methods,
+        Map<String, String> fields,
+        Map<String, String> params,
+        Map<String, String> docs
+    ) { }
+
+    /**
+     * A constructor from {@code constructors.txt}: its param-number key ({@code i<id>}) and SRG descriptor.
+     */
+    public record Constructor(String numberKey, String descriptor) { }
+
+    private record ParamEntry(int lvIndex, String srg, String named) { }
 
 }

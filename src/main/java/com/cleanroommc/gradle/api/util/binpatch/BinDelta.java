@@ -31,6 +31,8 @@ public final class BinDelta {
     private static final int MINIMUM_MATCH = 16;
     private static final int MAXIMUM_CANDIDATES = 64;
 
+    private BinDelta() { }
+
     public static byte[] encode(byte[] original, byte[] revised) {
         Objects.requireNonNull(original, "original");
         Objects.requireNonNull(revised, "revised");
@@ -95,7 +97,8 @@ public final class BinDelta {
         return index;
     }
 
-    private static Match longestMatch(byte[] original, byte[] revised, int revisedOffset, Map<Long, List<Integer>> index) {
+    private static Match longestMatch(byte[] original, byte[] revised, int revisedOffset, Map<Long, List<Integer>> index
+    ) {
         if (revisedOffset + HASH_LENGTH > revised.length) {
             return Match.NONE;
         }
@@ -179,7 +182,5 @@ public final class BinDelta {
         private static final Match NONE = new Match(-1, 0);
 
     }
-
-    private BinDelta() { }
 
 }

@@ -54,25 +54,13 @@ import java.util.zip.ZipEntry;
  */
 public final class MetadataInjector {
 
-    public record InjectResult(int classesProcessed, int entriesCopied, int abstractMethodsRecorded) { }
-
-    private record Entry(String name, byte[] data, boolean directory) {
-
-        private boolean transformable() {
-            return !this.directory && this.name.endsWith(".class") && this.name.startsWith(Meta.MINECRAFT_PACKAGE_PATH);
-        }
-
-    }
-
     private static final String SRG_PREFIX = "func_";
     private static final char PLACEHOLDER = '☃';
     private static final String ABSTRACT_PARAMETERS = "fernflower_abstract_parameter_names.txt";
     private static final int ABSTRACT_OR_NATIVE = Opcodes.ACC_ABSTRACT | Opcodes.ACC_NATIVE;
     private static final int BUFFER = 1 << 16;
 
-    public static InjectResult inject(Path input, Path output, Path accessFile, Path constructorsFile, Path exceptionsFile) throws IOException {
-        return new MetadataInjector(AccessMap.load(accessFile), ConstructorMap.load(constructorsFile), ExceptionMap.load(exceptionsFile)).run(input, output);
-    }
+    private static final DeferredConstructorId DEFERRED = new DeferredConstructorId();
 
     private final AccessMap access;
     private final ConstructorMap constructors;
@@ -83,6 +71,79 @@ public final class MetadataInjector {
         this.access = access;
         this.constructors = constructors;
         this.exceptions = exceptions;
+    }
+
+    public static InjectResult inject(Path input, Path output, Path accessFile, Path constructorsFile,
+        Path exceptionsFile
+    ) throws IOException {
+        return new MetadataInjector(AccessMap.load(accessFile), ConstructorMap.load(constructorsFile),
+            ExceptionMap.load(exceptionsFile)
+        ).run(input, output);
+    }
+
+    private static List<Entry> readEntries(Path input) throws IOException {
+        var entries = new ArrayList<Entry>();
+        var names = new HashSet<String>();
+        try (var in = IO.zipIn(input, BUFFER)) {
+            for (var entry = in.getNextEntry(); entry != null; entry = in.getNextEntry()) {
+                var directory = entry.isDirectory();
+                if (!directory && !names.add(entry.getName())) {
+                    throw new IOException("Duplicate jar entry: " + entry.getName());
+                }
+                entries.add(new Entry(entry.getName(), directory ? null : in.readAllBytes(), directory));
+            }
+        }
+        return entries;
+    }
+
+    private static ZipEntry reproducible(String name) {
+        var entry = new ZipEntry(name);
+        entry.setTime(0L);
+        return entry;
+    }
+
+    /**
+     * Rewrites the local variable table so every parameter slot carries its generated name over the whole method.
+     */
+    private static void applyLocalVariables(MethodNode method, Type[] types, String[] parameters, int[] slots) {
+        var first = method.instructions.getFirst();
+        if (first == null) {
+            method.instructions.add(new LabelNode());
+        } else if (first.getType() != AbstractInsnNode.LABEL) {
+            method.instructions.insertBefore(first, new LabelNode());
+        }
+        var last = method.instructions.getLast();
+        if (last == null) {
+            method.instructions.add(new LabelNode());
+        } else if (last.getType() != AbstractInsnNode.LABEL) {
+            method.instructions.insert(last, new LabelNode());
+        }
+
+        // Slots are dense and small, so index the names by slot directly instead of boxing them into a map.
+        var bySlot = new String[slots[parameters.length - 1] + 1];
+        for (var index = 0; index < parameters.length; index++) {
+            bySlot[slots[index]] = parameters[index];
+        }
+        var start = (LabelNode) method.instructions.getFirst();
+        var end = (LabelNode) method.instructions.getLast();
+        if (method.localVariables == null) {
+            method.localVariables = new ArrayList<>(parameters.length);
+        }
+        var renamed = new boolean[bySlot.length];
+        for (var local : method.localVariables) {
+            if (local.index < bySlot.length && bySlot[local.index] != null) {
+                local.name = bySlot[local.index];
+                renamed[local.index] = true;
+            }
+        }
+        for (var index = 0; index < parameters.length; index++) {
+            if (!renamed[slots[index]]) {
+                method.localVariables.add(new LocalVariableNode(parameters[index], types[index].getDescriptor(), null,
+                    start, end, slots[index]
+                ));
+            }
+        }
+        method.localVariables.sort(Comparator.comparingInt(local -> local.index));
     }
 
     private InjectResult run(Path input, Path output) throws IOException {
@@ -124,21 +185,6 @@ public final class MetadataInjector {
         return new InjectResult(processed, copied, this.abstractParameters.size());
     }
 
-    private static List<Entry> readEntries(Path input) throws IOException {
-        var entries = new ArrayList<Entry>();
-        var names = new HashSet<String>();
-        try (var in = IO.zipIn(input, BUFFER)) {
-            for (var entry = in.getNextEntry(); entry != null; entry = in.getNextEntry()) {
-                var directory = entry.isDirectory();
-                if (!directory && !names.add(entry.getName())) {
-                    throw new IOException("Duplicate jar entry: " + entry.getName());
-                }
-                entries.add(new Entry(entry.getName(), directory ? null : in.readAllBytes(), directory));
-            }
-        }
-        return entries;
-    }
-
     private byte[][] transform(List<Entry> entries) {
         var results = new byte[entries.size()][];
         var deferred = new boolean[entries.size()];
@@ -162,15 +208,12 @@ public final class MetadataInjector {
         return results;
     }
 
-    private static ZipEntry reproducible(String name) {
-        var entry = new ZipEntry(name);
-        entry.setTime(0L);
-        return entry;
-    }
-
     private byte[] renderAbstractParameters() {
         var builder = new StringBuilder();
-        this.abstractParameters.forEach((key, parameters) -> builder.append(key).append(' ').append(String.join(" ", parameters)).append('\n'));
+        this.abstractParameters.forEach((key, parameters) -> builder.append(key)
+            .append(' ')
+            .append(String.join(" ", parameters))
+            .append('\n'));
         return builder.toString().getBytes(StandardCharsets.UTF_8);
     }
 
@@ -209,6 +252,16 @@ public final class MetadataInjector {
         return this.constructors.generate(owner, descriptor);
     }
 
+    public record InjectResult(int classesProcessed, int entriesCopied, int abstractMethodsRecorded) { }
+
+    private record Entry(String name, byte[] data, boolean directory) {
+
+        private boolean transformable() {
+            return !this.directory && this.name.endsWith(".class") && this.name.startsWith(Meta.MINECRAFT_PACKAGE_PATH);
+        }
+
+    }
+
     /** Signals that a class needs a constructor id allocated, which only the serial pass may do. */
     private static final class DeferredConstructorId extends RuntimeException {
 
@@ -218,8 +271,6 @@ public final class MetadataInjector {
 
     }
 
-    private static final DeferredConstructorId DEFERRED = new DeferredConstructorId();
-
     /**
      * Adds the {@code throws} clauses and the {@code p_*} parameter names.
      */
@@ -227,6 +278,7 @@ public final class MetadataInjector {
 
         private final MetadataInjector injector;
         private final boolean allowGeneration;
+
         private String className;
         private Map<String, String[]> classExceptions;
 
@@ -236,15 +288,37 @@ public final class MetadataInjector {
             this.allowGeneration = allowGeneration;
         }
 
+        /**
+         * Recognises {@code func_<digits>_<something>} and locates the end of the digits in one pass.
+         *
+         * @return the index one past the last digit, or {@code -1} when the name is not an SRG method
+         */
+        private static int srgNumberEnd(String name) {
+            if (!name.startsWith(SRG_PREFIX)) {
+                return -1;
+            }
+            var index = SRG_PREFIX.length();
+            while (index < name.length() && name.charAt(index) >= '0' && name.charAt(index) <= '9') {
+                index++;
+            }
+            if (index == SRG_PREFIX.length() || index + 1 >= name.length() || name.charAt(index) != '_') {
+                return -1;
+            }
+            return index;
+        }
+
         @Override
-        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces
+        ) {
             this.className = name;
             this.classExceptions = this.injector.exceptions.get(name);
             super.visit(version, access, name, signature, superName, interfaces);
         }
 
         @Override
-        public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
+        public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
+            String[] exceptions
+        ) {
             if ("<clinit>".equals(name)) {
                 return super.visitMethod(access, name, descriptor, signature, exceptions);
             }
@@ -304,7 +378,9 @@ public final class MetadataInjector {
             if ((method.access & ABSTRACT_OR_NATIVE) != 0) {
                 var first = instance ? 1 : 0;
                 if (count > first) {
-                    this.injector.recordAbstractParameters(this.className, name, descriptor, List.of(Arrays.copyOfRange(parameters, first, count)));
+                    this.injector.recordAbstractParameters(this.className, name, descriptor,
+                        List.of(Arrays.copyOfRange(parameters, first, count))
+                    );
                 }
                 return;
             }
@@ -318,28 +394,11 @@ public final class MetadataInjector {
             }
             if ("<init>".equals(name)) {
                 // Only constructors that take something beyond `this` are worth an id of their own.
-                return "p_i" + this.injector.constructorId(this.className, descriptor, parameterCount > 1, this.allowGeneration) + "_";
+                return "p_i" +
+                    this.injector.constructorId(this.className, descriptor, parameterCount > 1, this.allowGeneration) +
+                    "_";
             }
             return "p_" + name + "_";
-        }
-
-        /**
-         * Recognises {@code func_<digits>_<something>} and locates the end of the digits in one pass.
-         *
-         * @return the index one past the last digit, or {@code -1} when the name is not an SRG method
-         */
-        private static int srgNumberEnd(String name) {
-            if (!name.startsWith(SRG_PREFIX)) {
-                return -1;
-            }
-            var index = SRG_PREFIX.length();
-            while (index < name.length() && name.charAt(index) >= '0' && name.charAt(index) <= '9') {
-                index++;
-            }
-            if (index == SRG_PREFIX.length() || index + 1 >= name.length() || name.charAt(index) != '_') {
-                return -1;
-            }
-            return index;
         }
 
     }
@@ -371,53 +430,12 @@ public final class MetadataInjector {
     }
 
     /**
-     * Rewrites the local variable table so every parameter slot carries its generated name over the whole method.
-     */
-    private static void applyLocalVariables(MethodNode method, Type[] types, String[] parameters, int[] slots) {
-        var first = method.instructions.getFirst();
-        if (first == null) {
-            method.instructions.add(new LabelNode());
-        } else if (first.getType() != AbstractInsnNode.LABEL) {
-            method.instructions.insertBefore(first, new LabelNode());
-        }
-        var last = method.instructions.getLast();
-        if (last == null) {
-            method.instructions.add(new LabelNode());
-        } else if (last.getType() != AbstractInsnNode.LABEL) {
-            method.instructions.insert(last, new LabelNode());
-        }
-
-        // Slots are dense and small, so index the names by slot directly instead of boxing them into a map.
-        var bySlot = new String[slots[parameters.length - 1] + 1];
-        for (var index = 0; index < parameters.length; index++) {
-            bySlot[slots[index]] = parameters[index];
-        }
-        var start = (LabelNode) method.instructions.getFirst();
-        var end = (LabelNode) method.instructions.getLast();
-        if (method.localVariables == null) {
-            method.localVariables = new ArrayList<>(parameters.length);
-        }
-        var renamed = new boolean[bySlot.length];
-        for (var local : method.localVariables) {
-            if (local.index < bySlot.length && bySlot[local.index] != null) {
-                local.name = bySlot[local.index];
-                renamed[local.index] = true;
-            }
-        }
-        for (var index = 0; index < parameters.length; index++) {
-            if (!renamed[slots[index]]) {
-                method.localVariables.add(new LocalVariableNode(parameters[index], types[index].getDescriptor(), null, start, end, slots[index]));
-            }
-        }
-        method.localVariables.sort(Comparator.comparingInt(local -> local.index));
-    }
-
-    /**
      * Applies the MCP access table to the class, its fields and its methods.
      */
     private static final class AccessFixer extends ClassVisitor {
 
         private final AccessMap access;
+
         private AccessMap.ClassChanges changes;
 
         private AccessFixer(ClassVisitor next, AccessMap access) {
@@ -425,8 +443,13 @@ public final class MetadataInjector {
             this.access = access;
         }
 
+        private static int apply(int access, AccessLevel level) {
+            return level == null || AccessLevel.of(access) == level ? access : level.apply(access);
+        }
+
         @Override
-        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces
+        ) {
             this.changes = this.access.get(name);
             var level = this.changes == null ? null : this.changes.forClass();
             super.visit(version, apply(access, level), name, signature, superName, interfaces);
@@ -439,13 +462,11 @@ public final class MetadataInjector {
         }
 
         @Override
-        public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
+        public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
+            String[] exceptions
+        ) {
             var level = this.changes == null ? null : this.changes.forMethod(name, descriptor);
             return super.visitMethod(apply(access, level), name, descriptor, signature, exceptions);
-        }
-
-        private static int apply(int access, AccessLevel level) {
-            return level == null || AccessLevel.of(access) == level ? access : level.apply(access);
         }
 
     }
@@ -469,7 +490,8 @@ public final class MetadataInjector {
         }
 
         @Override
-        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces
+        ) {
             this.className = name;
             this.isStatic = (access & Opcodes.ACC_STATIC) != 0;
             super.visit(version, access, name, signature, superName, interfaces);
@@ -492,7 +514,9 @@ public final class MetadataInjector {
         }
 
         @Override
-        public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
+        public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
+            String[] exceptions
+        ) {
             if ("<init>".equals(name)) {
                 this.hasConstructor = true;
             }
@@ -502,7 +526,9 @@ public final class MetadataInjector {
         @Override
         public void visitEnd() {
             if (!this.hasConstructor && !this.isStatic && this.outerDescriptor != null && this.outerField != null) {
-                var method = this.visitMethod(Opcodes.ACC_PRIVATE | Opcodes.ACC_SYNTHETIC, "<init>", "(" + this.outerDescriptor + ")V", null, null);
+                var method = this.visitMethod(Opcodes.ACC_PRIVATE | Opcodes.ACC_SYNTHETIC, "<init>",
+                    "(" + this.outerDescriptor + ")V", null, null
+                );
                 method.visitVarInsn(Opcodes.ALOAD, 0);
                 method.visitVarInsn(Opcodes.ALOAD, 1);
                 method.visitFieldInsn(Opcodes.PUTFIELD, this.className, this.outerField, this.outerDescriptor);
@@ -526,6 +552,25 @@ public final class MetadataInjector {
             this.node = node;
         }
 
+        private static boolean beginsWith(Type[] values, Type[] prefix) {
+            if (values.length < prefix.length) {
+                return false;
+            }
+            for (var index = 0; index < prefix.length; index++) {
+                if (!values[index].equals(prefix[index])) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private static List<AnnotationNode>[] trim(List<AnnotationNode>[] annotations, int parameters, int synthetic) {
+            if (annotations == null || annotations.length != parameters) {
+                return annotations;
+            }
+            return Arrays.copyOfRange(annotations, synthetic, annotations.length);
+        }
+
         @Override
         public void visitEnd() {
             super.visitEnd();
@@ -535,11 +580,11 @@ public final class MetadataInjector {
             }
             for (var method : this.node.methods) {
                 if ("<init>".equals(method.name) && beginsWith(Type.getArgumentTypes(method.desc), synthetic)) {
-                    method.visibleParameterAnnotations = trim(method.visibleParameterAnnotations, Type.getArgumentTypes(method.desc).length, synthetic.length);
-                    method.invisibleParameterAnnotations = trim(
-                            method.invisibleParameterAnnotations,
-                            Type.getArgumentTypes(method.desc).length,
-                            synthetic.length
+                    method.visibleParameterAnnotations = trim(method.visibleParameterAnnotations,
+                        Type.getArgumentTypes(method.desc).length, synthetic.length
+                    );
+                    method.invisibleParameterAnnotations = trim(method.invisibleParameterAnnotations,
+                        Type.getArgumentTypes(method.desc).length, synthetic.length
                     );
                     if (method.visibleParameterAnnotations != null) {
                         method.visibleAnnotableParameterCount = method.visibleParameterAnnotations.length;
@@ -563,29 +608,12 @@ public final class MetadataInjector {
                     break;
                 }
             }
-            if (self == null || self.innerName == null || (self.access & (Opcodes.ACC_STATIC | Opcodes.ACC_INTERFACE)) != 0) {
+            if (self == null ||
+                self.innerName == null ||
+                (self.access & (Opcodes.ACC_STATIC | Opcodes.ACC_INTERFACE)) != 0) {
                 return null;
             }
             return new Type[] { Type.getObjectType(self.outerName) };
-        }
-
-        private static boolean beginsWith(Type[] values, Type[] prefix) {
-            if (values.length < prefix.length) {
-                return false;
-            }
-            for (var index = 0; index < prefix.length; index++) {
-                if (!values[index].equals(prefix[index])) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        private static List<AnnotationNode>[] trim(List<AnnotationNode>[] annotations, int parameters, int synthetic) {
-            if (annotations == null || annotations.length != parameters) {
-                return annotations;
-            }
-            return Arrays.copyOfRange(annotations, synthetic, annotations.length);
         }
 
     }
@@ -603,6 +631,14 @@ public final class MetadataInjector {
             this.node = node;
         }
 
+        private static int highestSlot(List<LocalVariableNode> locals) {
+            var highest = 0;
+            for (var local : locals) {
+                highest = Math.max(highest, local.index);
+            }
+            return highest;
+        }
+
         @Override
         public void visitEnd() {
             super.visitEnd();
@@ -610,12 +646,10 @@ public final class MetadataInjector {
                 if (method.localVariables == null || method.localVariables.isEmpty()) {
                     continue;
                 }
-                method.localVariables
-                        .sort(
-                                Comparator
-                                        .comparingInt((LocalVariableNode local) -> local.index)
-                                        .thenComparingInt(local -> method.instructions.indexOf(local.start))
-                        );
+                method.localVariables.sort(Comparator
+                        .comparingInt((LocalVariableNode local) -> local.index)
+                        .thenComparingInt(local -> method.instructions.indexOf(local.start))
+                );
                 int[] occurrences = null;
                 for (var local : method.localVariables) {
                     if (local.name.isEmpty() || local.name.charAt(0) != PLACEHOLDER) {
@@ -627,14 +661,6 @@ public final class MetadataInjector {
                     local.name = "lvt_" + local.index + "_" + ++occurrences[local.index] + "_";
                 }
             }
-        }
-
-        private static int highestSlot(List<LocalVariableNode> locals) {
-            var highest = 0;
-            for (var local : locals) {
-                highest = Math.max(highest, local.index);
-            }
-            return highest;
         }
 
     }

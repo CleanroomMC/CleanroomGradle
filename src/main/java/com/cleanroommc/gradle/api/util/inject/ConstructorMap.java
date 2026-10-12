@@ -23,6 +23,10 @@ import java.util.Map;
  */
 public final class ConstructorMap {
 
+    private final Map<String, Integer> ids = new HashMap<>();
+
+    private int maxId;
+
     public static ConstructorMap load(Path file) throws IOException {
         var map = new ConstructorMap();
         for (var line : Files.readAllLines(file)) {
@@ -38,10 +42,6 @@ public final class ConstructorMap {
         }
         return map;
     }
-
-    private final Map<String, Integer> ids = new HashMap<>();
-
-    private int maxId;
 
     /**
      * The constructor's id, or {@code -1} when the map does not hold it.

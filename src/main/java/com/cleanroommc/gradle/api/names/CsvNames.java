@@ -25,7 +25,11 @@ import java.util.zip.ZipEntry;
  * The SRG -> name lookups from a legacy MCP names zip ({@code fields.csv}, {@code methods.csv}, {@code params.csv}).
  * Columns are {@code searge, name, side, desc}. The {@code desc} of methods/fields becomes the member's javadoc.
  */
-public record CsvNames(Map<String, String> fields, Map<String, String> methods, Map<String, String> params, Map<String, String> docs) {
+public record CsvNames(Map<String, String> fields,
+    Map<String, String> methods,
+    Map<String, String> params,
+    Map<String, String> docs
+) {
 
     public static final String FIELDS_FILE = "fields.csv";
     public static final String METHODS_FILE = "methods.csv";
@@ -62,7 +66,8 @@ public record CsvNames(Map<String, String> fields, Map<String, String> methods, 
      * (searge -> desc). The first three columns are comma-free identifiers,
      * the {@code desc} is the rest and may be CSV-quoted with embedded commas.
      */
-    private static void readRecords(InputStream in, Map<String, String> names, Map<String, String> docs) throws IOException {
+    private static void readRecords(InputStream in, Map<String, String> names, Map<String, String> docs)
+        throws IOException {
         var reader = IO.reader(in, StandardCharsets.UTF_8);
         var line = reader.readLine(); // header
         boolean hasDesc = line != null && line.contains("desc");

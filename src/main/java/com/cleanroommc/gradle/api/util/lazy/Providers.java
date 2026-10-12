@@ -19,6 +19,8 @@ import org.gradle.jvm.toolchain.JavaToolchainService;
 
 public final class Providers {
 
+    private Providers() { }
+
     public static Provider<JavaLanguageVersion> targetJavaVersion(Project project) {
         return project.getExtensions().getByType(JavaPluginExtension.class).getToolchain().getLanguageVersion();
     }
@@ -35,10 +37,9 @@ public final class Providers {
         return toolchains.launcherFor(spec -> spec.getLanguageVersion().set(JavaLanguageVersion.of(api)));
     }
 
-    public static Provider<JavaLauncher> javaLauncher(JavaToolchainService toolchains, Provider<JavaLanguageVersion> api) {
+    public static Provider<JavaLauncher> javaLauncher(JavaToolchainService toolchains, Provider<JavaLanguageVersion> api
+    ) {
         return toolchains.launcherFor(spec -> spec.getLanguageVersion().set(api));
     }
-
-    private Providers() { }
 
 }

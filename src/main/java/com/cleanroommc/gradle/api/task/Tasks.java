@@ -24,6 +24,8 @@ import javax.inject.Inject;
 
 public final class Tasks {
 
+    private Tasks() { }
+
     public static TaskProvider<DefaultTask> register(Project project, String name) {
         return register(project, name, DefaultTask.class);
     }
@@ -32,16 +34,14 @@ public final class Tasks {
         return project.getTasks().register(name, type);
     }
 
-    public static <T extends Task> TaskProvider<T> register(Project project, String name, Class<T> type, Object... ctorArgs) {
+    public static <T extends Task> TaskProvider<T> register(Project project, String name, Class<T> type,
+        Object... ctorArgs
+    ) {
         return project.getTasks().register(name, type, ctorArgs);
     }
 
-    public static <T extends MavenJarExec> TaskProvider<T> tool(
-            Project project,
-            DirectoryProperty localCache,
-            String name,
-            Class<T> type,
-            Provider<Configuration> classpath
+    public static <T extends MavenJarExec> TaskProvider<T> tool(Project project, DirectoryProperty localCache,
+        String name, Class<T> type, Provider<Configuration> classpath
     ) {
         var task = register(project, name, type);
         task.configure(exec -> {
@@ -73,13 +73,13 @@ public final class Tasks {
         var archives = archives(project);
         var files = project.getObjects().fileCollection().from(from);
         provider.configure(task -> {
-            task.from(files.getElements().map(locations -> locations.stream().map(file -> archives.zipTree(file.getAsFile())).toList()));
+            task.from(files.getElements()
+                    .map(locations -> locations.stream().map(file -> archives.zipTree(file.getAsFile())).toList())
+            );
             task.into(to);
         });
         return provider;
     }
-
-    private Tasks() { }
 
     public abstract static class InjectedArchiveOperations {
 

@@ -38,266 +38,15 @@ import static org.assertj.core.api.Assertions.catchThrowableOfType;
 
 class PublishMmcPackZipTest {
 
-    @TempDir
-    Path directory;
-
-    @Test
-    void publishesMinimalImportWithHashedDownloads() throws Exception {
-        var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
-        var task = project.getTasks().create("publishMmcPackZip", PublishMmcPackZip.class);
-
-        var universal = file("cleanroom-1.0.0-universal.jar", "cleanroom");
-        var foundation = file("foundation-1.2.3.jar", "foundation");
-        var inherited = file("guava-21.0.jar", "minecraft already supplies this");
-        var lwjgl = file("lwjgl-3.4.2.jar", "lwjgl");
-        var windows = file("lwjgl-3.4.2-natives-windows.jar", "windows native");
-        var windowsArm = file("lwjgl-3.4.2-natives-windows-arm64.jar", "windows arm native");
-        var macArm = file("lwjgl-3.4.2-natives-macos-arm64.jar", "mac arm native");
-
-        task.getInstanceName().set("Cleanroom");
-        task.getCleanroomVersion().set("1.0.0");
-        task.getMinecraftVersion().set("1.12.2-custom");
-        task.getMainClass().set("top.outlands.foundation.boot.Foundation");
-        task.getTweakers().set(List.of("net.minecraftforge.fml.common.launcher.FMLTweaker"));
-        task.getCompatibleJavaMajors().add(25);
-        task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0:universal");
-        task.getUniversalUrl().set("https://maven.cleanroommc.com/com/cleanroommc/cleanroom/1.0.0/cleanroom-1.0.0-universal.jar");
-        task.getEmbedUniversalJar().set(false);
-        task.getUniversalJar().fileValue(universal.toFile());
-        task.getLibraries().add(library(project, "top.outlands:foundation:1.2.3", foundation, "https://packages.cleanroommc.com/releases/"));
-        task.getLibraries().add(library(project, "com.google.guava:guava:21.0", inherited));
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", lwjgl));
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-windows", windows));
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-windows-arm64", windowsArm));
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-macos-arm64", macArm));
-        task.getInheritedLibraries().addAll("com.google.guava:guava:21.0", "com.ibm.icu:icu4j-core-mojang:51.2", "com.mojang:patchy:1.3.9");
-        task.getMinecraftExcludeRules().addAll("com.ibm.icu:icu4j-core-mojang", "com.mojang:*", "example:unrelated");
-        task.getArchiveFile().fileValue(directory.resolve("cleanroom-mmc.zip").toFile());
-        task.getInstallerArchiveFile().fileValue(directory.resolve("cleanroom-mmc-installer.zip").toFile());
-
-        task.publish();
-
-        try (var zip = new ZipFile(task.getArchiveFile().get().getAsFile())) {
-            assertThat(entries(zip)).isEqualTo(
-                    Set.of(
-                            "instance.cfg",
-                            "mmc-pack.json",
-                            "patches/org.lwjgl.json",
-                            "patches/net.minecraftforge.json",
-                            "libraries/icu4j-core-mojang-999999.0-empty.jar",
-                            "libraries/patchy-999999.0-empty.jar"
-                    )
-            );
-            assertThat(text(zip, "instance.cfg")).isEqualTo("InstanceType=OneSix\nname=Cleanroom 1.0.0\niconKey=default\n");
-
-            var pack = json(zip, "mmc-pack.json");
-            assertThat(pack.keySet()).isEqualTo(Set.of("formatVersion", "components"));
-            assertThat(pack.get("formatVersion").getAsInt()).isEqualTo(1);
-            var components = pack.getAsJsonArray("components");
-            assertThat(components.size()).isEqualTo(3);
-            assertThat(components.get(0).getAsJsonObject().keySet()).isEqualTo(Set.of("uid", "version", "important"));
-            assertThat(components.get(0).getAsJsonObject().get("uid").getAsString()).isEqualTo("net.minecraft");
-            assertThat(components.get(0).getAsJsonObject().get("version").getAsString()).isEqualTo("1.12.2-custom");
-            assertThat(components.get(1).getAsJsonObject().keySet()).isEqualTo(Set.of("uid", "version"));
-            assertThat(components.get(1).getAsJsonObject().get("uid").getAsString()).isEqualTo("org.lwjgl");
-            assertThat(components.get(1).getAsJsonObject().get("version").getAsString()).isEqualTo("3.4.2");
-            assertThat(components.get(2).getAsJsonObject().keySet()).isEqualTo(Set.of("uid", "version"));
-            assertThat(components.get(2).getAsJsonObject().get("uid").getAsString()).isEqualTo("net.minecraftforge");
-
-            var patch = json(zip, "patches/net.minecraftforge.json");
-            assertThat(patch.keySet()).isEqualTo(
-                    Set.of("formatVersion", "name", "uid", "version", "requires", "mainClass", "compatibleJavaMajors", "+tweakers", "libraries")
-            );
-            assertThat(patch.has("order")).isFalse();
-            assertThat(patch.has("releaseTime")).isFalse();
-            assertThat(patch.has("+jvmArgs")).isFalse();
-            assertThat(patch.getAsJsonArray("compatibleJavaMajors").asList().stream().map(element -> element.getAsInt()).toList()).isEqualTo(List.of(25));
-            var requirements = patch.getAsJsonArray("requires");
-            assertThat(requirements.size()).isEqualTo(2);
-            assertThat(requirements.get(0).getAsJsonObject().get("uid").getAsString()).isEqualTo("net.minecraft");
-            assertThat(requirements.get(0).getAsJsonObject().get("equals").getAsString()).isEqualTo("1.12.2-custom");
-            assertThat(requirements.get(1).getAsJsonObject().get("uid").getAsString()).isEqualTo("org.lwjgl");
-            assertThat(requirements.get(1).getAsJsonObject().get("equals").getAsString()).isEqualTo("3.4.2");
-
-            var libraries = patch.getAsJsonArray("libraries");
-            assertThat(libraries.size()).as(libraries.toString()).isEqualTo(4);
-            assertThat(
-                    libraries.asList().stream().noneMatch(element -> element.getAsJsonObject().get("name").getAsString().equals("com.google.guava:guava:21.0"))
-            ).isTrue();
-            assertThat(libraries.asList().stream().noneMatch(element -> element.getAsJsonObject().get("name").getAsString().startsWith("org.lwjgl:"))).isTrue();
-
-            var universalLibrary = library(libraries, "com.cleanroommc:cleanroom:1.0.0:universal", false);
-            assertDownload(universalLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"), universal, task.getUniversalUrl().get());
-
-            var foundationLibrary = library(libraries, "top.outlands:foundation:1.2.3", false);
-            assertDownload(
-                    foundationLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"),
-                    foundation,
-                    "https://packages.cleanroommc.com/releases/top/outlands/foundation/1.2.3/foundation-1.2.3.jar"
-            );
-
-            assertBlocked(libraries, "com.ibm.icu:icu4j-core-mojang:999999.0-empty");
-            assertBlocked(libraries, "com.mojang:patchy:999999.0-empty");
-            assertEmptyJar(bytes(zip, "libraries/icu4j-core-mojang-999999.0-empty.jar"));
-            assertEmptyJar(bytes(zip, "libraries/patchy-999999.0-empty.jar"));
-
-            var lwjglPatch = json(zip, "patches/org.lwjgl.json");
-            assertThat(lwjglPatch.keySet()).isEqualTo(Set.of("formatVersion", "name", "uid", "version", "libraries"));
-            assertThat(lwjglPatch.get("uid").getAsString()).isEqualTo("org.lwjgl");
-            assertThat(lwjglPatch.get("version").getAsString()).isEqualTo("3.4.2");
-            var lwjglLibraries = lwjglPatch.getAsJsonArray("libraries");
-            assertThat(lwjglLibraries.size()).as(lwjglLibraries.toString()).isEqualTo(2);
-            assertThat(
-                    lwjglLibraries.asList().stream().noneMatch(element -> element.getAsJsonObject().get("name").getAsString().startsWith("org.lwjgl.lwjgl:"))
-            ).isTrue();
-
-            var lwjglLibrary = library(lwjglLibraries, "org.lwjgl:lwjgl:3.4.2", false);
-            assertDownload(
-                    lwjglLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"),
-                    lwjgl,
-                    "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.4.2/lwjgl-3.4.2.jar"
-            );
-
-            var lwjglNatives = library(lwjglLibraries, "org.lwjgl:lwjgl:3.4.2", true);
-            var nativeMap = lwjglNatives.getAsJsonObject("natives");
-            assertThat(nativeMap.get("windows").getAsString()).isEqualTo("natives-windows");
-            assertThat(nativeMap.get("windows-arm64").getAsString()).isEqualTo("natives-windows-arm64");
-            assertThat(nativeMap.get("osx-arm64").getAsString()).isEqualTo("natives-macos-arm64");
-            var classifiers = lwjglNatives.getAsJsonObject("downloads").getAsJsonObject("classifiers");
-            assertDownload(
-                    classifiers.getAsJsonObject("natives-windows"),
-                    windows,
-                    "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.4.2/lwjgl-3.4.2-natives-windows.jar"
-            );
-            assertDownload(
-                    classifiers.getAsJsonObject("natives-windows-arm64"),
-                    windowsArm,
-                    "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.4.2/lwjgl-3.4.2-natives-windows-arm64.jar"
-            );
-            assertDownload(
-                    classifiers.getAsJsonObject("natives-macos-arm64"),
-                    macArm,
-                    "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.4.2/lwjgl-3.4.2-natives-macos-arm64.jar"
-            );
-        }
-
-        assertThat(Files.exists(directory.resolve("cleanroom-mmc-overlay.zip"))).isFalse();
-    }
-
-    @Test
-    void embedsTheUniversalJarAndLocalLibraries() throws Exception {
-        var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
-        var task = project.getTasks().create("publishMmcPackZip", PublishMmcPackZip.class);
-
-        var universal = file("cleanroom-1.0.0+local.4-universal.jar", "local cleanroom");
-        var foundation = file("foundation-1.2.3.jar", "foundation");
-        var mcttf = file("mcttf-0.1.0-beta+local.0.jar", "local mcttf");
-        var lwjgl = file("lwjgl-3.4.2.jar", "lwjgl");
-
-        task.getInstanceName().set("Cleanroom");
-        task.getCleanroomVersion().set("1.0.0+local.4");
-        task.getMainClass().set("top.outlands.foundation.boot.Foundation");
-        task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0+local.4:universal");
-        task.getUniversalUrl().set("https://maven.cleanroommc.com/never/downloaded.jar");
-        task.getUniversalJar().fileValue(universal.toFile());
-        task.getInheritedLibraries().addAll("com.ibm.icu:icu4j-core-mojang:51.2", "com.mojang:patchy:1.3.9");
-        task.getMinecraftExcludeRules().addAll("com.ibm.icu:icu4j-core-mojang", "*:patchy");
-        task.getLibraries().add(library(project, "top.outlands:foundation:1.2.3", foundation));
-        task.getLibraries().add(library(project, "com.cleanroommc:mcttf:0.1.0-beta+local.0", mcttf, directory.resolve("m2").toUri().toString()));
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", lwjgl));
-        task.getArchiveFile().fileValue(directory.resolve("cleanroom-local.zip").toFile());
-        task.getInstallerArchiveFile().fileValue(directory.resolve("cleanroom-local-installer.zip").toFile());
-
-        task.publish();
-
-        try (var zip = new ZipFile(task.getArchiveFile().get().getAsFile())) {
-            var embedded = "libraries/cleanroom-1.0.0+local.4-universal.jar";
-            var localDependency = "libraries/mcttf-0.1.0-beta+local.0.jar";
-            assertThat(entries(zip)).isEqualTo(
-                    Set.of(
-                            "instance.cfg",
-                            "mmc-pack.json",
-                            "patches/org.lwjgl.json",
-                            "patches/net.minecraftforge.json",
-                            "libraries/icu4j-core-mojang-999999.0-empty.jar",
-                            "libraries/patchy-999999.0-empty.jar",
-                            embedded,
-                            localDependency
-                    )
-            );
-            assertThat(text(zip, embedded)).isEqualTo("local cleanroom");
-            assertThat(text(zip, localDependency)).isEqualTo("local mcttf");
-
-            var libraries = json(zip, "patches/net.minecraftforge.json").getAsJsonArray("libraries");
-            var universalLibrary = library(libraries, "com.cleanroommc:cleanroom:1.0.0+local.4:universal", false);
-            assertThat(universalLibrary.get("MMC-hint").getAsString()).isEqualTo("local");
-            var download = universalLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact");
-            assertThat(download.keySet()).isEqualTo(Set.of("path", "url", "sha1", "size"));
-            assertThat(download.get("url").getAsString()).isEmpty();
-            assertThat(download.get("path").getAsString()).isEqualTo("com/cleanroommc/cleanroom/1.0.0+local.4/cleanroom-1.0.0+local.4-universal.jar");
-            assertThat(download.get("sha1").getAsString()).isEqualTo(DigestUtils.sha1Hex(Files.readAllBytes(universal)));
-            assertThat(download.get("size").getAsLong()).isEqualTo(Files.size(universal));
-
-            var mcttfLibrary = library(libraries, "com.cleanroommc:mcttf:0.1.0-beta+local.0", false);
-            assertThat(mcttfLibrary.get("MMC-hint").getAsString()).isEqualTo("local");
-            assertThat(mcttfLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact").keySet()).isEqualTo(Set.of("path", "url", "sha1", "size"));
-
-            var foundationLibrary = library(libraries, "top.outlands:foundation:1.2.3", false);
-            assertThat(foundationLibrary.has("MMC-hint")).isFalse();
-            assertDownload(
-                    foundationLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"),
-                    foundation,
-                    "https://repo.maven.apache.org/maven2/top/outlands/foundation/1.2.3/foundation-1.2.3.jar"
-            );
-        }
-
-        // The installer ships the universal jar in its own maven layout, so its copy of the pack drops it
-        try (var zip = new ZipFile(task.getInstallerArchiveFile().get().getAsFile())) {
-            assertThat(entries(zip)).isEqualTo(
-                    Set.of(
-                            "instance.cfg",
-                            "mmc-pack.json",
-                            "patches/org.lwjgl.json",
-                            "patches/net.minecraftforge.json",
-                            "libraries/icu4j-core-mojang-999999.0-empty.jar",
-                            "libraries/patchy-999999.0-empty.jar",
-                            "libraries/mcttf-0.1.0-beta+local.0.jar"
-                    )
-            );
-            assertThat(text(zip, "libraries/mcttf-0.1.0-beta+local.0.jar")).isEqualTo("local mcttf");
-        }
-    }
-
-    @Test
-    void rejectsMixedLwjglComponentVersions() throws IOException {
-        var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
-        var task = project.getTasks().create("publishMmcPackZip", PublishMmcPackZip.class);
-        var universal = file("cleanroom-1.0.0-universal.jar", "cleanroom");
-
-        task.getInstanceName().set("Cleanroom");
-        task.getCleanroomVersion().set("1.0.0");
-        task.getMainClass().set("top.outlands.foundation.boot.Foundation");
-        task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0:universal");
-        task.getUniversalUrl().set("https://maven.cleanroommc.com/cleanroom.jar");
-        task.getUniversalJar().fileValue(universal.toFile());
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", file("lwjgl-3.4.2.jar", "lwjgl")));
-        task.getLibraries().add(library(project, "org.lwjgl:lwjgl-stb:3.4.0", file("lwjgl-stb-3.4.0.jar", "stb")));
-        task.getArchiveFile().fileValue(directory.resolve("cleanroom-mmc.zip").toFile());
-        task.getInstallerArchiveFile().fileValue(directory.resolve("cleanroom-mmc-installer.zip").toFile());
-
-        var failure = catchThrowableOfType(task::publish, GradleException.class);
-        assertThat(failure).hasMessageContaining("requires exactly one LWJGL version");
-    }
-
-    private Path file(String name, String contents) throws IOException {
-        return Files.writeString(directory.resolve(name), contents, StandardCharsets.UTF_8);
-    }
+    @TempDir Path directory;
 
     private static LibraryArtifact library(org.gradle.api.Project project, String coordinate, Path file) {
         return library(project, coordinate, file, "https://repo.maven.apache.org/maven2/");
     }
 
-    private static LibraryArtifact library(org.gradle.api.Project project, String coordinate, Path file, String repositoryUrl) {
+    private static LibraryArtifact library(org.gradle.api.Project project, String coordinate, Path file,
+        String repositoryUrl
+    ) {
         var library = project.getObjects().newInstance(LibraryArtifact.class);
         library.getCoordinate().set(coordinate);
         library.getFile().fileValue(file.toFile());
@@ -356,6 +105,255 @@ class PublishMmcPackZipTest {
         assertThat(download.get("url").getAsString()).isEqualTo(url);
         assertThat(download.get("sha1").getAsString()).isEqualTo(DigestUtils.sha1Hex(Files.readAllBytes(file)));
         assertThat(download.get("size").getAsLong()).isEqualTo(Files.size(file));
+    }
+
+    @Test
+    void publishesMinimalImportWithHashedDownloads() throws Exception {
+        var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
+        var task = project.getTasks().create("publishMmcPackZip", PublishMmcPackZip.class);
+
+        var universal = file("cleanroom-1.0.0-universal.jar", "cleanroom");
+        var foundation = file("foundation-1.2.3.jar", "foundation");
+        var inherited = file("guava-21.0.jar", "minecraft already supplies this");
+        var lwjgl = file("lwjgl-3.4.2.jar", "lwjgl");
+        var windows = file("lwjgl-3.4.2-natives-windows.jar", "windows native");
+        var windowsArm = file("lwjgl-3.4.2-natives-windows-arm64.jar", "windows arm native");
+        var macArm = file("lwjgl-3.4.2-natives-macos-arm64.jar", "mac arm native");
+
+        task.getInstanceName().set("Cleanroom");
+        task.getCleanroomVersion().set("1.0.0");
+        task.getMinecraftVersion().set("1.12.2-custom");
+        task.getMainClass().set("top.outlands.foundation.boot.Foundation");
+        task.getTweakers().set(List.of("net.minecraftforge.fml.common.launcher.FMLTweaker"));
+        task.getCompatibleJavaMajors().add(25);
+        task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0:universal");
+        task.getUniversalUrl()
+            .set("https://maven.cleanroommc.com/com/cleanroommc/cleanroom/1.0.0/cleanroom-1.0.0-universal.jar");
+        task.getEmbedUniversalJar().set(false);
+        task.getUniversalJar().fileValue(universal.toFile());
+        task.getLibraries()
+            .add(library(project, "top.outlands:foundation:1.2.3", foundation,
+                "https://packages.cleanroommc.com/releases/"
+            ));
+        task.getLibraries().add(library(project, "com.google.guava:guava:21.0", inherited));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", lwjgl));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-windows", windows));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-windows-arm64", windowsArm));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-macos-arm64", macArm));
+        task.getInheritedLibraries()
+            .addAll("com.google.guava:guava:21.0", "com.ibm.icu:icu4j-core-mojang:51.2", "com.mojang:patchy:1.3.9");
+        task.getMinecraftExcludeRules().addAll("com.ibm.icu:icu4j-core-mojang", "com.mojang:*", "example:unrelated");
+        task.getArchiveFile().fileValue(directory.resolve("cleanroom-mmc.zip").toFile());
+        task.getInstallerArchiveFile().fileValue(directory.resolve("cleanroom-mmc-installer.zip").toFile());
+
+        task.publish();
+
+        try (var zip = new ZipFile(task.getArchiveFile().get().getAsFile())) {
+            assertThat(entries(zip)).isEqualTo(Set.of("instance.cfg", "mmc-pack.json", "patches/org.lwjgl.json",
+                "patches/net.minecraftforge.json", "libraries/icu4j-core-mojang-999999.0-empty.jar",
+                "libraries/patchy-999999.0-empty.jar"
+            ));
+            assertThat(text(zip, "instance.cfg"
+            )).isEqualTo("InstanceType=OneSix\nname=Cleanroom 1.0.0\niconKey=default\n");
+
+            var pack = json(zip, "mmc-pack.json");
+            assertThat(pack.keySet()).isEqualTo(Set.of("formatVersion", "components"));
+            assertThat(pack.get("formatVersion").getAsInt()).isEqualTo(1);
+            var components = pack.getAsJsonArray("components");
+            assertThat(components.size()).isEqualTo(3);
+            assertThat(components.get(0).getAsJsonObject().keySet()).isEqualTo(Set.of("uid", "version", "important"));
+            assertThat(components.get(0).getAsJsonObject().get("uid").getAsString()).isEqualTo("net.minecraft");
+            assertThat(components.get(0).getAsJsonObject().get("version").getAsString()).isEqualTo("1.12.2-custom");
+            assertThat(components.get(1).getAsJsonObject().keySet()).isEqualTo(Set.of("uid", "version"));
+            assertThat(components.get(1).getAsJsonObject().get("uid").getAsString()).isEqualTo("org.lwjgl");
+            assertThat(components.get(1).getAsJsonObject().get("version").getAsString()).isEqualTo("3.4.2");
+            assertThat(components.get(2).getAsJsonObject().keySet()).isEqualTo(Set.of("uid", "version"));
+            assertThat(components.get(2).getAsJsonObject().get("uid").getAsString()).isEqualTo("net.minecraftforge");
+
+            var patch = json(zip, "patches/net.minecraftforge.json");
+            assertThat(patch.keySet()).isEqualTo(Set.of("formatVersion", "name", "uid", "version", "requires",
+                "mainClass", "compatibleJavaMajors", "+tweakers", "libraries"
+            ));
+            assertThat(patch.has("order")).isFalse();
+            assertThat(patch.has("releaseTime")).isFalse();
+            assertThat(patch.has("+jvmArgs")).isFalse();
+            assertThat(patch.getAsJsonArray("compatibleJavaMajors")
+                    .asList()
+                    .stream()
+                    .map(element -> element.getAsInt())
+                    .toList()
+            ).isEqualTo(List.of(25));
+            var requirements = patch.getAsJsonArray("requires");
+            assertThat(requirements.size()).isEqualTo(2);
+            assertThat(requirements.get(0).getAsJsonObject().get("uid").getAsString()).isEqualTo("net.minecraft");
+            assertThat(requirements.get(0).getAsJsonObject().get("equals").getAsString()).isEqualTo("1.12.2-custom");
+            assertThat(requirements.get(1).getAsJsonObject().get("uid").getAsString()).isEqualTo("org.lwjgl");
+            assertThat(requirements.get(1).getAsJsonObject().get("equals").getAsString()).isEqualTo("3.4.2");
+
+            var libraries = patch.getAsJsonArray("libraries");
+            assertThat(libraries.size()).as(libraries.toString()).isEqualTo(4);
+            assertThat(libraries.asList()
+                    .stream()
+                    .noneMatch(element -> element.getAsJsonObject()
+                        .get("name")
+                        .getAsString()
+                        .equals("com.google.guava:guava:21.0"))
+            ).isTrue();
+            assertThat(libraries.asList()
+                    .stream()
+                    .noneMatch(element -> element.getAsJsonObject().get("name").getAsString().startsWith("org.lwjgl:"))
+            ).isTrue();
+
+            var universalLibrary = library(libraries, "com.cleanroommc:cleanroom:1.0.0:universal", false);
+            assertDownload(universalLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"), universal,
+                task.getUniversalUrl().get()
+            );
+
+            var foundationLibrary = library(libraries, "top.outlands:foundation:1.2.3", false);
+            assertDownload(foundationLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"), foundation,
+                "https://packages.cleanroommc.com/releases/top/outlands/foundation/1.2.3/foundation-1.2.3.jar"
+            );
+
+            assertBlocked(libraries, "com.ibm.icu:icu4j-core-mojang:999999.0-empty");
+            assertBlocked(libraries, "com.mojang:patchy:999999.0-empty");
+            assertEmptyJar(bytes(zip, "libraries/icu4j-core-mojang-999999.0-empty.jar"));
+            assertEmptyJar(bytes(zip, "libraries/patchy-999999.0-empty.jar"));
+
+            var lwjglPatch = json(zip, "patches/org.lwjgl.json");
+            assertThat(lwjglPatch.keySet()).isEqualTo(Set.of("formatVersion", "name", "uid", "version", "libraries"));
+            assertThat(lwjglPatch.get("uid").getAsString()).isEqualTo("org.lwjgl");
+            assertThat(lwjglPatch.get("version").getAsString()).isEqualTo("3.4.2");
+            var lwjglLibraries = lwjglPatch.getAsJsonArray("libraries");
+            assertThat(lwjglLibraries.size()).as(lwjglLibraries.toString()).isEqualTo(2);
+            assertThat(lwjglLibraries.asList()
+                    .stream()
+                    .noneMatch(element -> element.getAsJsonObject()
+                        .get("name")
+                        .getAsString()
+                        .startsWith("org.lwjgl.lwjgl:"))
+            ).isTrue();
+
+            var lwjglLibrary = library(lwjglLibraries, "org.lwjgl:lwjgl:3.4.2", false);
+            assertDownload(lwjglLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"), lwjgl,
+                "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.4.2/lwjgl-3.4.2.jar"
+            );
+
+            var lwjglNatives = library(lwjglLibraries, "org.lwjgl:lwjgl:3.4.2", true);
+            var nativeMap = lwjglNatives.getAsJsonObject("natives");
+            assertThat(nativeMap.get("windows").getAsString()).isEqualTo("natives-windows");
+            assertThat(nativeMap.get("windows-arm64").getAsString()).isEqualTo("natives-windows-arm64");
+            assertThat(nativeMap.get("osx-arm64").getAsString()).isEqualTo("natives-macos-arm64");
+            var classifiers = lwjglNatives.getAsJsonObject("downloads").getAsJsonObject("classifiers");
+            assertDownload(classifiers.getAsJsonObject("natives-windows"), windows,
+                "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.4.2/lwjgl-3.4.2-natives-windows.jar"
+            );
+            assertDownload(classifiers.getAsJsonObject("natives-windows-arm64"), windowsArm,
+                "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.4.2/lwjgl-3.4.2-natives-windows-arm64.jar"
+            );
+            assertDownload(classifiers.getAsJsonObject("natives-macos-arm64"), macArm,
+                "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.4.2/lwjgl-3.4.2-natives-macos-arm64.jar"
+            );
+        }
+
+        assertThat(Files.exists(directory.resolve("cleanroom-mmc-overlay.zip"))).isFalse();
+    }
+
+    @Test
+    void embedsTheUniversalJarAndLocalLibraries() throws Exception {
+        var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
+        var task = project.getTasks().create("publishMmcPackZip", PublishMmcPackZip.class);
+
+        var universal = file("cleanroom-1.0.0+local.4-universal.jar", "local cleanroom");
+        var foundation = file("foundation-1.2.3.jar", "foundation");
+        var mcttf = file("mcttf-0.1.0-beta+local.0.jar", "local mcttf");
+        var lwjgl = file("lwjgl-3.4.2.jar", "lwjgl");
+
+        task.getInstanceName().set("Cleanroom");
+        task.getCleanroomVersion().set("1.0.0+local.4");
+        task.getMainClass().set("top.outlands.foundation.boot.Foundation");
+        task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0+local.4:universal");
+        task.getUniversalUrl().set("https://maven.cleanroommc.com/never/downloaded.jar");
+        task.getUniversalJar().fileValue(universal.toFile());
+        task.getInheritedLibraries().addAll("com.ibm.icu:icu4j-core-mojang:51.2", "com.mojang:patchy:1.3.9");
+        task.getMinecraftExcludeRules().addAll("com.ibm.icu:icu4j-core-mojang", "*:patchy");
+        task.getLibraries().add(library(project, "top.outlands:foundation:1.2.3", foundation));
+        task.getLibraries()
+            .add(library(project, "com.cleanroommc:mcttf:0.1.0-beta+local.0", mcttf,
+                directory.resolve("m2").toUri().toString()
+            ));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", lwjgl));
+        task.getArchiveFile().fileValue(directory.resolve("cleanroom-local.zip").toFile());
+        task.getInstallerArchiveFile().fileValue(directory.resolve("cleanroom-local-installer.zip").toFile());
+
+        task.publish();
+
+        try (var zip = new ZipFile(task.getArchiveFile().get().getAsFile())) {
+            var embedded = "libraries/cleanroom-1.0.0+local.4-universal.jar";
+            var localDependency = "libraries/mcttf-0.1.0-beta+local.0.jar";
+            assertThat(entries(zip)).isEqualTo(Set.of("instance.cfg", "mmc-pack.json", "patches/org.lwjgl.json",
+                "patches/net.minecraftforge.json", "libraries/icu4j-core-mojang-999999.0-empty.jar",
+                "libraries/patchy-999999.0-empty.jar", embedded, localDependency
+            ));
+            assertThat(text(zip, embedded)).isEqualTo("local cleanroom");
+            assertThat(text(zip, localDependency)).isEqualTo("local mcttf");
+
+            var libraries = json(zip, "patches/net.minecraftforge.json").getAsJsonArray("libraries");
+            var universalLibrary = library(libraries, "com.cleanroommc:cleanroom:1.0.0+local.4:universal", false);
+            assertThat(universalLibrary.get("MMC-hint").getAsString()).isEqualTo("local");
+            var download = universalLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact");
+            assertThat(download.keySet()).isEqualTo(Set.of("path", "url", "sha1", "size"));
+            assertThat(download.get("url").getAsString()).isEmpty();
+            assertThat(download.get("path").getAsString()
+            ).isEqualTo("com/cleanroommc/cleanroom/1.0.0+local.4/cleanroom-1.0.0+local.4-universal.jar");
+            assertThat(download.get("sha1").getAsString()).isEqualTo(DigestUtils.sha1Hex(Files.readAllBytes(universal
+            )));
+            assertThat(download.get("size").getAsLong()).isEqualTo(Files.size(universal));
+
+            var mcttfLibrary = library(libraries, "com.cleanroommc:mcttf:0.1.0-beta+local.0", false);
+            assertThat(mcttfLibrary.get("MMC-hint").getAsString()).isEqualTo("local");
+            assertThat(mcttfLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact").keySet()).isEqualTo(
+                Set.of("path", "url", "sha1", "size"));
+
+            var foundationLibrary = library(libraries, "top.outlands:foundation:1.2.3", false);
+            assertThat(foundationLibrary.has("MMC-hint")).isFalse();
+            assertDownload(foundationLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"), foundation,
+                "https://repo.maven.apache.org/maven2/top/outlands/foundation/1.2.3/foundation-1.2.3.jar"
+            );
+        }
+
+        // The installer ships the universal jar in its own maven layout, so its copy of the pack drops it
+        try (var zip = new ZipFile(task.getInstallerArchiveFile().get().getAsFile())) {
+            assertThat(entries(zip)).isEqualTo(Set.of("instance.cfg", "mmc-pack.json", "patches/org.lwjgl.json",
+                "patches/net.minecraftforge.json", "libraries/icu4j-core-mojang-999999.0-empty.jar",
+                "libraries/patchy-999999.0-empty.jar", "libraries/mcttf-0.1.0-beta+local.0.jar"
+            ));
+            assertThat(text(zip, "libraries/mcttf-0.1.0-beta+local.0.jar")).isEqualTo("local mcttf");
+        }
+    }
+
+    @Test
+    void rejectsMixedLwjglComponentVersions() throws IOException {
+        var project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
+        var task = project.getTasks().create("publishMmcPackZip", PublishMmcPackZip.class);
+        var universal = file("cleanroom-1.0.0-universal.jar", "cleanroom");
+
+        task.getInstanceName().set("Cleanroom");
+        task.getCleanroomVersion().set("1.0.0");
+        task.getMainClass().set("top.outlands.foundation.boot.Foundation");
+        task.getUniversalCoordinate().set("com.cleanroommc:cleanroom:1.0.0:universal");
+        task.getUniversalUrl().set("https://maven.cleanroommc.com/cleanroom.jar");
+        task.getUniversalJar().fileValue(universal.toFile());
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", file("lwjgl-3.4.2.jar", "lwjgl")));
+        task.getLibraries().add(library(project, "org.lwjgl:lwjgl-stb:3.4.0", file("lwjgl-stb-3.4.0.jar", "stb")));
+        task.getArchiveFile().fileValue(directory.resolve("cleanroom-mmc.zip").toFile());
+        task.getInstallerArchiveFile().fileValue(directory.resolve("cleanroom-mmc-installer.zip").toFile());
+
+        var failure = catchThrowableOfType(task::publish, GradleException.class);
+        assertThat(failure).hasMessageContaining("requires exactly one LWJGL version");
+    }
+
+    private Path file(String name, String contents) throws IOException {
+        return Files.writeString(directory.resolve(name), contents, StandardCharsets.UTF_8);
     }
 
 }

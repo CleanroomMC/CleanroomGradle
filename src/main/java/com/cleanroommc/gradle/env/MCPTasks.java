@@ -53,8 +53,9 @@ import java.util.Locale;
 
 public final class MCPTasks {
 
-    private static final String GROUP_NAME = "MCP";
     public static final String DEFAULT_INITIAL_PATCHES = "com.cleanroommc:initial-patches:1.2.0";
+
+    private static final String GROUP_NAME = "MCP";
 
     public final NamedDomainObjectProvider<Configuration> initialPatches;
     public final Provider<Directory> srgSourceDirectory;
@@ -80,16 +81,12 @@ public final class MCPTasks {
 
     private TaskProvider<ApplySAS> applySAS;
 
-    public MCPTasks(
-            Project project,
-            CachesExtension caches,
-            MinecraftExtension minecraft,
-            MappingsExtension names,
-            VanillaTasks vanilla,
-            McpMappings mappings,
-            IntermediateProcessor intermediates
+    public MCPTasks(Project project, CachesExtension caches, MinecraftExtension minecraft, MappingsExtension names,
+        VanillaTasks vanilla, McpMappings mappings, IntermediateProcessor intermediates
     ) {
-        this.initialPatches = Objects.archive(project, "initialPatches", "Patches applied to freshly decompiled SRG Minecraft.", DEFAULT_INITIAL_PATCHES);
+        this.initialPatches = Objects.archive(project, "initialPatches",
+            "Patches applied to freshly decompiled SRG Minecraft.", DEFAULT_INITIAL_PATCHES
+        );
 
         var mcpDir = caches.getVersionDirectory().dir("mcp");
 
@@ -118,13 +115,13 @@ public final class MCPTasks {
         this.mcpSourceDirectory = caches.getLocalDirectory().dir("sourceSets/mcp/sources");
 
         this.prepareMcpInjectedSources = Tasks.register(project, "prepareMcpInjectedSources", Copy.class);
-        this.decompileSrg = Tasks.tool(project, caches.getLocalDirectory(), "decompileSrg", Decompile.class, decompiler);
-        this.extractInitialPatches = Tasks.unzip(project, "extractInitialPatches", this.initialPatches, caches.getVersionDirectory().dir("initial_patches"));
-        this.prepareApplyInitialDiffs = Tasks.unzip(
-                project,
-                "prepareApplyInitialDiffs",
-                this.decompileSrg.flatMap(Decompile::getDecompiledJar),
-                caches.getLocalDirectory().dir("decompileSrg/files")
+        this.decompileSrg = Tasks.tool(project, caches.getLocalDirectory(), "decompileSrg", Decompile.class, decompiler
+        );
+        this.extractInitialPatches = Tasks.unzip(project, "extractInitialPatches", this.initialPatches,
+            caches.getVersionDirectory().dir("initial_patches")
+        );
+        this.prepareApplyInitialDiffs = Tasks.unzip(project, "prepareApplyInitialDiffs",
+            this.decompileSrg.flatMap(Decompile::getDecompiledJar), caches.getLocalDirectory().dir("decompileSrg/files")
         );
         this.applyInitialDiffs = Tasks.register(project, "applyInitialDiffs", ApplyDiffs.class);
         this.remapSrg2Mcp = Tasks.register(project, "remapSrg2Mcp", RemapSrg2Mcp.class);
@@ -132,10 +129,12 @@ public final class MCPTasks {
         Tasks.group(GROUP_NAME, this.importMcpNames);
 
         this.prepareMcpInjectedSources.configure(task -> {
-            task.from(mappings.mcpConfigDirectory.map(dir -> dir.file("inject/mcp/MethodsReturnNonnullByDefault.java")), copySpec -> {
-                copySpec.into("mcp");
-                copySpec.rename(_ -> "MethodsReturnNonnullByDefault.java");
-            });
+            task.from(mappings.mcpConfigDirectory.map(dir -> dir.file("inject/mcp/MethodsReturnNonnullByDefault.java")),
+                copySpec -> {
+                    copySpec.into("mcp");
+                    copySpec.rename(_ -> "MethodsReturnNonnullByDefault.java");
+                }
+            );
             task.into(caches.getLocalDirectory().dir("sourceSets/injected/sources"));
         });
         this.decompileSrg.configure(task -> {
@@ -151,7 +150,10 @@ public final class MCPTasks {
             task.getModifiedDirectory().set(this.srgSourceDirectory);
         });
         this.remapSrg2Mcp.configure(task -> {
-            task.getSrgSource().set(this.applyInitialDiffs.flatMap(applyDiffs -> applyDiffs.getInPlace().get() ? applyDiffs.getOriginalDirectory() : applyDiffs.getModifiedDirectory()));
+            task.getSrgSource()
+                .set(this.applyInitialDiffs.flatMap(applyDiffs -> applyDiffs.getInPlace().get()
+                    ? applyDiffs.getOriginalDirectory()
+                    : applyDiffs.getModifiedDirectory()));
             task.getMethodMappings().from(mappings.methodMappings);
             task.getFieldMappings().from(mappings.fieldMappings);
             task.getParameterMappings().from(mappings.parameterMappings);
@@ -164,79 +166,92 @@ public final class MCPTasks {
             task.getMcpNames().from(mappings.mcpMappings);
             task.getConstructorsFile().set(mappings.constructors);
             task.getNamesDirectoryConfigured().set(names.getNamesDirectory().map(dir -> true).orElse(false));
-            task.getTinyFile().set(names.getNamesDirectory().file(MappingsExtension.NAMES_FILE).orElse(caches.getLocalDirectory().file("names/" + MappingsExtension.NAMES_FILE)));
+            task.getTinyFile()
+                .set(names.getNamesDirectory()
+                        .file(MappingsExtension.NAMES_FILE)
+                        .orElse(caches.getLocalDirectory().file("names/" + MappingsExtension.NAMES_FILE))
+                );
         });
 
-        this.discardInjectedJar = intermediates.discardAfterAll(
-                "discardInjectedJar",
-                List.of(this.decompileSrg, this.importMcpNames),
-                this.injectMetadata.flatMap(InjectMetadata::getInjectedJar)
+        this.discardInjectedJar = intermediates.discardAfterAll("discardInjectedJar",
+            List.of(this.decompileSrg, this.importMcpNames), this.injectMetadata.flatMap(InjectMetadata::getInjectedJar)
         );
-        intermediates.discardAfter(this.prepareApplyInitialDiffs, this.decompileSrg.flatMap(Decompile::getDecompiledJar));
+        intermediates.discardAfter(this.prepareApplyInitialDiffs, this.decompileSrg.flatMap(Decompile::getDecompiledJar)
+        );
     }
 
-    public void configureIntermediateRuns(
-            Project project,
-            CachesExtension caches,
-            MinecraftExtension minecraft,
-            LoaderExtension loader,
-            VanillaTasks vanilla,
-            IntermediateProcessor intermediates
+    public void configureIntermediateRuns(Project project, CachesExtension caches, MinecraftExtension minecraft,
+        LoaderExtension loader, VanillaTasks vanilla, IntermediateProcessor intermediates
     ) {
         if (!loader.getIntermediateRuns().get()) {
             return;
         }
-        registerIntermediateRuns(project, caches, minecraft, vanilla, project.getGradle().getStartParameter().isOffline());
+        registerIntermediateRuns(project, caches, minecraft, vanilla,
+            project.getGradle().getStartParameter().isOffline()
+        );
         intermediates.after(this.discardInjectedJar, this.runSrgClient, this.runSrgServer);
         RunRegistry.derived(project, this.runSrgClient, run -> intermediates.after(this.discardInjectedJar, run));
         RunRegistry.derived(project, this.runSrgServer, run -> intermediates.after(this.discardInjectedJar, run));
-        intermediates.after(
-                this.discardUniversalSrg,
-                stripForSrgRun(project, caches, vanilla, intermediates, this.applySAS, this.runSrgClient, Side.CLIENT, this.splitClientJar),
-                stripForSrgRun(project, caches, vanilla, intermediates, this.applySAS, this.runSrgServer, Side.SERVER, this.splitServerJar)
+        intermediates.after(this.discardUniversalSrg,
+            stripForSrgRun(project, caches, vanilla, intermediates, this.applySAS, this.runSrgClient, Side.CLIENT,
+                this.splitClientJar
+            ),
+            stripForSrgRun(project, caches, vanilla, intermediates, this.applySAS, this.runSrgServer, Side.SERVER,
+                this.splitServerJar
+            )
         );
     }
 
-    private void registerIntermediateRuns(Project project, CachesExtension caches, MinecraftExtension minecraft, VanillaTasks vanilla, boolean offline) {
+    private void registerIntermediateRuns(Project project, CachesExtension caches, MinecraftExtension minecraft,
+        VanillaTasks vanilla, boolean offline
+    ) {
         var srgSource = SourceSets.internal(project, "srgSource");
         var mcpSource = SourceSets.internal(project, "mcpSource");
         SourceSets.linkSource(srgSource, this.srgSourceDirectory);
         SourceSets.extendFromConfiguration(project, srgSource, vanilla.vanillaConfig);
         SourceSets.linkSource(mcpSource, this.mcpSourceDirectory);
         SourceSets.extendFromConfiguration(project, mcpSource, vanilla.vanillaConfig);
-        srgSource.configure(sourceSet -> project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class).configure(task -> {
-            task.dependsOn(this.applyInitialDiffs, this.prepareMcpInjectedSources);
-            task.source(this.prepareMcpInjectedSources.map(Copy::getDestinationDir));
-        }));
-        mcpSource.configure(sourceSet -> project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class).configure(task -> {
-            task.dependsOn(this.remapSrg2Mcp, this.prepareMcpInjectedSources);
-            task.source(this.prepareMcpInjectedSources.map(Copy::getDestinationDir));
-        }));
+        srgSource.configure(sourceSet -> project.getTasks()
+            .named(sourceSet.getCompileJavaTaskName(), JavaCompile.class)
+            .configure(task -> {
+                task.dependsOn(this.applyInitialDiffs, this.prepareMcpInjectedSources);
+                task.source(this.prepareMcpInjectedSources.map(Copy::getDestinationDir));
+            }));
+        mcpSource.configure(sourceSet -> project.getTasks()
+            .named(sourceSet.getCompileJavaTaskName(), JavaCompile.class)
+            .configure(task -> {
+                task.dependsOn(this.remapSrg2Mcp, this.prepareMcpInjectedSources);
+                task.source(this.prepareMcpInjectedSources.map(Copy::getDestinationDir));
+            }));
 
-        this.runSrgClient = stageRun(project, "runSrgClient", Side.CLIENT, Environment.SRG, caches, minecraft, vanilla, offline);
-        this.runSrgServer = stageRun(project, "runSrgServer", Side.SERVER, Environment.SRG, caches, minecraft, vanilla, offline);
-        var runReobfSrgClient = stageRun(project, "runReobfSrgClient", Side.CLIENT, Environment.REOBF_SRG, caches, minecraft, vanilla, offline);
-        var runReobfSrgServer = stageRun(project, "runReobfSrgServer", Side.SERVER, Environment.REOBF_SRG, caches, minecraft, vanilla, offline);
-        var runMcpClient = stageRun(project, "runMcpClient", Side.CLIENT, Environment.MCP, caches, minecraft, vanilla, offline);
-        var runMcpServer = stageRun(project, "runMcpServer", Side.SERVER, Environment.MCP, caches, minecraft, vanilla, offline);
-
-        RunRegistry.configure(
-                project,
-                this.runSrgClient,
-                task -> task.classpath(
-                        this.injectMetadata.flatMap(InjectMetadata::getInjectedJar),
-                        vanilla.vanillaConfig,
-                        this.splitClientJar.flatMap(SplitJar::getExtraJar)
-                )
+        this.runSrgClient = stageRun(project, "runSrgClient", Side.CLIENT, Environment.SRG, caches, minecraft, vanilla,
+            offline
         );
-        RunRegistry.configure(
-                project,
-                this.runSrgServer,
-                task -> task.classpath(
-                        this.injectMetadata.flatMap(InjectMetadata::getInjectedJar),
-                        vanilla.vanillaConfig,
-                        this.splitServerJar.flatMap(SplitJar::getExtraJar)
-                )
+        this.runSrgServer = stageRun(project, "runSrgServer", Side.SERVER, Environment.SRG, caches, minecraft, vanilla,
+            offline
+        );
+        var runReobfSrgClient = stageRun(project, "runReobfSrgClient", Side.CLIENT, Environment.REOBF_SRG, caches,
+            minecraft, vanilla, offline
+        );
+        var runReobfSrgServer = stageRun(project, "runReobfSrgServer", Side.SERVER, Environment.REOBF_SRG, caches,
+            minecraft, vanilla, offline
+        );
+        var runMcpClient = stageRun(project, "runMcpClient", Side.CLIENT, Environment.MCP, caches, minecraft, vanilla,
+            offline
+        );
+        var runMcpServer = stageRun(project, "runMcpServer", Side.SERVER, Environment.MCP, caches, minecraft, vanilla,
+            offline
+        );
+
+        RunRegistry.configure(project, this.runSrgClient,
+            task -> task.classpath(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar), vanilla.vanillaConfig,
+                this.splitClientJar.flatMap(SplitJar::getExtraJar)
+            )
+        );
+        RunRegistry.configure(project, this.runSrgServer,
+            task -> task.classpath(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar), vanilla.vanillaConfig,
+                this.splitServerJar.flatMap(SplitJar::getExtraJar)
+            )
         );
         RunRegistry.configure(project, runReobfSrgClient, task -> {
             task.dependsOn(SourceSets.compile(srgSource));
@@ -256,15 +271,8 @@ public final class MCPTasks {
         });
     }
 
-    private TaskProvider<RunMinecraft> stageRun(
-            Project project,
-            String name,
-            Side side,
-            Environment environment,
-            CachesExtension caches,
-            MinecraftExtension minecraft,
-            VanillaTasks vanilla,
-            boolean offline
+    private TaskProvider<RunMinecraft> stageRun(Project project, String name, Side side, Environment environment,
+        CachesExtension caches, MinecraftExtension minecraft, VanillaTasks vanilla, boolean offline
     ) {
         var run = RunRegistry.register(project, name, RunMinecraft.class);
         RunRegistry.configure(project, run, task -> {
@@ -281,20 +289,20 @@ public final class MCPTasks {
         return run;
     }
 
-    public void configureLoaderPipeline(
-            Project project,
-            CachesExtension caches,
-            LoaderExtension loader,
-            VanillaTasks vanilla,
-            IntermediateProcessor intermediates
+    public void configureLoaderPipeline(Project project, CachesExtension caches, LoaderExtension loader,
+        VanillaTasks vanilla, IntermediateProcessor intermediates
     ) {
         var installerTools = ToolConfigs.get(project, "installertools");
         var accessTransformerTool = ToolConfigs.get(project, "accesstransformer");
 
-        var extractInheritance = Tasks.tool(project, caches.getLocalDirectory(), "extractInheritance", ExtractInheritance.class, installerTools);
+        var extractInheritance = Tasks.tool(project, caches.getLocalDirectory(), "extractInheritance",
+            ExtractInheritance.class, installerTools
+        );
         this.checkSAS = Tasks.register(project, "checkSAS", CheckSAS.class);
         var applySAS = Tasks.register(project, "applySAS", ApplySAS.class);
-        var accessTransformSrgJar = Tasks.tool(project, caches.getLocalDirectory(), "accessTransformSrgJar", AccessTransform.class, accessTransformerTool);
+        var accessTransformSrgJar = Tasks.tool(project, caches.getLocalDirectory(), "accessTransformSrgJar",
+            AccessTransform.class, accessTransformerTool
+        );
 
         extractInheritance.configure(task -> {
             task.getInputJar().set(this.injectMetadata.flatMap(InjectMetadata::getInjectedJar));
@@ -317,55 +325,56 @@ public final class MCPTasks {
             task.getOutputJar().set(caches.getLocalDirectory().file("sas/srg-at.jar"));
         });
 
-        this.decompileSrg.configure(task -> task.getCompiledJar().set(accessTransformSrgJar.flatMap(AccessTransform::getOutputJar)));
-        this.importMcpNames.configure(task -> task.getSrgJar().set(accessTransformSrgJar.flatMap(AccessTransform::getOutputJar)));
+        this.decompileSrg.configure(task -> task.getCompiledJar()
+            .set(accessTransformSrgJar.flatMap(AccessTransform::getOutputJar)));
+        this.importMcpNames.configure(task -> task.getSrgJar()
+            .set(accessTransformSrgJar.flatMap(AccessTransform::getOutputJar)));
 
         this.applySAS = applySAS;
 
         intermediates.after(this.discardInjectedJar, extractInheritance, applySAS);
         intermediates.discardAfter(checkSAS, extractInheritance.flatMap(ExtractInheritance::getOutput));
         this.discardCheckSAS = intermediates.discardAfter(applySAS, checkSAS.flatMap(CheckSAS::getOutput));
-        this.discardUniversalSrg = intermediates.discardAfter(accessTransformSrgJar, applySAS.flatMap(ApplySAS::getOutputJar));
-        intermediates.discardAfterAll(
-                "discardAccessTransformedSrgJar",
-                List.of(this.decompileSrg, this.importMcpNames),
-                accessTransformSrgJar.flatMap(AccessTransform::getOutputJar)
+        this.discardUniversalSrg = intermediates.discardAfter(accessTransformSrgJar,
+            applySAS.flatMap(ApplySAS::getOutputJar)
+        );
+        intermediates.discardAfterAll("discardAccessTransformedSrgJar", List.of(this.decompileSrg, this.importMcpNames),
+            accessTransformSrgJar.flatMap(AccessTransform::getOutputJar)
         );
     }
 
-    private TaskProvider<StripSideOnlyJar> stripForSrgRun(
-            Project project,
-            CachesExtension caches,
-            VanillaTasks vanilla,
-            IntermediateProcessor intermediates,
-            TaskProvider<ApplySAS> applySAS,
-            TaskProvider<RunMinecraft> run,
-            Side side,
-            TaskProvider<SplitJar> split
+    private TaskProvider<StripSideOnlyJar> stripForSrgRun(Project project, CachesExtension caches, VanillaTasks vanilla,
+        IntermediateProcessor intermediates, TaskProvider<ApplySAS> applySAS, TaskProvider<RunMinecraft> run, Side side,
+        TaskProvider<SplitJar> split
     ) {
         var sideName = side.name().toLowerCase(Locale.ENGLISH);
-        var strip = Tasks.register(project, "stripSrg" + StringUtils.capitalize(sideName) + "Jar", StripSideOnlyJar.class);
+        var strip = Tasks.register(project, "stripSrg" + StringUtils.capitalize(sideName) + "Jar",
+            StripSideOnlyJar.class
+        );
         strip.configure(task -> {
             task.getInputJar().set(applySAS.flatMap(ApplySAS::getOutputJar));
             task.getTargetSide().set(side);
             task.getOutputJar().set(caches.getLocalDirectory().file("sas/" + sideName + "-srg.jar"));
         });
         var objects = project.getObjects();
-        RunRegistry.configure(
-                project,
-                run,
-                task -> task.setClasspath(
-                        objects.fileCollection()
-                                .from(strip.flatMap(StripSideOnlyJar::getOutputJar), vanilla.vanillaConfig, split.flatMap(SplitJar::getExtraJar))
-                )
+        RunRegistry.configure(project, run,
+            task -> task.setClasspath(objects.fileCollection()
+                    .from(strip.flatMap(StripSideOnlyJar::getOutputJar), vanilla.vanillaConfig,
+                        split.flatMap(SplitJar::getExtraJar)
+                    )
+            )
         );
         var discard = intermediates.discardAfter(run, strip.flatMap(StripSideOnlyJar::getOutputJar));
         RunRegistry.derived(project, run, derived -> intermediates.after(discard, derived));
         return strip;
     }
 
-    public void configureInitialPatches(Project project, CachesExtension caches, PatchesExtension patches, VanillaTasks vanilla, McpMappings mappings) {
-        mappings.configureInitialPatches(project, patches, vanilla, this.prepareApplyInitialDiffs, this.applyInitialDiffs);
+    public void configureInitialPatches(Project project, CachesExtension caches, PatchesExtension patches,
+        VanillaTasks vanilla, McpMappings mappings
+    ) {
+        mappings.configureInitialPatches(project, patches, vanilla, this.prepareApplyInitialDiffs,
+            this.applyInitialDiffs
+        );
     }
 
 }

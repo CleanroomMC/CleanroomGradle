@@ -27,8 +27,7 @@ class PluginApplyTest extends BaseFunctionalTest {
     void restrictsExclusiveGroupsToTheirDefaultRepository() throws IOException {
         this.repositoryArtifact("net.minecraftforge");
         Files.createDirectories(this.projectDir.resolve("empty-repository"));
-        this.project.vanilla(
-                """
+        this.project.vanilla("""
                 repositories {
                     maven {
                         name = 'Consumer'
@@ -58,16 +57,15 @@ class PluginApplyTest extends BaseFunctionalTest {
     }
 
     @ParameterizedTest
-    @ValueSource(
-            strings = {
-                    """
+    @ValueSource(strings = {
+            """
                     maven {
                         name = 'Consumer Forge'
                         url = layout.projectDirectory.dir('consumer-repository')
                         metadataSources { artifact() }
                     }
                     """,
-                    """
+            """
                     exclusiveContent {
                         forRepository {
                             maven {
@@ -79,13 +77,13 @@ class PluginApplyTest extends BaseFunctionalTest {
                         filter { includeGroup 'example.consumer' }
                     }
                     """
-            }
+        }
     )
     void consumerDuplicatesOfADefaultRepositoryStillResolve(String consumerRepository) throws IOException {
         this.repositoryArtifact("net.minecraftforge");
         this.repositoryArtifact("example.consumer");
         this.project.vanilla(
-                """
+            """
                 repositories {
                 %s
                 }
@@ -111,19 +109,19 @@ class PluginApplyTest extends BaseFunctionalTest {
                             .collect { it.url }.toSet().size() == 1
                 }
                 """.formatted(
-                        consumerRepository.indent(4)
-                )
-        );
+                consumerRepository.indent(4)));
 
-        assertThat(this.project.runner("resolveRepositoryContent", "--offline").build().task(":resolveRepositoryContent").getOutcome()).isEqualTo(
-                TaskOutcome.SUCCESS
-        );
+        assertThat(this.project
+                .runner("resolveRepositoryContent", "--offline")
+                .build()
+                .task(":resolveRepositoryContent")
+                .getOutcome()
+        ).isEqualTo(TaskOutcome.SUCCESS);
     }
 
     @Test
     void missingOfflineVersionMetadataHasRecovery() throws IOException {
-        this.project.vanilla(
-                """
+        this.project.vanilla("""
                 cleanroom {
                     caches.directory = layout.projectDirectory.dir('empty-cache')
                 }
@@ -131,21 +129,24 @@ class PluginApplyTest extends BaseFunctionalTest {
         );
         var cache = this.projectDir.resolve("empty-cache");
         Files.createDirectories(cache);
-        Files.writeString(
-                cache.resolve("version_manifest_v2.json"),
-                """
+        Files.writeString(cache.resolve("version_manifest_v2.json"),
+            """
                 {"versions":[{"id":"1.12.2","url":"https://example.invalid/version-meta.json","sha1":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}
                 """
         );
 
         var output = this.project.runner("cleanroomInfo", "--offline").buildAndFail().getOutput();
-        assertThat(output).contains("Gradle is offline and cached metadata for Minecraft 1.12.2 is missing or corrupt at");
+        assertThat(output
+        ).contains("Gradle is offline and cached metadata for Minecraft 1.12.2 is missing or corrupt at");
         assertThat(output).contains("https://example.invalid/version-meta.json");
         assertThat(output).contains("Run the requested task once without --offline");
     }
 
     private void repositoryArtifact(String group) throws IOException {
-        var artifact = this.projectDir.resolve("consumer-repository").resolve(group.replace('.', '/')).resolve("probe/1.0/probe-1.0.jar");
+        var artifact = this.projectDir
+            .resolve("consumer-repository")
+            .resolve(group.replace('.', '/'))
+            .resolve("probe/1.0/probe-1.0.jar");
         Files.createDirectories(artifact.getParent());
         Files.writeString(artifact, group);
     }

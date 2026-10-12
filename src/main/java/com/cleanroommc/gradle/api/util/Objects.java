@@ -43,6 +43,8 @@ import java.util.stream.Collectors;
 
 public final class Objects {
 
+    private Objects() { }
+
     public static <T> T extension(Project project, String name, Class<T> extensionClass, Object... args) {
         return project.getExtensions().create(name, extensionClass, args);
     }
@@ -57,7 +59,9 @@ public final class Objects {
         return provider;
     }
 
-    public static NamedDomainObjectProvider<Configuration> archive(Project project, String name, String description, String defaultNotation) {
+    public static NamedDomainObjectProvider<Configuration> archive(Project project, String name, String description,
+        String defaultNotation
+    ) {
         var provider = config(project, name, description);
         var factory = project.getDependencyFactory();
         provider.configure(config -> {
@@ -83,7 +87,9 @@ public final class Objects {
         var dependency = firstDependency(configuration);
         var version = dependency.getVersion();
         if (version == null) {
-            throw new IllegalStateException("Dependency '" + dependency + "' of configuration '" + configuration.getName() + "' has no version.");
+            throw new IllegalStateException("Dependency '" + dependency + "' of configuration '" +
+                    configuration.getName() + "' has no version."
+            );
         }
         return dependency.getGroup() + ":" + dependency.getName() + ":" + version;
     }
@@ -168,11 +174,15 @@ public final class Objects {
             try {
                 var url = new URI(Meta.MOJANG_PLAYER_API + URLEncoder.encode(username, StandardCharsets.UTF_8));
                 var request = HttpRequest.newBuilder(url).GET().build();
-                var json = IO.httpClient().send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)).body();
+                var json = IO.httpClient()
+                    .send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
+                    .body();
                 var root = IO.readJson(json, JsonObject.class);
                 if (root != null && root.has("id")) {
                     String encid = root.get("id").getAsString();
-                    String dashed = encid.replaceFirst("(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}+)", "$1-$2-$3-$4-$5");
+                    String dashed = encid.replaceFirst("(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}+)",
+                        "$1-$2-$3-$4-$5"
+                    );
                     uuid = UUID.fromString(dashed);
                     cacheProperties.setProperty(username, uuid.toString());
                     try (var os = FileUtils.openOutputStream(cache)) {
@@ -190,7 +200,5 @@ public final class Objects {
         // Fallback if no cached UUID nor internet, this is wrong but at least deterministic
         return uuid == null ? UUID.nameUUIDFromBytes(username.getBytes(StandardCharsets.UTF_8)) : uuid;
     }
-
-    private Objects() { }
 
 }

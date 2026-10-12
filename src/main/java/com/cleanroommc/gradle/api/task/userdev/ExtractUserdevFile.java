@@ -46,7 +46,9 @@ public abstract class ExtractUserdevFile extends DefaultTask {
         try (var zip = new ZipFile(artifact)) {
             var entry = zip.getEntry(getEntryPath().get());
             if (entry == null || entry.isDirectory()) {
-                throw new IllegalStateException(artifact + " is missing required userdev entry " + getEntryPath().get() + ".");
+                throw new IllegalStateException(artifact + " is missing required userdev entry " +
+                        getEntryPath().get() + "."
+                );
             }
             Files.createDirectories(output.getParent());
             try (var input = zip.getInputStream(entry)) {

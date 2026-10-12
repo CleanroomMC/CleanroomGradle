@@ -38,10 +38,6 @@ public final class MinecraftJarPipeline {
     static final String SERVER_EXTRA_JAR = "server-extra.jar";
     static final String MERGED_JAR = "merged.jar";
 
-    public static MinecraftJarPipeline register(Project project, CachesExtension caches, Spec spec) {
-        return new MinecraftJarPipeline(project, caches, spec);
-    }
-
     public final TaskProvider<SplitJar> splitClient;
     public final TaskProvider<SplitJar> splitServer;
     public final TaskProvider<MergeJars> merge;
@@ -54,7 +50,9 @@ public final class MinecraftJarPipeline {
 
         this.splitClient = Tasks.register(project, "split" + spec.infix + "ClientJar", SplitJar.class);
         this.splitServer = Tasks.register(project, "split" + spec.infix + "ServerJar", SplitJar.class);
-        this.merge = Tasks.tool(project, caches.getLocalDirectory(), "merge" + spec.infix + "Jars", MergeJars.class, mergetool);
+        this.merge = Tasks.tool(project, caches.getLocalDirectory(), "merge" + spec.infix + "Jars", MergeJars.class,
+            mergetool
+        );
         this.remapNotch2Srg = Tasks.register(project, "remap" + spec.infix + "Notch2Srg", RenameJar.class, renamer);
         this.inject = Tasks.register(project, "inject" + spec.infix + "Metadata", InjectMetadata.class);
 
@@ -91,6 +89,10 @@ public final class MinecraftJarPipeline {
             task.getExceptionsFile().set(spec.exceptions);
             task.getInjectedJar().set(spec.injectedJar);
         });
+    }
+
+    public static MinecraftJarPipeline register(Project project, CachesExtension caches, Spec spec) {
+        return new MinecraftJarPipeline(project, caches, spec);
     }
 
     public static final class Spec {

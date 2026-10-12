@@ -82,6 +82,66 @@ public abstract class WriteInstallProfile extends DefaultTask {
 
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
 
+    /**
+     * Appends an option a launcher reads more than once, such as {@code --tweakClass}, unless that exact pair is there.
+     */
+    private static void addOption(List<String> arguments, String key, String value) {
+        for (int i = 0; i < arguments.size() - 1; i++) {
+            if (arguments.get(i).equals(key) && arguments.get(i + 1).equals(value)) {
+                return;
+            }
+        }
+        arguments.add(key);
+        arguments.add(value);
+    }
+
+    /**
+     * Sets an option a launcher reads once, dropping whatever value the vanilla arguments carried.
+     */
+    private static void replaceOption(List<String> arguments, String key, String value) {
+        for (int i = arguments.size() - 2; i >= 0; i--) {
+            if (arguments.get(i).equals(key)) {
+                arguments.subList(i, i + 2).clear();
+            }
+        }
+        arguments.add(key);
+        arguments.add(value);
+    }
+
+    private static void addRepositories(Map<String, Set<String>> repositories, List<LibraryArtifact> libraries) {
+        for (var library : libraries) {
+            if (LibraryJson.isLocalRepository(library.getRepositoryUrl().get())) {
+                continue;
+            }
+            addRepository(repositories, Coordinate.parse(library.getCoordinate().get()),
+                library.getRepositoryUrl().get()
+            );
+        }
+    }
+
+    private static void addRepository(Map<String, Set<String>> repositories, Coordinate coordinate, String repositoryUrl
+    ) {
+        var url = LibraryJson.trailingSlash(repositoryUrl);
+        repositories.computeIfAbsent(coordinate.group(), ignored -> new TreeSet<>()).add(url);
+    }
+
+    private static String repositoryUrl(Artifact artifact) {
+        var path = artifact.coordinate().mavenPath();
+        if (!artifact.url().endsWith(path)) {
+            throw new GradleException("Artifact URL does not use Maven layout: " + artifact.url());
+        }
+        return artifact.url().substring(0, artifact.url().length() - path.length());
+    }
+
+    private static void writeJson(File output, JsonObject json) {
+        try {
+            Files.createDirectories(output.toPath().getParent());
+            Files.write(output.toPath(), (GSON.toJson(json) + "\n").getBytes(StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to write " + output, e);
+        }
+    }
+
     @Inject
     public abstract FileSystemOperations getFileSystemOperations();
 
@@ -164,7 +224,9 @@ public abstract class WriteInstallProfile extends DefaultTask {
     @TaskAction
     public void write() {
         var universalCoordinate = Coordinate.parse(getUniversalCoordinate().get());
-        var universal = LibraryJson.artifact(universalCoordinate, getUniversalJar().get().getAsFile().toPath(), getUniversalUrl().get());
+        var universal = LibraryJson.artifact(universalCoordinate, getUniversalJar().get().getAsFile().toPath(),
+            getUniversalUrl().get()
+        );
         var excluded = getLibraryExcludeRules().get();
         var artifacts = LibraryJson.resolve(universal, getLibraries().get());
         artifacts.removeIf(artifact -> drop(artifact, universal, excluded));
@@ -174,13 +236,16 @@ public abstract class WriteInstallProfile extends DefaultTask {
         artifacts.stream().filter(LibraryJson::isLocal).forEach(localArtifacts::add);
         natives.stream().filter(LibraryJson::isLocal).forEach(localArtifacts::add);
 
-        writeJson(getVersionJson().get().getAsFile(), versionJson(manifestUrls(artifacts), manifestUrls(natives), universal));
+        writeJson(getVersionJson().get().getAsFile(),
+            versionJson(manifestUrls(artifacts), manifestUrls(natives), universal)
+        );
         writeJson(getInstallProfile().get().getAsFile(), installProfile(universal, localArtifacts));
         writeEmbeddedLibraries(localArtifacts);
     }
 
     private boolean drop(Artifact artifact, Artifact universal, Set<String> excluded) {
-        return artifact.coordinate().sameArtifact(universal.coordinate()) || ResolvedLibraries.isExcluded(artifact.coordinate(), excluded);
+        return artifact.coordinate().sameArtifact(universal.coordinate()) ||
+            ResolvedLibraries.isExcluded(artifact.coordinate(), excluded);
     }
 
     private List<Artifact> manifestUrls(List<Artifact> artifacts) {
@@ -244,32 +309,6 @@ public abstract class WriteInstallProfile extends DefaultTask {
         return String.join(" ", arguments);
     }
 
-    /**
-     * Appends an option a launcher reads more than once, such as {@code --tweakClass}, unless that exact pair is there.
-     */
-    private static void addOption(List<String> arguments, String key, String value) {
-        for (int i = 0; i < arguments.size() - 1; i++) {
-            if (arguments.get(i).equals(key) && arguments.get(i + 1).equals(value)) {
-                return;
-            }
-        }
-        arguments.add(key);
-        arguments.add(value);
-    }
-
-    /**
-     * Sets an option a launcher reads once, dropping whatever value the vanilla arguments carried.
-     */
-    private static void replaceOption(List<String> arguments, String key, String value) {
-        for (int i = arguments.size() - 2; i >= 0; i--) {
-            if (arguments.get(i).equals(key)) {
-                arguments.subList(i, i + 2).clear();
-            }
-        }
-        arguments.add(key);
-        arguments.add(value);
-    }
-
     private JsonObject installProfile(Artifact universal, List<Artifact> localArtifacts) {
         var profile = new JsonObject();
         profile.addProperty("spec", SPEC);
@@ -286,9 +325,9 @@ public abstract class WriteInstallProfile extends DefaultTask {
         var libraries = new JsonArray();
         libraries.add(LibraryJson.embeddedLibrary(universal));
         localArtifacts.stream()
-                .sorted(Comparator.comparing(artifact -> artifact.coordinate().serialized()))
-                .map(LibraryJson::embeddedLibrary)
-                .forEach(libraries::add);
+            .sorted(Comparator.comparing(artifact -> artifact.coordinate().serialized()))
+            .map(LibraryJson::embeddedLibrary)
+            .forEach(libraries::add);
         profile.add("libraries", libraries);
         profile.add("processors", new JsonArray());
         profile.add("data", new JsonObject());
@@ -323,15 +362,6 @@ public abstract class WriteInstallProfile extends DefaultTask {
         return repositories;
     }
 
-    private static void addRepositories(Map<String, Set<String>> repositories, List<LibraryArtifact> libraries) {
-        for (var library : libraries) {
-            if (LibraryJson.isLocalRepository(library.getRepositoryUrl().get())) {
-                continue;
-            }
-            addRepository(repositories, Coordinate.parse(library.getCoordinate().get()), library.getRepositoryUrl().get());
-        }
-    }
-
     private void writeEmbeddedLibraries(List<Artifact> artifacts) {
         var output = getEmbeddedLibraries().get().getAsFile().toPath();
         getFileSystemOperations().delete(spec -> spec.delete(output));
@@ -344,28 +374,6 @@ public abstract class WriteInstallProfile extends DefaultTask {
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to embed local Maven libraries in " + output, e);
-        }
-    }
-
-    private static void addRepository(Map<String, Set<String>> repositories, Coordinate coordinate, String repositoryUrl) {
-        var url = LibraryJson.trailingSlash(repositoryUrl);
-        repositories.computeIfAbsent(coordinate.group(), ignored -> new TreeSet<>()).add(url);
-    }
-
-    private static String repositoryUrl(Artifact artifact) {
-        var path = artifact.coordinate().mavenPath();
-        if (!artifact.url().endsWith(path)) {
-            throw new GradleException("Artifact URL does not use Maven layout: " + artifact.url());
-        }
-        return artifact.url().substring(0, artifact.url().length() - path.length());
-    }
-
-    private static void writeJson(File output, JsonObject json) {
-        try {
-            Files.createDirectories(output.toPath().getParent());
-            Files.write(output.toPath(), (GSON.toJson(json) + "\n").getBytes(StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to write " + output, e);
         }
     }
 

@@ -50,18 +50,13 @@ public final class CleanroomTasks {
     public final TaskProvider<RunMinecraft> runCleanroomServer;
     public final TaskProvider<NsightExec> runCleanroomNsightClient;
 
-    public CleanroomTasks(
-            Project project,
-            ProjectCoordinates coordinates,
-            CachesExtension caches,
-            MinecraftExtension minecraft,
-            LoaderExtension loader,
-            PatchesExtension patches,
-            VanillaTasks vanilla,
-            MCPTasks mcp,
-            McpMappings mappings
+    public CleanroomTasks(Project project, ProjectCoordinates coordinates, CachesExtension caches,
+        MinecraftExtension minecraft, LoaderExtension loader, PatchesExtension patches, VanillaTasks vanilla,
+        MCPTasks mcp, McpMappings mappings
     ) {
-        var mainSourceSet = project.getExtensions().getByType(SourceSetContainer.class).named(SourceSet.MAIN_SOURCE_SET_NAME);
+        var mainSourceSet = project.getExtensions()
+            .getByType(SourceSetContainer.class)
+            .named(SourceSet.MAIN_SOURCE_SET_NAME);
         SourceSets.extendFromConfiguration(project, mainSourceSet, vanilla.vanillaConfig);
         var minecraftPatchDev = patches.getPatchDev().register("minecraft", env -> {
             var module = project.getLayout().getProjectDirectory().dir("module/minecraft");
@@ -74,13 +69,16 @@ public final class CleanroomTasks {
 
         this.setup = Tasks.register(project, "setup");
         this.setup.configure(task -> {
-            task.setDescription("Creates the loader environment by decompiling Minecraft and applying current patches.");
+            task.setDescription("Creates the loader environment by decompiling Minecraft and applying current patches."
+            );
             task.dependsOn(minecraftPatchDev.map(PatchDevEnvironment::getApplyDiffs), mcp.prepareMcpInjectedSources);
         });
 
         mainSourceSet.configure(sourceSet -> {
             sourceSet.getJava().srcDir(mcp.prepareMcpInjectedSources.map(Copy::getDestinationDir));
-            sourceSet.getJava().srcDir(minecraftPatchDev.flatMap(env -> env.getInitializeDiffs().flatMap(ApplyDiffs::getModifiedDirectory)));
+            sourceSet.getJava()
+                .srcDir(minecraftPatchDev.flatMap(env -> env.getInitializeDiffs()
+                    .flatMap(ApplyDiffs::getModifiedDirectory)));
             project.getTasks().named(sourceSet.getCompileJavaTaskName(), JavaCompile.class).configure(task -> {
                 task.dependsOn(minecraftPatchDev.map(PatchDevEnvironment::getPrepareEnvironment), mcp.prepareMcpInjectedSources);
                 task.mustRunAfter(minecraftPatchDev.map(PatchDevEnvironment::getApplyDiffs));

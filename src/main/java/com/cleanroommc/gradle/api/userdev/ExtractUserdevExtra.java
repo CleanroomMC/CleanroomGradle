@@ -27,13 +27,6 @@ import org.gradle.api.tasks.PathSensitivity;
 @CacheableTransform
 public abstract class ExtractUserdevExtra implements TransformAction<ExtractUserdevExtra.Parameters> {
 
-    public interface Parameters extends TransformParameters {
-
-        @Input
-        Property<String> getSide();
-
-    }
-
     @InputArtifact
     @PathSensitive(PathSensitivity.NONE)
     public abstract Provider<FileSystemLocation> getInputArtifact();
@@ -42,8 +35,20 @@ public abstract class ExtractUserdevExtra implements TransformAction<ExtractUser
     public void transform(TransformOutputs outputs) {
         var input = getInputArtifact().get().getAsFile();
         var config = UserdevConfig.readFromJar(input);
-        var prefix = (getParameters().getSide().get().equals("client") ? config.layout().clientExtra() : config.layout().serverExtra()) + "/";
-        UserdevArchive.select(input, outputs.file(getParameters().getSide().get() + "-extra.jar"), name -> name.startsWith(prefix), prefix);
+        var prefix = (getParameters().getSide().get().equals("client")
+                ? config.layout().clientExtra()
+                : config.layout().serverExtra()) +
+            "/";
+        UserdevArchive.select(input, outputs.file(getParameters().getSide().get() + "-extra.jar"),
+            name -> name.startsWith(prefix), prefix
+        );
+    }
+
+    public interface Parameters extends TransformParameters {
+
+        @Input
+        Property<String> getSide();
+
     }
 
 }

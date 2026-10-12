@@ -25,8 +25,7 @@ class PatchDevTest extends BaseFunctionalTest {
     void generateApplyAndPreserveDirtyEdits() throws IOException {
         Files.createDirectories(this.projectDir.resolve("build/input-src"));
         Files.writeString(this.projectDir.resolve("build/input-src/A.java"), "class A {}\n");
-        this.project.build(
-                """
+        this.project.build("""
                 cleanroom {
                     mode = 'vanilla'
                     patches {
@@ -53,7 +52,8 @@ class PatchDevTest extends BaseFunctionalTest {
         assertThat(Files.isDirectory(this.projectDir.resolve("custom-patches"))).isTrue();
 
         Files.writeString(output, "class A { int value; }\n");
-        assertThat(this.project.runner("generateExampleDiffs").build().task(":generateExampleDiffs").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
+        assertThat(this.project.runner("generateExampleDiffs").build().task(":generateExampleDiffs").getOutcome()
+        ).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(Files.exists(this.projectDir.resolve("custom-patches/A.java.patch"))).isTrue();
 
         Files.writeString(output, "class A { int stale; }\n");
@@ -72,8 +72,8 @@ class PatchDevTest extends BaseFunctionalTest {
         assertThat(second.task(":prepareExamplePatchDevEnvironment").getOutcome()).isEqualTo(TaskOutcome.SUCCESS);
         PluginBuild.reused(second.getOutput());
         assertThat(Files.readString(output))
-                .as("preparing the environment overwrote edits in the populated development source tree")
-                .isEqualTo("class A { int value; int working; }\n");
+            .as("preparing the environment overwrote edits in the populated development source tree")
+            .isEqualTo("class A { int value; int working; }\n");
     }
 
 }

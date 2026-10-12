@@ -22,6 +22,8 @@ import java.util.zip.ZipFile;
 
 final class UserdevArchive {
 
+    private UserdevArchive() { }
+
     static void select(File input, File output, Predicate<String> include, String stripPrefix) {
         try (var zip = new ZipFile(input); var out = IO.zipOut(output)) {
             var entries = new TreeMap<String, ZipEntry>();
@@ -42,7 +44,5 @@ final class UserdevArchive {
             throw new UncheckedIOException("Failed to materialize " + input, e);
         }
     }
-
-    private UserdevArchive() { }
 
 }

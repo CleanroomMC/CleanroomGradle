@@ -23,6 +23,11 @@ import javax.inject.Inject;
 @DisableCachingByDefault(because = "Executes a Maven-provided tool in an external JVM")
 public abstract class MavenJarExec extends LazilyConstructedJavaExec {
 
+    public MavenJarExec() {
+        this.getUseDefaultToolArguments().convention(true);
+        this.classpath(this.getToolClasspath());
+    }
+
     @Classpath
     public abstract ConfigurableFileCollection getToolClasspath();
 
@@ -35,11 +40,6 @@ public abstract class MavenJarExec extends LazilyConstructedJavaExec {
 
     @Inject
     public abstract ProviderFactory getProviders();
-
-    public MavenJarExec() {
-        this.getUseDefaultToolArguments().convention(true);
-        this.classpath(this.getToolClasspath());
-    }
 
     protected void defaultLogFile(String fileName) {
         this.getLogFile().fileProvider(this.getProviders().provider(() -> new File(this.getWorkingDir(), fileName)));

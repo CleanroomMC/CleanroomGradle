@@ -29,7 +29,9 @@ public class MaintenanceTasks {
     public final TaskProvider<Delete> cleanCleanroomSharedCache;
     public final TaskProvider<CleanroomInfo> cleanroomInfo;
 
-    public MaintenanceTasks(Project project, CachesExtension caches, MappingsExtension mappings, VanillaTasks vanillaTasks, String pluginVersion) {
+    public MaintenanceTasks(Project project, CachesExtension caches, MappingsExtension mappings,
+        VanillaTasks vanillaTasks, String pluginVersion
+    ) {
         this.cleanCleanroomSharedCache = Tasks.register(project, "cleanCleanroomSharedCache", Delete.class);
         this.cleanroomInfo = project.getTasks().register("cleanroomInfo", CleanroomInfo.class, task -> {
             task.setGroup(GROUP_NAME);
@@ -38,8 +40,7 @@ public class MaintenanceTasks {
             task.getMinecraftVersion().set(vanillaTasks.minecraftVersion);
             task.getOffline().set(project.getGradle().getStartParameter().isOffline());
             task.getDiscardIntermediates().set(caches.getDiscardIntermediates());
-            task.getNamesSource().set(mappings.getNamesDirectory().map(directory -> "Tiny v2 (" + directory.file(MappingsExtension.NAMES_FILE)
-                            .getAsFile() + ")").orElse("MCP CSV dependency"));
+            task.getNamesSource().set(mappings.getNamesDirectory().map(directory -> "Tiny v2 (" + directory.file(MappingsExtension.NAMES_FILE).getAsFile() + ")").orElse("MCP CSV dependency"));
             task.getSharedCacheDirectory().set(caches.getDirectory());
             task.getVersionCacheDirectory().set(vanillaTasks.versionCacheDirectory);
             task.getLocalCacheDirectory().set(caches.getLocalDirectory());

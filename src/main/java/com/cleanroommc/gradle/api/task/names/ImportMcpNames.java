@@ -71,17 +71,17 @@ public abstract class ImportMcpNames extends DefaultTask {
     @TaskAction
     public void importNames() {
         if (!getNamesDirectoryConfigured().getOrElse(false)) {
-            throw new InvalidUserDataException(
-                    "cleanroom.namesDirectory must be set before running importMcpNames " + "(it determines where mappings.tiny is written)."
+            throw new InvalidUserDataException("cleanroom.namesDirectory must be set before running importMcpNames " +
+                    "(it determines where mappings.tiny is written)."
             );
         }
 
         var namesZip = getMcpNames()
-                .getFiles()
-                .stream()
-                .filter(f -> f.getName().endsWith(".zip"))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No MCP names zip found: " + getMcpNames().getFiles()));
+            .getFiles()
+            .stream()
+            .filter(f -> f.getName().endsWith(".zip"))
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("No MCP names zip found: " + getMcpNames().getFiles()));
 
         var structure = JarStructure.scan(getSrgJar().getAsFile().get());
         var names = CsvNames.fromZip(namesZip);
@@ -104,12 +104,14 @@ public abstract class ImportMcpNames extends DefaultTask {
     private Map<String, List<TinyV2.Constructor>> readConstructors() {
         var byClass = new HashMap<String, List<TinyV2.Constructor>>();
         try {
-            for (var line : Files.readAllLines(getConstructorsFile().getAsFile().get().toPath(), StandardCharsets.UTF_8)) {
+            for (var line : Files.readAllLines(getConstructorsFile().getAsFile().get().toPath(), StandardCharsets.UTF_8
+            )) {
                 var parts = line.trim().split("\\s+");
                 if (parts.length < 3) {
                     continue;
                 }
-                byClass.computeIfAbsent(parts[1], k -> new ArrayList<>()).add(new TinyV2.Constructor("i" + parts[0], parts[2]));
+                byClass.computeIfAbsent(parts[1], k -> new ArrayList<>())
+                    .add(new TinyV2.Constructor("i" + parts[0], parts[2]));
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to read constructors.txt", e);

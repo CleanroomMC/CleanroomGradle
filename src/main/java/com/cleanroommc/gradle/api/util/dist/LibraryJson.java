@@ -38,6 +38,8 @@ import java.util.TreeMap;
  */
 public final class LibraryJson {
 
+    private LibraryJson() { }
+
     public static List<Artifact> resolve(Artifact universal, List<? extends LibraryArtifact> libraries) {
         return resolve(universal, libraries, Set.of());
     }
@@ -49,7 +51,9 @@ public final class LibraryJson {
      * @param libraries the component's declared libraries
      * @param inherited coordinates the parent component already supplies, which are skipped
      */
-    public static List<Artifact> resolve(Artifact universal, List<? extends LibraryArtifact> libraries, Set<String> inherited) {
+    public static List<Artifact> resolve(Artifact universal, List<? extends LibraryArtifact> libraries,
+        Set<String> inherited
+    ) {
         var artifacts = new TreeMap<String, Artifact>();
         artifacts.put(universal.coordinate().serialized(), universal);
 
@@ -69,10 +73,13 @@ public final class LibraryJson {
         return new ArrayList<>(artifacts.values());
     }
 
-    private static void resolveInto(Map<String, Artifact> artifacts, List<? extends LibraryArtifact> libraries, Set<String> inherited, Coordinate universal) {
+    private static void resolveInto(Map<String, Artifact> artifacts, List<? extends LibraryArtifact> libraries,
+        Set<String> inherited, Coordinate universal
+    ) {
         for (var input : libraries) {
             var coordinate = Coordinate.parse(input.getCoordinate().get());
-            if (inherited.contains(coordinate.serialized()) || universal != null && coordinate.sameArtifact(universal)) {
+            if (inherited.contains(coordinate.serialized()) ||
+                universal != null && coordinate.sameArtifact(universal)) {
                 continue;
             }
             var path = input.getFile().get().getAsFile().toPath();
@@ -109,7 +116,8 @@ public final class LibraryJson {
         // A classifier-only dependency is legal even when its base artifact was not selected
         for (var nativeArtifacts : natives.values()) {
             nativeArtifacts.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
-            output.add(nativeLibrary(nativeArtifacts.getFirst().coordinate().withoutClassifier(), nativeArtifacts, true));
+            output.add(nativeLibrary(nativeArtifacts.getFirst().coordinate().withoutClassifier(), nativeArtifacts, true
+            ));
         }
         return output;
     }
@@ -157,7 +165,9 @@ public final class LibraryJson {
         var output = new JsonArray();
         for (var artifact : natives) {
             var classifier = artifact.coordinate().classifier();
-            var library = nativeLibrary(artifact.coordinate().withoutClassifier(), new ArrayList<>(List.of(artifact)), false);
+            var library = nativeLibrary(artifact.coordinate().withoutClassifier(), new ArrayList<>(List.of(artifact)),
+                false
+            );
             var platform = classifierPlatform(classifier);
             if (platform != null) {
                 var nativeMap = new JsonObject();
@@ -191,7 +201,9 @@ public final class LibraryJson {
         if (classifier == null) {
             return null;
         }
-        var platform = classifier.startsWith(LwjglNatives.CLASSIFIER_PREFIX) ? classifier.substring(LwjglNatives.CLASSIFIER_PREFIX.length()) : classifier;
+        var platform = classifier.startsWith(LwjglNatives.CLASSIFIER_PREFIX)
+            ? classifier.substring(LwjglNatives.CLASSIFIER_PREFIX.length())
+            : classifier;
         var separator = platform.indexOf('-');
         var os = separator == -1 ? platform : platform.substring(0, separator);
         var arch = separator == -1 ? null : platform.substring(separator + 1);
@@ -210,8 +222,6 @@ public final class LibraryJson {
         }
         return new NativePlatform(os, arch);
     }
-
-    private record NativePlatform(String os, String arch) { }
 
     /**
      * A library entry whose file the installer embeds rather than downloads.
@@ -376,6 +386,6 @@ public final class LibraryJson {
         return value.endsWith("/") ? value : value + "/";
     }
 
-    private LibraryJson() { }
+    private record NativePlatform(String os, String arch) { }
 
 }

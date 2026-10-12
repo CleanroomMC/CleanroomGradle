@@ -32,9 +32,8 @@ class RunMinecraftTest extends BaseFunctionalTest {
         var crashed = List.of(1, 137);
         var source = this.projectDir.resolve("src/exiter/java/exiter/Exiter.java");
         Files.createDirectories(source.getParent());
-        Files.writeString(
-                source,
-                """
+        Files.writeString(source,
+            """
                 package exiter;
                 public final class Exiter {
                     public static void main(String[] args) {
@@ -44,7 +43,7 @@ class RunMinecraftTest extends BaseFunctionalTest {
                 """
         );
         this.project.vanilla(
-                """
+            """
                 import com.cleanroommc.gradle.api.task.mc.RunMinecraft
                 sourceSets { exiter }
                 def exiterJar = tasks.register('exiterJar', Jar) {
@@ -64,11 +63,9 @@ class RunMinecraftTest extends BaseFunctionalTest {
                         args code.toString()
                     }
                 }
-                """.formatted(
-                        stopped,
-                        crashed
-                )
-        );
+                """.formatted(stopped,
+                crashed
+            ));
 
         this.project.runner(stopped.stream().map(code -> "runExit" + code).toArray(String[]::new)).build();
 

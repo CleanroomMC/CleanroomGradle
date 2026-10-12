@@ -20,10 +20,15 @@ import java.nio.charset.StandardCharsets;
 
 public final class Execs {
 
+    private Execs() { }
+
     /**
      * Runs a tool with its console output buffered and replayed only when it fails.
      * The merge, access transformer and renamer tools each print every entry they process,
      * which buries a fresh workspace's first build under thousands of lines.
+     *
+     * @param operations runs the tool
+     * @param action configures the tool's launch, after the output streams are redirected
      */
     public static void quietJavaExec(ExecOperations operations, Action<? super JavaExecSpec> action) {
         var output = new ByteArrayOutputStream();
@@ -34,12 +39,10 @@ public final class Execs {
             action.execute(spec);
         });
         if (result.getExitValue() != 0) {
-            throw new GradleException(
-                    "Tool exited with code " + result.getExitValue() + ':' + System.lineSeparator() + output.toString(StandardCharsets.UTF_8)
+            throw new GradleException("Tool exited with code " + result.getExitValue() + ':' + System.lineSeparator() +
+                    output.toString(StandardCharsets.UTF_8)
             );
         }
     }
-
-    private Execs() { }
 
 }

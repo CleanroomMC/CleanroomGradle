@@ -24,6 +24,11 @@ import org.gradle.api.tasks.PathSensitivity;
 @CacheableTask
 public abstract class MergeJars extends MavenJarExec {
 
+    public MergeJars() {
+        this.getMainClass().convention("net.minecraftforge.mergetool.ConsoleMerger");
+        this.getInjectAnnotationMarkers().convention(false);
+    }
+
     @InputFile
     @PathSensitive(PathSensitivity.RELATIVE)
     public abstract RegularFileProperty getClientJar();
@@ -41,27 +46,13 @@ public abstract class MergeJars extends MavenJarExec {
     @OutputFile
     public abstract RegularFileProperty getMergedJar();
 
-    public MergeJars() {
-        this.getMainClass().convention("net.minecraftforge.mergetool.ConsoleMerger");
-        this.getInjectAnnotationMarkers().convention(false);
-    }
-
     @Override
     protected void beforeExec() {
         if (!this.getUseDefaultToolArguments().get()) {
             return;
         }
-        this.args(
-                "--client",
-                this.getClientJar(),
-                "--server",
-                this.getServerJar(),
-                "--output",
-                this.getMergedJar(),
-                "-ann",
-                this.getMinecraftVersion(),
-                "--inject",
-                this.getInjectAnnotationMarkers()
+        this.args("--client", this.getClientJar(), "--server", this.getServerJar(), "--output", this.getMergedJar(),
+            "-ann", this.getMinecraftVersion(), "--inject", this.getInjectAnnotationMarkers()
         );
     }
 

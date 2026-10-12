@@ -30,9 +30,9 @@ class EnumValuesTest {
     @Test
     void unknownValueListsConstants() {
         assertThatThrownBy(() -> EnumValues.parse(ProjectMode.class, "nope"))
-                .isInstanceOf(InvalidUserDataException.class)
-                .hasMessageContaining("Unknown ProjectMode 'nope'")
-                .hasMessageContaining("VANILLA, LOADER, USERDEV");
+            .isInstanceOf(InvalidUserDataException.class)
+            .hasMessageContaining("Unknown ProjectMode 'nope'")
+            .hasMessageContaining("VANILLA, LOADER, USERDEV");
     }
 
 }

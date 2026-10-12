@@ -30,6 +30,11 @@ import java.io.File;
 @CacheableTask
 public abstract class AccessTransform extends MavenJarExec {
 
+    public AccessTransform() {
+        this.defaultLogFile("accesstransform.log");
+        this.getMainClass().convention("net.minecraftforge.accesstransformer.TransformerProcessor");
+    }
+
     @Optional
     @InputFiles
     @SkipWhenEmpty
@@ -43,21 +48,11 @@ public abstract class AccessTransform extends MavenJarExec {
     @OutputFile
     public abstract RegularFileProperty getOutputJar();
 
-    public AccessTransform() {
-        this.defaultLogFile("accesstransform.log");
-        this.getMainClass().convention("net.minecraftforge.accesstransformer.TransformerProcessor");
-    }
-
     @Override
     protected void beforeExec() {
         if (this.getUseDefaultToolArguments().get()) {
-            this.args(
-                    "--inJar",
-                    this.getInputJar(),
-                    "--outJar",
-                    this.getOutputJar(),
-                    "--logFile",
-                    this.getLogFile().map(RegularFile::getAsFile).map(File::getName)
+            this.args("--inJar", this.getInputJar(), "--outJar", this.getOutputJar(), "--logFile",
+                this.getLogFile().map(RegularFile::getAsFile).map(File::getName)
             );
             for (var accessTransformer : this.getAccessTransformers()) {
                 this.args("--atFile", accessTransformer.getAbsolutePath());

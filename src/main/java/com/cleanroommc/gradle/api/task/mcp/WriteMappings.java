@@ -46,13 +46,14 @@ import javax.inject.Inject;
 @CacheableTask
 public abstract class WriteMappings extends DefaultTask {
 
-    public enum Direction {
+    // Held by hand: Gradle will not generate a managed property alongside a setter of another type
+    private final Property<Direction> direction;
+    private final Property<IMappingFile.Format> format;
 
-        OBF_TO_SRG,
-        SRG_TO_MCP,
-        MCP_TO_SRG,
-        MCP_TO_NOTCH
-
+    @Inject
+    public WriteMappings(ObjectFactory objects) {
+        this.direction = objects.property(Direction.class);
+        this.format = objects.property(IMappingFile.Format.class);
     }
 
     private static void readCsv(File file, Map<String, String> names) {
@@ -64,10 +65,6 @@ public abstract class WriteMappings extends DefaultTask {
             throw new RuntimeException("Failed to read MCP mapping csv: " + file, e);
         }
     }
-
-    // Held by hand: Gradle will not generate a managed property alongside a setter of another type
-    private final Property<Direction> direction;
-    private final Property<IMappingFile.Format> format;
 
     @InputFile
     @PathSensitive(PathSensitivity.NONE)
@@ -121,12 +118,6 @@ public abstract class WriteMappings extends DefaultTask {
     @OutputFile
     public abstract RegularFileProperty getOutput();
 
-    @Inject
-    public WriteMappings(ObjectFactory objects) {
-        this.direction = objects.property(Direction.class);
-        this.format = objects.property(IMappingFile.Format.class);
-    }
-
     @TaskAction
     public void writeMappings() throws IOException {
         var direction = this.getDirection().get();
@@ -145,7 +136,9 @@ public abstract class WriteMappings extends DefaultTask {
                 names.putAll(source.fields());
             } else {
                 if (!this.getMethodMappings().isPresent() || !this.getFieldMappings().isPresent()) {
-                    throw new InvalidUserDataException("Method and field mappings are required for direction " + direction + ".");
+                    throw new InvalidUserDataException("Method and field mappings are required for direction " +
+                            direction + "."
+                    );
                 }
                 readCsv(this.getMethodMappings().get().getAsFile(), names);
                 readCsv(this.getFieldMappings().get().getAsFile(), names);
@@ -176,6 +169,15 @@ public abstract class WriteMappings extends DefaultTask {
         var outputFile = this.getOutput().get().getAsFile();
         FileUtils.createParentDirectories(outputFile);
         result.write(outputFile.toPath(), this.getFormat().get(), false);
+    }
+
+    public enum Direction {
+
+        OBF_TO_SRG,
+        SRG_TO_MCP,
+        MCP_TO_SRG,
+        MCP_TO_NOTCH
+
     }
 
 }

@@ -53,33 +53,8 @@ public abstract class ApplyBinPatches extends DefaultTask {
     private static final String REMOVED_ENTRY = "META-INF/binpatch-removed.txt";
     private static final int SHA256_LENGTH = 32;
 
-    @InputFile
-    @PathSensitive(PathSensitivity.NONE)
-    public abstract RegularFileProperty getOriginalJar();
-
-    @InputFile
-    @PathSensitive(PathSensitivity.NONE)
-    public abstract RegularFileProperty getBinpatches();
-
-    /**
-     * Prefix the patch entries sit behind inside the archive, e.g. {@code binpatch/client/}.
-     */
-    @Input
-    public abstract Property<String> getPrefix();
-
-    @OutputFile
-    public abstract RegularFileProperty getPatchedJar();
-
     public ApplyBinPatches() {
         getPrefix().convention("");
-    }
-
-    @TaskAction
-    public void apply() {
-        Path original = getOriginalJar().getAsFile().get().toPath();
-        Path output = getPatchedJar().getAsFile().get().toPath();
-        var result = apply(original, getBinpatches().getAsFile().get().toPath(), getPrefix().get(), output);
-        getLogger().lifecycle("Binpatches: {} patched, {} added, {} removed -> {}", result.patched(), result.added(), result.removed(), output.getFileName());
     }
 
     public static Result apply(Path original, Path binpatches, String prefix, Path output) {
@@ -111,12 +86,10 @@ public abstract class ApplyBinPatches extends DefaultTask {
                 var missing = new LinkedHashSet<>(patches.deltas().keySet());
                 missing.removeAll(contents.keySet());
                 if (!missing.isEmpty()) {
-                    throw new IllegalStateException(
-                            ("%d class(es) that the binpatches change are absent from %s, " + "the original jar does not match the one the patches were generated against.").formatted(
-                                    missing.size(),
-                                    original.getFileName()
-                            )
-                    );
+                    throw new IllegalStateException(("%d class(es) that the binpatches change are absent from %s, " +
+                        "the original jar does not match the one the patches were generated against.").formatted(missing.size(),
+                        original.getFileName()
+                    ));
                 }
 
                 var outputNames = new TreeSet<>(contents.keySet());
@@ -185,14 +158,39 @@ public abstract class ApplyBinPatches extends DefaultTask {
         byte[] expected = Arrays.copyOf(patch, SHA256_LENGTH);
         byte[] actual = IO.sha256(original);
         if (!Arrays.equals(expected, actual)) {
-            throw new IllegalStateException(
-                    ("SHA-256 mismatch for %s: " + "the original class is not the one the binpatch was generated against. " +
-                            "Delete the cached Minecraft jars and let them re-download, " + "and make sure the userdev artifact targets this Minecraft version.").formatted(
-                            name
-                    )
-            );
+            throw new IllegalStateException(("SHA-256 mismatch for %s: " +
+                "the original class is not the one the binpatch was generated against. " +
+                "Delete the cached Minecraft jars and let them re-download, " +
+                "and make sure the userdev artifact targets this Minecraft version.").formatted(name));
         }
         return BinDelta.decode(original, Arrays.copyOfRange(patch, SHA256_LENGTH, patch.length));
+    }
+
+    @InputFile
+    @PathSensitive(PathSensitivity.NONE)
+    public abstract RegularFileProperty getOriginalJar();
+
+    @InputFile
+    @PathSensitive(PathSensitivity.NONE)
+    public abstract RegularFileProperty getBinpatches();
+
+    /**
+     * Prefix the patch entries sit behind inside the archive, e.g. {@code binpatch/client/}.
+     */
+    @Input
+    public abstract Property<String> getPrefix();
+
+    @OutputFile
+    public abstract RegularFileProperty getPatchedJar();
+
+    @TaskAction
+    public void apply() {
+        Path original = getOriginalJar().getAsFile().get().toPath();
+        Path output = getPatchedJar().getAsFile().get().toPath();
+        var result = apply(original, getBinpatches().getAsFile().get().toPath(), getPrefix().get(), output);
+        getLogger().lifecycle("Binpatches: {} patched, {} added, {} removed -> {}", result.patched(), result.added(),
+            result.removed(), output.getFileName()
+        );
     }
 
     private record Patches(Map<String, byte[]> deltas, Map<String, byte[]> added, Set<String> removed) { }
