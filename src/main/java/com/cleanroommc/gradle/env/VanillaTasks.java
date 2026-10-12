@@ -123,7 +123,9 @@ public final class VanillaTasks {
             "Minecraft platform natives for the " + spec.cacheName() + " environment."
         );
         this.vanillaConfig.configure(config -> config.withDependencies(dependencies -> {
-            addLibraries(factory, dependencies, this.versionMeta.get(), library -> library.isValidForOS(Platform.CURRENT));
+            addLibraries(factory, dependencies, this.versionMeta.get(),
+                library -> library.isValidForOS(Platform.CURRENT)
+            );
             ResolvedLibraries.removeExcluded(dependencies, config);
         }));
         var selectedVanillaVersions = project.provider(() -> selectedVersions(this.vanillaConfig.get()));

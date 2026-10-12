@@ -458,7 +458,8 @@ public final class DistributionTasks {
             task.setDescription("Packages the loader sources. Minecraft sources are built by each workspace.");
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);
-            task.from(mainSourceSet.map(SourceSet::getAllJava), spec -> spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**"));
+            task.from(mainSourceSet.map(SourceSet::getAllJava), spec -> spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**")
+            );
             task.getArchiveBaseName().set("cleanroom-userdev");
             task.getArchiveVersion().set(version);
             task.getArchiveClassifier().set("sources");
@@ -752,11 +753,7 @@ public final class DistributionTasks {
             configuration.extendsFrom(minecraftLibraries.get());
             // The project's runtime is copied rather than extended. It carries LWJGL 2 through the vanilla
             // libraries, and an inherited dependency cannot be dropped.
-            configuration.getDependencies().addAllLater(project.provider(() -> javaRuntimeElements.get()
-                .getAllDependencies()
-                .stream()
-                .filter(dependency -> !VanillaTasks.LWJGL2_GROUP.equals(dependency.getGroup()))
-                .toList()));
+            configuration.getDependencies().addAllLater(project.provider(() -> javaRuntimeElements.get().getAllDependencies().stream().filter(dependency -> !VanillaTasks.LWJGL2_GROUP.equals(dependency.getGroup())).toList()));
             configuration.getDependencyConstraints().addAllLater(project.provider(() -> List.copyOf(javaRuntimeElements.get().getAllDependencyConstraints())));
             project.afterEvaluate(evaluated -> {
                 for (var parent : javaRuntimeElements.get().getHierarchy()) {

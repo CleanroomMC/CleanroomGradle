@@ -94,7 +94,8 @@ final class UserdevFixture {
             ))
         );
         Files.writeString(universal.resolve("cleanroom-" + version + ".pom"),
-            pom("com.cleanroommc", "cleanroom", version).replace("<!-- do_not_remove: published-with-gradle-metadata -->\n", "")
+            pom("com.cleanroommc", "cleanroom", version
+            ).replace("<!-- do_not_remove: published-with-gradle-metadata -->\n", "")
         );
 
         var platform = Platform.CURRENT.canonicalNativePlatform();

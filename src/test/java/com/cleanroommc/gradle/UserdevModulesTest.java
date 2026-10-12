@@ -46,7 +46,8 @@ class UserdevModulesTest extends BaseFunctionalTest {
                 "cleanroom-userdev".equals(entry.getGradleModuleVersion().getName()))
             .toList();
         // The classes transform runs during the sync itself, so what the IDE lists is its two jars
-        assertThat(dependencies).as(model::output)
+        assertThat(dependencies)
+            .as(model::output)
             .extracting(entry -> entry.getFile().getName())
             .containsExactlyInAnyOrder("minecraft-patched.jar", "cleanroom-userdev.jar");
         for (var dependency : dependencies) {

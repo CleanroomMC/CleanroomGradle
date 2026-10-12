@@ -92,8 +92,8 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
         try (var zip = new ZipFile(jar)) {
             var entry = zip.getEntry(meta(FILE_NAME));
             if (entry == null) {
-                throw new IllegalStateException(jar + " is not a Cleanroom userdev spec " + SPEC + " artifact: missing " +
-                        meta(FILE_NAME) + "."
+                throw new IllegalStateException(jar + " is not a Cleanroom userdev spec " + SPEC +
+                        " artifact: missing " + meta(FILE_NAME) + "."
                 );
             }
             try (var input = zip.getInputStream(entry)) {
@@ -131,7 +131,8 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
             );
         }
         if (minecraft == null || loader == null || inputs == null || layout == null || runs == null) {
-            throw new IllegalStateException("Invalid Cleanroom userdev spec " + SPEC + ": minecraft, loader, inputs, layout and runs are required."
+            throw new IllegalStateException("Invalid Cleanroom userdev spec " + SPEC +
+                    ": minecraft, loader, inputs, layout and runs are required."
             );
         }
         require("minecraft.version", minecraft.version());

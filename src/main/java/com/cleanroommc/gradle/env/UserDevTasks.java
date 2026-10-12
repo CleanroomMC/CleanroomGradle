@@ -24,8 +24,8 @@ import com.cleanroommc.gradle.api.userdev.SelectPrepared;
 import com.cleanroommc.gradle.api.userdev.UserdevAttributes;
 import com.cleanroommc.gradle.api.userdev.UserdevDependency;
 import com.cleanroommc.gradle.api.util.Environment;
-import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.IO;
+import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.Platform;
 import com.cleanroommc.gradle.api.util.Property;
 import com.cleanroommc.gradle.api.util.dist.Repository;
@@ -33,7 +33,6 @@ import com.cleanroommc.gradle.api.util.dist.Repository;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-
 import org.apache.commons.lang3.StringUtils;
 
 import org.gradle.api.NamedDomainObjectProvider;
@@ -126,10 +125,11 @@ public final class UserDevTasks {
         deobf.getSrgLibraries().from(hierarchy);
         deobf.getSrgLibraries()
             .from(userdev.getRawConfiguration()
-                .getIncoming()
-                .artifactView(view -> view.getAttributes()
-                    .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, UserdevAttributes.SRG_TYPE))
-                .getFiles());
+                    .getIncoming()
+                    .artifactView(view -> view.getAttributes()
+                        .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, UserdevAttributes.SRG_TYPE))
+                    .getFiles()
+            );
 
         this.reobfJar = Tasks.register(project, "reobfJar", RenameJar.class, renamer);
         this.reobfJar.configure(task -> {
@@ -192,8 +192,7 @@ public final class UserDevTasks {
                     return;
                 }
                 var sources = (ExternalModuleDependency) userdev.getModuleDependency().copy();
-                sources.attributes(attributes -> attributes.attribute(UserdevAttributes.ROLE,
-                    UserdevAttributes.SOURCES
+                sources.attributes(attributes -> attributes.attribute(UserdevAttributes.ROLE, UserdevAttributes.SOURCES
                 ));
                 var configuration = project.getConfigurations().create(Repository.USERDEV_SOURCES_CONFIGURATION);
                 configuration.setCanBeConsumed(false);

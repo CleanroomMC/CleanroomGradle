@@ -13,9 +13,9 @@ package com.cleanroommc.gradle.api.util.dist;
 import com.cleanroommc.gradle.api.util.Property;
 
 import org.gradle.api.Project;
-import org.gradle.api.file.Directory;
 import org.gradle.api.artifacts.dsl.RepositoryHandler;
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository;
+import org.gradle.api.file.Directory;
 
 /**
  * Default maven repositories for CleanroomGradle environments.
@@ -27,6 +27,11 @@ public enum Repository {
         "net.minecraftforge", "de.oceanlabs.mcp"
     ),
     MOJANG("Mojang", "https://libraries.minecraft.net/");
+
+    /** Resolves the userdev artifact as published, past the sources mirror. */
+    public static final String USERDEV_RAW_CONFIGURATION = "_cleanroomUserdevRaw";
+    /** Builds the sources the mirror is filled with, so it has to resolve past the mirror too. */
+    public static final String USERDEV_SOURCES_CONFIGURATION = "_cleanroomUserdevSources";
 
     private final String id;
     private final String url;
@@ -43,11 +48,6 @@ public enum Repository {
         this.hasZips = hasZips;
         this.groups = groups;
     }
-
-    /** Resolves the userdev artifact as published, past the sources mirror. */
-    public static final String USERDEV_RAW_CONFIGURATION = "_cleanroomUserdevRaw";
-    /** Builds the sources the mirror is filled with, so it has to resolve past the mirror too. */
-    public static final String USERDEV_SOURCES_CONFIGURATION = "_cleanroomUserdevSources";
 
     // A project-local copy of the userdev module that adds the sources built on this machine
     public static Directory userdevSourcesMirror(Project project) {

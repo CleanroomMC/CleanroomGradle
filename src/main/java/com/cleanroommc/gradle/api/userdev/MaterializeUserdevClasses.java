@@ -63,8 +63,7 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
             var minecraftSrg = new File(prepared, PrepareUserdev.MINECRAFT_SRG);
             var loaderSrg = work.resolve("loader-srg.jar").toFile();
             UserdevArchive.select(userdev, loaderSrg,
-                name -> !name.startsWith(UserdevConfig.META + "/") && !name.matches("META-INF/[^/]+\\.(SF|RSA|DSA)"),
-                ""
+                name -> !name.startsWith(UserdevConfig.META + "/") && !name.matches("META-INF/[^/]+\\.(SF|RSA|DSA)"), ""
             );
             var mappings = UserdevArchive.extract(userdev, config.layout().srgToMcp(),
                 work.resolve("srg2mcp.tsrg").toFile()

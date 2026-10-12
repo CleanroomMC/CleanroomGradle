@@ -157,7 +157,8 @@ class UserdevPipelineTest extends BaseFunctionalTest {
      */
     @Test
     void nativesAndHierarchyResolveFromThePublishedModule() throws IOException {
-        this.project.build(UserdevFixture.PREAMBLE + """
+        this.project.build(UserdevFixture.PREAMBLE +
+                """
                 dependencies {
                     implementation cleanroom.userdev('0.9.9')
                 }

@@ -60,13 +60,14 @@ import javax.inject.Inject;
 @CacheableTransform
 public abstract class PrepareUserdev implements TransformAction<PrepareUserdev.Parameters> {
 
-    static final String USERDEV = "userdev.jar";
     /** Patched Minecraft in SRG names. */
     public static final String MINECRAFT_SRG = "minecraft-srg.jar";
-    /** Vanilla Minecraft in SRG names, which the shipped source patches apply to once decompiled. */
-    static final String SOURCE_INPUT = "source-input.jar";
     public static final String CLIENT_EXTRA = "client-extra.jar";
     public static final String SERVER_EXTRA = "server-extra.jar";
+
+    static final String USERDEV = "userdev.jar";
+    /** Vanilla Minecraft in SRG names, which the shipped source patches apply to once decompiled. */
+    static final String SOURCE_INPUT = "source-input.jar";
 
     @InputArtifact
     @PathSensitive(PathSensitivity.NONE)
@@ -104,17 +105,20 @@ public abstract class PrepareUserdev implements TransformAction<PrepareUserdev.P
             var stripped = work.resolve("vanilla-sas.jar");
             SideOnlyHandler.applySas(vanilla.toPath(), stripped,
                 List.of(UserdevArchive.extract(input, layout.sideAnnotationStrippers(),
-                    work.resolve("cleanroom.sas").toFile()
-                ).toPath())
+                        work.resolve("cleanroom.sas").toFile()
+                    )
+                        .toPath()
+                )
             );
             UserdevArchive.accessTransform(getExecOperations(), getParameters().getAccessTransformerClasspath(),
                 stripped.toFile(), new File(output, SOURCE_INPUT),
                 UserdevArchive.accessTransformers(input, layout.accessTransformers(), work), work.toFile()
             );
 
-            var binpatches = UserdevArchive.extract(getParameters().getUniversal().getSingleFile(),
-                layout.binpatches(), work.resolve("binpatches.zip").toFile()
-            ).toPath();
+            var binpatches = UserdevArchive.extract(getParameters().getUniversal().getSingleFile(), layout.binpatches(),
+                work.resolve("binpatches.zip").toFile()
+            )
+                .toPath();
             var clientPatched = work.resolve("client-patched.jar");
             var serverPatched = work.resolve("server-patched.jar");
             ApplyBinPatches.apply(client, binpatches, layout.clientBinpatches(), clientPatched);

@@ -99,7 +99,11 @@ public final class ResolvedLibraries {
     // Gradle publishes a declared dependency even when an exclude rule of the same configuration matches it
     public static void removeExcluded(Collection<Dependency> dependencies, Configuration configuration) {
         var rules = excludeRules(configuration);
-        dependencies.removeIf(dependency -> isExcluded(new Coordinate(dependency.getGroup(), dependency.getName(), null, null, null), rules));
+        dependencies.removeIf(dependency -> isExcluded(new Coordinate(dependency.getGroup(), dependency.getName(), null,
+                null, null
+            ),
+            rules
+        ));
     }
 
     public static boolean isExcluded(Coordinate coordinate, Set<String> rules) {

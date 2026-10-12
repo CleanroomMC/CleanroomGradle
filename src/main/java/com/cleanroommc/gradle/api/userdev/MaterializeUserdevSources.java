@@ -49,8 +49,8 @@ public abstract class MaterializeUserdevSources implements TransformAction<Mater
         var work = output.toPath().resolveSibling("sources-work");
         try {
             UserdevSourceMaterializer.materialize(input, new File(prepared, PrepareUserdev.SOURCE_INPUT),
-                output.toPath(), work, getParameters().getLibraries(),
-                getParameters().getDecompilerClasspath(), getExecOperations()
+                output.toPath(), work, getParameters().getLibraries(), getParameters().getDecompilerClasspath(),
+                getExecOperations()
             );
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to materialize sources from " + input, e);
