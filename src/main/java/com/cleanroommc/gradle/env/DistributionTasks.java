@@ -611,6 +611,7 @@ public final class DistributionTasks {
                     var dependencies = new ArrayList<Dependency>();
                     LwjglNatives.addFor(project, dependencies, classifier);
                     VanillaTasks.addNativesFor(project.getDependencyFactory(), dependencies, meta, Map.of(), platform);
+                    ResolvedLibraries.removeExcluded(dependencies, project.getConfigurations().getByName(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME));
                     return dependencies;
                 })
             );
@@ -724,6 +725,7 @@ public final class DistributionTasks {
             configuration.getDependencies().addAllLater(minecraft.getVersionMeta().map(meta -> {
                     var dependencies = new ArrayList<Dependency>();
                     VanillaTasks.addDistributionLibraries(project.getDependencyFactory(), dependencies, meta);
+                    ResolvedLibraries.removeExcluded(dependencies, configurations.getByName(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME));
                     return dependencies;
                 })
             );

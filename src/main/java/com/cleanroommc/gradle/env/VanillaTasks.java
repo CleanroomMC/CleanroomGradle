@@ -25,6 +25,7 @@ import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.Platform;
+import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 import com.cleanroommc.gradle.api.util.lazy.Providers;
 
 import de.undercouch.gradle.tasks.download.Download;
@@ -121,9 +122,10 @@ public final class VanillaTasks {
         this.vanillaNativesConfig = Objects.config(project, configurationName(spec, "vanillaNatives", "Natives"),
             "Minecraft platform natives for the " + spec.cacheName() + " environment."
         );
-        this.vanillaConfig.configure(config -> config.withDependencies(dependencies -> addLibraries(factory,
-            dependencies, this.versionMeta.get(), library -> library.isValidForOS(Platform.CURRENT)
-        )));
+        this.vanillaConfig.configure(config -> config.withDependencies(dependencies -> {
+            addLibraries(factory, dependencies, this.versionMeta.get(), library -> library.isValidForOS(Platform.CURRENT));
+            ResolvedLibraries.removeExcluded(dependencies, config);
+        }));
         var selectedVanillaVersions = project.provider(() -> selectedVersions(this.vanillaConfig.get()));
         this.vanillaNativesConfig.configure(config -> config.withDependencies(dependencies -> addNatives(factory,
             dependencies, this.versionMeta.get(), selectedVanillaVersions.get()

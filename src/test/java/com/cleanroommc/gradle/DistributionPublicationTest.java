@@ -103,6 +103,7 @@ class DistributionPublicationTest extends BaseFunctionalTest {
                 import org.gradle.nativeplatform.OperatingSystemFamily
                 group = 'com.cleanroommc'
                 version = '0.1.0'
+                configurations.configureEach { exclude group: 'com.mojang', module: 'patchy' }
                 ext.assertNatives = { suffix, os, architecture ->
                     def variant = configurations.getByName('cleanroomUserdev' + suffix + 'Elements')
                     assert variant.attributes.getAttribute(OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE).name == os
@@ -126,6 +127,7 @@ class DistributionPublicationTest extends BaseFunctionalTest {
                     def libraries = configurations.cleanroomUserdevMinecraftLibraries.allDependencies
                     assert libraries.any { it.group == 'com.mojang' && it.name == 'authlib' } : libraries
                     assert libraries.every { it.group != 'org.lwjgl.lwjgl' } : libraries
+                    assert libraries.every { it.name != 'patchy' } : 'an excluded module is still published'
                 """ +
                 natives + """
                 }

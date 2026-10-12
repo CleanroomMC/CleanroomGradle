@@ -12,6 +12,7 @@ package com.cleanroommc.gradle.api.util.dist;
 
 import org.gradle.api.GradleException;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.artifacts.component.ComponentIdentifier;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
@@ -23,6 +24,7 @@ import org.gradle.api.internal.artifacts.result.ResolvedComponentResultInternal;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Provider;
 
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -92,6 +94,12 @@ public final class ResolvedLibraries {
             }
         }
         return rules;
+    }
+
+    // Gradle publishes a declared dependency even when an exclude rule of the same configuration matches it
+    public static void removeExcluded(Collection<Dependency> dependencies, Configuration configuration) {
+        var rules = excludeRules(configuration);
+        dependencies.removeIf(dependency -> isExcluded(new Coordinate(dependency.getGroup(), dependency.getName(), null, null, null), rules));
     }
 
     public static boolean isExcluded(Coordinate coordinate, Set<String> rules) {
