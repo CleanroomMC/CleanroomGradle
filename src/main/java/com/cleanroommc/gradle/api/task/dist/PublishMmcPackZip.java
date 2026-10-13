@@ -301,6 +301,9 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         if (!tweakers.isEmpty()) {
             patch.add("+tweakers", tweakers);
         }
+        var traits = new JsonArray();
+        traits.add("FirstThreadOnMacOS");
+        patch.add("+traits", traits);
         patch.add("libraries", libraries);
         return patch;
     }

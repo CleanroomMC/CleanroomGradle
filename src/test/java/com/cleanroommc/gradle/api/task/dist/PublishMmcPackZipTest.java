@@ -172,8 +172,10 @@ class PublishMmcPackZipTest {
 
             var patch = json(zip, "patches/net.minecraftforge.json");
             assertThat(patch.keySet()).isEqualTo(Set.of("formatVersion", "name", "uid", "version", "requires",
-                "mainClass", "compatibleJavaMajors", "+tweakers", "libraries"
+                "mainClass", "compatibleJavaMajors", "+tweakers", "+traits", "libraries"
             ));
+            assertThat(patch.getAsJsonArray("+traits").asList().stream().map(element -> element.getAsString()).toList()
+            ).isEqualTo(List.of("FirstThreadOnMacOS"));
             assertThat(patch.has("order")).isFalse();
             assertThat(patch.has("releaseTime")).isFalse();
             assertThat(patch.has("+jvmArgs")).isFalse();
