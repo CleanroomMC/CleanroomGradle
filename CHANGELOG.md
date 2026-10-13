@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.21.1 - 2026-10-13
+
+### Build and Dependencies
+
+- **deps**: Update default installer to 0.2.1 *[commit by [@Rongmario](https://github.com/Rongmario) in [56f4a39](https://github.com/CleanroomMC/CleanroomGradle/commit/56f4a39ef15cda5e7d4d283b536d4a06f9530752)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.21.0...0.21.1
+
 ## 0.21.0 - 2026-10-13
 
 ### Bug Fix
