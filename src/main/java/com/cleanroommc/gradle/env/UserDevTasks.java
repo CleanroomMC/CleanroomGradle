@@ -152,7 +152,7 @@ public final class UserDevTasks {
         });
         project.getTasks().named("assemble").configure(task -> task.dependsOn(this.reobfJar));
 
-        var refmap = Property.USERDEV_REFMAP.value(project.getProviders());
+        var refmap = Property.USERDEV_REFMAP.value(project.getProviders()).filter(name -> !name.isBlank());
         if (refmap.isPresent()) {
             var graph = project.getConfigurations().named(HIERARCHY_CONFIGURATION);
             // The processors have to match the Mixin the loader runs, so the userdev's own graph picks the versions
