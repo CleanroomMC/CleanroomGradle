@@ -192,7 +192,7 @@ class ProjectModeTest extends BaseFunctionalTest {
         this.project.build("""
                 cleanroom.mode = 'loader'
                 dependencies {
-                    implementation cleanroom.userdev('0.7.0')
+                    implementation cleanroom.userdev('0.7.0-alpha')
                 }
                 """
         );

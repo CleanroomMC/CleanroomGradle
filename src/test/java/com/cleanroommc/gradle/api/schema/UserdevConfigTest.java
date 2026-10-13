@@ -42,7 +42,7 @@ class UserdevConfigTest {
     private static UserdevConfig valid() {
         var download = new UserdevConfig.Download("https://example.invalid/a.jar", "sha1");
         return new UserdevConfig(1, new UserdevConfig.Minecraft("1.12.2", download, download),
-            new UserdevConfig.Loader("0.7.0", "14.23.5.2860", "com.cleanroommc"),
+            new UserdevConfig.Loader("0.7.0-alpha", "14.23.5.2860", "com.cleanroommc"),
             new UserdevConfig.Inputs("mcp:config:1", "mcp:names:1", "patches:initial:1",
                 Map.of("accesstransformer", "t:at:1", "decompiler", "t:dec:1", "mergetool", "t:merge:1")
             ),
@@ -65,7 +65,7 @@ class UserdevConfigTest {
                     "client": {"url": "https://example.invalid/client.jar", "sha1": "client"},
                     "server": {"url": "https://example.invalid/server.jar", "sha1": "server"}
                   },
-                  "loader": {"version": "0.7.0", "forgeVersion": "14.23.5.2860", "group": "com.cleanroommc"},
+                  "loader": {"version": "0.7.0-alpha", "forgeVersion": "14.23.5.2860", "group": "com.cleanroommc"},
                   "inputs": {
                     "mcpConfig": "mcp:config:1",
                     "mappings": "mcp:names:1",
@@ -90,7 +90,7 @@ class UserdevConfigTest {
 
         var config = UserdevConfig.readFromJar(artifact.toFile());
         assertThat(config.minecraftVersion()).isEqualTo("1.12.2");
-        assertThat(config.loaderVersion()).isEqualTo("0.7.0");
+        assertThat(config.loaderVersion()).isEqualTo("0.7.0-alpha");
         assertThat(config.layout().mcpToSrg()).isEqualTo("userdev/mcp2srg.tsrg");
     }
 

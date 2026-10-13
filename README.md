@@ -45,8 +45,8 @@ Whereas a mod workspace (userdev) is activated by its dependency:
 
 ```groovy
 dependencies {
-    // Selects Cleanroom version 0.7.0
-    implementation cleanroom.userdev('0.7.0') {
+    // Selects Cleanroom version 0.7.0-alpha
+    implementation cleanroom.userdev('0.7.0-alpha') {
         accessTransformers.from('src/main/resources/META-INF/modid_at.cfg') // Optional
     }
 }

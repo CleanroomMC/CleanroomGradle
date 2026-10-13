@@ -23,12 +23,12 @@ class UserdevModulesTest extends BaseFunctionalTest {
 
     @Test
     void toolingImportSeesOneCombinedModuleAndSourcesWithoutSetup() throws IOException {
-        this.project.seedUserdevModule("0.7.0");
+        this.project.seedUserdevModule("0.7.0-alpha");
         this.project.build(UserdevFixture.PREAMBLE +
                 """
                 apply plugin: 'idea'
                 dependencies {
-                    implementation cleanroom.userdev('0.7.0')
+                    implementation cleanroom.userdev('0.7.0-alpha')
                 }
                 """
         );
@@ -52,7 +52,7 @@ class UserdevModulesTest extends BaseFunctionalTest {
             .containsExactlyInAnyOrder("minecraft-patched.jar", "cleanroom-userdev.jar");
         for (var dependency : dependencies) {
             assertThat(dependency.getGradleModuleVersion().getGroup()).isEqualTo("com.cleanroommc");
-            assertThat(dependency.getGradleModuleVersion().getVersion()).isEqualTo("0.7.0");
+            assertThat(dependency.getGradleModuleVersion().getVersion()).isEqualTo("0.7.0-alpha");
             assertThat(dependency.getSource()).as(model::output).isNotNull();
             try (var sources = new ZipFile(dependency.getSource())) {
                 assertThat(sources.getEntry("net/minecraft/Block.java")).isNotNull();

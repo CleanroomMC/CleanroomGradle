@@ -490,7 +490,7 @@ class DeobfExtensionTest extends BaseFunctionalTest {
         try (var jar = new JarOutputStream(Files.newOutputStream(userdev))) {
             // The deobf inputs are found through the layout this document declares, not by convention
             jar.putNextEntry(new ZipEntry(UserdevConfig.meta(UserdevConfig.FILE_NAME)));
-            jar.write(PluginBuild.userdevConfigJson("0.7.0").getBytes(StandardCharsets.UTF_8));
+            jar.write(PluginBuild.userdevConfigJson("0.7.0-alpha").getBytes(StandardCharsets.UTF_8));
             jar.closeEntry();
             jar.putNextEntry(new ZipEntry(UserdevConfig.meta(UserdevConfig.SRG2MCP)));
             jar.write(
