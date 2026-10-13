@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.21.0 - 2026-10-13
+
+### Bug Fix
+
+- **dist**: Validate every class of the side jars *[commit by [@Rongmario](https://github.com/Rongmario) in [fe03b8a](https://github.com/CleanroomMC/CleanroomGradle/commit/fe03b8a950abe337c8435b5f4094ecd7eb3190bf)]*
+- **sas**: Keep nested classes nothing in the jar refers to *[commit by [@Rongmario](https://github.com/Rongmario) in [67161b9](https://github.com/CleanroomMC/CleanroomGradle/commit/67161b95194ad5ad254f081710197622b9504ae3)]*
+- **mmc**: Add the FirstThreadOnMacOS trait to the MMC pack *[commit by [@Rongmario](https://github.com/Rongmario) in [222cb24](https://github.com/CleanroomMC/CleanroomGradle/commit/222cb24f208bb58fee9a80e80ba8f54d4138467a)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.20.0...0.21.0
+
 ## 0.20.0 - 2026-10-13
 
 ### Feature
