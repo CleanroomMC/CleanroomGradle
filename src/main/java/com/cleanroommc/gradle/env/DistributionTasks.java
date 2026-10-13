@@ -94,6 +94,7 @@ public final class DistributionTasks {
     private static final String GROUP_NAME = "cleanroom distribution";
     private static final String ARTIFACT_ID = "cleanroom";
     private static final String PUBLICATION = "maven";
+    private static final String OBFUSCATED_CLASSES = "*.class";
 
     public final TaskProvider<WriteMappings> writeMcp2Srg;
     public final TaskProvider<WriteMappings> writeObf2SrgTsrg;
@@ -267,34 +268,37 @@ public final class DistributionTasks {
             task.getLibraries().setFrom(vanilla.vanillaConfig, mainSourceSet.map(SourceSet::getCompileClasspath));
             task.getOutput().set(caches.getLocalDirectory().file("dist/reobf/" + ARTIFACT_ID + "-srg.jar"));
         });
-        var srgMinecraftJar = Tasks.register(project, "srgMinecraftJar", Jar.class);
-        srgMinecraftJar.configure(task -> {
-            task.setDescription("Assembles the Minecraft classes of the SRG named jar, for binpatch generation.");
-            task.setPreserveFileTimestamps(false);
-            task.setReproducibleFileOrder(true);
-            task.from(archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)),
-                spec -> spec.include(Meta.MINECRAFT_PACKAGE_PATH + "**")
-            );
-            task.getDestinationDirectory().set(caches.getLocalDirectory().dir("dist/reobf"));
-            task.getArchiveFileName().set("minecraft-srg.jar");
-        });
         this.reobfMinecraftJar.configure(task -> {
-            // The loader classes are left out, so no member is renamed through one of them. They ship in SRG
-            // names, and the runtime remapper only resolves an inherited name through obfuscated parents.
-            task.setDescription("Renames the Minecraft classes back to obfuscated names, for binpatch generation.");
-            task.getInput().set(srgMinecraftJar.flatMap(Jar::getArchiveFile));
+            // The loader classes are renamed along with Minecraft and ship that way. Coremods match obfuscated
+            // descriptors in them, and the runtime remapper only resolves an inherited name through obfuscated
+            // parents.
+            task.setDescription("Renames the SRG named jar back to obfuscated names, for the universal jar and "
+                + "binpatch generation."
+            );
+            task.getInput().set(this.reobfJar.flatMap(RenameJar::getOutput));
             task.getMap().setFrom(this.writeObf2SrgTsrg.flatMap(WriteMappings::getOutput));
             task.getReverse().set(true);
             task.getLibraries().setFrom(vanilla.vanillaConfig, mainSourceSet.map(SourceSet::getCompileClasspath));
-            task.getOutput().set(caches.getLocalDirectory().file("dist/reobf/minecraft-notch.jar"));
+            task.getOutput().set(caches.getLocalDirectory().file("dist/reobf/" + ARTIFACT_ID + "-notch.jar"));
+        });
+        var notchMinecraftJar = Tasks.register(project, "notchMinecraftJar", Jar.class);
+        notchMinecraftJar.configure(task -> {
+            task.setDescription("Assembles the Minecraft classes of the obfuscated jar, for binpatch generation.");
+            task.setPreserveFileTimestamps(false);
+            task.setReproducibleFileOrder(true);
+            task.from(archives.zipTree(this.reobfMinecraftJar.flatMap(RenameJar::getOutput)),
+                spec -> spec.include(OBFUSCATED_CLASSES, Meta.MINECRAFT_PACKAGE_PATH + "**")
+            );
+            task.getDestinationDirectory().set(caches.getLocalDirectory().dir("dist/reobf"));
+            task.getArchiveFileName().set("minecraft-notch.jar");
         });
         this.stripClientMinecraftJar.configure(task -> {
-            task.getInputJar().set(this.reobfMinecraftJar.flatMap(RenameJar::getOutput));
+            task.getInputJar().set(notchMinecraftJar.flatMap(Jar::getArchiveFile));
             task.getTargetSide().set(Side.CLIENT);
             task.getOutputJar().set(caches.getLocalDirectory().file("dist/reobf/minecraft-client.jar"));
         });
         this.stripServerMinecraftJar.configure(task -> {
-            task.getInputJar().set(this.reobfMinecraftJar.flatMap(RenameJar::getOutput));
+            task.getInputJar().set(notchMinecraftJar.flatMap(Jar::getArchiveFile));
             task.getTargetSide().set(Side.SERVER);
             task.getOutputJar().set(caches.getLocalDirectory().file("dist/reobf/minecraft-server.jar"));
         });
@@ -322,8 +326,8 @@ public final class DistributionTasks {
             task.getArchiveClassifier().set("universal");
             task.getInputs().property("manifestTimestamp", timestampProperty);
 
-            task.from(archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)),
-                spec -> spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**")
+            task.from(archives.zipTree(this.reobfMinecraftJar.flatMap(RenameJar::getOutput)),
+                spec -> spec.exclude(OBFUSCATED_CLASSES, Meta.MINECRAFT_PACKAGE_PATH + "**")
             );
             task.from(layout.getProjectDirectory(),
                 spec -> spec.include("CREDITS.txt", "LICENSE.txt", "LICENSE", "CHANGELOG.md",
@@ -593,12 +597,15 @@ public final class DistributionTasks {
             .getRootComponent()));
         this.userdevComponent = registerVariants(project, minecraft, components, targetJavaMajor);
 
-        intermediates.discardAfterAll(List.of(this.universalJar, this.userdevJar),
+        intermediates.discardAfterAll(List.of(this.reobfMinecraftJar, this.userdevJar),
             this.reobfJar.flatMap(RenameJar::getOutput)
         );
         intermediates.after(mcp.discardCheckSAS, this.userdevJar);
-        intermediates.discardAfterAll(List.of(this.stripClientMinecraftJar, this.stripServerMinecraftJar),
+        intermediates.discardAfterAll(List.of(notchMinecraftJar, this.universalJar),
             this.reobfMinecraftJar.flatMap(RenameJar::getOutput)
+        );
+        intermediates.discardAfterAll(List.of(this.stripClientMinecraftJar, this.stripServerMinecraftJar),
+            notchMinecraftJar.flatMap(Jar::getArchiveFile)
         );
         intermediates.discardAfter(this.genBinPatches,
             this.stripClientMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar),
