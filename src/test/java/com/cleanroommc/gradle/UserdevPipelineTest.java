@@ -212,6 +212,53 @@ class UserdevPipelineTest extends BaseFunctionalTest {
     }
 
     /**
+     * The refmap property brings in the processors at the versions the userdev module declares, and points
+     * them at the extracted mappings.
+     */
+    @Test
+    void refmapPropertyWiresTheMixinProcessor() throws IOException {
+        this.project.build(UserdevFixture.PREAMBLE +
+                """
+                dependencies { implementation cleanroom.userdev('0.7.0') }
+                tasks.register('readRefmap') {
+                    dependsOn 'extractUserdevMcpToSrg'
+                    def processors = configurations.annotationProcessor.incoming.dependencies
+                    def compile = tasks.named('compileJava')
+                    doLast {
+                        println 'PROCESSORS ' + processors.collect { it.group + ':' + it.name + ':' + it.version }
+                        println 'ARGS ' + compile.get().options.allCompilerArgs
+                    }
+                }
+                """
+        );
+        var args = this.project.userdevModuleArgs("0.7.0", "readRefmap", "-Pcg.userdev.refmap=mixins.modid.refmap.json"
+        );
+        var repository = this.projectDir.resolve("local-maven/com/cleanroommc");
+        var cleanmix = Files.createDirectories(repository.resolve("cleanmix/0.7.3"));
+        Files.writeString(cleanmix.resolve("cleanmix-0.7.3.pom"),
+            UserdevFixture.pom("com.cleanroommc", "cleanmix", "0.7.3")
+        );
+        Files.write(cleanmix.resolve("cleanmix-0.7.3.jar"), new byte[0]);
+        var module = repository.resolve("cleanroom-userdev/0.7.0/cleanroom-userdev-0.7.0.module");
+        var library = "{\"group\":\"com.cleanroommc\",\"module\":\"fixture-library\",\"version\":{\"requires\":\"1\"}}";
+        Files.writeString(module,
+            Files.readString(module)
+                .replace(library,
+                    library +
+                        ",{\"group\":\"com.cleanroommc\",\"module\":\"cleanmix\",\"version\":{\"requires\":\"0.7.3\"}}"
+                )
+        );
+
+        var output = this.project.plainRunner(args).build().getOutput();
+        assertThat(output).as(output).contains("PROCESSORS [com.cleanroommc:cleanmix:0.7.3]");
+        assertThat(output)
+            .as(output)
+            .contains("-AmappingTypes=tsrg, -AdefaultObfuscationEnv=searge, -AreobfTsrgFile=")
+            .contains("mcp2srg.tsrg, -AoutRefMapFile=")
+            .contains("classes/java/main/mixins.modid.refmap.json]");
+    }
+
+    /**
      * The tools a workspace rebuilds sources with default to the ones the artifact was produced by, a declared
      * dependency replaces one the same way it does in a loader build. Mergetool takes the loaded ASM because it reads
      * the loader's own classes, which are compiled past what the ASM it ships with understands.

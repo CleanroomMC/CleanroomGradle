@@ -38,6 +38,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.Configuration;
+import org.gradle.api.artifacts.Dependency;
 import org.gradle.api.artifacts.ExternalModuleDependency;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition;
@@ -47,16 +48,23 @@ import org.gradle.api.attributes.LibraryElements;
 import org.gradle.api.attributes.Usage;
 import org.gradle.api.file.Directory;
 import org.gradle.api.file.FileCollection;
+import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
+import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.OutputFile;
+import org.gradle.api.tasks.PathSensitive;
+import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.bundling.Jar;
+import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.nativeplatform.MachineArchitecture;
 import org.gradle.nativeplatform.OperatingSystemFamily;
 import org.gradle.plugins.ide.idea.model.IdeaModel;
+import org.gradle.process.CommandLineArgumentProvider;
 
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.renamer.gradle.RenameJar;
@@ -67,10 +75,12 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Set;
 
 public final class UserDevTasks {
 
     private static final String RUNS_GROUP = "cleanroom runs";
+    private static final String HIERARCHY_CONFIGURATION = "_cleanroomUserdevHierarchy";
 
     public final NamedDomainObjectProvider<Configuration> clientExtra;
     public final NamedDomainObjectProvider<Configuration> serverExtra;
@@ -141,6 +151,33 @@ public final class UserDevTasks {
             task.getLibraries().setFrom(main.map(SourceSet::getCompileClasspath));
         });
         project.getTasks().named("assemble").configure(task -> task.dependsOn(this.reobfJar));
+
+        var refmap = Property.USERDEV_REFMAP.value(project.getProviders());
+        if (refmap.isPresent()) {
+            var graph = project.getConfigurations().named(HIERARCHY_CONFIGURATION);
+            // The processors have to match the Mixin the loader runs, so the userdev's own graph picks the versions
+            var processors = project.provider(() -> graph.get()
+                .getIncoming()
+                .getResolutionResult()
+                .getAllComponents()
+                .stream()
+                .map(component -> component.getModuleVersion())
+                .filter(id -> id != null &&
+                    id.getGroup().equals("com.cleanroommc") &&
+                    Set.of("cleanmix", "mixinextras-common").contains(id.getName()))
+                .<Dependency>map(id -> project.getDependencyFactory()
+                    .create(id.getGroup(), id.getName(), id.getVersion()))
+                .toList());
+            project.getConfigurations()
+                .named(JavaPlugin.ANNOTATION_PROCESSOR_CONFIGURATION_NAME)
+                .configure(configuration -> configuration.getDependencies().addAllLater(processors));
+            project.getTasks().named(JavaPlugin.COMPILE_JAVA_TASK_NAME, JavaCompile.class).configure(task -> {
+                var arguments = project.getObjects().newInstance(RefmapArguments.class);
+                arguments.getMappings().set(this.extractMcpToSrg.flatMap(ExtractUserdevFile::getOutput));
+                arguments.getRefmap().set(task.getDestinationDirectory().file(refmap));
+                task.getOptions().getCompilerArgumentProviders().add(arguments);
+            });
+        }
 
         this.runClient = RunRegistry.register(project, "runClient", RunMinecraft.class);
         this.runServer = RunRegistry.register(project, "runServer", RunMinecraft.class);
@@ -310,7 +347,7 @@ public final class UserDevTasks {
      */
     private static FileCollection hierarchyConfiguration(Project project, UserdevDependency userdev) {
         var objects = project.getObjects();
-        var configuration = Objects.config(project, "_cleanroomUserdevHierarchy",
+        var configuration = Objects.config(project, HIERARCHY_CONFIGURATION,
             "Internal libraries the deobf renamer resolves types against."
         );
         configuration.configure(value -> value.attributes(attributes -> {
@@ -399,6 +436,29 @@ public final class UserDevTasks {
             transform.getTo().attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, UserdevAttributes.SRG_TYPE);
             transform.getParameters().getFile().set(PrepareUserdev.MINECRAFT_SRG);
         });
+    }
+
+    /**
+     * Has the Mixin annotation processor write a refmap into the class output, where both jars pick it up.
+     * The path is absolute because each of Mixin's processors writes the file, which the Filer allows once.
+     */
+    public abstract static class RefmapArguments implements CommandLineArgumentProvider {
+
+        @InputFile
+        @PathSensitive(PathSensitivity.NONE)
+        public abstract RegularFileProperty getMappings();
+
+        @OutputFile
+        public abstract RegularFileProperty getRefmap();
+
+        @Override
+        public Iterable<String> asArguments() {
+            return List.of("-AmappingTypes=tsrg", "-AdefaultObfuscationEnv=searge",
+                "-AreobfTsrgFile=" + this.getMappings().get().getAsFile().getAbsolutePath(),
+                "-AoutRefMapFile=" + this.getRefmap().get().getAsFile().getAbsolutePath()
+            );
+        }
+
     }
 
 }

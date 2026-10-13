@@ -17,6 +17,7 @@ public enum Property {
 
     ENABLE_EXCLUSIVE_LOCAL_MAVENS("cg.repos.enableLocal"),
     USERDEV_SOURCES("cg.userdev.sources"),
+    USERDEV_REFMAP("cg.userdev.refmap"),
     NSIGHT_ACTIVITY("cg.run.nsight_activity"),
     NSIGHT_NGFX_PATH("cg.run.nsight_ngfx_path");
 

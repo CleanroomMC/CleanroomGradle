@@ -211,6 +211,17 @@ publishing {
 }
 ```
 
+## Mixin Refmap
+
+Name the refmap in `gradle.properties` to have one generated for the main source set:
+
+```properties
+cg.userdev.refmap = mixins.modid.refmap.json
+```
+
+- The Mixin and MixinExtras annotation processors are added at the versions the selected Cleanroom uses.
+- The refmap is written into the class output, so both jars carry it. The Mixin config has to name the same file in `"refmap"`.
+
 ## Deobfuscation
 
 Wrap a SRG-named dependency in `deobf(...)` to have it deobfuscated before reaching the classpath:
