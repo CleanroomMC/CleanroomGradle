@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.22.0 - 2026-10-13
+
+### Bug Fix
+
+- **javadocs**: Do not append trailing whitespaces *[commit by [@Rongmario](https://github.com/Rongmario) in [47c2d52](https://github.com/CleanroomMC/CleanroomGradle/commit/47c2d52ef1bbb611b834771d9d36599dcd7ab2d2)]*
+- **binpatch**: Ship loader classes with obfuscated names where applicable *[commit by [@Rongmario](https://github.com/Rongmario) in [b696e02](https://github.com/CleanroomMC/CleanroomGradle/commit/b696e02035c8ac17c51e06ccf7f0ee2df20ff6a4)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.21.1...0.22.0
+
 ## 0.21.1 - 2026-10-13
 
 ### Build and Dependencies
