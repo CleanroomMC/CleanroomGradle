@@ -272,8 +272,8 @@ public final class DistributionTasks {
             // The loader classes are renamed along with Minecraft and ship that way. Coremods match obfuscated
             // descriptors in them, and the runtime remapper only resolves an inherited name through obfuscated
             // parents.
-            task.setDescription("Renames the SRG named jar back to obfuscated names, for the universal jar and "
-                + "binpatch generation."
+            task.setDescription("Renames the SRG named jar back to obfuscated names, for the universal jar and " +
+                    "binpatch generation."
             );
             task.getInput().set(this.reobfJar.flatMap(RenameJar::getOutput));
             task.getMap().setFrom(this.writeObf2SrgTsrg.flatMap(WriteMappings::getOutput));

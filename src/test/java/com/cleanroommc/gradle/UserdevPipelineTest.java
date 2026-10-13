@@ -231,7 +231,8 @@ class UserdevPipelineTest extends BaseFunctionalTest {
                 }
                 """
         );
-        var args = this.project.userdevModuleArgs("0.7.0-alpha", "readRefmap", "-Pcg.userdev.refmap=mixins.modid.refmap.json"
+        var args = this.project.userdevModuleArgs("0.7.0-alpha", "readRefmap",
+            "-Pcg.userdev.refmap=mixins.modid.refmap.json"
         );
         var repository = this.projectDir.resolve("local-maven/com/cleanroommc");
         var cleanmix = Files.createDirectories(repository.resolve("cleanmix/0.7.3"));
@@ -286,7 +287,10 @@ class UserdevPipelineTest extends BaseFunctionalTest {
                 """
         );
 
-        var output = this.project.plainRunner(this.project.userdevModuleArgs("0.7.0-alpha", "readTools")).build().getOutput();
+        var output = this.project
+            .plainRunner(this.project.userdevModuleArgs("0.7.0-alpha", "readTools"))
+            .build()
+            .getOutput();
         assertThat(output).as(output).contains("mergetool [example:replacement-merger:2.0]");
         assertThat(output).as(output).contains("accesstransformer [net.minecraftforge:accesstransformers:1.0]");
         assertThat(output).as(output).contains("decompiler [net.minecraftforge:decompiler:1.0]");
