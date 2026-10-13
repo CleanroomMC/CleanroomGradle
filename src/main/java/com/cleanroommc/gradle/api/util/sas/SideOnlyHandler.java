@@ -194,6 +194,7 @@ public final class SideOnlyHandler {
             }
         }
         addInnerClassesOfRemoved(classes.keySet(), removedClasses);
+        var unreferenced = unreachableInnerClasses(classes, removedClasses);
         var fieldsRemoved = 0;
         var methodsRemoved = 0;
         var annotationsRemoved = 0;
@@ -245,7 +246,9 @@ public final class SideOnlyHandler {
                 }
             }
         }
-        cascadeUnreachableInnerClasses(classes, removedClasses);
+        var orphaned = unreachableInnerClasses(classes, removedClasses);
+        orphaned.removeAll(unreferenced);
+        removedClasses.addAll(orphaned);
         addInnerClassesOfRemoved(classes.keySet(), removedClasses);
 
         for (var node : classes.values()) {
@@ -269,7 +272,7 @@ public final class SideOnlyHandler {
         return new TransformResult(removedClasses.size(), fieldsRemoved, methodsRemoved, annotationsRemoved);
     }
 
-    private static void cascadeUnreachableInnerClasses(Map<String, ClassNode> classes, Set<String> removedClasses) {
+    private static Set<String> unreachableInnerClasses(Map<String, ClassNode> classes, Set<String> removedClasses) {
         var reachable = new HashSet<String>();
         var worklist = new ArrayDeque<String>();
         for (var name : classes.keySet()) {
@@ -302,11 +305,13 @@ public final class SideOnlyHandler {
                 }
             }
         }
+        var unreachable = new HashSet<String>();
         for (var name : classes.keySet()) {
             if (name.indexOf('$') >= 0 && !removedClasses.contains(name) && !reachable.contains(name)) {
-                removedClasses.add(name);
+                unreachable.add(name);
             }
         }
+        return unreachable;
     }
 
     private static void addInnerClassesOfRemoved(Set<String> classNames, Set<String> removedClasses) {

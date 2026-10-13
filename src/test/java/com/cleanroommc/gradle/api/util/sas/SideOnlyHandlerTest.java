@@ -227,6 +227,21 @@ class SideOnlyHandlerTest {
     }
 
     @Test
+    void stripKeepsNestedClassNothingRefersTo() throws Exception {
+        var input = directory.resolve("in.jar");
+        var output = directory.resolve("out.jar");
+        writeJar(input,
+            Map.of("demo/Outer.class", outerWithNest("demo/Outer", "demo/Outer$Builder"), "demo/Outer$Builder.class",
+                plainInner("demo/Outer$Builder", "demo/Outer")
+            )
+        );
+
+        SideOnlyHandler.strip(input, output, Side.SERVER, true);
+
+        assertThat(readJar(output)).containsKey("demo/Outer$Builder.class");
+    }
+
+    @Test
     void stripValidatesOnlyTheEntriesItIsPointedAt() throws Exception {
         var input = directory.resolve("in.jar");
         writeJar(input,
