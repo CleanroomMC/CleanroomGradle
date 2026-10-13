@@ -150,7 +150,11 @@ public final class SourceRenamer {
         }
         var builder = new StringBuilder(indent).append("/**");
         for (String part : doc.split("\\\\n")) {
-            builder.append('\n').append(indent).append(" * ").append(part);
+            var trimmed = part.stripTrailing();
+            builder.append('\n').append(indent).append(" *");
+            if (!trimmed.isEmpty()) {
+                builder.append(' ').append(trimmed);
+            }
         }
         return builder.append('\n').append(indent).append(" */").toString();
     }
