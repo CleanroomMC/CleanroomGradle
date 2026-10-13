@@ -25,7 +25,7 @@ public abstract class LoaderExtension {
 
     public LoaderExtension() {
         getForgeVersion().convention("14.23.5.2864");
-        getInstallerVersion().convention("0.2.0");
+        getInstallerVersion().convention("0.2.1");
         getLaunchClass().convention("top.outlands.foundation.boot.Foundation");
         getClientLaunchClass().convention(getLaunchClass());
         getServerLaunchClass().convention(getLaunchClass());
