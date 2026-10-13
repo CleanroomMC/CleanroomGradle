@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.0 - 2026-10-13
+
+### Feature
+
+- **mixin**: Native refmap support *[commit by [@Rongmario](https://github.com/Rongmario) in [8e0cccd](https://github.com/CleanroomMC/CleanroomGradle/commit/8e0cccd173c4537e890746996623d5554a682e98)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.19.0...0.20.0
+
 ## 0.19.0 - 2026-10-12
 
 > [!WARNING]
