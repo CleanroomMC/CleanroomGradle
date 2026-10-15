@@ -29,6 +29,20 @@ public final class Providers {
         return targetJavaVersion(project).map(JavaLanguageVersion::asInt);
     }
 
+    public static Provider<String> targetJavaName(Project project) {
+        return targetJavaMajor(project).map(Providers::javaRuntimeName);
+    }
+
+    // mojang jre names
+    public static String javaRuntimeName(int major) {
+        if (major >= 29) return ""; 
+        if (major >= 25) return "java-runtime-epsilon";
+        if (major >= 21) return "java-runtime-delta";
+        if (major >= 17) return "java-runtime-beta";
+        if (major >= 16) return "java-runtime-alpha";
+        return "jre-legacy";
+    }
+
     public static Provider<JavaLauncher> javaLauncher(Project project) {
         return javaLauncher(project.getExtensions().getByType(JavaToolchainService.class), targetJavaVersion(project));
     }

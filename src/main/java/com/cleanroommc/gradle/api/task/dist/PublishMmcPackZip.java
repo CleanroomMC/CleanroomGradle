@@ -191,6 +191,9 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     public abstract ListProperty<Integer> getCompatibleJavaMajors();
 
     @Input
+    public abstract Property<String> getCompatibleJavaName();
+
+    @Input
     public abstract Property<String> getUniversalCoordinate();
 
     @Input
@@ -298,6 +301,11 @@ public abstract class PublishMmcPackZip extends DefaultTask {
             getCompatibleJavaMajors().get().forEach(javaMajors::add);
             patch.add("compatibleJavaMajors", javaMajors);
         }
+        
+        if (!getCompatibleJavaName().get().isEmpty()) {
+            patch.addProperty("compatibleJavaName", getCompatibleJavaName().get();
+        }
+        
         if (!tweakers.isEmpty()) {
             patch.add("+tweakers", tweakers);
         }
