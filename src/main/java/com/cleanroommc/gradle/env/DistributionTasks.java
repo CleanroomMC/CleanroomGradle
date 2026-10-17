@@ -136,6 +136,7 @@ public final class DistributionTasks {
 
         var javaExtension = project.getExtensions().getByType(JavaPluginExtension.class);
         var targetJavaMajor = Providers.targetJavaMajor(project);
+        var targetJavaName = Providers.targetJavaName(project);
         var mainSourceSet = javaExtension.getSourceSets().named(SourceSet.MAIN_SOURCE_SET_NAME);
         var jarTask = project.getTasks().named("jar", Jar.class);
 
@@ -474,6 +475,7 @@ public final class DistributionTasks {
             task.getMainClass().set(clientLaunchClass);
             task.getTweakers().set(clientTweakClass.map(List::of));
             task.getCompatibleJavaMajors().set(targetJavaMajor.map(List::of));
+            task.getCompatibleJavaName().set(targetJavaName);
             task.getUniversalCoordinate().set(universal.map(Coordinate::serialized));
             task.getUniversalUrl().set(universalUrl);
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
