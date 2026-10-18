@@ -109,6 +109,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     public PublishMmcPackZip() {
         getMinecraftVersion().convention(Meta.ONE_TRUE_MINECRAFT_VERSION);
         getEmbedUniversalJar().convention(true);
+        getCompatibleJavaName().convention("");
     }
 
     private static void addBlockedLibraries(JsonArray libraries, Set<String> blockedMinecraftModules) {
@@ -303,7 +304,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         }
         
         if (!getCompatibleJavaName().get().isEmpty()) {
-            patch.addProperty("compatibleJavaName", getCompatibleJavaName().get();
+            patch.addProperty("compatibleJavaName", getCompatibleJavaName().get());
         }
         
         if (!tweakers.isEmpty()) {
