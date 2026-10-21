@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   release:
-    uses: CleanroomMC/Conventions/.github/workflows/release.yml@1.4.0
+    uses: CleanroomMC/Conventions/.github/workflows/release.yml@1.4.3
     with:
       publish-plugin-portal: true
     secrets: inherit
