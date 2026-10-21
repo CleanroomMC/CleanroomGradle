@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.22.1 - 2026-10-21
+
+### Feature
+
+- **mmc**: Add compatibleJavaName hint for PrismLauncher *[PR by [@Rongmario](https://github.com/Rongmario) in [#4](https://github.com/CleanroomMC/CleanroomGradle/pull/4)]*
+- **mmc**: Add compatibleJavaName hint for PrismLauncher *[commit by [@Dan4oby](https://github.com/Dan4oby) in [07cf50f](https://github.com/CleanroomMC/CleanroomGradle/commit/07cf50f5706cb2ef58bd98fc981fb8fd710808cf)]*
+
+### Bug Fix
+
+- Set convention on compatibleJavaName property and fix typo *[commit by [@Rongmario](https://github.com/Rongmario) in [1df8f5c](https://github.com/CleanroomMC/CleanroomGradle/commit/1df8f5c2a192addbfdda13bf89347d8c84cb33d7)]*
+
+### Build and Dependencies
+
+- **deps**: Update conventions to 1.4.3 *[commit by [@Rongmario](https://github.com/Rongmario) in [6003408](https://github.com/CleanroomMC/CleanroomGradle/commit/6003408b04a716e624cc690e573b22cc21f935db)]*
+- **deps**: Update installer to 0.3.0 *[commit by [@Rongmario](https://github.com/Rongmario) in [15f1423](https://github.com/CleanroomMC/CleanroomGradle/commit/15f14236f2b977c4f51450b0fd27c594f4711f82)]*
+
+### First-time Contributors
+
+- **[@Dan4oby](https://github.com/Dan4oby) made their first contribution!**
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.22.0...0.22.1
+
 ## 0.22.0 - 2026-10-13
 
 ### Bug Fix
