@@ -142,8 +142,8 @@ public abstract class GenerateDiffs extends DefaultTask {
         var stamp = new File(patchesDir, ".mappings.json");
         try {
             patchesDir.mkdirs();
-            FileUtils.writeStringToFile(stamp, new GsonBuilder().setPrettyPrinting().create().toJson(json),
-                StandardCharsets.UTF_8
+            FileUtils.writeStringToFile(
+                stamp, new GsonBuilder().setPrettyPrinting().create().toJson(json), StandardCharsets.UTF_8
             );
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to write mapping-identity stamp " + stamp, e);

@@ -46,9 +46,6 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
     @PathSensitive(PathSensitivity.RELATIVE)
     public abstract Provider<FileSystemLocation> getInputArtifact();
 
-    @Inject
-    protected abstract ExecOperations getExecOperations();
-
     @Override
     public void transform(TransformOutputs outputs) {
         var prepared = getInputArtifact().get().getAsFile();
@@ -62,18 +59,21 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
             Files.createDirectories(work);
             var minecraftSrg = new File(prepared, PrepareUserdev.MINECRAFT_SRG);
             var loaderSrg = work.resolve("loader-srg.jar").toFile();
-            UserdevArchive.select(userdev, loaderSrg,
-                name -> !name.startsWith(UserdevConfig.META + "/") && !name.matches("META-INF/[^/]+\\.(SF|RSA|DSA)"), ""
+            UserdevArchive.select(
+                userdev, loaderSrg,
+                name -> !name.startsWith(UserdevConfig.META + "/") && !name.matches("META-INF/[^/]+\\.(SF|RSA|DSA)"),
+                ""
             );
-            var mappings = UserdevArchive.extract(userdev, config.layout().srgToMcp(),
-                work.resolve("srg2mcp.tsrg").toFile()
+            var mappings = UserdevArchive.extract(
+                userdev, config.layout().srgToMcp(), work.resolve("srg2mcp.tsrg").toFile()
             );
 
             var ats = UserdevArchive.accessTransformers(userdev, config.layout().accessTransformers(), work);
             ats.addAll(getParameters().getAccessTransformers().getFiles());
             var minecraftAt = work.resolve("minecraft-at.jar").toFile();
-            UserdevArchive.accessTransform(getExecOperations(), getParameters().getAccessTransformerClasspath(),
-                minecraftSrg, minecraftAt, ats, work.toFile()
+            UserdevArchive.accessTransform(
+                getExecOperations(), getParameters().getAccessTransformerClasspath(), minecraftSrg, minecraftAt, ats,
+                work.toFile()
             );
 
             rename(minecraftAt, minecraft, mappings, loaderSrg);
@@ -84,11 +84,14 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
         }
     }
 
+    @Inject
+    protected abstract ExecOperations getExecOperations();
+
     private void rename(File input, File output, File mappings, File library) {
         var libraries = new ArrayList<>(List.of(library));
         getParameters().getLibraries().forEach(libraries::add);
-        UserdevArchive.rename(getExecOperations(), getParameters().getRenamerClasspath(), input, output, mappings,
-            libraries
+        UserdevArchive.rename(
+            getExecOperations(), getParameters().getRenamerClasspath(), input, output, mappings, libraries
         );
     }
 

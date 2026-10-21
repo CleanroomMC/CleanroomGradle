@@ -39,7 +39,8 @@ public final class Execs {
             action.execute(spec);
         });
         if (result.getExitValue() != 0) {
-            throw new GradleException("Tool exited with code " + result.getExitValue() + ':' + System.lineSeparator() +
+            throw new GradleException(
+                "Tool exited with code " + result.getExitValue() + ':' + System.lineSeparator() +
                     output.toString(StandardCharsets.UTF_8)
             );
         }

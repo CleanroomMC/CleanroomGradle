@@ -50,8 +50,8 @@ public final class MinecraftJarPipeline {
 
         this.splitClient = Tasks.register(project, "split" + spec.infix + "ClientJar", SplitJar.class);
         this.splitServer = Tasks.register(project, "split" + spec.infix + "ServerJar", SplitJar.class);
-        this.merge = Tasks.tool(project, caches.getLocalDirectory(), "merge" + spec.infix + "Jars", MergeJars.class,
-            mergetool
+        this.merge = Tasks.tool(
+            project, caches.getLocalDirectory(), "merge" + spec.infix + "Jars", MergeJars.class, mergetool
         );
         this.remapNotch2Srg = Tasks.register(project, "remap" + spec.infix + "Notch2Srg", RenameJar.class, renamer);
         this.inject = Tasks.register(project, "inject" + spec.infix + "Metadata", InjectMetadata.class);

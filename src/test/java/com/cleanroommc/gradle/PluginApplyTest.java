@@ -27,29 +27,30 @@ class PluginApplyTest extends BaseFunctionalTest {
     void restrictsExclusiveGroupsToTheirDefaultRepository() throws IOException {
         this.repositoryArtifact("net.minecraftforge");
         Files.createDirectories(this.projectDir.resolve("empty-repository"));
-        this.project.vanilla("""
-                repositories {
-                    maven {
-                        name = 'Consumer'
-                        url = layout.projectDirectory.dir('consumer-repository')
-                        metadataSources {
-                            artifact()
+        this.project.vanilla(
+            """
+                    repositories {
+                        maven {
+                            name = 'Consumer'
+                            url = layout.projectDirectory.dir('consumer-repository')
+                            metadataSources {
+                                artifact()
+                            }
                         }
                     }
-                }
-                repositories.named('CleanroomMC') {
-                    url = layout.projectDirectory.dir('empty-repository')
-                }
-                configurations {
-                    repositoryProbe
-                }
-                dependencies {
-                    repositoryProbe 'net.minecraftforge:probe:1.0'
-                }
-                tasks.register('resolveRepositoryContent') {
-                    inputs.files(configurations.repositoryProbe)
-                }
-        """
+                    repositories.named('CleanroomMC') {
+                        url = layout.projectDirectory.dir('empty-repository')
+                    }
+                    configurations {
+                        repositoryProbe
+                    }
+                    dependencies {
+                        repositoryProbe 'net.minecraftforge:probe:1.0'
+                    }
+                    tasks.register('resolveRepositoryContent') {
+                        inputs.files(configurations.repositoryProbe)
+                    }
+            """
         );
 
         var failure = this.project.runner("resolveRepositoryContent", "--offline").buildAndFail();
@@ -57,61 +58,61 @@ class PluginApplyTest extends BaseFunctionalTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
+    @ValueSource(
+        strings = {
             """
+            maven {
+                name = 'Consumer Forge'
+                url = layout.projectDirectory.dir('consumer-repository')
+                metadataSources { artifact() }
+            }
+            """,
+            """
+            exclusiveContent {
+                forRepository {
                     maven {
                         name = 'Consumer Forge'
                         url = layout.projectDirectory.dir('consumer-repository')
                         metadataSources { artifact() }
                     }
-                    """,
+                }
+                filter { includeGroup 'example.consumer' }
+            }
             """
-                    exclusiveContent {
-                        forRepository {
-                            maven {
-                                name = 'Consumer Forge'
-                                url = layout.projectDirectory.dir('consumer-repository')
-                                metadataSources { artifact() }
-                            }
-                        }
-                        filter { includeGroup 'example.consumer' }
-                    }
-                    """
         }
     )
     void consumerDuplicatesOfADefaultRepositoryStillResolve(String consumerRepository) throws IOException {
         this.repositoryArtifact("net.minecraftforge");
         this.repositoryArtifact("example.consumer");
-        this.project.vanilla(
-            """
-                repositories {
-                %s
-                }
-                repositories.named('CleanroomMC') {
-                    url = layout.projectDirectory.dir('consumer-repository')
-                }
-                configurations {
-                    forgeRepositoryProbe
-                    consumerRepositoryProbe
-                }
-                dependencies {
-                    forgeRepositoryProbe 'net.minecraftforge:probe:1.0'
-                    consumerRepositoryProbe 'example.consumer:probe:1.0'
-                }
-                tasks.register('resolveRepositoryContent') {
-                    inputs.files(configurations.forgeRepositoryProbe, configurations.consumerRepositoryProbe)
-                    doLast {
-                        assert inputs.files.files.size() == 2
-                    }
-                }
-                afterEvaluate {
-                    assert repositories.findAll { it.name in ['CleanroomMC', 'Consumer Forge'] }
-                            .collect { it.url }.toSet().size() == 1
-                }
-                """.formatted(
-                consumerRepository.indent(4)));
+        this.project.vanilla("""
+                             repositories {
+                             %s
+                             }
+                             repositories.named('CleanroomMC') {
+                                 url = layout.projectDirectory.dir('consumer-repository')
+                             }
+                             configurations {
+                                 forgeRepositoryProbe
+                                 consumerRepositoryProbe
+                             }
+                             dependencies {
+                                 forgeRepositoryProbe 'net.minecraftforge:probe:1.0'
+                                 consumerRepositoryProbe 'example.consumer:probe:1.0'
+                             }
+                             tasks.register('resolveRepositoryContent') {
+                                 inputs.files(configurations.forgeRepositoryProbe, configurations.consumerRepositoryProbe)
+                                 doLast {
+                                     assert inputs.files.files.size() == 2
+                                 }
+                             }
+                             afterEvaluate {
+                                 assert repositories.findAll { it.name in ['CleanroomMC', 'Consumer Forge'] }
+                                         .collect { it.url }.toSet().size() == 1
+                             }
+                             """.formatted(consumerRepository.indent(4)));
 
-        assertThat(this.project
+        assertThat(
+            this.project
                 .runner("resolveRepositoryContent", "--offline")
                 .build()
                 .task(":resolveRepositoryContent")
@@ -121,23 +122,26 @@ class PluginApplyTest extends BaseFunctionalTest {
 
     @Test
     void missingOfflineVersionMetadataHasRecovery() throws IOException {
-        this.project.vanilla("""
-                cleanroom {
-                    caches.directory = layout.projectDirectory.dir('empty-cache')
-                }
-                """
+        this.project.vanilla(
+            """
+            cleanroom {
+                caches.directory = layout.projectDirectory.dir('empty-cache')
+            }
+            """
         );
         var cache = this.projectDir.resolve("empty-cache");
         Files.createDirectories(cache);
-        Files.writeString(cache.resolve("version_manifest_v2.json"),
+        Files.writeString(
+            cache.resolve("version_manifest_v2.json"),
             """
-                {"versions":[{"id":"1.12.2","url":"https://example.invalid/version-meta.json","sha1":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}
-                """
+            {"versions":[{"id":"1.12.2","url":"https://example.invalid/version-meta.json","sha1":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}
+            """
         );
 
         var output = this.project.runner("cleanroomInfo", "--offline").buildAndFail().getOutput();
-        assertThat(output
-        ).contains("Gradle is offline and cached metadata for Minecraft 1.12.2 is missing or corrupt at");
+        assertThat(output).contains(
+            "Gradle is offline and cached metadata for Minecraft 1.12.2 is missing or corrupt at"
+        );
         assertThat(output).contains("https://example.invalid/version-meta.json");
         assertThat(output).contains("Run the requested task once without --offline");
     }

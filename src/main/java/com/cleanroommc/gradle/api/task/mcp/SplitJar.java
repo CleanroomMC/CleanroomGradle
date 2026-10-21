@@ -76,7 +76,8 @@ public abstract class SplitJar extends DefaultTask {
 
     @TaskAction
     public void splitJar() throws IOException {
-        split(this.getSourceJar().get().getAsFile(), this.getSrgMappingFile().get().getAsFile(),
+        split(
+            this.getSourceJar().get().getAsFile(), this.getSrgMappingFile().get().getAsFile(),
             this.getSlimJar().get().getAsFile(), this.getExtraJar().get().getAsFile()
         );
     }

@@ -24,9 +24,8 @@ public final class MinecraftRuns {
 
     private MinecraftRuns() { }
 
-    public static void caches(RunMinecraft task, CachesExtension caches, Provider<VersionMeta> versionMeta,
-        boolean offline
-    ) {
+    public static void caches(
+        RunMinecraft task, CachesExtension caches, Provider<VersionMeta> versionMeta, boolean offline) {
         var assets = caches.getDirectory().dir("assets");
         var uuidCache = caches.getDirectory().file("uuid_cache.properties");
         task.getVanillaAssetsLocation().set(assets);
@@ -35,14 +34,15 @@ public final class MinecraftRuns {
         task.getVersionMeta().convention(versionMeta);
         task.getAssetIndexVersion().convention(versionMeta.map(VersionMeta::assetIndexId));
         task.getUUID()
-            .convention(task.getUsername()
+            .convention(
+                task.getUsername()
                     .zip(uuidCache, (user, cache) -> Objects.resolveUuid(offline, cache.getAsFile(), user).toString())
             );
     }
 
-    public static void fml(RunMinecraft task, boolean client, Provider<String> launchClass, Provider<String> tweakClass,
-        Provider<?> srgToMcp
-    ) {
+    public static void fml(
+        RunMinecraft task, boolean client, Provider<String> launchClass, Provider<String> tweakClass,
+        Provider<?> srgToMcp) {
         task.getMainClass().set(launchClass);
         task.args("--tweakClass", tweakClass);
         task.systemProperty("net.minecraftforge.gradle.GradleStart.srg.srg-mcp", srgToMcp);

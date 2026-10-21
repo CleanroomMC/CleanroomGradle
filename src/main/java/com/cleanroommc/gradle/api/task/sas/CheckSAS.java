@@ -49,9 +49,8 @@ import java.util.TreeSet;
 @CacheableTask
 public abstract class CheckSAS extends DefaultTask {
 
-    private static Set<Target> validateRoot(Map<String, JsonObject> inheritance, Set<String> classRoots,
-        Set<String> errors, Target root
-    ) {
+    private static Set<Target> validateRoot(
+        Map<String, JsonObject> inheritance, Set<String> classRoots, Set<String> errors, Target root) {
         var generated = new TreeSet<Target>();
         var cls = inheritance.get(root.owner());
         if (cls == null) {
@@ -62,9 +61,9 @@ public abstract class CheckSAS extends DefaultTask {
         return generated;
     }
 
-    private static void validateKind(Map<String, JsonObject> inheritance, Set<String> classRoots, Set<String> errors,
-        Target root, Set<Target> generated, JsonObject cls
-    ) {
+    private static void validateKind(
+        Map<String, JsonObject> inheritance, Set<String> classRoots, Set<String> errors, Target root,
+        Set<Target> generated, JsonObject cls) {
         switch (root.kind()) {
             case CLASS -> validateClassRoot(inheritance, root, cls, generated, errors);
             case FIELD -> validateFieldRoot(root, cls, classRoots, errors);
@@ -72,9 +71,8 @@ public abstract class CheckSAS extends DefaultTask {
         }
     }
 
-    private static void validateClassRoot(Map<String, JsonObject> inheritance, Target root, JsonObject cls,
-        Set<Target> generated, Set<String> errors
-    ) {
+    private static void validateClassRoot(
+        Map<String, JsonObject> inheritance, Target root, JsonObject cls, Set<Target> generated, Set<String> errors) {
         if (!hasSideOnly(cls)) {
             errors.add(root.format() + ": class is not annotated with legacy @SideOnly");
             return;
@@ -112,9 +110,9 @@ public abstract class CheckSAS extends DefaultTask {
         }
     }
 
-    private static void validateMethodRoot(Map<String, JsonObject> inheritance, Target root, JsonObject cls,
-        Set<String> classRoots, Set<Target> generated, Set<String> errors
-    ) {
+    private static void validateMethodRoot(
+        Map<String, JsonObject> inheritance, Target root, JsonObject cls, Set<String> classRoots, Set<Target> generated,
+        Set<String> errors) {
         if (hasSideOnly(cls) && !classRoots.contains(root.owner())) {
             errors.add(root.format() + ": declaring class is also @SideOnly; add a class SAS root");
             return;
@@ -192,8 +190,8 @@ public abstract class CheckSAS extends DefaultTask {
 
     @TaskAction
     public void check() throws IOException {
-        Map<String, JsonObject> parsed = IO.readJson(this.getInheritance().get().getAsFile(),
-            new TypeToken<Map<String, JsonObject>>() { }.getType()
+        Map<String, JsonObject> parsed = IO.readJson(
+            this.getInheritance().get().getAsFile(), new TypeToken<Map<String, JsonObject>>() { }.getType()
         );
         Map<String, JsonObject> inheritance = parsed == null ? Map.of() : parsed;
 
@@ -206,7 +204,8 @@ public abstract class CheckSAS extends DefaultTask {
             }
         }
         if (!duplicates.isEmpty()) {
-            throw new GradleException("Duplicate legacy side annotation stripper roots:\n  " +
+            throw new GradleException(
+                "Duplicate legacy side annotation stripper roots:\n  " +
                     String.join("\n  ", duplicates.stream().map(Target::format).toList())
             );
         }
@@ -233,13 +232,14 @@ public abstract class CheckSAS extends DefaultTask {
     private void finishValidation(Map<Target, SasLine> roots, Set<String> errors, Map<Target, Set<Target>> expanded)
         throws IOException {
         if (!errors.isEmpty()) {
-            throw new GradleException("Invalid legacy side annotation stripper entries:\n  " +
-                    String.join("\n  ", errors)
+            throw new GradleException(
+                "Invalid legacy side annotation stripper entries:\n  " + String.join("\n  ", errors)
             );
         }
         writeOutput(roots, expanded);
         this.getLogger()
-            .lifecycle("Validated {} SAS roots and generated {} dependent targets", roots.size(),
+            .lifecycle(
+                "Validated {} SAS roots and generated {} dependent targets", roots.size(),
                 expanded.values().stream().mapToInt(Set::size).sum()
             );
     }

@@ -67,7 +67,8 @@ public abstract class CleanroomGradle implements Plugin<Project> {
         var runs = project.getExtensions().create("cleanroomRuns", RunRegistry.class, project, ext.getRuns());
         project.getDependencies()
             .getAttributesSchema()
-            .attribute(UserdevAttributes.ROLE,
+            .attribute(
+                UserdevAttributes.ROLE,
                 strategy -> strategy.getDisambiguationRules().add(UserdevAttributes.PreferClasses.class)
             );
         project.getDependencies().getExtensions().add("cleanroomUserdev", new RemovedUserdevDependency());
@@ -83,7 +84,8 @@ public abstract class CleanroomGradle implements Plugin<Project> {
         intermediates.getDiscardIntermediates().set(ext.getCaches().getDiscardIntermediates());
 
         project.getPluginManager()
-            .withPlugin("base",
+            .withPlugin(
+                "base",
                 plugin -> project.getTasks()
                     .named("clean", Delete.class)
                     .configure(task -> task.delete(ext.getCaches().getLocalDirectory()))
@@ -98,8 +100,8 @@ public abstract class CleanroomGradle implements Plugin<Project> {
         var deferred = new ArrayList<Action<Project>>();
         ext.onModeSelected(mode -> {
             var vanillaTasks = new VanillaTasks(project, ext.getCaches(), ext.getMinecraft());
-            var maintenanceTasks = new MaintenanceTasks(project, ext.getCaches(), ext.getMappings(), vanillaTasks,
-                pluginVersion
+            var maintenanceTasks = new MaintenanceTasks(
+                project, ext.getCaches(), ext.getMappings(), vanillaTasks, pluginVersion
             );
             switch (mode) {
                 case LOADER -> {
@@ -108,46 +110,49 @@ public abstract class CleanroomGradle implements Plugin<Project> {
                     project.getPlugins().apply("maven-publish");
                     var mappings = new McpMappings(project, ext.getCaches(), ext.getMappings());
                     mappings.configurePatchMappings(ext.getPatches());
-                    var mcpTasks = new MCPTasks(project, ext.getCaches(), ext.getMinecraft(), ext.getMappings(),
-                        vanillaTasks, mappings, intermediates
-                    );
-                    mcpTasks.configureLoaderPipeline(project, ext.getCaches(), ext.getLoader(), vanillaTasks,
+                    var mcpTasks = new MCPTasks(
+                        project, ext.getCaches(), ext.getMinecraft(), ext.getMappings(), vanillaTasks, mappings,
                         intermediates
                     );
-                    new CleanroomTasks(project, ext.getCaches(), ext.getMinecraft(), ext.getLoader(), ext.getPatches(),
-                        vanillaTasks, mcpTasks, mappings
+                    mcpTasks.configureLoaderPipeline(
+                        project, ext.getCaches(), ext.getLoader(), vanillaTasks, intermediates
                     );
-                    var distributionTasks = new DistributionTasks(project, coordinates, ext.getCaches(),
-                        ext.getMinecraft(), ext.getLoader(), ext.getPatches(), vanillaTasks, mappings, mcpTasks,
-                        intermediates, getSoftwareComponentFactory()
+                    new CleanroomTasks(
+                        project, ext.getCaches(), ext.getMinecraft(), ext.getLoader(), ext.getPatches(), vanillaTasks,
+                        mcpTasks, mappings
+                    );
+                    var distributionTasks = new DistributionTasks(
+                        project, coordinates, ext.getCaches(), ext.getMinecraft(), ext.getLoader(), ext.getPatches(),
+                        vanillaTasks, mappings, mcpTasks, intermediates, getSoftwareComponentFactory()
                     );
                     DeobfExtension.rejectOnCompileClasspath(project, getProblems());
                     deobfExt.getMappings().from(mappings.writeSrg2Mcp.flatMap(WriteMappings::getOutput));
                     deobfExt.getSrgLibraries()
                         .from(distributionTasks.reobfJar.flatMap(RenameJar::getOutput), vanillaTasks.vanillaConfig);
                     deferred.add(evaluated -> {
-                        mcpTasks.configureIntermediateRuns(evaluated, ext.getCaches(), ext.getMinecraft(),
-                            ext.getLoader(), vanillaTasks, intermediates
+                        mcpTasks.configureIntermediateRuns(
+                            evaluated, ext.getCaches(), ext.getMinecraft(), ext.getLoader(), vanillaTasks,
+                            intermediates
                         );
-                        mcpTasks.configureInitialPatches(evaluated, ext.getCaches(), ext.getPatches(), vanillaTasks,
-                            mappings
+                        mcpTasks.configureInitialPatches(
+                            evaluated, ext.getCaches(), ext.getPatches(), vanillaTasks, mappings
                         );
                         distributionTasks.registerPublications(evaluated, coordinates);
                     });
                 }
                 case USERDEV -> {
                     if (!ext.getRegisteredUserdev().isPresent()) {
-                        throw new IllegalStateException("Userdev is registered through dependencies { implementation cleanroom.userdev('version') }. " +
+                        throw new IllegalStateException(
+                            "Userdev is registered through dependencies { implementation cleanroom.userdev('version') }. " +
                                 "The old cleanroom.mode, cleanroom.userdev.version and cleanroomUserdev contracts were removed."
                         );
                     }
-                    new UserDevTasks(project, ext.getCaches(), ext.getMinecraft(), ext.getRegisteredUserdev().get(),
-                        vanillaTasks
+                    new UserDevTasks(
+                        project, ext.getCaches(), ext.getMinecraft(), ext.getRegisteredUserdev().get(), vanillaTasks
                     );
                 }
                 // VANILLA adds nothing past the base task set
-                default -> {
-                }
+                default -> { }
             }
             deferred.add(evaluated -> maintenanceTasks.configure(mode, evaluated));
         });
@@ -164,7 +169,8 @@ public abstract class CleanroomGradle implements Plugin<Project> {
     public static final class RemovedUserdevDependency {
 
         public Object call(Object ignored) {
-            throw new InvalidUserDataException("The cleanroomUserdev configuration was removed. Declare " +
+            throw new InvalidUserDataException(
+                "The cleanroomUserdev configuration was removed. Declare " +
                     "implementation cleanroom.userdev('version') instead."
             );
         }

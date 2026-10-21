@@ -92,9 +92,8 @@ public final class VanillaTasks {
         this(project, caches, minecraft, primarySpec(project, caches, minecraft));
     }
 
-    public VanillaTasks(Project project, CachesExtension caches, MinecraftExtension minecraft,
-        VanillaEnvironment environment
-    ) {
+    public VanillaTasks(
+        Project project, CachesExtension caches, MinecraftExtension minecraft, VanillaEnvironment environment) {
         this(project, caches, minecraft, namedSpec(project, caches, environment));
     }
 
@@ -116,21 +115,23 @@ public final class VanillaTasks {
         var assetIndex = this.versionMeta.map(VersionMeta::assetIndex);
 
         var factory = project.getDependencyFactory();
-        this.vanillaConfig = Objects.config(project, configurationName(spec, "vanilla", ""),
+        this.vanillaConfig = Objects.config(
+            project, configurationName(spec, "vanilla", ""),
             "Minecraft libraries for the " + spec.cacheName() + " environment, from its launcher metadata."
         );
-        this.vanillaNativesConfig = Objects.config(project, configurationName(spec, "vanillaNatives", "Natives"),
+        this.vanillaNativesConfig = Objects.config(
+            project, configurationName(spec, "vanillaNatives", "Natives"),
             "Minecraft platform natives for the " + spec.cacheName() + " environment."
         );
         this.vanillaConfig.configure(config -> config.withDependencies(dependencies -> {
-            addLibraries(factory, dependencies, this.versionMeta.get(),
-                library -> library.isValidForOS(Platform.CURRENT)
+            addLibraries(
+                factory, dependencies, this.versionMeta.get(), library -> library.isValidForOS(Platform.CURRENT)
             );
             ResolvedLibraries.removeExcluded(dependencies, config);
         }));
         var selectedVanillaVersions = project.provider(() -> selectedVersions(this.vanillaConfig.get()));
-        this.vanillaNativesConfig.configure(config -> config.withDependencies(dependencies -> addNatives(factory,
-            dependencies, this.versionMeta.get(), selectedVanillaVersions.get()
+        this.vanillaNativesConfig.configure(config -> config.withDependencies(dependencies -> addNatives(
+            factory, dependencies, this.versionMeta.get(), selectedVanillaVersions.get()
         )));
 
         var decompiler = ToolConfigs.get(project, "decompiler");
@@ -152,33 +153,75 @@ public final class VanillaTasks {
         this.downloadServerJar = Tasks.register(project, downloadServerJarName, Download.class);
         this.downloadClientMappings = Tasks.register(project, downloadClientMappingsName, Download.class);
         this.downloadAssets = Tasks.register(project, downloadAssetsName, DownloadAssets.class);
-        this.extractNatives = Tasks.unzip(project, extractNativesName, this.vanillaNativesConfig,
+        this.extractNatives = Tasks.unzip(
+            project, extractNativesName, this.vanillaNativesConfig,
             this.versionCacheDirectory.map(dir -> dir.dir("natives/" + spec.cacheName()))
         );
-        this.remapClientToOfficial = Tasks.register(project, remapClientName, RenameJar.class,
-            project.getExtensions().getByType(RenamerExtension.class)
+        this.remapClientToOfficial = Tasks.register(
+            project, remapClientName, RenameJar.class, project.getExtensions().getByType(RenamerExtension.class)
         );
-        this.decompileVersion = Tasks.tool(project, caches.getLocalDirectory(), decompileName, Decompile.class,
-            decompiler
+        this.decompileVersion = Tasks.tool(
+            project, caches.getLocalDirectory(), decompileName, Decompile.class, decompiler
         );
         this.runVanillaClient = RunRegistry.register(project, runClientName, RunMinecraft.class);
         this.runVanillaServer = RunRegistry.register(project, runServerName, RunMinecraft.class);
         Tasks.group(GROUP_NAME, this.decompileVersion);
 
-        configureTasks(project, caches, spec, vanillaJavaLauncher, clientMappings, serverDownload, assetIndex,
-            decompileName, offline
+        configureTasks(
+            project, caches, spec, vanillaJavaLauncher, clientMappings, serverDownload, assetIndex, decompileName,
+            offline
         );
     }
 
-    public static void addDistributionLibraries(DependencyFactory factory, Collection<Dependency> dependencies,
-        VersionMeta meta
-    ) {
+    public static void addDistributionLibraries(
+        DependencyFactory factory, Collection<Dependency> dependencies, VersionMeta meta) {
         addLibraries(factory, dependencies, meta, library -> !isLwjgl2(library.name()));
     }
 
-    static void addDistributionNatives(DependencyFactory factory, DependencySet dependencies, VersionMeta meta,
-        Map<String, String> selectedVersions
-    ) {
+    /**
+     * The vanilla libraries extracted as natives on one platform, for a published per-platform variant.
+     *
+     * @param factory the factory the dependencies are created with
+     * @param dependencies the set the natives are added to
+     * @param meta the version metadata the libraries come from
+     * @param selectedVersions module versions pinned by the build, keyed by module
+     * @param platform the platform to select natives for
+     */
+    public static void addNativesFor(
+        DependencyFactory factory, Collection<Dependency> dependencies, VersionMeta meta,
+        Map<String, String> selectedVersions, Platform platform) {
+        for (var library : meta.libraries()) {
+            if (!library.isValidForOS(platform) || !library.hasNativesForOS(platform)) {
+                continue;
+            }
+            var coordinates = library.name().split(":");
+            if (ordinaryArtifactWasReplaced(library, coordinates, selectedVersions)) {
+                continue;
+            }
+            var classifier = library.classifierForOS(platform);
+            if (classifier == null) {
+                continue;
+            }
+            var matcher = Meta.NATIVES_PATTERN.matcher(classifier.path());
+            if (!matcher.find()) {
+                throw new IllegalStateException("Failed to match regex for natives path: " + classifier.path());
+            }
+            var notation = "%s:%s:%s:%s".formatted(
+                matcher.group("group").replace('/', '.'), matcher.group("name"), matcher.group("version"),
+                matcher.group("classifier")
+            );
+            var dependency = factory.create(notation);
+            dependency.setTransitive(false);
+            dependencies.add(dependency);
+        }
+    }
+
+    public static String taskSuffix(String environmentName) {
+        return StringUtils.capitalize(environmentName);
+    }
+
+    static void addDistributionNatives(
+        DependencyFactory factory, DependencySet dependencies, VersionMeta meta, Map<String, String> selectedVersions) {
         for (var library : meta.libraries()) {
             if (!library.hasNatives() ||
                 library.downloads() == null ||
@@ -194,8 +237,8 @@ public final class VanillaTasks {
                 if (!classifier.startsWith(LwjglNatives.CLASSIFIER_PREFIX)) {
                     continue;
                 }
-                var dependency = factory.create("%s:%s:%s:%s".formatted(coordinates[0], coordinates[1], coordinates[2],
-                    classifier
+                var dependency = factory.create("%s:%s:%s:%s".formatted(
+                    coordinates[0], coordinates[1], coordinates[2], classifier
                 ));
                 dependency.setTransitive(false);
                 dependencies.add(dependency);
@@ -203,12 +246,26 @@ public final class VanillaTasks {
         }
     }
 
+    static Map<String, String> selectedVersions(Configuration configuration) {
+        var versions = new LinkedHashMap<String, String>();
+        for (var component : configuration.getIncoming().getResolutionResult().getAllComponents()) {
+            if (component.getId() instanceof ModuleComponentIdentifier module) {
+                versions.put(module.getGroup() + ":" + module.getModule(), module.getVersion());
+            }
+        }
+        return versions;
+    }
+
+    static void addNatives(
+        DependencyFactory factory, DependencySet dependencies, VersionMeta meta, Map<String, String> selectedVersions) {
+        addNativesFor(factory, dependencies, meta, selectedVersions, Platform.CURRENT);
+    }
+
     private static void verifySha1(File file, String expectedSha1) {
         var actualSha1 = IO.sha1(file);
         if (!actualSha1.equalsIgnoreCase(expectedSha1)) {
-            throw new IllegalStateException("SHA-1 mismatch for %s: expected %s but got %s. ".formatted(file,
-                        expectedSha1, actualSha1
-                    ) +
+            throw new IllegalStateException(
+                "SHA-1 mismatch for %s: expected %s but got %s. ".formatted(file, expectedSha1, actualSha1) +
                     "Delete the file and rerun its download task."
             );
         }
@@ -230,19 +287,8 @@ public final class VanillaTasks {
         return name.startsWith(LWJGL2_GROUP + ":");
     }
 
-    static Map<String, String> selectedVersions(Configuration configuration) {
-        var versions = new LinkedHashMap<String, String>();
-        for (var component : configuration.getIncoming().getResolutionResult().getAllComponents()) {
-            if (component.getId() instanceof ModuleComponentIdentifier module) {
-                versions.put(module.getGroup() + ":" + module.getModule(), module.getVersion());
-            }
-        }
-        return versions;
-    }
-
-    private static boolean ordinaryArtifactWasReplaced(VersionMeta.Library library, String[] coordinates,
-        Map<String, String> selectedVersions
-    ) {
+    private static boolean ordinaryArtifactWasReplaced(
+        VersionMeta.Library library, String[] coordinates, Map<String, String> selectedVersions) {
         if (library.artifact() == null) {
             return false;
         }
@@ -250,9 +296,9 @@ public final class VanillaTasks {
         return selectedVersion != null && !selectedVersion.equals(coordinates[2]);
     }
 
-    private static void addLibraries(DependencyFactory factory, Collection<Dependency> dependencies, VersionMeta meta,
-        Predicate<VersionMeta.Library> accept
-    ) {
+    private static void addLibraries(
+        DependencyFactory factory, Collection<Dependency> dependencies, VersionMeta meta,
+        Predicate<VersionMeta.Library> accept) {
         var nativeModules = nativeModules(meta);
         for (var library : meta.libraries()) {
             if (library.artifact() == null || !accept.test(library)) {
@@ -262,49 +308,6 @@ public final class VanillaTasks {
             for (var module : nativeModules) {
                 dependency.exclude(module);
             }
-            dependencies.add(dependency);
-        }
-    }
-
-    static void addNatives(DependencyFactory factory, DependencySet dependencies, VersionMeta meta,
-        Map<String, String> selectedVersions
-    ) {
-        addNativesFor(factory, dependencies, meta, selectedVersions, Platform.CURRENT);
-    }
-
-    /**
-     * The vanilla libraries extracted as natives on one platform, for a published per-platform variant.
-     *
-     * @param factory the factory the dependencies are created with
-     * @param dependencies the set the natives are added to
-     * @param meta the version metadata the libraries come from
-     * @param selectedVersions module versions pinned by the build, keyed by module
-     * @param platform the platform to select natives for
-     */
-    public static void addNativesFor(DependencyFactory factory, Collection<Dependency> dependencies, VersionMeta meta,
-        Map<String, String> selectedVersions, Platform platform
-    ) {
-        for (var library : meta.libraries()) {
-            if (!library.isValidForOS(platform) || !library.hasNativesForOS(platform)) {
-                continue;
-            }
-            var coordinates = library.name().split(":");
-            if (ordinaryArtifactWasReplaced(library, coordinates, selectedVersions)) {
-                continue;
-            }
-            var classifier = library.classifierForOS(platform);
-            if (classifier == null) {
-                continue;
-            }
-            var matcher = Meta.NATIVES_PATTERN.matcher(classifier.path());
-            if (!matcher.find()) {
-                throw new IllegalStateException("Failed to match regex for natives path: " + classifier.path());
-            }
-            var notation = "%s:%s:%s:%s".formatted(matcher.group("group").replace('/', '.'), matcher.group("name"),
-                matcher.group("version"), matcher.group("classifier")
-            );
-            var dependency = factory.create(notation);
-            dependency.setTransitive(false);
             dependencies.add(dependency);
         }
     }
@@ -319,16 +322,12 @@ public final class VanillaTasks {
             .toList();
     }
 
-    public static String taskSuffix(String environmentName) {
-        return StringUtils.capitalize(environmentName);
-    }
-
     private static Spec primarySpec(Project project, CachesExtension caches, MinecraftExtension minecraft) {
         var offline = project.getGradle().getStartParameter().isOffline();
         var version = project.provider(() -> Meta.ONE_TRUE_MINECRAFT_VERSION);
         var meta = launcherMeta(project, caches, version, offline).orElse(minecraft.getVersionMeta());
-        return new Spec(true, "", "vanilla", version, meta, caches.getVersionDirectory(),
-            meta.map(VersionMeta::javaMajor)
+        return new Spec(
+            true, "", "vanilla", version, meta, caches.getVersionDirectory(), meta.map(VersionMeta::javaMajor)
         );
     }
 
@@ -338,13 +337,13 @@ public final class VanillaTasks {
         var meta = launcherMeta(project, caches, version, offline);
         var cache = version.flatMap(selected -> caches.getDirectory().dir("versions/" + selected));
         var javaMajor = environment.getJavaVersion().orElse(meta.map(VersionMeta::javaMajor));
-        return new Spec(false, taskSuffix(environment.getName()), environment.getName(), version, meta, cache, javaMajor
+        return new Spec(
+            false, taskSuffix(environment.getName()), environment.getName(), version, meta, cache, javaMajor
         );
     }
 
-    private static Provider<VersionMeta> launcherMeta(Project project, CachesExtension caches, Provider<String> version,
-        boolean offline
-    ) {
+    private static Provider<VersionMeta> launcherMeta(
+        Project project, CachesExtension caches, Provider<String> version, boolean offline) {
         var providers = project.getProviders();
         var cacheDirectory = caches.getDirectory();
         return version.flatMap(selected -> providers.of(LauncherVersionMetaValueSource.class, value -> {
@@ -363,11 +362,10 @@ public final class VanillaTasks {
         return spec.primary() ? primaryName : "vanilla" + spec.taskSuffix() + ending;
     }
 
-    private void configureTasks(Project project, CachesExtension caches, Spec spec,
-        Provider<JavaLauncher> vanillaJavaLauncher, Provider<VersionMeta.Download> clientMappings,
-        Provider<VersionMeta.Download> serverDownload, Provider<VersionMeta.AssetIndex> assetIndex,
-        String decompileName, boolean offline
-    ) {
+    private void configureTasks(
+        Project project, CachesExtension caches, Spec spec, Provider<JavaLauncher> vanillaJavaLauncher,
+        Provider<VersionMeta.Download> clientMappings, Provider<VersionMeta.Download> serverDownload,
+        Provider<VersionMeta.AssetIndex> assetIndex, String decompileName, boolean offline) {
         this.downloadAssetIndex.configure(task -> {
             task.onlyIf("VersionMeta offers an asset index", t -> assetIndex.isPresent());
             task.src(this.versionMeta.map(VersionMeta::assetIndexUrl));
@@ -411,7 +409,8 @@ public final class VanillaTasks {
             task.getOutput().set(this.versionCacheDirectory.map(dir -> dir.file("client-official.jar")));
         });
         this.decompileVersion.configure(task -> {
-            task.setDescription("Decompiles the selected vanilla client jar for source browsing, under official names when Mojang publishes mappings."
+            task.setDescription(
+                "Decompiles the selected vanilla client jar for source browsing, under official names when Mojang publishes mappings."
             );
 
             task.getJavaLauncher().convention(Providers.javaLauncher(project));
@@ -422,8 +421,8 @@ public final class VanillaTasks {
                     : this.downloadClientJar.map(Download::getDest)));
             task.getLibraries().from(this.vanillaConfig);
             task.getDecompiledJar()
-                .fileProvider(this.versionCacheDirectory.zip(this.minecraftVersion,
-                    (dir, version) -> dir.file(version + "-sources.jar").getAsFile()
+                .fileProvider(this.versionCacheDirectory.zip(
+                    this.minecraftVersion, (dir, version) -> dir.file(version + "-sources.jar").getAsFile()
                 ));
         });
         RunRegistry.configure(project, this.runVanillaClient, task -> {
@@ -454,28 +453,28 @@ public final class VanillaTasks {
             task.classpath(this.downloadServerJar.map(Download::getDest), this.vanillaConfig);
         });
         if (!spec.primary()) {
-            RunRegistry.configure(project, this.runVanillaClient,
-                task -> task.setWorkingDir(project.getLayout()
-                        .getProjectDirectory()
-                        .dir("run/" + spec.cacheName() + "/vanilla/client")
+            RunRegistry.configure(
+                project, this.runVanillaClient,
+                task -> task.setWorkingDir(
+                    project.getLayout().getProjectDirectory().dir("run/" + spec.cacheName() + "/vanilla/client")
                 )
             );
-            RunRegistry.configure(project, this.runVanillaServer,
-                task -> task.setWorkingDir(project.getLayout()
-                        .getProjectDirectory()
-                        .dir("run/" + spec.cacheName() + "/vanilla/server")
+            RunRegistry.configure(
+                project, this.runVanillaServer,
+                task -> task.setWorkingDir(
+                    project.getLayout().getProjectDirectory().dir("run/" + spec.cacheName() + "/vanilla/server")
                 )
             );
         }
     }
 
-    private record Spec(boolean primary,
+    private record Spec(
+        boolean primary,
         String taskSuffix,
         String cacheName,
         Provider<String> minecraftVersion,
         Provider<VersionMeta> versionMeta,
         Provider<Directory> versionCacheDirectory,
-        Provider<Integer> javaMajor
-    ) { }
+        Provider<Integer> javaMajor) { }
 
 }

@@ -47,8 +47,8 @@ public final class Platform {
 
     public static List<Platform> nativePlatforms() {
         var platforms = new LinkedHashMap<String, Platform>();
-        for (var os : List.of(OperatingSystem.WINDOWS, OperatingSystem.LINUX, OperatingSystem.MAC_OS,
-            OperatingSystem.FREE_BSD
+        for (var os : List.of(
+            OperatingSystem.WINDOWS, OperatingSystem.LINUX, OperatingSystem.MAC_OS, OperatingSystem.FREE_BSD
         )) {
             for (var architecture : Architecture.values()) {
                 var platform = new Platform(os, architecture);

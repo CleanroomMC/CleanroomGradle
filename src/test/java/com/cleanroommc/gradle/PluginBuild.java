@@ -62,55 +62,57 @@ final class PluginBuild {
     }
 
     PluginBuild settings() throws IOException {
-        Files.writeString(this.projectDir.resolve("settings.gradle"),
+        Files.writeString(
+            this.projectDir.resolve("settings.gradle"),
             """
-                pluginManagement {
-                    includeBuild '%s'
-                    repositories {
-                        maven {
-                            name = 'CleanroomMC'
-                            url = 'https://maven.cleanroommc.com/'
-                        }
-                        mavenCentral()
-                        gradlePluginPortal()
+            pluginManagement {
+                includeBuild '%s'
+                repositories {
+                    maven {
+                        name = 'CleanroomMC'
+                        url = 'https://maven.cleanroommc.com/'
                     }
+                    mavenCentral()
+                    gradlePluginPortal()
                 }
-                plugins {
-                    id 'com.cleanroommc.cleanroomgradle.settings'
-                }
-                rootProject.name = 'test-project'
-                """.formatted(PLUGIN_DIR
-            )
+            }
+            plugins {
+                id 'com.cleanroommc.cleanroomgradle.settings'
+            }
+            rootProject.name = 'test-project'
+            """.formatted(PLUGIN_DIR)
         );
 
-        Files.writeString(this.projectDir.resolve("gradle.properties"),
-            "org.gradle.jvmargs=-Xmx1g -XX:MaxMetaspaceSize=768m\n"
+        Files.writeString(
+            this.projectDir.resolve("gradle.properties"), "org.gradle.jvmargs=-Xmx1g -XX:MaxMetaspaceSize=768m\n"
         );
         return this;
     }
 
     PluginBuild build(String body) throws IOException {
-        Files.writeString(this.projectDir.resolve("build.gradle"),
+        Files.writeString(
+            this.projectDir.resolve("build.gradle"),
             """
-                plugins {
-                    id 'java'
-                    id 'com.cleanroommc.cleanroomgradle'
-                }
-                group = 'com.example'
-                java.toolchain.languageVersion = JavaLanguageVersion.of(25)
-                """ +
+            plugins {
+                id 'java'
+                id 'com.cleanroommc.cleanroomgradle'
+            }
+            group = 'com.example'
+            java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+            """ +
                 body
         );
         return this;
     }
 
     PluginBuild vanilla(String extra) throws IOException {
-        return build("""
-                cleanroom {
-                    mode = 'vanilla'
-                    patches.developInitial = false
-                }
-                """ +
+        return build(
+            """
+            cleanroom {
+                mode = 'vanilla'
+                patches.developInitial = false
+            }
+            """ +
                 extra
         );
     }
@@ -119,22 +121,22 @@ final class PluginBuild {
         var metaFile = cacheDirectory.resolve("versions").resolve(version).resolve("meta.json");
         Files.createDirectories(metaFile.getParent());
         Files.writeString(metaFile, metaJson);
-        Files.writeString(cacheDirectory.resolve("version_manifest_v2.json"),
+        Files.writeString(
+            cacheDirectory.resolve("version_manifest_v2.json"),
             """
-                        {"versions":[{"id":"%s","url":"https://example.invalid/%s.json","sha1":"%s"}]}
-                        """.formatted(version,
-                version, IO.sha1(metaFile)
-            )
+            {"versions":[{"id":"%s","url":"https://example.invalid/%s.json","sha1":"%s"}]}
+            """.formatted(version, version, IO.sha1(metaFile))
         );
     }
 
     PluginBuild loader(String extra) throws IOException {
-        return build("""
-                cleanroom {
-                    mode = 'loader'
-                    patches.developInitial = false
-                }
-                """ +
+        return build(
+            """
+            cleanroom {
+                mode = 'loader'
+                patches.developInitial = false
+            }
+            """ +
                 extra
         );
     }

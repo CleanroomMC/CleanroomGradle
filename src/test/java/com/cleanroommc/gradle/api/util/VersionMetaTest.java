@@ -24,17 +24,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 class VersionMetaTest {
 
     private static final Platform LINUX_X64 = new Platform(Platform.OperatingSystem.LINUX, Platform.Architecture.X64);
-    private static final Platform LINUX_ARM64 = new Platform(Platform.OperatingSystem.LINUX, Platform.Architecture.ARM64
+    private static final Platform LINUX_ARM64 = new Platform(
+        Platform.OperatingSystem.LINUX, Platform.Architecture.ARM64
     );
-    private static final Platform WINDOWS_X64 = new Platform(Platform.OperatingSystem.WINDOWS, Platform.Architecture.X64
+    private static final Platform WINDOWS_X64 = new Platform(
+        Platform.OperatingSystem.WINDOWS, Platform.Architecture.X64
     );
-    private static final Platform FREE_BSD_X64 = new Platform(Platform.OperatingSystem.FREE_BSD,
-        Platform.Architecture.X64
+    private static final Platform FREE_BSD_X64 = new Platform(
+        Platform.OperatingSystem.FREE_BSD, Platform.Architecture.X64
     );
 
     private static VersionMeta.Library library(List<VersionMeta.Rule> rules) {
-        return new VersionMeta.Library(new VersionMeta.Downloads(download("artifact"), Map.of()), "g:a:1", null, rules,
-            null
+        return new VersionMeta.Library(
+            new VersionMeta.Downloads(download("artifact"), Map.of()), "g:a:1", null, rules, null
         );
     }
 
@@ -53,7 +55,8 @@ class VersionMetaTest {
     @Test
     void libraryRulesKeepTheLastMatch() {
         var linuxOnly = library(List.of(new VersionMeta.Rule("allow", new VersionMeta.OS("LiNuX"))));
-        var nowhere = library(List.of(new VersionMeta.Rule("allow", new VersionMeta.OS("windows")),
+        var nowhere = library(List.of(
+            new VersionMeta.Rule("allow", new VersionMeta.OS("windows")),
             new VersionMeta.Rule("disallow", new VersionMeta.OS("windows"))
         ));
 
@@ -81,9 +84,11 @@ class VersionMetaTest {
             .create();
 
         assertThat(gson.fromJson("\"--demo\"", VersionMeta.Argument.class).values()).containsExactly("--demo");
-        assertThat(gson.fromJson("{\"value\": \"--demo\"}", VersionMeta.Argument.class).values()
-        ).containsExactly("--demo");
-        assertThat(gson.fromJson("{\"rules\": [], \"value\": [\"--a\", \"--b\"]}", VersionMeta.Argument.class).values()
+        assertThat(gson.fromJson("{\"value\": \"--demo\"}", VersionMeta.Argument.class).values()).containsExactly(
+            "--demo"
+        );
+        assertThat(
+            gson.fromJson("{\"rules\": [], \"value\": [\"--a\", \"--b\"]}", VersionMeta.Argument.class).values()
         ).containsExactly("--a", "--b");
     }
 

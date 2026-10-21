@@ -51,9 +51,8 @@ public final class LibraryJson {
      * @param libraries the component's declared libraries
      * @param inherited coordinates the parent component already supplies, which are skipped
      */
-    public static List<Artifact> resolve(Artifact universal, List<? extends LibraryArtifact> libraries,
-        Set<String> inherited
-    ) {
+    public static List<Artifact> resolve(
+        Artifact universal, List<? extends LibraryArtifact> libraries, Set<String> inherited) {
         var artifacts = new TreeMap<String, Artifact>();
         artifacts.put(universal.coordinate().serialized(), universal);
 
@@ -71,26 +70,6 @@ public final class LibraryJson {
         var artifacts = new TreeMap<String, Artifact>();
         resolveInto(artifacts, libraries, inherited, null);
         return new ArrayList<>(artifacts.values());
-    }
-
-    private static void resolveInto(Map<String, Artifact> artifacts, List<? extends LibraryArtifact> libraries,
-        Set<String> inherited, Coordinate universal
-    ) {
-        for (var input : libraries) {
-            var coordinate = Coordinate.parse(input.getCoordinate().get());
-            if (inherited.contains(coordinate.serialized()) ||
-                universal != null && coordinate.sameArtifact(universal)) {
-                continue;
-            }
-            var path = input.getFile().get().getAsFile().toPath();
-            var repositoryUrl = input.getRepositoryUrl().get();
-            var url = isLocalRepository(repositoryUrl) ? "" : trailingSlash(repositoryUrl) + coordinate.mavenPath();
-            var artifact = artifact(coordinate, path, url);
-            var previous = artifacts.put(coordinate.serialized(), artifact);
-            if (previous != null && !previous.path().equals(path)) {
-                throw new GradleException("Multiple files resolved for library " + coordinate.serialized());
-            }
-        }
     }
 
     /**
@@ -116,7 +95,8 @@ public final class LibraryJson {
         // A classifier-only dependency is legal even when its base artifact was not selected
         for (var nativeArtifacts : natives.values()) {
             nativeArtifacts.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
-            output.add(nativeLibrary(nativeArtifacts.getFirst().coordinate().withoutClassifier(), nativeArtifacts, true
+            output.add(nativeLibrary(
+                nativeArtifacts.getFirst().coordinate().withoutClassifier(), nativeArtifacts, true
             ));
         }
         return output;
@@ -165,8 +145,8 @@ public final class LibraryJson {
         var output = new JsonArray();
         for (var artifact : natives) {
             var classifier = artifact.coordinate().classifier();
-            var library = nativeLibrary(artifact.coordinate().withoutClassifier(), new ArrayList<>(List.of(artifact)),
-                false
+            var library = nativeLibrary(
+                artifact.coordinate().withoutClassifier(), new ArrayList<>(List.of(artifact)), false
             );
             var platform = classifierPlatform(classifier);
             if (platform != null) {
@@ -179,48 +159,6 @@ public final class LibraryJson {
             output.add(library);
         }
         return output;
-    }
-
-    private static void addPlatformRule(JsonObject library, String classifier) {
-        var platform = classifierPlatform(classifier);
-        if (platform == null) {
-            return;
-        }
-        var os = new JsonObject();
-        os.addProperty("name", platform.os());
-        os.addProperty("arch", platform.arch());
-        var rule = new JsonObject();
-        rule.addProperty("action", "allow");
-        rule.add("os", os);
-        var rules = new JsonArray();
-        rules.add(rule);
-        library.add("rules", rules);
-    }
-
-    private static NativePlatform classifierPlatform(String classifier) {
-        if (classifier == null) {
-            return null;
-        }
-        var platform = classifier.startsWith(LwjglNatives.CLASSIFIER_PREFIX)
-            ? classifier.substring(LwjglNatives.CLASSIFIER_PREFIX.length())
-            : classifier;
-        var separator = platform.indexOf('-');
-        var os = separator == -1 ? platform : platform.substring(0, separator);
-        var arch = separator == -1 ? null : platform.substring(separator + 1);
-        if (os.equals("macos")) {
-            os = "osx";
-        }
-        if (!os.equals("windows") && !os.equals("osx") && !os.equals("linux") && !os.equals("freebsd")) {
-            return null;
-        }
-        if (arch == null) {
-            arch = "x64";
-        } else if (arch.equals("aarch_64")) {
-            arch = "arm64";
-        } else if (arch.equals("x86_64")) {
-            arch = "x64";
-        }
-        return new NativePlatform(os, arch);
     }
 
     /**
@@ -293,38 +231,6 @@ public final class LibraryJson {
         return "file".equalsIgnoreCase(URI.create(url).getScheme());
     }
 
-    private static JsonObject nativeLibrary(Coordinate base, List<Artifact> artifacts, boolean mmc) {
-        artifacts.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
-        var classifiers = new JsonObject();
-        var nativeMap = new JsonObject();
-        for (var artifact : artifacts) {
-            var classifier = artifact.coordinate().classifier();
-            var download = download(artifact, false);
-            if (mmc && isLocal(artifact)) {
-                download.remove("url");
-            }
-            classifiers.add(classifier, download);
-            nativeMap.addProperty(nativePlatform(classifier), classifier);
-        }
-
-        var downloads = new JsonObject();
-        downloads.add("classifiers", classifiers);
-        var extract = new JsonObject();
-        var exclusions = new JsonArray();
-        exclusions.add("META-INF/");
-        extract.add("exclude", exclusions);
-
-        var library = new JsonObject();
-        library.addProperty("name", base.serialized());
-        if (mmc && artifacts.stream().allMatch(LibraryJson::isLocal)) {
-            library.addProperty("MMC-hint", "local");
-        }
-        library.add("downloads", downloads);
-        library.add("natives", nativeMap);
-        library.add("extract", extract);
-        return library;
-    }
-
     /**
      * The download block an artifact's entry carries.
      *
@@ -364,6 +270,104 @@ public final class LibraryJson {
         return coordinate.classifier() != null && coordinate.classifier().startsWith(LwjglNatives.CLASSIFIER_PREFIX);
     }
 
+    public static String trailingSlash(String value) {
+        return value.endsWith("/") ? value : value + "/";
+    }
+
+    private static void resolveInto(
+        Map<String, Artifact> artifacts, List<? extends LibraryArtifact> libraries, Set<String> inherited,
+        Coordinate universal) {
+        for (var input : libraries) {
+            var coordinate = Coordinate.parse(input.getCoordinate().get());
+            if (inherited.contains(coordinate.serialized()) ||
+                universal != null && coordinate.sameArtifact(universal)) {
+                continue;
+            }
+            var path = input.getFile().get().getAsFile().toPath();
+            var repositoryUrl = input.getRepositoryUrl().get();
+            var url = isLocalRepository(repositoryUrl) ? "" : trailingSlash(repositoryUrl) + coordinate.mavenPath();
+            var artifact = artifact(coordinate, path, url);
+            var previous = artifacts.put(coordinate.serialized(), artifact);
+            if (previous != null && !previous.path().equals(path)) {
+                throw new GradleException("Multiple files resolved for library " + coordinate.serialized());
+            }
+        }
+    }
+
+    private static void addPlatformRule(JsonObject library, String classifier) {
+        var platform = classifierPlatform(classifier);
+        if (platform == null) {
+            return;
+        }
+        var os = new JsonObject();
+        os.addProperty("name", platform.os());
+        os.addProperty("arch", platform.arch());
+        var rule = new JsonObject();
+        rule.addProperty("action", "allow");
+        rule.add("os", os);
+        var rules = new JsonArray();
+        rules.add(rule);
+        library.add("rules", rules);
+    }
+
+    private static NativePlatform classifierPlatform(String classifier) {
+        if (classifier == null) {
+            return null;
+        }
+        var platform = classifier.startsWith(LwjglNatives.CLASSIFIER_PREFIX)
+            ? classifier.substring(LwjglNatives.CLASSIFIER_PREFIX.length())
+            : classifier;
+        var separator = platform.indexOf('-');
+        var os = separator == -1 ? platform : platform.substring(0, separator);
+        var arch = separator == -1 ? null : platform.substring(separator + 1);
+        if (os.equals("macos")) {
+            os = "osx";
+        }
+        if (!os.equals("windows") && !os.equals("osx") && !os.equals("linux") && !os.equals("freebsd")) {
+            return null;
+        }
+        if (arch == null) {
+            arch = "x64";
+        } else if (arch.equals("aarch_64")) {
+            arch = "arm64";
+        } else if (arch.equals("x86_64")) {
+            arch = "x64";
+        }
+        return new NativePlatform(os, arch);
+    }
+
+    private static JsonObject nativeLibrary(Coordinate base, List<Artifact> artifacts, boolean mmc) {
+        artifacts.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
+        var classifiers = new JsonObject();
+        var nativeMap = new JsonObject();
+        for (var artifact : artifacts) {
+            var classifier = artifact.coordinate().classifier();
+            var download = download(artifact, false);
+            if (mmc && isLocal(artifact)) {
+                download.remove("url");
+            }
+            classifiers.add(classifier, download);
+            nativeMap.addProperty(nativePlatform(classifier), classifier);
+        }
+
+        var downloads = new JsonObject();
+        downloads.add("classifiers", classifiers);
+        var extract = new JsonObject();
+        var exclusions = new JsonArray();
+        exclusions.add("META-INF/");
+        extract.add("exclude", exclusions);
+
+        var library = new JsonObject();
+        library.addProperty("name", base.serialized());
+        if (mmc && artifacts.stream().allMatch(LibraryJson::isLocal)) {
+            library.addProperty("MMC-hint", "local");
+        }
+        library.add("downloads", downloads);
+        library.add("natives", nativeMap);
+        library.add("extract", extract);
+        return library;
+    }
+
     private static void split(List<Artifact> artifacts, List<Artifact> ordinary, Map<String, List<Artifact>> natives) {
         for (var artifact : artifacts) {
             if (isNative(artifact.coordinate())) {
@@ -380,10 +384,6 @@ public final class LibraryJson {
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to inspect library " + path, e);
         }
-    }
-
-    public static String trailingSlash(String value) {
-        return value.endsWith("/") ? value : value + "/";
     }
 
     private record NativePlatform(String os, String arch) { }

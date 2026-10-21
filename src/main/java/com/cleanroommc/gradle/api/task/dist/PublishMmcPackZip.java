@@ -252,8 +252,9 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     }
 
     private Artifact universalArtifact() {
-        return LibraryJson.artifact(Coordinate.parse(getUniversalCoordinate().get()),
-            getUniversalJar().get().getAsFile().toPath(), getEmbedUniversalJar().get() ? "" : getUniversalUrl().get()
+        return LibraryJson.artifact(
+            Coordinate.parse(getUniversalCoordinate().get()), getUniversalJar().get().getAsFile().toPath(),
+            getEmbedUniversalJar().get() ? "" : getUniversalUrl().get()
         );
     }
 
@@ -302,11 +303,11 @@ public abstract class PublishMmcPackZip extends DefaultTask {
             getCompatibleJavaMajors().get().forEach(javaMajors::add);
             patch.add("compatibleJavaMajors", javaMajors);
         }
-        
+
         if (!getCompatibleJavaName().get().isEmpty()) {
             patch.addProperty("compatibleJavaName", getCompatibleJavaName().get());
         }
-        
+
         if (!tweakers.isEmpty()) {
             patch.add("+tweakers", tweakers);
         }
@@ -353,8 +354,8 @@ public abstract class PublishMmcPackZip extends DefaultTask {
             }
         }
         if (lwjglVersions.size() != 1) {
-            throw new GradleException("Cleanroom's MMC component requires exactly one LWJGL version. Found " +
-                    lwjglVersions
+            throw new GradleException(
+                "Cleanroom's MMC component requires exactly one LWJGL version. Found " + lwjglVersions
             );
         }
 
@@ -363,8 +364,9 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         var local = new ArrayList<Artifact>();
         cleanroom.stream().filter(LibraryJson::isLocal).forEach(local::add);
         lwjgl.stream().filter(LibraryJson::isLocal).forEach(local::add);
-        return new ComponentLibraries(lwjglVersions.iterator().next(), LibraryJson.mmcLibraries(cleanroom),
-            LibraryJson.mmcLibraries(lwjgl), local
+        return new ComponentLibraries(
+            lwjglVersions.iterator().next(), LibraryJson.mmcLibraries(cleanroom), LibraryJson.mmcLibraries(lwjgl),
+            local
         );
     }
 
@@ -373,10 +375,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
             "iconKey=default\n";
     }
 
-    private record ComponentLibraries(String lwjglVersion,
-        JsonArray cleanroom,
-        JsonArray lwjgl,
-        List<Artifact> local
-    ) { }
+    private record ComponentLibraries(String lwjglVersion, JsonArray cleanroom, JsonArray lwjgl, List<Artifact> local)
+    { }
 
 }

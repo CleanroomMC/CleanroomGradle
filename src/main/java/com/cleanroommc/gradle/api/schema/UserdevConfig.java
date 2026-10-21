@@ -54,6 +54,30 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
         return META + "/" + name;
     }
 
+    public static UserdevConfig read(File file) {
+        try {
+            return parse(Files.readString(file.toPath(), StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read " + file, e);
+        }
+    }
+
+    public static UserdevConfig readFromJar(File jar) {
+        try (var zip = new ZipFile(jar)) {
+            var entry = zip.getEntry(meta(FILE_NAME));
+            if (entry == null) {
+                throw new IllegalStateException(
+                    jar + " is not a Cleanroom userdev spec " + SPEC + " artifact: missing " + meta(FILE_NAME) + "."
+                );
+            }
+            try (var input = zip.getInputStream(entry)) {
+                return parse(new String(input.readAllBytes(), StandardCharsets.UTF_8));
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read " + meta(FILE_NAME) + " from " + jar, e);
+        }
+    }
+
     private static void requireDownload(String name, Download download) {
         if (download == null) {
             throw invalid(name);
@@ -80,34 +104,11 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
         return new IllegalStateException("Invalid Cleanroom userdev spec " + SPEC + ": " + field + " is required.");
     }
 
-    public static UserdevConfig read(File file) {
-        try {
-            return parse(Files.readString(file.toPath(), StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to read " + file, e);
-        }
-    }
-
-    public static UserdevConfig readFromJar(File jar) {
-        try (var zip = new ZipFile(jar)) {
-            var entry = zip.getEntry(meta(FILE_NAME));
-            if (entry == null) {
-                throw new IllegalStateException(jar + " is not a Cleanroom userdev spec " + SPEC +
-                        " artifact: missing " + meta(FILE_NAME) + "."
-                );
-            }
-            try (var input = zip.getInputStream(entry)) {
-                return parse(new String(input.readAllBytes(), StandardCharsets.UTF_8));
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to read " + meta(FILE_NAME) + " from " + jar, e);
-        }
-    }
-
     private static UserdevConfig parse(String json) {
         var root = JsonParser.parseString(json).getAsJsonObject();
         if (root.has("mcpConfig") && !root.has("layout")) {
-            throw new IllegalStateException("This userdev artifact was produced by CleanroomGradle older than 0.15.0. " +
+            throw new IllegalStateException(
+                "This userdev artifact was produced by CleanroomGradle older than 0.15.0. " +
                     "Rebuild it with 0.15.0 or newer, or use the plugin version that produced it."
             );
         }
@@ -126,13 +127,13 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
 
     public void validate() {
         if (spec != SPEC) {
-            throw new IllegalStateException("Unsupported Cleanroom userdev spec " + spec + "; expected spec " + SPEC +
-                    "."
+            throw new IllegalStateException(
+                "Unsupported Cleanroom userdev spec " + spec + "; expected spec " + SPEC + "."
             );
         }
         if (minecraft == null || loader == null || inputs == null || layout == null || runs == null) {
-            throw new IllegalStateException("Invalid Cleanroom userdev spec " + SPEC +
-                    ": minecraft, loader, inputs, layout and runs are required."
+            throw new IllegalStateException(
+                "Invalid Cleanroom userdev spec " + SPEC + ": minecraft, loader, inputs, layout and runs are required."
             );
         }
         require("minecraft.version", minecraft.version());
@@ -181,7 +182,8 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
 
     public record Inputs(String mcpConfig, String mappings, String initialPatches, Map<String, String> tools) { }
 
-    public record Layout(String binpatches,
+    public record Layout(
+        String binpatches,
         String clientBinpatches,
         String serverBinpatches,
         String obfToSrg,
@@ -197,8 +199,7 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
         List<String> accessTransformers,
         String sideAnnotationStrippers,
         String patches,
-        String loaderSources
-    ) { }
+        String loaderSources) { }
 
     public record Runs(Run client, Run server) { }
 

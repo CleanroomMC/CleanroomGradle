@@ -31,8 +31,8 @@ import java.util.stream.Collectors;
 public final class ToolConfigs {
 
     private static final String ASM_VERSION = asmVersion();
-    private static final Map<String, String> DEFAULTS = Map.of("accesstransformer",
-        "net.minecraftforge:accesstransformers:8.2.17", // Forge
+    private static final Map<String, String> DEFAULTS = Map.of(
+        "accesstransformer", "net.minecraftforge:accesstransformers:8.2.17", // Forge
         "decompiler", "com.cleanroommc:cleanflower:1.0.0", // Cleanroom
         "installertools", "net.minecraftforge:installertools:1.4.1:fatjar", // Forge
         "mergetool", "net.minecraftforge:mergetool:1.2.2" // Forge

@@ -45,8 +45,8 @@ public final class UserdevDependency implements ProviderConvertible<ExternalModu
         this.dependency = (ExternalModuleDependency) project.getDependencies()
             .create("com.cleanroommc:cleanroom-userdev:" + version);
         this.dependencyProvider = project.provider(() -> this.dependency);
-        this.dependency.attributes(attributes -> attributes.attribute(UserdevAttributes.STAGE,
-            UserdevAttributes.MATERIALIZED
+        this.dependency.attributes(attributes -> attributes.attribute(
+            UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED
         ));
         this.accessTransformers = project.getObjects().fileCollection();
 
@@ -61,10 +61,11 @@ public final class UserdevDependency implements ProviderConvertible<ExternalModu
         metadata.setTransitive(false);
         metadata.attributes(attributes -> {
             attributes.attribute(Usage.USAGE_ATTRIBUTE, project.getObjects().named(Usage.class, Usage.JAVA_RUNTIME));
-            attributes.attribute(Category.CATEGORY_ATTRIBUTE,
-                project.getObjects().named(Category.class, Category.LIBRARY)
+            attributes.attribute(
+                Category.CATEGORY_ATTRIBUTE, project.getObjects().named(Category.class, Category.LIBRARY)
             );
-            attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE,
+            attributes.attribute(
+                LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE,
                 project.getObjects().named(LibraryElements.class, LibraryElements.JAR)
             );
             attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW);
@@ -80,8 +81,8 @@ public final class UserdevDependency implements ProviderConvertible<ExternalModu
             .of(UserdevConfigValueSource.class, spec -> spec.getParameters().getUserdevJar().set(artifact)));
         this.rawConfiguration = metadata;
         this.universal = project.getConfigurations()
-            .detachedConfiguration(project.getDependencies()
-                    .create("com.cleanroommc:cleanroom:" + version + ":universal")
+            .detachedConfiguration(
+                project.getDependencies().create("com.cleanroommc:cleanroom:" + version + ":universal")
             );
         this.universal.setTransitive(false);
     }

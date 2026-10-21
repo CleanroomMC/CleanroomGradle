@@ -35,11 +35,21 @@ public final class Providers {
 
     // mojang jre names
     public static String javaRuntimeName(int major) {
-        if (major >= 29) return ""; 
-        if (major >= 25) return "java-runtime-epsilon";
-        if (major >= 21) return "java-runtime-delta";
-        if (major >= 17) return "java-runtime-beta";
-        if (major >= 16) return "java-runtime-alpha";
+        if (major >= 29) {
+            return "";
+        }
+        if (major >= 25) {
+            return "java-runtime-epsilon";
+        }
+        if (major >= 21) {
+            return "java-runtime-delta";
+        }
+        if (major >= 17) {
+            return "java-runtime-beta";
+        }
+        if (major >= 16) {
+            return "java-runtime-alpha";
+        }
         return "jre-legacy";
     }
 
@@ -51,8 +61,8 @@ public final class Providers {
         return toolchains.launcherFor(spec -> spec.getLanguageVersion().set(JavaLanguageVersion.of(api)));
     }
 
-    public static Provider<JavaLauncher> javaLauncher(JavaToolchainService toolchains, Provider<JavaLanguageVersion> api
-    ) {
+    public static Provider<JavaLauncher> javaLauncher(
+        JavaToolchainService toolchains, Provider<JavaLanguageVersion> api) {
         return toolchains.launcherFor(spec -> spec.getLanguageVersion().set(api));
     }
 

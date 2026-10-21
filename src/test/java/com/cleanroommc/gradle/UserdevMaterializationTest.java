@@ -89,8 +89,8 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
         var output = resolve("1.0.0");
 
         assertThat(file(output, "CLASSES").getFileName()).hasToString("minecraft-patched.jar");
-        assertThat(entries(file(output, "CLASSES"))).isEqualTo(List.of("net/minecraft/Block.class",
-            "net/minecraft/Patched.class"
+        assertThat(entries(file(output, "CLASSES"))).isEqualTo(List.of(
+            "net/minecraft/Block.class", "net/minecraft/Patched.class"
         ));
         assertThat(entries(file(output, "LOADER"))).isEqualTo(List.of("com/cleanroommc/Loader.class"));
         assertThat(entries(file(output, "CLIENT_EXTRA"))).isEqualTo(List.of("assets/pack.mcmeta"));
@@ -162,7 +162,8 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
     }
 
     private GradleRunner runner(String version, String... extra) {
-        var arguments = new ArrayList<>(List.of("resolveUserdev", "-Pcg.repos.enableLocal=true",
+        var arguments = new ArrayList<>(List.of(
+            "resolveUserdev", "-Pcg.repos.enableLocal=true",
             "-Dmaven.repo.local=" + this.projectDir.resolve("local-maven")
         ));
         arguments.addAll(List.of(extra));
@@ -170,7 +171,8 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
     }
 
     private void buildScript(String version, String userdevBody) throws IOException {
-        this.project.build(UserdevFixture.PREAMBLE +
+        this.project.build(
+            UserdevFixture.PREAMBLE +
                 """
                 import org.gradle.api.attributes.Category
                 import org.gradle.api.attributes.DocsType
@@ -212,9 +214,7 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
                         resolved.each { name, files -> files.each { println 'USERDEV ' + name + ' -> ' + it } }
                     }
                 }
-                """.formatted(version,
-                    userdevBody
-                )
+                """.formatted(version, userdevBody)
         );
     }
 

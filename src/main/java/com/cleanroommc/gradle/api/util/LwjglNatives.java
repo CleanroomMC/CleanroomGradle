@@ -82,24 +82,26 @@ public final class LwjglNatives {
     }
 
     public static void addFor(Project project, Collection<Dependency> target, String classifier) {
-        create(project.getDependencyFactory(), target, project.getConfigurations().getByName(CONFIGURATION_NAME),
+        create(
+            project.getDependencyFactory(), target, project.getConfigurations().getByName(CONFIGURATION_NAME),
             List.of(classifier)
         );
     }
 
-    private static void create(DependencyFactory factory, Collection<Dependency> target, Configuration declared,
-        List<String> classifiers
-    ) {
+    private static void create(
+        DependencyFactory factory, Collection<Dependency> target, Configuration declared, List<String> classifiers) {
         for (var dependency : declared.getAllDependencies()) {
             if (dependency.getVersion() == null || dependency.getVersion().isBlank()) {
-                throw new InvalidUserDataException(dependency.getGroup() + ":" + dependency.getName() +
-                        " is declared in " + CONFIGURATION_NAME + " without a version. Native classifiers are" +
+                throw new InvalidUserDataException(
+                    dependency.getGroup() + ":" + dependency.getName() + " is declared in " + CONFIGURATION_NAME +
+                        " without a version. Native classifiers are" +
                         " published one variant each, and a platform does not travel with them."
                 );
             }
             var version = dependency.getVersion();
             for (var classifier : classifiers) {
-                var notation = "%s:%s:%s:%s".formatted(dependency.getGroup(), dependency.getName(), version, classifier
+                var notation = "%s:%s:%s:%s".formatted(
+                    dependency.getGroup(), dependency.getName(), version, classifier
                 );
                 var created = factory.create(notation);
                 created.setTransitive(false);

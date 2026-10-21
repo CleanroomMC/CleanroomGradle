@@ -59,9 +59,8 @@ public final class Objects {
         return provider;
     }
 
-    public static NamedDomainObjectProvider<Configuration> archive(Project project, String name, String description,
-        String defaultNotation
-    ) {
+    public static NamedDomainObjectProvider<Configuration> archive(
+        Project project, String name, String description, String defaultNotation) {
         var provider = config(project, name, description);
         var factory = project.getDependencyFactory();
         provider.configure(config -> {
@@ -87,8 +86,8 @@ public final class Objects {
         var dependency = firstDependency(configuration);
         var version = dependency.getVersion();
         if (version == null) {
-            throw new IllegalStateException("Dependency '" + dependency + "' of configuration '" +
-                    configuration.getName() + "' has no version."
+            throw new IllegalStateException(
+                "Dependency '" + dependency + "' of configuration '" + configuration.getName() + "' has no version."
             );
         }
         return dependency.getGroup() + ":" + dependency.getName() + ":" + version;
@@ -180,7 +179,8 @@ public final class Objects {
                 var root = IO.readJson(json, JsonObject.class);
                 if (root != null && root.has("id")) {
                     String encid = root.get("id").getAsString();
-                    String dashed = encid.replaceFirst("(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}+)",
+                    String dashed = encid.replaceFirst(
+                        "(\\p{XDigit}{8})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}{4})(\\p{XDigit}+)",
                         "$1-$2-$3-$4-$5"
                     );
                     uuid = UUID.fromString(dashed);

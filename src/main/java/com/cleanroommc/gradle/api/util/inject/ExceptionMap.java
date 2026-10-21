@@ -38,8 +38,8 @@ public final class ExceptionMap {
             var second = first < 0 ? -1 : line.indexOf(' ', first + 1);
             var slash = first < 0 ? -1 : line.lastIndexOf('/', first);
             if (second < 0 || slash < 0) {
-                throw new IOException("Malformed exceptions line, expected '<owner>/<name> <descriptor> <exception>...': " +
-                        line
+                throw new IOException(
+                    "Malformed exceptions line, expected '<owner>/<name> <descriptor> <exception>...': " + line
                 );
             }
             owners.computeIfAbsent(line.substring(0, slash), ignored -> new HashMap<>())

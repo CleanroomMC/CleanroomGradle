@@ -19,8 +19,8 @@ import org.gradle.api.provider.ValueSourceParameters;
 /**
  * Reads {@link UserdevConfig} out of a userdev artifact.
  */
-public abstract class UserdevConfigValueSource implements ValueSource<
-        UserdevConfig, UserdevConfigValueSource.Parameters> {
+public abstract class UserdevConfigValueSource
+    implements ValueSource<UserdevConfig, UserdevConfigValueSource.Parameters> {
 
     @Override
     public UserdevConfig obtain() {

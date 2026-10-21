@@ -161,7 +161,8 @@ public final class SideOnlyHandler {
         var missing = new TreeSet<>(targets);
         missing.removeAll(found);
         if (!missing.isEmpty()) {
-            throw new IllegalArgumentException("SAS targets did not resolve to legacy @SideOnly annotations:\n  " +
+            throw new IllegalArgumentException(
+                "SAS targets did not resolve to legacy @SideOnly annotations:\n  " +
                     String.join("\n  ", missing.stream().map(Target::format).toList())
             );
         }
@@ -175,8 +176,8 @@ public final class SideOnlyHandler {
         return strip(input, output, targetSide, validateReferences, Set.of());
     }
 
-    public static TransformResult strip(Path input, Path output, Side targetSide, boolean validateReferences,
-        Collection<String> validatedPrefixes
+    public static TransformResult strip(
+        Path input, Path output, Side targetSide, boolean validateReferences, Collection<String> validatedPrefixes
     ) throws IOException {
         var entries = readArchive(input);
         var classes = new TreeMap<String, ClassNode>();
@@ -264,8 +265,8 @@ public final class SideOnlyHandler {
         }
 
         if (validateReferences) {
-            validateNoRemovedReferences(entries, removedClasses, removedFields, removedMethods, targetSide,
-                validatedPrefixes
+            validateNoRemovedReferences(
+                entries, removedClasses, removedFields, removedMethods, targetSide, validatedPrefixes
             );
         }
         writeArchive(output, entries);
@@ -378,8 +379,7 @@ public final class SideOnlyHandler {
                     collectFrame(frame.local, out);
                     collectFrame(frame.stack, out);
                 }
-                default -> {
-                }
+                default -> { }
             }
         }
     }
@@ -505,10 +505,9 @@ public final class SideOnlyHandler {
         return removed.get();
     }
 
-    private static void validateNoRemovedReferences(Map<String, byte[]> entries, Set<String> removedClasses,
-        Set<FieldKey> removedFields, Set<MethodKey> removedMethods, Side targetSide,
-        Collection<String> validatedPrefixes
-    ) {
+    private static void validateNoRemovedReferences(
+        Map<String, byte[]> entries, Set<String> removedClasses, Set<FieldKey> removedFields,
+        Set<MethodKey> removedMethods, Side targetSide, Collection<String> validatedPrefixes) {
         var errors = new TreeSet<String>();
         for (var entry : entries.entrySet()) {
             if (!entry.getKey().endsWith(".class") || !isValidated(entry.getKey(), validatedPrefixes)) {
@@ -520,23 +519,24 @@ public final class SideOnlyHandler {
             checkReference(node.name, "nest host", node.nestHostClass, removedClasses, errors);
             node.interfaces.forEach(type -> checkReference(node.name, "interface", type, removedClasses, errors));
             if (node.nestMembers != null) {
-                node.nestMembers.forEach(type -> checkReference(node.name, "nest member", type, removedClasses, errors
+                node.nestMembers.forEach(type -> checkReference(
+                    node.name, "nest member", type, removedClasses, errors
                 ));
             }
             if (node.permittedSubclasses != null) {
-                node.permittedSubclasses.forEach(type -> checkReference(node.name, "permitted subclass", type,
-                    removedClasses, errors
+                node.permittedSubclasses.forEach(type -> checkReference(
+                    node.name, "permitted subclass", type, removedClasses, errors
                 ));
             }
-            node.fields.forEach(field -> checkDescriptor(node.name + "." + field.name, field.desc, removedClasses,
-                errors
+            node.fields.forEach(field -> checkDescriptor(
+                node.name + "." + field.name, field.desc, removedClasses, errors
             ));
             for (var method : node.methods) {
                 var location = node.name + "." + method.name + method.desc;
                 checkDescriptor(location, method.desc, removedClasses, errors);
                 method.exceptions.forEach(type -> checkReference(location, "exception", type, removedClasses, errors));
-                method.tryCatchBlocks.forEach(block -> checkReference(location, "catch type", block.type,
-                    removedClasses, errors
+                method.tryCatchBlocks.forEach(block -> checkReference(
+                    location, "catch type", block.type, removedClasses, errors
                 ));
                 for (var instruction : method.instructions) {
                     switch (instruction) {
@@ -545,7 +545,8 @@ public final class SideOnlyHandler {
                             checkReference(location, "field owner", field.owner, removedClasses, errors);
                             checkDescriptor(location, field.desc, removedClasses, errors);
                             if (removedFields.contains(new FieldKey(field.owner, field.name, field.desc))) {
-                                errors.add(location + " -> removed field " + field.owner + "." + field.name + field.desc
+                                errors.add(
+                                    location + " -> removed field " + field.owner + "." + field.name + field.desc
                                 );
                             }
                         }
@@ -560,7 +561,8 @@ public final class SideOnlyHandler {
                             checkDescriptor(location, dynamic.desc, removedClasses, errors);
                             checkHandle(location, dynamic.bsm, removedClasses, removedFields, removedMethods, errors);
                             for (var argument : dynamic.bsmArgs) {
-                                checkConstant(location, argument, removedClasses, removedFields, removedMethods, errors
+                                checkConstant(
+                                    location, argument, removedClasses, removedFields, removedMethods, errors
                                 );
                             }
                         }
@@ -572,8 +574,7 @@ public final class SideOnlyHandler {
                             checkFrame(location, frame.local, removedClasses, errors);
                             checkFrame(location, frame.stack, removedClasses, errors);
                         }
-                        default -> {
-                        }
+                        default -> { }
                     }
                 }
             }
@@ -581,7 +582,8 @@ public final class SideOnlyHandler {
         if (!errors.isEmpty()) {
             var shown = errors.stream().limit(50).toList();
             var suffix = errors.size() > shown.size() ? "\n  ... and " + (errors.size() - shown.size()) + " more" : "";
-            throw new IllegalStateException("Invalid " + targetSide.name().toLowerCase(Locale.ROOT) +
+            throw new IllegalStateException(
+                "Invalid " + targetSide.name().toLowerCase(Locale.ROOT) +
                     " jar: retained bytecode references classes removed by @SideOnly:\n  " +
                     String.join("\n  ", shown) + suffix
             );
@@ -610,9 +612,9 @@ public final class SideOnlyHandler {
             .forEach(value -> checkTypeLike(location, value, removed, errors));
     }
 
-    private static void checkConstant(String location, Object value, Set<String> removedClasses,
-        Set<FieldKey> removedFields, Set<MethodKey> removedMethods, Set<String> errors
-    ) {
+    private static void checkConstant(
+        String location, Object value, Set<String> removedClasses, Set<FieldKey> removedFields,
+        Set<MethodKey> removedMethods, Set<String> errors) {
         if (value instanceof Type type) {
             checkType(location, type, removedClasses, errors);
         } else if (value instanceof Handle handle) {
@@ -621,27 +623,29 @@ public final class SideOnlyHandler {
             checkDescriptor(location, dynamic.getDescriptor(), removedClasses, errors);
             checkHandle(location, dynamic.getBootstrapMethod(), removedClasses, removedFields, removedMethods, errors);
             for (var index = 0; index < dynamic.getBootstrapMethodArgumentCount(); index++) {
-                checkConstant(location, dynamic.getBootstrapMethodArgument(index), removedClasses, removedFields,
-                    removedMethods, errors
+                checkConstant(
+                    location, dynamic.getBootstrapMethodArgument(index), removedClasses, removedFields, removedMethods,
+                    errors
                 );
             }
         }
     }
 
-    private static void checkHandle(String location, Handle handle, Set<String> removedClasses,
-        Set<FieldKey> removedFields, Set<MethodKey> removedMethods, Set<String> errors
-    ) {
+    private static void checkHandle(
+        String location, Handle handle, Set<String> removedClasses, Set<FieldKey> removedFields,
+        Set<MethodKey> removedMethods, Set<String> errors) {
         checkReference(location, "handle owner", handle.getOwner(), removedClasses, errors);
         checkDescriptor(location, handle.getDesc(), removedClasses, errors);
         if (handle.getTag() >= Opcodes.H_GETFIELD && handle.getTag() <= Opcodes.H_PUTSTATIC) {
             if (removedFields.contains(new FieldKey(handle.getOwner(), handle.getName(), handle.getDesc()))) {
-                errors.add(location + " -> removed field handle " + handle.getOwner() + "." + handle.getName() +
+                errors.add(
+                    location + " -> removed field handle " + handle.getOwner() + "." + handle.getName() +
                         handle.getDesc()
                 );
             }
         } else if (removedMethods.contains(new MethodKey(handle.getOwner(), handle.getName(), handle.getDesc()))) {
-            errors.add(location + " -> removed method handle " + handle.getOwner() + "." + handle.getName() +
-                    handle.getDesc()
+            errors.add(
+                location + " -> removed method handle " + handle.getOwner() + "." + handle.getName() + handle.getDesc()
             );
         }
     }
@@ -686,9 +690,8 @@ public final class SideOnlyHandler {
         }
     }
 
-    private static void checkReference(String location, String kind, String referenced, Set<String> removed,
-        Set<String> errors
-    ) {
+    private static void checkReference(
+        String location, String kind, String referenced, Set<String> removed, Set<String> errors) {
         if (referenced != null && removed.contains(referenced)) {
             errors.add(location + " -> " + kind + " " + referenced);
         }

@@ -39,12 +39,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DeobfExtensionTest extends BaseFunctionalTest {
 
     private static final String RESOLVE_TASK = """
-            tasks.register('resolveDeobf') {
-                def classpath = configurations.compileClasspath.incoming.files
-                inputs.files(classpath)
-                doLast { classpath.each { println 'FILE ' + it.name; println 'PATH ' + it.absolutePath } }
-            }
-            """;
+                                               tasks.register('resolveDeobf') {
+                                                   def classpath = configurations.compileClasspath.incoming.files
+                                                   inputs.files(classpath)
+                                                   doLast { classpath.each { println 'FILE ' + it.name; println 'PATH ' + it.absolutePath } }
+                                               }
+                                               """;
 
     private static byte[] classBytes(String name) {
         var writer = new ClassWriter(0);
@@ -62,12 +62,12 @@ class DeobfExtensionTest extends BaseFunctionalTest {
         var methods = new HashSet<String>();
         try (var jar = new JarFile(jarPath.toFile())) {
             try (var input = jar.getInputStream(jar.getJarEntry(entryName))) {
-                new ClassReader(input).accept(new ClassVisitor(Opcodes.ASM9) {
+                new ClassReader(input).accept(
+                    new ClassVisitor(Opcodes.ASM9) {
 
                         @Override
-                        public org.objectweb.asm.MethodVisitor visitMethod(int access, String name, String descriptor,
-                            String signature, String[] exceptions
-                        ) {
+                        public org.objectweb.asm.MethodVisitor visitMethod(
+                            int access, String name, String descriptor, String signature, String[] exceptions) {
                             methods.add(name);
                             return null;
                         }
@@ -96,31 +96,30 @@ class DeobfExtensionTest extends BaseFunctionalTest {
     void loaderModeAllowsTestConfigurations() throws IOException {
         var build = this.project;
         var cache = this.projectDir.resolve("cg-cache");
-        build.seedLauncherMeta(cache, "1.12.2",
+        build.seedLauncherMeta(
+            cache, "1.12.2",
             """
-                {
-                  "id": "1.12.2",
-                  "libraries": []
-                }
-                """
+            {
+              "id": "1.12.2",
+              "libraries": []
+            }
+            """
         );
-        build.loader(
-            """
-                cleanroom.caches.directory = layout.projectDirectory.dir('cg-cache')
-                repositories { %s }
-                dependencies {
-                    testImplementation deobf('net.test:mod:1.0.0')
-                }
-                tasks.register('checkDeobf') {
-                    def compile = configurations.compileClasspath.incoming.dependencies*.name
-                    def testCompile = configurations.testCompileClasspath.incoming.dependencies*.name
-                    doLast {
-                        assert !compile.contains('mod')
-                        assert testCompile.contains('mod')
-                    }
-                }
-                """.formatted(fixture()
-            ));
+        build.loader("""
+                     cleanroom.caches.directory = layout.projectDirectory.dir('cg-cache')
+                     repositories { %s }
+                     dependencies {
+                         testImplementation deobf('net.test:mod:1.0.0')
+                     }
+                     tasks.register('checkDeobf') {
+                         def compile = configurations.compileClasspath.incoming.dependencies*.name
+                         def testCompile = configurations.testCompileClasspath.incoming.dependencies*.name
+                         doLast {
+                             assert !compile.contains('mod')
+                             assert testCompile.contains('mod')
+                         }
+                     }
+                     """.formatted(fixture()));
 
         var result = build.runner("checkDeobf", "--offline").build();
         assertThat(result.getOutput()).as(result.getOutput()).contains("BUILD SUCCESSFUL");
@@ -132,21 +131,21 @@ class DeobfExtensionTest extends BaseFunctionalTest {
         var mappings = this.projectDir.resolve("srg2mcp.tsrg");
         Files.writeString(mappings, "tsrg2 srg mcp\n");
         stubRenamerSource();
-        build.vanilla("""
-                repositories { %s }
-                sourceSets { tool }
-                tasks.register('toolJar', Jar) {
-                    from sourceSets.tool.output
-                    archiveClassifier = 'tool'
-                    manifest { attributes 'Main-Class': 'tool.FakeRenamer' }
-                }
-                deobf.renamerClasspath.setFrom(tasks.named('toolJar'))
-                deobf.mappings.from(file('srg2mcp.tsrg'))
-                dependencies {
-                    implementation deobf('net.test:mod:1.0.0')
-                }
-                """.formatted(fixture()
-                ) +
+        build.vanilla(
+            """
+            repositories { %s }
+            sourceSets { tool }
+            tasks.register('toolJar', Jar) {
+                from sourceSets.tool.output
+                archiveClassifier = 'tool'
+                manifest { attributes 'Main-Class': 'tool.FakeRenamer' }
+            }
+            deobf.renamerClasspath.setFrom(tasks.named('toolJar'))
+            deobf.mappings.from(file('srg2mcp.tsrg'))
+            dependencies {
+                implementation deobf('net.test:mod:1.0.0')
+            }
+            """.formatted(fixture()) +
                 RESOLVE_TASK
         );
 
@@ -178,23 +177,23 @@ class DeobfExtensionTest extends BaseFunctionalTest {
         var build = this.project;
         Files.writeString(this.projectDir.resolve("srg2mcp.tsrg"), "tsrg2 srg mcp\n");
         stubRenamerSource();
-        build.vanilla("""
-                repositories { %s }
-                sourceSets { tool }
-                tasks.register('toolJar', Jar) {
-                    from sourceSets.tool.output
-                    archiveClassifier = 'tool'
-                    manifest { attributes 'Main-Class': 'tool.FakeRenamer' }
+        build.vanilla(
+            """
+            repositories { %s }
+            sourceSets { tool }
+            tasks.register('toolJar', Jar) {
+                from sourceSets.tool.output
+                archiveClassifier = 'tool'
+                manifest { attributes 'Main-Class': 'tool.FakeRenamer' }
+            }
+            deobf.renamerClasspath.setFrom(tasks.named('toolJar'))
+            deobf.mappings.from(file('srg2mcp.tsrg'))
+            afterEvaluate {
+                dependencies {
+                    implementation deobf('net.test:mod:1.0.0')
                 }
-                deobf.renamerClasspath.setFrom(tasks.named('toolJar'))
-                deobf.mappings.from(file('srg2mcp.tsrg'))
-                afterEvaluate {
-                    dependencies {
-                        implementation deobf('net.test:mod:1.0.0')
-                    }
-                }
-                """.formatted(fixture()
-                ) +
+            }
+            """.formatted(fixture()) +
                 RESOLVE_TASK
         );
 
@@ -206,21 +205,22 @@ class DeobfExtensionTest extends BaseFunctionalTest {
     @Test
     void remapsSrgMembersWithTheDefaultRenamer() throws IOException {
         var build = this.project;
-        Files.writeString(this.projectDir.resolve("srg2mcp.tsrg"),
+        Files.writeString(
+            this.projectDir.resolve("srg2mcp.tsrg"),
             """
-                tsrg2 srg mcp
-                net/test/mod net/test/mod
-                \tfunc_123_a ()V readableName
-                """
+            tsrg2 srg mcp
+            net/test/mod net/test/mod
+            \tfunc_123_a ()V readableName
+            """
         );
-        build.vanilla("""
-                repositories { %s }
-                deobf.mappings.from(file('srg2mcp.tsrg'))
-                dependencies {
-                    implementation deobf('net.test:mod:1.0.0')
-                }
-                """.formatted(fixture()
-                ) +
+        build.vanilla(
+            """
+            repositories { %s }
+            deobf.mappings.from(file('srg2mcp.tsrg'))
+            dependencies {
+                implementation deobf('net.test:mod:1.0.0')
+            }
+            """.formatted(fixture()) +
                 RESOLVE_TASK
         );
 
@@ -240,12 +240,13 @@ class DeobfExtensionTest extends BaseFunctionalTest {
     @Test
     void remapsFileDependencies() throws IOException {
         var build = this.project;
-        Files.writeString(this.projectDir.resolve("srg2mcp.tsrg"),
+        Files.writeString(
+            this.projectDir.resolve("srg2mcp.tsrg"),
             """
-                tsrg2 srg mcp
-                net/test/local net/test/local
-                \tfunc_123_a ()V readableName
-                """
+            tsrg2 srg mcp
+            net/test/local net/test/local
+            \tfunc_123_a ()V readableName
+            """
         );
         var libs = Files.createDirectories(this.projectDir.resolve("libs"));
         try (var jar = new JarOutputStream(Files.newOutputStream(libs.resolve("local.jar")))) {
@@ -253,12 +254,13 @@ class DeobfExtensionTest extends BaseFunctionalTest {
             jar.write(classBytes("net/test/local"));
             jar.closeEntry();
         }
-        build.vanilla("""
-                deobf.mappings.from(file('srg2mcp.tsrg'))
-                dependencies {
-                    implementation deobf(fileTree('libs') { include '*.jar' })
-                }
-                """ +
+        build.vanilla(
+            """
+            deobf.mappings.from(file('srg2mcp.tsrg'))
+            dependencies {
+                implementation deobf(fileTree('libs') { include '*.jar' })
+            }
+            """ +
                 RESOLVE_TASK
         );
 
@@ -287,56 +289,55 @@ class DeobfExtensionTest extends BaseFunctionalTest {
             jar.closeEntry();
         }
         if (moduleMetadata) {
-            Files.writeString(module.resolve("mod-1.0.0.module"),
+            Files.writeString(
+                module.resolve("mod-1.0.0.module"),
                 """
-                    {
-                      "formatVersion": "1.1",
-                      "component": {"group": "net.test", "module": "mod", "version": "1.0.0"},
-                      "variants": [
-                        {"name": "apiElements", "attributes": {"org.gradle.usage": "java-api"},
-                         "dependencies": [{"group": "net.test", "module": "child", "version": {"requires": "1.0.0"}}],
-                         "files": [{"name": "mod-1.0.0.jar", "url": "mod-1.0.0.jar"}]},
-                        {"name": "runtimeElements", "attributes": {"org.gradle.usage": "java-runtime"},
-                         "dependencies": [{"group": "net.test", "module": "child", "version": {"requires": "1.0.0"}}],
-                         "files": [{"name": "mod-1.0.0.jar", "url": "mod-1.0.0.jar"}]}
-                      ]
-                    }
-                    """
+                {
+                  "formatVersion": "1.1",
+                  "component": {"group": "net.test", "module": "mod", "version": "1.0.0"},
+                  "variants": [
+                    {"name": "apiElements", "attributes": {"org.gradle.usage": "java-api"},
+                     "dependencies": [{"group": "net.test", "module": "child", "version": {"requires": "1.0.0"}}],
+                     "files": [{"name": "mod-1.0.0.jar", "url": "mod-1.0.0.jar"}]},
+                    {"name": "runtimeElements", "attributes": {"org.gradle.usage": "java-runtime"},
+                     "dependencies": [{"group": "net.test", "module": "child", "version": {"requires": "1.0.0"}}],
+                     "files": [{"name": "mod-1.0.0.jar", "url": "mod-1.0.0.jar"}]}
+                  ]
+                }
+                """
             );
             repository = repository.replace(" }", "; metadataSources { gradleMetadata(); mavenPom() } }");
         }
-        Files.writeString(this.projectDir.resolve("srg2mcp.tsrg"),
+        Files.writeString(
+            this.projectDir.resolve("srg2mcp.tsrg"),
             """
-                tsrg2 srg mcp
-                net/test/classified net/test/classified
-                \tfunc_123_a ()V readableName
-                """
+            tsrg2 srg mcp
+            net/test/classified net/test/classified
+            \tfunc_123_a ()V readableName
+            """
         );
         var notation = mapNotation
             ? "[group: 'net.test', name: 'mod', version: '1.0.0', classifier: 'srg']"
             : "'net.test:mod:1.0.0:srg'";
-        this.project.vanilla(
-            """
-                repositories { %s }
-                deobf.mappings.from(file('srg2mcp.tsrg'))
-                dependencies {
-                    implementation 'net.test:mod:1.0.0'
-                    implementation deobf(%s)
-                    testImplementation deobf(%s)
-                }
-                tasks.register('resolveClassified') {
-                    def compile = configurations.compileClasspath.incoming.files
-                    def runtime = configurations.runtimeClasspath.incoming.files
-                    inputs.files(compile, runtime)
-                    doLast {
-                        assert compile.files*.name.containsAll(['mod-1.0.0.jar', 'mod-1.0.0-srg-deobf.jar', 'child-1.0.0.jar'])
-                        assert runtime.files*.name.containsAll(['mod-1.0.0.jar', 'mod-1.0.0-srg-deobf.jar', 'child-1.0.0.jar'])
-                        compile.each { println 'PATH ' + it.absolutePath }
-                    }
-                }
-                """.formatted(repository,
-                notation, notation
-            ));
+        this.project.vanilla("""
+                             repositories { %s }
+                             deobf.mappings.from(file('srg2mcp.tsrg'))
+                             dependencies {
+                                 implementation 'net.test:mod:1.0.0'
+                                 implementation deobf(%s)
+                                 testImplementation deobf(%s)
+                             }
+                             tasks.register('resolveClassified') {
+                                 def compile = configurations.compileClasspath.incoming.files
+                                 def runtime = configurations.runtimeClasspath.incoming.files
+                                 inputs.files(compile, runtime)
+                                 doLast {
+                                     assert compile.files*.name.containsAll(['mod-1.0.0.jar', 'mod-1.0.0-srg-deobf.jar', 'child-1.0.0.jar'])
+                                     assert runtime.files*.name.containsAll(['mod-1.0.0.jar', 'mod-1.0.0-srg-deobf.jar', 'child-1.0.0.jar'])
+                                     compile.each { println 'PATH ' + it.absolutePath }
+                                 }
+                             }
+                             """.formatted(repository, notation, notation));
 
         var output = this.project.runner("resolveClassified", "--offline").build().getOutput();
         var transformed = output.lines()
@@ -354,31 +355,29 @@ class DeobfExtensionTest extends BaseFunctionalTest {
     void preparedInputsResolveInIdeaModel() throws IOException {
         var build = new PluginBuild(this.projectDir).settings();
         stubRenamerSource();
-        build.vanilla(
-            """
-                apply plugin: 'idea'
-                repositories { %s }
-                sourceSets { tool }
-                def writeDeobfMappings = tasks.register('writeDeobfMappings') {
-                    def output = layout.buildDirectory.file('deobf/srg2mcp.tsrg')
-                    outputs.file(output)
-                    doLast {
-                        output.get().asFile.parentFile.mkdirs()
-                        output.get().asFile.text = 'tsrg2 srg mcp\\n'
-                    }
-                }
-                tasks.register('toolJar', Jar) {
-                    from sourceSets.tool.output
-                    archiveClassifier = 'tool'
-                    manifest { attributes 'Main-Class': 'tool.FakeRenamer' }
-                }
-                deobf.renamerClasspath.setFrom(tasks.named('toolJar'))
-                deobf.mappings.from(writeDeobfMappings)
-                dependencies {
-                    implementation deobf('net.test:mod:1.0.0')
-                }
-                """.formatted(fixture()
-            ));
+        build.vanilla("""
+                      apply plugin: 'idea'
+                      repositories { %s }
+                      sourceSets { tool }
+                      def writeDeobfMappings = tasks.register('writeDeobfMappings') {
+                          def output = layout.buildDirectory.file('deobf/srg2mcp.tsrg')
+                          outputs.file(output)
+                          doLast {
+                              output.get().asFile.parentFile.mkdirs()
+                              output.get().asFile.text = 'tsrg2 srg mcp\\n'
+                          }
+                      }
+                      tasks.register('toolJar', Jar) {
+                          from sourceSets.tool.output
+                          archiveClassifier = 'tool'
+                          manifest { attributes 'Main-Class': 'tool.FakeRenamer' }
+                      }
+                      deobf.renamerClasspath.setFrom(tasks.named('toolJar'))
+                      deobf.mappings.from(writeDeobfMappings)
+                      dependencies {
+                          implementation deobf('net.test:mod:1.0.0')
+                      }
+                      """.formatted(fixture()));
 
         var prepared = build.runner("prepareDeobf", "--offline").build().getOutput();
         assertThat(Files.isRegularFile(this.projectDir.resolve("build/deobf/srg2mcp.tsrg"))).as(prepared).isTrue();
@@ -401,19 +400,16 @@ class DeobfExtensionTest extends BaseFunctionalTest {
     void packagedUserdevInputsResolveInIdeaModelWithoutPreparation() throws IOException {
         var build = new PluginBuild(this.projectDir).settings();
         var userdev = packagedUserdev();
-        build.vanilla(
-            """
-                apply plugin: 'idea'
-                repositories { %s }
-                def userdevDeobf = configurations.create('userdevDeobf')
-                dependencies.add(userdevDeobf.name, files('%s'))
-                dependencies {
-                    implementation deobf('net.test:mod:1.0.0')
-                }
-                deobf.useUserdev(userdevDeobf)
-                """.formatted(fixture(),
-                userdev.toString().replace('\\', '/')
-            ));
+        build.vanilla("""
+                      apply plugin: 'idea'
+                      repositories { %s }
+                      def userdevDeobf = configurations.create('userdevDeobf')
+                      dependencies.add(userdevDeobf.name, files('%s'))
+                      dependencies {
+                          implementation deobf('net.test:mod:1.0.0')
+                      }
+                      deobf.useUserdev(userdevDeobf)
+                      """.formatted(fixture(), userdev.toString().replace('\\', '/')));
 
         var model = build.ideaModel("--offline");
         var transformed = model.value()
@@ -435,31 +431,32 @@ class DeobfExtensionTest extends BaseFunctionalTest {
     private void stubRenamerSource() throws IOException {
         var sourceDir = this.projectDir.resolve("src/tool/java/tool");
         Files.createDirectories(sourceDir);
-        Files.writeString(sourceDir.resolve("FakeRenamer.java"),
+        Files.writeString(
+            sourceDir.resolve("FakeRenamer.java"),
             """
-                package tool;
+            package tool;
 
-                import java.nio.file.Files;
-                import java.nio.file.Path;
-                import java.nio.file.StandardCopyOption;
-                import java.util.Arrays;
+            import java.nio.file.Files;
+            import java.nio.file.Path;
+            import java.nio.file.StandardCopyOption;
+            import java.util.Arrays;
 
-                public final class FakeRenamer {
-                    public static void main(String[] args) throws Exception {
-                        String input = null, output = null, map = null;
-                        for (int i = 0; i < args.length - 1; i++) {
-                            switch (args[i]) {
-                                case "--input" -> input = args[i + 1];
-                                case "--output" -> output = args[i + 1];
-                                case "--map" -> map = args[i + 1];
-                                default -> { }
-                            }
+            public final class FakeRenamer {
+                public static void main(String[] args) throws Exception {
+                    String input = null, output = null, map = null;
+                    for (int i = 0; i < args.length - 1; i++) {
+                        switch (args[i]) {
+                            case "--input" -> input = args[i + 1];
+                            case "--output" -> output = args[i + 1];
+                            case "--map" -> map = args[i + 1];
+                            default -> { }
                         }
-                        Files.write(Path.of(map + ".args"), Arrays.asList(args));
-                        Files.copy(Path.of(input), Path.of(output), StandardCopyOption.REPLACE_EXISTING);
                     }
+                    Files.write(Path.of(map + ".args"), Arrays.asList(args));
+                    Files.copy(Path.of(input), Path.of(output), StandardCopyOption.REPLACE_EXISTING);
                 }
-                """
+            }
+            """
         );
     }
 
@@ -469,16 +466,17 @@ class DeobfExtensionTest extends BaseFunctionalTest {
      */
     private String fixture() throws IOException {
         var repository = this.projectDir.resolve("fixture-repo");
-        module(repository, "mod",
+        module(
+            repository, "mod",
             """
-                    <dependencies>
-                        <dependency>
-                            <groupId>net.test</groupId>
-                            <artifactId>child</artifactId>
-                            <version>1.0.0</version>
-                        </dependency>
-                    </dependencies>
-                """
+                <dependencies>
+                    <dependency>
+                        <groupId>net.test</groupId>
+                        <artifactId>child</artifactId>
+                        <version>1.0.0</version>
+                    </dependency>
+                </dependencies>
+            """
         );
         module(repository, "child", "");
         return "maven { url = '" + repository.toUri() + "' }";
@@ -493,13 +491,11 @@ class DeobfExtensionTest extends BaseFunctionalTest {
             jar.write(PluginBuild.userdevConfigJson("0.7.0-alpha").getBytes(StandardCharsets.UTF_8));
             jar.closeEntry();
             jar.putNextEntry(new ZipEntry(UserdevConfig.meta(UserdevConfig.SRG2MCP)));
-            jar.write(
-                """
-                    tsrg2 srg mcp
-                    net/test/mod net/test/mod
-                    \tfunc_123_a ()V readableName
-                    """.getBytes(StandardCharsets.UTF_8
-                ));
+            jar.write("""
+                      tsrg2 srg mcp
+                      net/test/mod net/test/mod
+                      \tfunc_123_a ()V readableName
+                      """.getBytes(StandardCharsets.UTF_8));
             jar.closeEntry();
         }
         return userdev;
@@ -513,17 +509,16 @@ class DeobfExtensionTest extends BaseFunctionalTest {
             jar.write(classBytes("net/test/" + name));
             jar.closeEntry();
         }
-        Files.writeString(moduleDir.resolve(name + "-1.0.0.pom"),
+        Files.writeString(
+            moduleDir.resolve(name + "-1.0.0.pom"),
             """
-                <project>
-                    <modelVersion>4.0.0</modelVersion>
-                    <groupId>net.test</groupId>
-                    <artifactId>%s</artifactId>
-                    <version>1.0.0</version>
-                %s</project>
-                """.formatted(name,
-                dependencies
-            )
+            <project>
+                <modelVersion>4.0.0</modelVersion>
+                <groupId>net.test</groupId>
+                <artifactId>%s</artifactId>
+                <version>1.0.0</version>
+            %s</project>
+            """.formatted(name, dependencies)
         );
     }
 

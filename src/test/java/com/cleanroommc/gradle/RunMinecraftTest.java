@@ -32,40 +32,38 @@ class RunMinecraftTest extends BaseFunctionalTest {
         var crashed = List.of(1, 137);
         var source = this.projectDir.resolve("src/exiter/java/exiter/Exiter.java");
         Files.createDirectories(source.getParent());
-        Files.writeString(source,
+        Files.writeString(
+            source,
             """
-                package exiter;
-                public final class Exiter {
-                    public static void main(String[] args) {
-                        System.exit(Integer.parseInt(args[args.length - 1]));
-                    }
+            package exiter;
+            public final class Exiter {
+                public static void main(String[] args) {
+                    System.exit(Integer.parseInt(args[args.length - 1]));
                 }
-                """
+            }
+            """
         );
-        this.project.vanilla(
-            """
-                import com.cleanroommc.gradle.api.task.mc.RunMinecraft
-                sourceSets { exiter }
-                def exiterJar = tasks.register('exiterJar', Jar) {
-                    from sourceSets.exiter.output
-                    archiveClassifier = 'exiter'
-                }
-                (%s + %s).each { code ->
-                    tasks.register('runExit' + code, RunMinecraft) {
-                        side = 'client'
-                        env = 'mcp'
-                        minecraftVersion = '1.12.2'
-                        assetIndexVersion = '1.12'
-                        getUUID().set('00000000-0000-0000-0000-000000000000')
-                        vanillaAssetsLocation = layout.buildDirectory.dir('assets')
-                        mainClass = 'exiter.Exiter'
-                        classpath = files(exiterJar)
-                        args code.toString()
-                    }
-                }
-                """.formatted(stopped,
-                crashed
-            ));
+        this.project.vanilla("""
+                             import com.cleanroommc.gradle.api.task.mc.RunMinecraft
+                             sourceSets { exiter }
+                             def exiterJar = tasks.register('exiterJar', Jar) {
+                                 from sourceSets.exiter.output
+                                 archiveClassifier = 'exiter'
+                             }
+                             (%s + %s).each { code ->
+                                 tasks.register('runExit' + code, RunMinecraft) {
+                                     side = 'client'
+                                     env = 'mcp'
+                                     minecraftVersion = '1.12.2'
+                                     assetIndexVersion = '1.12'
+                                     getUUID().set('00000000-0000-0000-0000-000000000000')
+                                     vanillaAssetsLocation = layout.buildDirectory.dir('assets')
+                                     mainClass = 'exiter.Exiter'
+                                     classpath = files(exiterJar)
+                                     args code.toString()
+                                 }
+                             }
+                             """.formatted(stopped, crashed));
 
         this.project.runner(stopped.stream().map(code -> "runExit" + code).toArray(String[]::new)).build();
 

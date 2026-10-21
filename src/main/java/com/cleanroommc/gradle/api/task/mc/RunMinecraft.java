@@ -80,7 +80,8 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         this.getOffline().convention(false);
         this.getLauncherVersion().convention("dev");
         this.getMainClass()
-            .convention(this.getSide()
+            .convention(
+                this.getSide()
                     .map(side -> side.isClient()
                         ? "net.minecraft.client.main.Main"
                         : "net.minecraft.server.MinecraftServer")
@@ -164,19 +165,39 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     public abstract Property<String> getLauncherVersion();
 
     @Override
+    public void setWorkingDir(File dir) {
+        this.setCustomWorkingDir = true;
+        super.setWorkingDir(dir);
+    }
+
+    @Override
+    public void setWorkingDir(Object dir) {
+        this.setCustomWorkingDir = true;
+        super.setWorkingDir(dir);
+    }
+
+    @Override
+    public JavaExec workingDir(Object dir) {
+        this.setCustomWorkingDir = true;
+        return super.workingDir(dir);
+    }
+
+    @Override
     protected void beforeExec() {
         var logger = this.getLogger();
         var side = this.getSide().get();
 
         if (this.getNatives().isPresent()) {
-            this.systemProperty("java.library.path",
+            this.systemProperty(
+                "java.library.path",
                 Platform.joinLibraryPath(System.getProperty("java.library.path"), this.getNatives().get().getAsFile())
             );
         }
 
         if (!this.setCustomWorkingDir) {
-            super.setWorkingDir(IO.runDir(this.getProjectLayout().getProjectDirectory().getAsFile(),
-                this.getMinecraftVersion().get(), this.getEnv().get(), side
+            super.setWorkingDir(IO.runDir(
+                this.getProjectLayout().getProjectDirectory().getAsFile(), this.getMinecraftVersion().get(),
+                this.getEnv().get(), side
             ));
         }
 
@@ -202,7 +223,8 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
             }
             var eula = new File(this.getWorkingDir(), "eula.txt");
             if (!eula.exists()) {
-                logger.warn("Do you accept the Minecraft EULA (https://www.minecraft.net/en-us/eula)? If yes, type 'y': "
+                logger.warn(
+                    "Do you accept the Minecraft EULA (https://www.minecraft.net/en-us/eula)? If yes, type 'y': "
                 );
                 try {
                     FileUtils.write(eula, "eula=" + consoleInput(), StandardCharsets.UTF_8);
@@ -217,28 +239,11 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     protected void afterExec() {
         var result = this.getExecutionResult().getOrNull();
         if (result != null && !STOPPED_EXITS.contains(result.getExitValue())) {
-            throw new GradleException("Minecraft crashed (exit code " + result.getExitValue() +
+            throw new GradleException(
+                "Minecraft crashed (exit code " + result.getExitValue() +
                     "). See the log above and the crash-reports directory."
             );
         }
-    }
-
-    @Override
-    public void setWorkingDir(File dir) {
-        this.setCustomWorkingDir = true;
-        super.setWorkingDir(dir);
-    }
-
-    @Override
-    public void setWorkingDir(Object dir) {
-        this.setCustomWorkingDir = true;
-        super.setWorkingDir(dir);
-    }
-
-    @Override
-    public JavaExec workingDir(Object dir) {
-        this.setCustomWorkingDir = true;
-        return super.workingDir(dir);
     }
 
     private void generateArguments(Side side) {
@@ -254,7 +259,8 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
                 return;
             }
             this.getLogger()
-                .warn("Version meta for {} declares neither 'arguments' nor 'minecraftArguments'; using legacy launch arguments.",
+                .warn(
+                    "Version meta for {} declares neither 'arguments' nor 'minecraftArguments'; using legacy launch arguments.",
                     this.getMinecraftVersion().get()
                 );
         }
@@ -270,8 +276,9 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         if (side.isServer()) {
             return;
         }
-        this.args("--assetIndex", this.getAssetIndexVersion(), "--assetsDir", this.getVanillaAssetsLocation(),
-            "--username", this.getUsername(), "--uuid", this.getUUID(), "--accessToken", this.getAccessToken()
+        this.args(
+            "--assetIndex", this.getAssetIndexVersion(), "--assetsDir", this.getVanillaAssetsLocation(), "--username",
+            this.getUsername(), "--uuid", this.getUUID(), "--accessToken", this.getAccessToken()
         );
     }
 

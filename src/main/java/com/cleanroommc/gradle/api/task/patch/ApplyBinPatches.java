@@ -87,8 +87,8 @@ public abstract class ApplyBinPatches extends DefaultTask {
                 missing.removeAll(contents.keySet());
                 if (!missing.isEmpty()) {
                     throw new IllegalStateException(("%d class(es) that the binpatches change are absent from %s, " +
-                        "the original jar does not match the one the patches were generated against.").formatted(missing.size(),
-                        original.getFileName()
+                        "the original jar does not match the one the patches were generated against.").formatted(
+                        missing.size(), original.getFileName()
                     ));
                 }
 
@@ -188,8 +188,9 @@ public abstract class ApplyBinPatches extends DefaultTask {
         Path original = getOriginalJar().getAsFile().get().toPath();
         Path output = getPatchedJar().getAsFile().get().toPath();
         var result = apply(original, getBinpatches().getAsFile().get().toPath(), getPrefix().get(), output);
-        getLogger().lifecycle("Binpatches: {} patched, {} added, {} removed -> {}", result.patched(), result.added(),
-            result.removed(), output.getFileName()
+        getLogger().lifecycle(
+            "Binpatches: {} patched, {} added, {} removed -> {}", result.patched(), result.added(), result.removed(),
+            output.getFileName()
         );
     }
 

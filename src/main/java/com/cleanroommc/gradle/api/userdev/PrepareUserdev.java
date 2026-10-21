@@ -73,9 +73,6 @@ public abstract class PrepareUserdev implements TransformAction<PrepareUserdev.P
     @PathSensitive(PathSensitivity.NONE)
     public abstract Provider<FileSystemLocation> getInputArtifact();
 
-    @Inject
-    protected abstract ExecOperations getExecOperations();
-
     @Override
     public void transform(TransformOutputs outputs) {
         var input = getInputArtifact().get().getAsFile();
@@ -99,23 +96,28 @@ public abstract class PrepareUserdev implements TransformAction<PrepareUserdev.P
             var server = acquire(config.minecraft().server(), cache.resolve("server.jar"));
             var obfToSrg = UserdevArchive.extract(input, layout.obfToSrg(), work.resolve("obf2srg.tsrg").toFile());
 
-            var vanilla = srg(input, config, work.resolve("vanilla"), client, server, obfToSrg, List.of(),
+            var vanilla = srg(
+                input, config, work.resolve("vanilla"), client, server, obfToSrg, List.of(),
                 new File(output, CLIENT_EXTRA), new File(output, SERVER_EXTRA)
             );
             var stripped = work.resolve("vanilla-sas.jar");
-            SideOnlyHandler.applySas(vanilla.toPath(), stripped,
-                List.of(UserdevArchive.extract(input, layout.sideAnnotationStrippers(),
-                        work.resolve("cleanroom.sas").toFile()
+            SideOnlyHandler.applySas(
+                vanilla.toPath(), stripped,
+                List.of(
+                    UserdevArchive.extract(
+                        input, layout.sideAnnotationStrippers(), work.resolve("cleanroom.sas").toFile()
                     )
                         .toPath()
                 )
             );
-            UserdevArchive.accessTransform(getExecOperations(), getParameters().getAccessTransformerClasspath(),
-                stripped.toFile(), new File(output, SOURCE_INPUT),
+            UserdevArchive.accessTransform(
+                getExecOperations(), getParameters().getAccessTransformerClasspath(), stripped.toFile(),
+                new File(output, SOURCE_INPUT),
                 UserdevArchive.accessTransformers(input, layout.accessTransformers(), work), work.toFile()
             );
 
-            var binpatches = UserdevArchive.extract(getParameters().getUniversal().getSingleFile(), layout.binpatches(),
+            var binpatches = UserdevArchive.extract(
+                getParameters().getUniversal().getSingleFile(), layout.binpatches(),
                 work.resolve("binpatches.zip").toFile()
             )
                 .toPath();
@@ -126,12 +128,13 @@ public abstract class PrepareUserdev implements TransformAction<PrepareUserdev.P
             var loaderSrg = work.resolve("loader-srg.jar").toFile();
             UserdevArchive.select(input, loaderSrg, name -> !name.startsWith(UserdevConfig.META + "/"), "");
             var loaderNotch = work.resolve("loader-notch.jar").toFile();
-            UserdevArchive.rename(getExecOperations(), getParameters().getRenamerClasspath(), loaderSrg, loaderNotch,
-                obfToSrg, getParameters().getLibraries(), "--reverse", "--naive-srg"
+            UserdevArchive.rename(
+                getExecOperations(), getParameters().getRenamerClasspath(), loaderSrg, loaderNotch, obfToSrg,
+                getParameters().getLibraries(), "--reverse", "--naive-srg"
             );
-            var patched = srg(input, config, work.resolve("patched"), clientPatched, serverPatched, obfToSrg,
-                List.of(loaderNotch), work.resolve("client-extra.jar").toFile(),
-                work.resolve("server-extra.jar").toFile()
+            var patched = srg(
+                input, config, work.resolve("patched"), clientPatched, serverPatched, obfToSrg, List.of(loaderNotch),
+                work.resolve("client-extra.jar").toFile(), work.resolve("server-extra.jar").toFile()
             );
             IO.move(patched.toPath(), output.toPath().resolve(MINECRAFT_SRG));
             UserdevArchive.delete(work);
@@ -140,9 +143,13 @@ public abstract class PrepareUserdev implements TransformAction<PrepareUserdev.P
         }
     }
 
+    @Inject
+    protected abstract ExecOperations getExecOperations();
+
     /** Splits, merges, renames to SRG and injects metadata, the same steps the loader workspace runs. */
-    private File srg(File input, UserdevConfig config, Path work, Path client, Path server, File obfToSrg,
-        List<File> libraries, File clientExtra, File serverExtra
+    private File srg(
+        File input, UserdevConfig config, Path work, Path client, Path server, File obfToSrg, List<File> libraries,
+        File clientExtra, File serverExtra
     ) throws IOException {
         Files.createDirectories(work);
         var layout = config.layout();
@@ -159,11 +166,12 @@ public abstract class PrepareUserdev implements TransformAction<PrepareUserdev.P
         var renamed = work.resolve("srg.jar").toFile();
         var allLibraries = new ArrayList<>(libraries);
         getParameters().getLibraries().forEach(allLibraries::add);
-        UserdevArchive.rename(getExecOperations(), getParameters().getRenamerClasspath(), merged, renamed, obfToSrg,
-            allLibraries
+        UserdevArchive.rename(
+            getExecOperations(), getParameters().getRenamerClasspath(), merged, renamed, obfToSrg, allLibraries
         );
         var injected = work.resolve("injected.jar");
-        MetadataInjector.inject(renamed.toPath(), injected,
+        MetadataInjector.inject(
+            renamed.toPath(), injected,
             UserdevArchive.extract(input, layout.access(), work.resolve("access.txt").toFile()).toPath(),
             UserdevArchive.extract(input, layout.constructors(), work.resolve("constructors.txt").toFile()).toPath(),
             UserdevArchive.extract(input, layout.exceptions(), work.resolve("exceptions.txt").toFile()).toPath()
@@ -174,14 +182,15 @@ public abstract class PrepareUserdev implements TransformAction<PrepareUserdev.P
     private Path acquire(UserdevConfig.Download download, Path target) throws IOException {
         Files.createDirectories(target.getParent());
         var lockPath = target.resolveSibling(target.getFileName() + ".lock");
-        try (var channel = FileChannel.open(lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE
+        try (var channel = FileChannel.open(
+            lockPath, StandardOpenOption.CREATE, StandardOpenOption.WRITE
         ); var ignored = channel.lock()) {
             if (IO.sha1Match(target, download.sha1())) {
                 return target;
             }
             if (getParameters().getOffline().get()) {
-                throw new IllegalStateException("Minecraft " + target.getFileName() +
-                        " is missing or corrupt in the shared cache. " +
+                throw new IllegalStateException(
+                    "Minecraft " + target.getFileName() + " is missing or corrupt in the shared cache. " +
                         "Resolve userdev once without --offline to repair it."
                 );
             }

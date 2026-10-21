@@ -113,14 +113,14 @@ public abstract class WriteInstallProfile extends DefaultTask {
             if (LibraryJson.isLocalRepository(library.getRepositoryUrl().get())) {
                 continue;
             }
-            addRepository(repositories, Coordinate.parse(library.getCoordinate().get()),
-                library.getRepositoryUrl().get()
+            addRepository(
+                repositories, Coordinate.parse(library.getCoordinate().get()), library.getRepositoryUrl().get()
             );
         }
     }
 
-    private static void addRepository(Map<String, Set<String>> repositories, Coordinate coordinate, String repositoryUrl
-    ) {
+    private static void addRepository(
+        Map<String, Set<String>> repositories, Coordinate coordinate, String repositoryUrl) {
         var url = LibraryJson.trailingSlash(repositoryUrl);
         repositories.computeIfAbsent(coordinate.group(), ignored -> new TreeSet<>()).add(url);
     }
@@ -224,8 +224,8 @@ public abstract class WriteInstallProfile extends DefaultTask {
     @TaskAction
     public void write() {
         var universalCoordinate = Coordinate.parse(getUniversalCoordinate().get());
-        var universal = LibraryJson.artifact(universalCoordinate, getUniversalJar().get().getAsFile().toPath(),
-            getUniversalUrl().get()
+        var universal = LibraryJson.artifact(
+            universalCoordinate, getUniversalJar().get().getAsFile().toPath(), getUniversalUrl().get()
         );
         var excluded = getLibraryExcludeRules().get();
         var artifacts = LibraryJson.resolve(universal, getLibraries().get());
@@ -236,8 +236,8 @@ public abstract class WriteInstallProfile extends DefaultTask {
         artifacts.stream().filter(LibraryJson::isLocal).forEach(localArtifacts::add);
         natives.stream().filter(LibraryJson::isLocal).forEach(localArtifacts::add);
 
-        writeJson(getVersionJson().get().getAsFile(),
-            versionJson(manifestUrls(artifacts), manifestUrls(natives), universal)
+        writeJson(
+            getVersionJson().get().getAsFile(), versionJson(manifestUrls(artifacts), manifestUrls(natives), universal)
         );
         writeJson(getInstallProfile().get().getAsFile(), installProfile(universal, localArtifacts));
         writeEmbeddedLibraries(localArtifacts);

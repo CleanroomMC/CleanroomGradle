@@ -71,12 +71,13 @@ public abstract class StripSideOnlyJar extends DefaultTask {
     @TaskAction
     public void strip() throws IOException {
         var side = this.getTargetSide().get();
-        var result = SideOnlyHandler.strip(this.getInputJar().get().getAsFile().toPath(),
-            this.getOutputJar().get().getAsFile().toPath(), side, this.getValidateReferences().get(),
-            this.getValidatedPrefixes().get()
+        var result = SideOnlyHandler.strip(
+            this.getInputJar().get().getAsFile().toPath(), this.getOutputJar().get().getAsFile().toPath(), side,
+            this.getValidateReferences().get(), this.getValidatedPrefixes().get()
         );
         this.getLogger()
-            .lifecycle("Built {} jar: removed {} classes, {} fields, {} methods. Cleared {} @SideOnly annotations",
+            .lifecycle(
+                "Built {} jar: removed {} classes, {} fields, {} methods. Cleared {} @SideOnly annotations",
                 side.name().toLowerCase(), result.classesRemoved(), result.fieldsRemoved(), result.methodsRemoved(),
                 result.annotationsRemoved()
             );

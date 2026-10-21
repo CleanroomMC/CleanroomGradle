@@ -44,9 +44,9 @@ public final class SourceSets {
         sourceSet.configure(value -> value.getJava().setSrcDirs(List.of(sourceDir)));
     }
 
-    public static void extendFromConfiguration(Project project, NamedDomainObjectProvider<SourceSet> sourceSet,
-        NamedDomainObjectProvider<Configuration> configuration
-    ) {
+    public static void extendFromConfiguration(
+        Project project, NamedDomainObjectProvider<SourceSet> sourceSet,
+        NamedDomainObjectProvider<Configuration> configuration) {
         sourceSet.configure(value -> project.getConfigurations()
             .named(value.getImplementationConfigurationName())
             .configure(config -> config.extendsFrom(configuration.get())));

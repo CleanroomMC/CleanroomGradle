@@ -73,10 +73,11 @@ public final class MetadataInjector {
         this.exceptions = exceptions;
     }
 
-    public static InjectResult inject(Path input, Path output, Path accessFile, Path constructorsFile,
-        Path exceptionsFile
+    public static InjectResult inject(
+        Path input, Path output, Path accessFile, Path constructorsFile, Path exceptionsFile
     ) throws IOException {
-        return new MetadataInjector(AccessMap.load(accessFile), ConstructorMap.load(constructorsFile),
+        return new MetadataInjector(
+            AccessMap.load(accessFile), ConstructorMap.load(constructorsFile),
             ExceptionMap.load(exceptionsFile)
         ).run(input, output);
     }
@@ -138,8 +139,8 @@ public final class MetadataInjector {
         }
         for (var index = 0; index < parameters.length; index++) {
             if (!renamed[slots[index]]) {
-                method.localVariables.add(new LocalVariableNode(parameters[index], types[index].getDescriptor(), null,
-                    start, end, slots[index]
+                method.localVariables.add(new LocalVariableNode(
+                    parameters[index], types[index].getDescriptor(), null, start, end, slots[index]
                 ));
             }
         }
@@ -308,17 +309,16 @@ public final class MetadataInjector {
         }
 
         @Override
-        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces
-        ) {
+        public void visit(
+            int version, int access, String name, String signature, String superName, String[] interfaces) {
             this.className = name;
             this.classExceptions = this.injector.exceptions.get(name);
             super.visit(version, access, name, signature, superName, interfaces);
         }
 
         @Override
-        public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
-            String[] exceptions
-        ) {
+        public MethodVisitor visitMethod(
+            int access, String name, String descriptor, String signature, String[] exceptions) {
             if ("<clinit>".equals(name)) {
                 return super.visitMethod(access, name, descriptor, signature, exceptions);
             }
@@ -378,8 +378,8 @@ public final class MetadataInjector {
             if ((method.access & ABSTRACT_OR_NATIVE) != 0) {
                 var first = instance ? 1 : 0;
                 if (count > first) {
-                    this.injector.recordAbstractParameters(this.className, name, descriptor,
-                        List.of(Arrays.copyOfRange(parameters, first, count))
+                    this.injector.recordAbstractParameters(
+                        this.className, name, descriptor, List.of(Arrays.copyOfRange(parameters, first, count))
                     );
                 }
                 return;
@@ -448,8 +448,8 @@ public final class MetadataInjector {
         }
 
         @Override
-        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces
-        ) {
+        public void visit(
+            int version, int access, String name, String signature, String superName, String[] interfaces) {
             this.changes = this.access.get(name);
             var level = this.changes == null ? null : this.changes.forClass();
             super.visit(version, apply(access, level), name, signature, superName, interfaces);
@@ -462,9 +462,8 @@ public final class MetadataInjector {
         }
 
         @Override
-        public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
-            String[] exceptions
-        ) {
+        public MethodVisitor visitMethod(
+            int access, String name, String descriptor, String signature, String[] exceptions) {
             var level = this.changes == null ? null : this.changes.forMethod(name, descriptor);
             return super.visitMethod(apply(access, level), name, descriptor, signature, exceptions);
         }
@@ -490,8 +489,8 @@ public final class MetadataInjector {
         }
 
         @Override
-        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces
-        ) {
+        public void visit(
+            int version, int access, String name, String signature, String superName, String[] interfaces) {
             this.className = name;
             this.isStatic = (access & Opcodes.ACC_STATIC) != 0;
             super.visit(version, access, name, signature, superName, interfaces);
@@ -514,9 +513,8 @@ public final class MetadataInjector {
         }
 
         @Override
-        public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
-            String[] exceptions
-        ) {
+        public MethodVisitor visitMethod(
+            int access, String name, String descriptor, String signature, String[] exceptions) {
             if ("<init>".equals(name)) {
                 this.hasConstructor = true;
             }
@@ -526,8 +524,9 @@ public final class MetadataInjector {
         @Override
         public void visitEnd() {
             if (!this.hasConstructor && !this.isStatic && this.outerDescriptor != null && this.outerField != null) {
-                var method = this.visitMethod(Opcodes.ACC_PRIVATE | Opcodes.ACC_SYNTHETIC, "<init>",
-                    "(" + this.outerDescriptor + ")V", null, null
+                var method = this.visitMethod(
+                    Opcodes.ACC_PRIVATE | Opcodes.ACC_SYNTHETIC, "<init>", "(" + this.outerDescriptor + ")V", null,
+                    null
                 );
                 method.visitVarInsn(Opcodes.ALOAD, 0);
                 method.visitVarInsn(Opcodes.ALOAD, 1);
@@ -580,11 +579,13 @@ public final class MetadataInjector {
             }
             for (var method : this.node.methods) {
                 if ("<init>".equals(method.name) && beginsWith(Type.getArgumentTypes(method.desc), synthetic)) {
-                    method.visibleParameterAnnotations = trim(method.visibleParameterAnnotations,
-                        Type.getArgumentTypes(method.desc).length, synthetic.length
+                    method.visibleParameterAnnotations = trim(
+                        method.visibleParameterAnnotations, Type.getArgumentTypes(method.desc).length,
+                        synthetic.length
                     );
-                    method.invisibleParameterAnnotations = trim(method.invisibleParameterAnnotations,
-                        Type.getArgumentTypes(method.desc).length, synthetic.length
+                    method.invisibleParameterAnnotations = trim(
+                        method.invisibleParameterAnnotations, Type.getArgumentTypes(method.desc).length,
+                        synthetic.length
                     );
                     if (method.visibleParameterAnnotations != null) {
                         method.visibleAnnotableParameterCount = method.visibleParameterAnnotations.length;
@@ -646,7 +647,8 @@ public final class MetadataInjector {
                 if (method.localVariables == null || method.localVariables.isEmpty()) {
                     continue;
                 }
-                method.localVariables.sort(Comparator
+                method.localVariables.sort(
+                    Comparator
                         .comparingInt((LocalVariableNode local) -> local.index)
                         .thenComparingInt(local -> method.instructions.indexOf(local.start))
                 );

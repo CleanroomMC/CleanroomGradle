@@ -80,9 +80,6 @@ public abstract class DeobfuscateJar implements TransformAction<DeobfuscateJar.P
     @InputArtifactDependencies
     public abstract FileCollection getArtifactDependencies();
 
-    @Inject
-    protected abstract ExecOperations getExecOperations();
-
     @Override
     public void transform(TransformOutputs outputs) {
         var parameters = getParameters();
@@ -93,12 +90,14 @@ public abstract class DeobfuscateJar implements TransformAction<DeobfuscateJar.P
             mappings.add(new File(directory, UserdevConfig.SRG2MCP));
         }
         if (declared.isEmpty() && mappings.isEmpty()) {
-            throw new InvalidUserDataException("deobf() needs MCP mappings, which this project does not build. " +
+            throw new InvalidUserDataException(
+                "deobf() needs MCP mappings, which this project does not build. " +
                     "Declare a Cleanroom userdev dependency, or set cleanroom.mode to 'loader'."
             );
         }
         if (mappings.stream().noneMatch(File::isFile)) {
-            throw new InvalidUserDataException("The MCP mappings have not been written yet: " + declared + ". " +
+            throw new InvalidUserDataException(
+                "The MCP mappings have not been written yet: " + declared + ". " +
                     "Run './gradlew prepareDeobf' before importing or refreshing the project in an IDE."
             );
         }
@@ -133,6 +132,9 @@ public abstract class DeobfuscateJar implements TransformAction<DeobfuscateJar.P
             spec.setArgs(arguments);
         });
     }
+
+    @Inject
+    protected abstract ExecOperations getExecOperations();
 
     public interface Parameters extends TransformParameters {
 

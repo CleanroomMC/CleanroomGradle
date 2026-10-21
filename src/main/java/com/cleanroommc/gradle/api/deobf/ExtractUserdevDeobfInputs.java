@@ -39,7 +39,8 @@ public abstract class ExtractUserdevDeobfInputs implements TransformAction<Trans
         throws IOException {
         var entry = zip.getEntry(entryName);
         if (entry == null) {
-            throw new InvalidUserDataException(input + " does not contain " + entryName +
+            throw new InvalidUserDataException(
+                input + " does not contain " + entryName +
                     ". Use a userdev artifact produced by a CleanroomGradle version that supports native deobf()."
             );
         }

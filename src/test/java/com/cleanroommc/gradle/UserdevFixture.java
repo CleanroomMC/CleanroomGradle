@@ -49,11 +49,9 @@ final class UserdevFixture {
 
     /** The buildscript lines a workspace needs to reach this fixture instead of the real toolchain. */
     static final String PREAMBLE = """
-            cleanroom.caches.directory = file('%s')
-            deobf.renamerClasspath.setFrom(files('%s'))
-            """.formatted(CACHE_DIRECTORY,
-        RENAMER_JAR
-    );
+                                   cleanroom.caches.directory = file('%s')
+                                   deobf.renamerClasspath.setFrom(files('%s'))
+                                   """.formatted(CACHE_DIRECTORY, RENAMER_JAR);
 
     private UserdevFixture() { }
 
@@ -70,32 +68,40 @@ final class UserdevFixture {
         var client = minecraftJar(cache.resolve("client.jar"), "assets/pack.mcmeta");
         var server = minecraftJar(cache.resolve("server.jar"), "assets/server.txt");
 
-        var module = Files.createDirectories(projectDir.resolve("local-maven/com/cleanroommc/cleanroom-userdev/" +
-                version
+        var module = Files.createDirectories(projectDir.resolve(
+            "local-maven/com/cleanroommc/cleanroom-userdev/" + version
         ));
-        writeArtifact(module.resolve("cleanroom-userdev-" + version + ".jar"), version, spec,
+        writeArtifact(
+            module.resolve("cleanroom-userdev-" + version + ".jar"), version, spec,
             spec.clientSha1 == null ? IO.sha1(client) : spec.clientSha1, IO.sha1(server)
         );
-        Files.write(module.resolve("cleanroom-userdev-" + version + "-sources.jar"),
+        Files.write(
+            module.resolve("cleanroom-userdev-" + version + "-sources.jar"),
             archive("com/cleanroommc/Loader.java", "package com.cleanroommc;\n")
         );
-        Files.writeString(module.resolve("cleanroom-userdev-" + version + ".pom"),
+        Files.writeString(
+            module.resolve("cleanroom-userdev-" + version + ".pom"),
             pom("com.cleanroommc", "cleanroom-userdev", version)
         );
 
         var universal = Files.createDirectories(projectDir.resolve("local-maven/com/cleanroommc/cleanroom/" + version));
-        Files.write(universal.resolve("cleanroom-" + version + "-universal.jar"),
-            binaryArchive(Map.of(UserdevConfig.BINPATCHES,
-                binaryArchive(Map.of(UserdevConfig.CLIENT_BINPATCHES + "net/minecraft/Patched.class.add",
+        Files.write(
+            universal.resolve("cleanroom-" + version + "-universal.jar"),
+            binaryArchive(Map.of(
+                UserdevConfig.BINPATCHES,
+                binaryArchive(Map.of(
+                    UserdevConfig.CLIENT_BINPATCHES + "net/minecraft/Patched.class.add",
                     classBytes("net/minecraft/Patched"),
                     UserdevConfig.SERVER_BINPATCHES + "net/minecraft/Patched.class.add",
                     classBytes("net/minecraft/Patched")
                 ))
             ))
         );
-        Files.writeString(universal.resolve("cleanroom-" + version + ".pom"),
-            pom("com.cleanroommc", "cleanroom", version
-            ).replace("<!-- do_not_remove: published-with-gradle-metadata -->\n", "")
+        Files.writeString(
+            universal.resolve("cleanroom-" + version + ".pom"),
+            pom("com.cleanroommc", "cleanroom", version).replace(
+                "<!-- do_not_remove: published-with-gradle-metadata -->\n", ""
+            )
         );
 
         var platform = Platform.CURRENT.canonicalNativePlatform();
@@ -104,25 +110,27 @@ final class UserdevFixture {
             .filter(candidate -> candidate != platform)
             .findFirst()
             .orElseThrow();
-        Files.writeString(module.resolve("cleanroom-userdev-" + version + ".module"),
+        Files.writeString(
+            module.resolve("cleanroom-userdev-" + version + ".module"),
             """
-                {
-                  "formatVersion": "1.1",
-                  "component": {"group":"com.cleanroommc","module":"cleanroom-userdev","version":"%1$s","attributes":{"org.gradle.status":"release"}},
-                  "createdBy": {"gradle": {"version":"9.5.1"}},
-                  "variants": [
-                    {"name":"apiElements","attributes":{"org.gradle.category":"library","org.gradle.libraryelements":"jar","org.gradle.usage":"java-api","com.cleanroommc.userdev.role":"classes"},"dependencies":[{"group":"com.cleanroommc","module":"fixture-library","version":{"requires":"1"}}],"files":[{"name":"cleanroom-userdev-%1$s.jar","url":"cleanroom-userdev-%1$s.jar"}]},
-                    {"name":"runtimeElements","attributes":{"org.gradle.category":"library","org.gradle.libraryelements":"jar","org.gradle.usage":"java-runtime","com.cleanroommc.userdev.role":"classes"},"dependencies":[{"group":"com.cleanroommc","module":"fixture-library","version":{"requires":"1"}}],"files":[{"name":"cleanroom-userdev-%1$s.jar","url":"cleanroom-userdev-%1$s.jar"}]},
-                    {"name":"sourcesElements","attributes":{"org.gradle.category":"documentation","org.gradle.docstype":"sources","org.gradle.usage":"java-runtime","com.cleanroommc.userdev.role":"sources"},"dependencies":[{"group":"com.cleanroommc","module":"fixture-library","version":{"requires":"1"}}],"files":[{"name":"cleanroom-userdev-%1$s.jar","url":"cleanroom-userdev-%1$s.jar"}]},
-                    {"name":"clientExtraElements","attributes":{"org.gradle.category":"library","org.gradle.libraryelements":"jar","org.gradle.usage":"java-runtime","com.cleanroommc.userdev.role":"client-extra"},"files":[{"name":"cleanroom-userdev-%1$s.jar","url":"cleanroom-userdev-%1$s.jar"}]},
-                    {"name":"serverExtraElements","attributes":{"org.gradle.category":"library","org.gradle.libraryelements":"jar","org.gradle.usage":"java-runtime","com.cleanroommc.userdev.role":"server-extra"},"files":[{"name":"cleanroom-userdev-%1$s.jar","url":"cleanroom-userdev-%1$s.jar"}]},
-                    {"name":"%2$sElements","attributes":{"org.gradle.category":"library","org.gradle.libraryelements":"jar","org.gradle.usage":"java-runtime","org.gradle.native.operatingSystem":"%3$s","org.gradle.native.architecture":"%4$s","com.cleanroommc.userdev.role":"natives"},"dependencies":[{"group":"com.cleanroommc","module":"fixture-native-current","version":{"requires":"1"}}]},
-                    {"name":"%5$sElements","attributes":{"org.gradle.category":"library","org.gradle.libraryelements":"jar","org.gradle.usage":"java-runtime","org.gradle.native.operatingSystem":"%6$s","org.gradle.native.architecture":"%7$s","com.cleanroommc.userdev.role":"natives"},"dependencies":[{"group":"com.cleanroommc","module":"fixture-native-foreign","version":{"requires":"1"}}]}
-                  ]
-                }
-                """.formatted(version,
-                platform.lwjglNativesClassifier(), platform.operatingSystemFamily(), platform.machineArchitecture(),
-                foreign.lwjglNativesClassifier(), foreign.operatingSystemFamily(), foreign.machineArchitecture()
+            {
+              "formatVersion": "1.1",
+              "component": {"group":"com.cleanroommc","module":"cleanroom-userdev","version":"%1$s","attributes":{"org.gradle.status":"release"}},
+              "createdBy": {"gradle": {"version":"9.5.1"}},
+              "variants": [
+                {"name":"apiElements","attributes":{"org.gradle.category":"library","org.gradle.libraryelements":"jar","org.gradle.usage":"java-api","com.cleanroommc.userdev.role":"classes"},"dependencies":[{"group":"com.cleanroommc","module":"fixture-library","version":{"requires":"1"}}],"files":[{"name":"cleanroom-userdev-%1$s.jar","url":"cleanroom-userdev-%1$s.jar"}]},
+                {"name":"runtimeElements","attributes":{"org.gradle.category":"library","org.gradle.libraryelements":"jar","org.gradle.usage":"java-runtime","com.cleanroommc.userdev.role":"classes"},"dependencies":[{"group":"com.cleanroommc","module":"fixture-library","version":{"requires":"1"}}],"files":[{"name":"cleanroom-userdev-%1$s.jar","url":"cleanroom-userdev-%1$s.jar"}]},
+                {"name":"sourcesElements","attributes":{"org.gradle.category":"documentation","org.gradle.docstype":"sources","org.gradle.usage":"java-runtime","com.cleanroommc.userdev.role":"sources"},"dependencies":[{"group":"com.cleanroommc","module":"fixture-library","version":{"requires":"1"}}],"files":[{"name":"cleanroom-userdev-%1$s.jar","url":"cleanroom-userdev-%1$s.jar"}]},
+                {"name":"clientExtraElements","attributes":{"org.gradle.category":"library","org.gradle.libraryelements":"jar","org.gradle.usage":"java-runtime","com.cleanroommc.userdev.role":"client-extra"},"files":[{"name":"cleanroom-userdev-%1$s.jar","url":"cleanroom-userdev-%1$s.jar"}]},
+                {"name":"serverExtraElements","attributes":{"org.gradle.category":"library","org.gradle.libraryelements":"jar","org.gradle.usage":"java-runtime","com.cleanroommc.userdev.role":"server-extra"},"files":[{"name":"cleanroom-userdev-%1$s.jar","url":"cleanroom-userdev-%1$s.jar"}]},
+                {"name":"%2$sElements","attributes":{"org.gradle.category":"library","org.gradle.libraryelements":"jar","org.gradle.usage":"java-runtime","org.gradle.native.operatingSystem":"%3$s","org.gradle.native.architecture":"%4$s","com.cleanroommc.userdev.role":"natives"},"dependencies":[{"group":"com.cleanroommc","module":"fixture-native-current","version":{"requires":"1"}}]},
+                {"name":"%5$sElements","attributes":{"org.gradle.category":"library","org.gradle.libraryelements":"jar","org.gradle.usage":"java-runtime","org.gradle.native.operatingSystem":"%6$s","org.gradle.native.architecture":"%7$s","com.cleanroommc.userdev.role":"natives"},"dependencies":[{"group":"com.cleanroommc","module":"fixture-native-foreign","version":{"requires":"1"}}]}
+              ]
+            }
+            """.formatted(
+                version, platform.lwjglNativesClassifier(), platform.operatingSystemFamily(),
+                platform.machineArchitecture(), foreign.lwjglNativesClassifier(), foreign.operatingSystemFamily(),
+                foreign.machineArchitecture()
             )
         );
     }
@@ -131,11 +139,13 @@ final class UserdevFixture {
         throws IOException {
         var entries = new LinkedHashMap<String, byte[]>();
         entries.put("com/cleanroommc/Loader.class", classBytes("com/cleanroommc/Loader"));
-        entries.put(UserdevConfig.meta(UserdevConfig.FILE_NAME),
+        entries.put(
+            UserdevConfig.meta(UserdevConfig.FILE_NAME),
             config(version, clientSha1, serverSha1).getBytes(StandardCharsets.UTF_8)
         );
         entries.put(UserdevConfig.meta(UserdevConfig.OBF2SRG), tsrg());
-        entries.put(UserdevConfig.meta(UserdevConfig.SRG2MCP),
+        entries.put(
+            UserdevConfig.meta(UserdevConfig.SRG2MCP),
             spec.srgToMcp == null ? tsrg() : spec.srgToMcp.getBytes(StandardCharsets.UTF_8)
         );
         entries.put(UserdevConfig.meta(UserdevConfig.MCP2SRG), tsrg());
@@ -146,18 +156,19 @@ final class UserdevFixture {
         entries.put(UserdevConfig.meta(UserdevConfig.FIELDS), csv("searge,name,side,desc"));
         entries.put(UserdevConfig.meta(UserdevConfig.PARAMS), csv("param,name,side"));
         entries.put(UserdevConfig.meta(UserdevConfig.SAS), new byte[0]);
-        entries.put(UserdevConfig.meta(UserdevConfig.PATCHES) + "/net/minecraft/Block.java.patch",
+        entries.put(
+            UserdevConfig.meta(UserdevConfig.PATCHES) + "/net/minecraft/Block.java.patch",
             """
-                --- a/net/minecraft/Block.java
-                +++ b/net/minecraft/Block.java
-                @@ -1,2 +1,3 @@
-                 class Block {
-                +    // patched by the artifact
-                 }
-                """.getBytes(StandardCharsets.UTF_8
-            )
+            --- a/net/minecraft/Block.java
+            +++ b/net/minecraft/Block.java
+            @@ -1,2 +1,3 @@
+             class Block {
+            +    // patched by the artifact
+             }
+            """.getBytes(StandardCharsets.UTF_8)
         );
-        entries.put(UserdevConfig.meta(UserdevConfig.LOADER_SOURCES) + "/com/cleanroommc/Loader.java",
+        entries.put(
+            UserdevConfig.meta(UserdevConfig.LOADER_SOURCES) + "/com/cleanroommc/Loader.java",
             "package com.cleanroommc;\n".getBytes(StandardCharsets.UTF_8)
         );
 
@@ -175,163 +186,163 @@ final class UserdevFixture {
     /** The spec document the artifact carries, which every consumer reads its layout from. */
     static String config(String version, String clientSha1, String serverSha1) {
         return """
-                {
-                  "spec": 1,
-                  "minecraft": {
-                    "version": "%4$s",
-                    "client": {"url": "https://example.invalid/client.jar", "sha1": "%1$s"},
-                    "server": {"url": "https://example.invalid/server.jar", "sha1": "%2$s"}
-                  },
-                  "loader": {"version": "%3$s", "forgeVersion": "14.23.5.2860", "group": "com.cleanroommc"},
-                  "inputs": {
-                    "mcpConfig": "de.oceanlabs.mcp:mcp_config:1.12.2-20201025.185735",
-                    "mappings": "de.oceanlabs.mcp:mcp_stable:39-1.12@zip",
-                    "initialPatches": "com.cleanroommc:initial-patches:1.0",
-                    "tools": {
-                      "accesstransformer": "net.minecraftforge:accesstransformers:1.0",
-                      "mergetool": "net.minecraftforge:mergetool:1.0",
-                      "decompiler": "net.minecraftforge:decompiler:1.0"
-                    }
-                  },
-                  "layout": {
-                    "binpatches": "binpatches.zip",
-                    "clientBinpatches": "binpatch/client/",
-                    "serverBinpatches": "binpatch/server/",
-                    "obfToSrg": "userdev/obf2srg.tsrg",
-                    "srgToMcp": "userdev/srg2mcp.tsrg",
-                    "mcpToSrg": "userdev/mcp2srg.tsrg",
-                    "access": "userdev/access.txt",
-                    "constructors": "userdev/constructors.txt",
-                    "exceptions": "userdev/exceptions.txt",
-                    "methods": "userdev/methods.csv",
-                    "fields": "userdev/fields.csv",
-                    "params": "userdev/params.csv",
-                    "initialPatches": "userdev/initial-patches",
-                    "accessTransformers": [],
-                    "sideAnnotationStrippers": "userdev/cleanroom.sas",
-                    "patches": "userdev/patches",
-                    "loaderSources": "userdev/loader-sources"
-                  },
-                  "runs": {
-                    "client": {"launchClass": "net.minecraft.launchwrapper.Launch", "tweakClass": "net.minecraftforge.fml.common.launcher.FMLTweaker"},
-                    "server": {"launchClass": "net.minecraft.launchwrapper.Launch", "tweakClass": "net.minecraftforge.fml.common.launcher.FMLServerTweaker"}
-                  }
-                }
-                """.formatted(clientSha1,
-            serverSha1, version, MINECRAFT_VERSION
-        );
+               {
+                 "spec": 1,
+                 "minecraft": {
+                   "version": "%4$s",
+                   "client": {"url": "https://example.invalid/client.jar", "sha1": "%1$s"},
+                   "server": {"url": "https://example.invalid/server.jar", "sha1": "%2$s"}
+                 },
+                 "loader": {"version": "%3$s", "forgeVersion": "14.23.5.2860", "group": "com.cleanroommc"},
+                 "inputs": {
+                   "mcpConfig": "de.oceanlabs.mcp:mcp_config:1.12.2-20201025.185735",
+                   "mappings": "de.oceanlabs.mcp:mcp_stable:39-1.12@zip",
+                   "initialPatches": "com.cleanroommc:initial-patches:1.0",
+                   "tools": {
+                     "accesstransformer": "net.minecraftforge:accesstransformers:1.0",
+                     "mergetool": "net.minecraftforge:mergetool:1.0",
+                     "decompiler": "net.minecraftforge:decompiler:1.0"
+                   }
+                 },
+                 "layout": {
+                   "binpatches": "binpatches.zip",
+                   "clientBinpatches": "binpatch/client/",
+                   "serverBinpatches": "binpatch/server/",
+                   "obfToSrg": "userdev/obf2srg.tsrg",
+                   "srgToMcp": "userdev/srg2mcp.tsrg",
+                   "mcpToSrg": "userdev/mcp2srg.tsrg",
+                   "access": "userdev/access.txt",
+                   "constructors": "userdev/constructors.txt",
+                   "exceptions": "userdev/exceptions.txt",
+                   "methods": "userdev/methods.csv",
+                   "fields": "userdev/fields.csv",
+                   "params": "userdev/params.csv",
+                   "initialPatches": "userdev/initial-patches",
+                   "accessTransformers": [],
+                   "sideAnnotationStrippers": "userdev/cleanroom.sas",
+                   "patches": "userdev/patches",
+                   "loaderSources": "userdev/loader-sources"
+                 },
+                 "runs": {
+                   "client": {"launchClass": "net.minecraft.launchwrapper.Launch", "tweakClass": "net.minecraftforge.fml.common.launcher.FMLTweaker"},
+                   "server": {"launchClass": "net.minecraft.launchwrapper.Launch", "tweakClass": "net.minecraftforge.fml.common.launcher.FMLServerTweaker"}
+                 }
+               }
+               """.formatted(clientSha1, serverSha1, version, MINECRAFT_VERSION);
     }
 
     static String pom(String group, String artifact, String version) {
         // Without the redirect marker Gradle never looks at the module file, and every attributed variant
         // is replaced by the POM's single default artifact
         return """
-                <?xml version="1.0" encoding="UTF-8"?>
-                <!-- do_not_remove: published-with-gradle-metadata -->
-                <project><modelVersion>4.0.0</modelVersion><groupId>%s</groupId>
-                <artifactId>%s</artifactId><version>%s</version></project>
-                """.formatted(group,
-            artifact, version
-        );
+               <?xml version="1.0" encoding="UTF-8"?>
+               <!-- do_not_remove: published-with-gradle-metadata -->
+               <project><modelVersion>4.0.0</modelVersion><groupId>%s</groupId>
+               <artifactId>%s</artifactId><version>%s</version></project>
+               """.formatted(group, artifact, version);
     }
 
     // Stub tools, resolved by the coordinates the artifact records
 
     private static void stubTools(Path projectDir) throws IOException {
-        toolJar(projectDir, "mergetool", "net.minecraftforge.mergetool.ConsoleMerger",
+        toolJar(
+            projectDir, "mergetool", "net.minecraftforge.mergetool.ConsoleMerger",
             """
-                package net.minecraftforge.mergetool;
+            package net.minecraftforge.mergetool;
 
-                import java.nio.file.*;
+            import java.nio.file.*;
 
-                public final class ConsoleMerger {
-                    public static void main(String[] args) throws Exception {
-                        Path client = null, output = null;
-                        for (int i = 0; i < args.length - 1; i++) {
-                            if ("--client".equals(args[i])) client = Path.of(args[i + 1]);
-                            if ("--output".equals(args[i])) output = Path.of(args[i + 1]);
-                        }
-                        Files.copy(client, output, StandardCopyOption.REPLACE_EXISTING);
+            public final class ConsoleMerger {
+                public static void main(String[] args) throws Exception {
+                    Path client = null, output = null;
+                    for (int i = 0; i < args.length - 1; i++) {
+                        if ("--client".equals(args[i])) client = Path.of(args[i + 1]);
+                        if ("--output".equals(args[i])) output = Path.of(args[i + 1]);
                     }
+                    Files.copy(client, output, StandardCopyOption.REPLACE_EXISTING);
                 }
-                """
+            }
+            """
         );
-        toolJar(projectDir, "accesstransformers", "net.minecraftforge.accesstransformer.TransformerProcessor",
+        toolJar(
+            projectDir, "accesstransformers", "net.minecraftforge.accesstransformer.TransformerProcessor",
             """
-                package net.minecraftforge.accesstransformer;
+            package net.minecraftforge.accesstransformer;
 
-                import java.nio.file.*;
-                import java.util.*;
-                import java.util.zip.*;
+            import java.nio.file.*;
+            import java.util.*;
+            import java.util.zip.*;
 
-                public final class TransformerProcessor {
-                    public static void main(String[] args) throws Exception {
-                        Path in = null, out = null;
-                        List<String> ats = new ArrayList<>();
-                        for (int i = 0; i < args.length - 1; i++) {
-                            if ("--inJar".equals(args[i])) in = Path.of(args[i + 1]);
-                            if ("--outJar".equals(args[i])) out = Path.of(args[i + 1]);
-                            if ("--atFile".equals(args[i])) ats.add(Files.readString(Path.of(args[i + 1])).trim());
+            public final class TransformerProcessor {
+                public static void main(String[] args) throws Exception {
+                    Path in = null, out = null;
+                    List<String> ats = new ArrayList<>();
+                    for (int i = 0; i < args.length - 1; i++) {
+                        if ("--inJar".equals(args[i])) in = Path.of(args[i + 1]);
+                        if ("--outJar".equals(args[i])) out = Path.of(args[i + 1]);
+                        if ("--atFile".equals(args[i])) ats.add(Files.readString(Path.of(args[i + 1])).trim());
+                    }
+                    try (ZipInputStream zin = new ZipInputStream(Files.newInputStream(in));
+                         ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(out))) {
+                        for (ZipEntry e = zin.getNextEntry(); e != null; e = zin.getNextEntry()) {
+                            zout.putNextEntry(new ZipEntry(e.getName()));
+                            zin.transferTo(zout);
                         }
-                        try (ZipInputStream zin = new ZipInputStream(Files.newInputStream(in));
-                             ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(out))) {
-                            for (ZipEntry e = zin.getNextEntry(); e != null; e = zin.getNextEntry()) {
-                                zout.putNextEntry(new ZipEntry(e.getName()));
-                                zin.transferTo(zout);
-                            }
-                            zout.putNextEntry(new ZipEntry("access-transformed.txt"));
-                            zout.write(String.join("\\n", ats).getBytes("UTF-8"));
-                        }
+                        zout.putNextEntry(new ZipEntry("access-transformed.txt"));
+                        zout.write(String.join("\\n", ats).getBytes("UTF-8"));
                     }
                 }
-                """
+            }
+            """
         );
-        toolJar(projectDir, "decompiler", "org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler",
+        toolJar(
+            projectDir, "decompiler", "org.jetbrains.java.decompiler.main.decompiler.ConsoleDecompiler",
             """
-                package org.jetbrains.java.decompiler.main.decompiler;
+            package org.jetbrains.java.decompiler.main.decompiler;
 
-                import java.nio.file.*;
-                import java.util.zip.*;
+            import java.nio.file.*;
+            import java.util.zip.*;
 
-                public final class ConsoleDecompiler {
-                    public static void main(String[] args) throws Exception {
-                        Path input = Path.of(args[args.length - 2]);
-                        Path output = Path.of(args[args.length - 1]);
-                        try (ZipInputStream zin = new ZipInputStream(Files.newInputStream(input));
-                             ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(output))) {
-                            for (ZipEntry e = zin.getNextEntry(); e != null; e = zin.getNextEntry()) {
-                                String name = e.getName();
-                                if (!name.endsWith(".class")) continue;
-                                name = name.substring(0, name.length() - ".class".length());
-                                zout.putNextEntry(new ZipEntry(name + ".java"));
-                                zout.write(("class " + name.substring(name.lastIndexOf('/') + 1)
-                                        + " {\\n}\\n").getBytes("UTF-8"));
-                            }
-                            zout.putNextEntry(new ZipEntry("decompiler-classpath.txt"));
-                            zout.write(java.util.Arrays.stream(args).filter(arg -> arg.startsWith("-e="))
-                                    .collect(java.util.stream.Collectors.joining("\\n")).getBytes("UTF-8"));
+            public final class ConsoleDecompiler {
+                public static void main(String[] args) throws Exception {
+                    Path input = Path.of(args[args.length - 2]);
+                    Path output = Path.of(args[args.length - 1]);
+                    try (ZipInputStream zin = new ZipInputStream(Files.newInputStream(input));
+                         ZipOutputStream zout = new ZipOutputStream(Files.newOutputStream(output))) {
+                        for (ZipEntry e = zin.getNextEntry(); e != null; e = zin.getNextEntry()) {
+                            String name = e.getName();
+                            if (!name.endsWith(".class")) continue;
+                            name = name.substring(0, name.length() - ".class".length());
+                            zout.putNextEntry(new ZipEntry(name + ".java"));
+                            zout.write(("class " + name.substring(name.lastIndexOf('/') + 1)
+                                    + " {\\n}\\n").getBytes("UTF-8"));
                         }
+                        zout.putNextEntry(new ZipEntry("decompiler-classpath.txt"));
+                        zout.write(java.util.Arrays.stream(args).filter(arg -> arg.startsWith("-e="))
+                                .collect(java.util.stream.Collectors.joining("\\n")).getBytes("UTF-8"));
                     }
                 }
-                """
+            }
+            """
         );
-        toolJar(projectDir, "renamer", "tool.FakeRenamer",
+        toolJar(
+            projectDir, "renamer", "tool.FakeRenamer",
             """
-                package tool;
+            package tool;
 
-                import java.nio.file.*;
+            import java.nio.file.*;
 
-                public final class FakeRenamer {
-                    public static void main(String[] args) throws Exception {
-                        Path input = null, output = null;
-                        for (int i = 0; i < args.length - 1; i++) {
-                            if ("--input".equals(args[i])) input = Path.of(args[i + 1]);
-                            if ("--output".equals(args[i])) output = Path.of(args[i + 1]);
-                        }
-                        Files.copy(input, output, StandardCopyOption.REPLACE_EXISTING);
+            public final class FakeRenamer {
+                public static void main(String[] args) throws Exception {
+                    Path input = null, output = null;
+                    for (int i = 0; i < args.length - 1; i++) {
+                        if ("--input".equals(args[i])) input = Path.of(args[i + 1]);
+                        if ("--output".equals(args[i])) output = Path.of(args[i + 1]);
                     }
+                    Files.copy(input, output, StandardCopyOption.REPLACE_EXISTING);
                 }
-                """
+            }
+            """
         );
     }
 
@@ -344,8 +355,8 @@ final class UserdevFixture {
         var sourceFile = work.resolve(mainClass.substring(mainClass.lastIndexOf('.') + 1) + ".java");
         Files.writeString(sourceFile, source);
         var classes = Files.createDirectories(work.resolve("classes"));
-        assertThat(ToolProvider.getSystemJavaCompiler()
-                .run(null, null, null, "-d", classes.toString(), sourceFile.toString())
+        assertThat(
+            ToolProvider.getSystemJavaCompiler().run(null, null, null, "-d", classes.toString(), sourceFile.toString())
         )
             .as("could not compile the " + artifact + " stub")
             .isEqualTo(0);
@@ -354,7 +365,8 @@ final class UserdevFixture {
         var manifest = new Manifest();
         manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
         manifest.getMainAttributes().put(Attributes.Name.MAIN_CLASS, mainClass);
-        try (var out = new JarOutputStream(Files.newOutputStream(module.resolve(artifact + "-1.0.jar")), manifest
+        try (var out = new JarOutputStream(
+            Files.newOutputStream(module.resolve(artifact + "-1.0.jar")), manifest
         ); var files = Files.walk(classes)) {
             for (var file : files.filter(Files::isRegularFile).toList()) {
                 out.putNextEntry(new ZipEntry(classes.relativize(file).toString().replace('\\', '/')));
@@ -390,7 +402,8 @@ final class UserdevFixture {
         try (var out = new JarOutputStream(buffer)) {
             for (var entry : entries.entrySet()) {
                 out.putNextEntry(new ZipEntry(entry.getKey()));
-                out.write(entry.getValue() == null
+                out.write(
+                    entry.getValue() == null
                         ? classBytes("net/minecraft/Block")
                         : entry.getValue().getBytes(StandardCharsets.UTF_8)
                 );

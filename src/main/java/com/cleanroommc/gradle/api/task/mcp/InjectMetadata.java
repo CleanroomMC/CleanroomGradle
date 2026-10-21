@@ -55,12 +55,14 @@ public abstract class InjectMetadata extends DefaultTask {
 
     @TaskAction
     public void inject() throws IOException {
-        var result = MetadataInjector.inject(this.getSrgJar().get().getAsFile().toPath(),
-            this.getInjectedJar().get().getAsFile().toPath(), this.getAccessFile().get().getAsFile().toPath(),
-            this.getConstructorsFile().get().getAsFile().toPath(), this.getExceptionsFile().get().getAsFile().toPath()
+        var result = MetadataInjector.inject(
+            this.getSrgJar().get().getAsFile().toPath(), this.getInjectedJar().get().getAsFile().toPath(),
+            this.getAccessFile().get().getAsFile().toPath(), this.getConstructorsFile().get().getAsFile().toPath(),
+            this.getExceptionsFile().get().getAsFile().toPath()
         );
         this.getLogger()
-            .lifecycle("Injected metadata into {} classes, copied {} entries, recorded {} abstract methods",
+            .lifecycle(
+                "Injected metadata into {} classes, copied {} entries, recorded {} abstract methods",
                 result.classesProcessed(), result.entriesCopied(), result.abstractMethodsRecorded()
             );
     }

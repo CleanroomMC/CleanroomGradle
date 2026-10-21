@@ -82,11 +82,12 @@ final class UserdevArchive {
         }
     }
 
-    static void rename(ExecOperations exec, FileCollection classpath, File input, File output, File mappings,
-        Iterable<File> libraries, String... flags
-    ) {
-        var arguments = new ArrayList<>(List.of("--input", input.getAbsolutePath(), "--map", mappings.getAbsolutePath(),
-            "--output", output.getAbsolutePath()
+    static void rename(
+        ExecOperations exec, FileCollection classpath, File input, File output, File mappings, Iterable<File> libraries,
+        String... flags) {
+        var arguments = new ArrayList<>(List.of(
+            "--input", input.getAbsolutePath(), "--map", mappings.getAbsolutePath(), "--output",
+            output.getAbsolutePath()
         ));
         arguments.addAll(List.of(flags));
         for (var library : libraries) {
@@ -100,15 +101,16 @@ final class UserdevArchive {
         });
     }
 
-    static void accessTransform(ExecOperations exec, FileCollection classpath, File input, File output, List<File> ats,
-        File workingDir
+    static void accessTransform(
+        ExecOperations exec, FileCollection classpath, File input, File output, List<File> ats, File workingDir
     ) throws IOException {
         if (ats.isEmpty()) {
             Files.copy(input.toPath(), output.toPath());
             return;
         }
-        var arguments = new ArrayList<>(List.of("--inJar", input.getAbsolutePath(), "--outJar",
-            output.getAbsolutePath(), "--logFile", "accesstransform.log"
+        var arguments = new ArrayList<>(List.of(
+            "--inJar", input.getAbsolutePath(), "--outJar", output.getAbsolutePath(), "--logFile",
+            "accesstransform.log"
         ));
         for (var at : ats) {
             arguments.add("--atFile");

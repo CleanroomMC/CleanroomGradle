@@ -33,10 +33,11 @@ class TinyV2Test {
     @Test
     void roundTripsNamesAndEscapedDocs() throws IOException {
         var doc = "back\\slash and\ttab and\nnewline";
-        var structure = structure(List.of(new JarStructure.Member("func_1_a", "(I)V")),
-            List.of(new JarStructure.Member("field_1_b", "I"))
+        var structure = structure(
+            List.of(new JarStructure.Member("func_1_a", "(I)V")), List.of(new JarStructure.Member("field_1_b", "I"))
         );
-        var names = new CsvNames(Map.of("field_1_b", "field"), Map.of("func_1_a", "method"), Map.of("p_1_1_", "arg"),
+        var names = new CsvNames(
+            Map.of("field_1_b", "field"), Map.of("func_1_a", "method"), Map.of("p_1_1_", "arg"),
             Map.of("func_1_a", doc)
         );
 
@@ -50,14 +51,14 @@ class TinyV2Test {
 
     @Test
     void writesOnlyMembersThatCarryAName() {
-        var structure = structure(List.of(new JarStructure.Member("func_1_a", "()V"),
-                new JarStructure.Member("func_2_b", "()V")
-            ),
+        var structure = structure(
+            List.of(new JarStructure.Member("func_1_a", "()V"), new JarStructure.Member("func_2_b", "()V")),
             List.of(new JarStructure.Member("field_9_z", "I"))
         );
         var names = new CsvNames(Map.of(), Map.of(), Map.of("p_1_0_", "only", "p_5_1_", "value"), Map.of());
 
-        var text = TinyV2.write(structure, names,
+        var text = TinyV2.write(
+            structure, names,
             Map.of("a/B", List.of(new TinyV2.Constructor("5", "(I)V"), new TinyV2.Constructor("6", "()V")))
         );
 

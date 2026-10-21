@@ -63,8 +63,8 @@ public final class McpMappings {
 
     public McpMappings(Project project, CachesExtension caches, MappingsExtension mappings) {
         this.mcpConfig = Objects.archive(project, "mcpConfig", "MCPConfig for SRG names.", DEFAULT_MCP_CONFIG);
-        this.mcpMappings = Objects.archive(project, "mcpMappings",
-            "MCP's named CSVs, used unless a TinyV2 names are set.", DEFAULT_MCP_MAPPINGS
+        this.mcpMappings = Objects.archive(
+            project, "mcpMappings", "MCP's named CSVs, used unless a TinyV2 names are set.", DEFAULT_MCP_MAPPINGS
         );
 
         var tinyFile = mappings.getNamesDirectory().file(MappingsExtension.NAMES_FILE);
@@ -76,8 +76,8 @@ public final class McpMappings {
         this.activeNamesId = this.tinyFileWhenPresent.map(NamesSource::tiny2Id).orElse(mcpNamesId);
         this.mcpConfigVersion = this.mcpConfig.map(cfg -> Objects.firstDependency(cfg).getVersion());
 
-        this.extractMcpConfig = Tasks.unzip(project, "extractMcpConfig", this.mcpConfig,
-            caches.getVersionDirectory().dir("mcp_config")
+        this.extractMcpConfig = Tasks.unzip(
+            project, "extractMcpConfig", this.mcpConfig, caches.getVersionDirectory().dir("mcp_config")
         );
         var mcpConfigRoot = project.getObjects().directoryProperty();
         mcpConfigRoot.fileProvider(this.extractMcpConfig.map(Copy::getDestinationDir));
@@ -86,21 +86,20 @@ public final class McpMappings {
         this.access = this.mcpConfigDirectory.map(dir -> dir.file("access.txt"));
         this.constructors = this.mcpConfigDirectory.map(dir -> dir.file("constructors.txt"));
         this.exceptions = this.mcpConfigDirectory.map(dir -> dir.file("exceptions.txt"));
-        this.extractMcpMappings = Tasks.unzip(project, "extractMcpMappings", this.mcpMappings,
-            caches.getVersionDirectory().dir("mcp_mappings")
+        this.extractMcpMappings = Tasks.unzip(
+            project, "extractMcpMappings", this.mcpMappings, caches.getVersionDirectory().dir("mcp_mappings")
         );
         var mcpMappingsDir = this.extractMcpMappings.map(Copy::getDestinationDir);
         this.methodMappings = mcpMappingsDir.map(dir -> new File(dir, CsvNames.METHODS_FILE));
         this.fieldMappings = mcpMappingsDir.map(dir -> new File(dir, CsvNames.FIELDS_FILE));
         this.parameterMappings = mcpMappingsDir.map(dir -> new File(dir, CsvNames.PARAMS_FILE));
-        this.writeSrg2Mcp = write(project, caches, "writeSrg2Mcp", WriteMappings.Direction.SRG_TO_MCP,
-            UserdevConfig.SRG2MCP
+        this.writeSrg2Mcp = write(
+            project, caches, "writeSrg2Mcp", WriteMappings.Direction.SRG_TO_MCP, UserdevConfig.SRG2MCP
         );
     }
 
-    public TaskProvider<WriteMappings> write(Project project, CachesExtension caches, String name,
-        WriteMappings.Direction direction, String outputName
-    ) {
+    public TaskProvider<WriteMappings> write(
+        Project project, CachesExtension caches, String name, WriteMappings.Direction direction, String outputName) {
         var task = Tasks.register(project, name, WriteMappings.class);
         task.configure(writeMappings -> {
             writeMappings.getJoinedSrgFile().set(this.joinedSrg);
@@ -131,9 +130,9 @@ public final class McpMappings {
         });
     }
 
-    public void configureInitialPatches(Project project, PatchesExtension patches, VanillaTasks vanilla,
-        TaskProvider<Copy> prepareApplyInitialDiffs, TaskProvider<ApplyDiffs> applyInitialDiffs
-    ) {
+    public void configureInitialPatches(
+        Project project, PatchesExtension patches, VanillaTasks vanilla, TaskProvider<Copy> prepareApplyInitialDiffs,
+        TaskProvider<ApplyDiffs> applyInitialDiffs) {
         if (!patches.getDevelopInitial().get()) {
             return;
         }
@@ -141,7 +140,8 @@ public final class McpMappings {
             env.getInput().fileProvider(prepareApplyInitialDiffs.map(Copy::getDestinationDir));
             env.dependsOn(prepareApplyInitialDiffs.getName());
         });
-        initial.configure(env -> SourceSets.extendFromConfiguration(project, env.getSourceSet(), vanilla.vanillaConfig
+        initial.configure(env -> SourceSets.extendFromConfiguration(
+            project, env.getSourceSet(), vanilla.vanillaConfig
         ));
         applyInitialDiffs.configure(task -> task.getPatchesDirectory()
             .set(initial.flatMap(PatchDevEnvironment::getPatches)));

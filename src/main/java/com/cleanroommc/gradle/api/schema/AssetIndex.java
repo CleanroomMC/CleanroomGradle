@@ -16,10 +16,10 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public record AssetIndex(Map<String, Entry> objects,
+public record AssetIndex(
+    Map<String, Entry> objects,
     boolean virtual,
-    @SerializedName("map_to_resources") boolean mapToResources
-) {
+    @SerializedName("map_to_resources") boolean mapToResources) {
 
     public AssetIndex() {
         this(new LinkedHashMap<>(), false, false);

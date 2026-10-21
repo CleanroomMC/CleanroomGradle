@@ -34,7 +34,8 @@ class CsvNamesTest {
     void readsQuotedDescsAndSkipsUnnamedRows(@TempDir Path directory) throws IOException {
         var zip = directory.resolve("names.zip");
         try (var out = new ZipOutputStream(Files.newOutputStream(zip))) {
-            entry(out, "fields.csv",
+            entry(
+                out, "fields.csv",
                 "searge,name,side,desc\nfield_1_a,readableField,2,\"A, quoted \"\"field\"\" desc\"\n\n,ignored,2,desc\nfield_2_b,,2,desc\n"
             );
             entry(out, "methods.csv", "searge,name,side,desc\nfunc_1_a,readableMethod,2,Does things.\n");

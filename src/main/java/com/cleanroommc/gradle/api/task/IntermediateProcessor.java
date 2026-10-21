@@ -58,8 +58,8 @@ public abstract class IntermediateProcessor {
      * @param files the intermediates to delete
      */
     public Discard discardAfter(TaskProvider<?> consumer, Object... files) {
-        return discardAfterAll("discard" + StringUtils.capitalize(consumer.getName()) + "Intermediates",
-            List.of(consumer), files
+        return discardAfterAll(
+            "discard" + StringUtils.capitalize(consumer.getName()) + "Intermediates", List.of(consumer), files
         );
     }
 

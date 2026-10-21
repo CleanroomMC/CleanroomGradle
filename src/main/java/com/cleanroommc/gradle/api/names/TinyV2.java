@@ -39,9 +39,8 @@ public final class TinyV2 {
      * @param names the MCP names to map onto
      * @param constructorsByClass constructors keyed by owning class
      */
-    public static String write(JarStructure structure, CsvNames names,
-        Map<String, List<Constructor>> constructorsByClass
-    ) {
+    public static String write(
+        JarStructure structure, CsvNames names, Map<String, List<Constructor>> constructorsByClass) {
         var paramsByMethodNum = groupParams(names.params());
         var out = new StringBuilder(1 << 20);
         out.append(HEADER).append('\n');
@@ -130,6 +129,53 @@ public final class TinyV2 {
         return out.toString();
     }
 
+    /**
+     * Parses a Tiny2 file into flat SRG -> named maps.
+     *
+     * @param file the Tiny2 file to read
+     */
+    public static FlatNames read(Path file) {
+        var methods = new HashMap<String, String>();
+        var fields = new HashMap<String, String>();
+        var params = new HashMap<String, String>();
+        var docs = new HashMap<String, String>();
+        try {
+            String lastMemberSrg = null;
+            for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
+                if (line.isEmpty() || line.charAt(0) == '#') {
+                    continue;
+                }
+                String[] t = line.split("\t", -1);
+                // Leading empty tokens encode indentation, find the first non-empty token
+                int i = 0;
+                while (i < t.length && t[i].isEmpty()) {
+                    i++;
+                }
+                if (i >= t.length) {
+                    continue;
+                }
+                switch (t[i]) {
+                    case "m" -> lastMemberSrg = put(methods, t, i, 2); // m <desc> <srg> <named>
+                    case "f" -> lastMemberSrg = put(fields, t, i, 2); // f <desc> <srg> <named>
+                    case "p" -> put(params, t, i, 2); // p <lvIndex> <srg> <named>
+                    case "c" -> {
+                        if (i == 0) {
+                            lastMemberSrg = null; // Class declaration line
+                        } else if (lastMemberSrg != null && i + 1 < t.length) {
+                            docs.put(lastMemberSrg, unescape(t[i + 1])); // Comment for the most recent member
+                        }
+                    }
+                    default ->
+                    { /* header / class */
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read Tiny2 mappings " + file, e);
+        }
+        return new FlatNames(methods, fields, params, docs);
+    }
+
     private static void appendComment(StringBuilder out, String doc) {
         if (doc != null && !doc.isEmpty()) {
             out.append('\t').append('\t').append('c').append('\t').append(escape(doc)).append('\n');
@@ -200,52 +246,6 @@ public final class TinyV2 {
         return parts.length >= 2 ? parts[1] : "";
     }
 
-    /**
-     * Parses a Tiny2 file into flat SRG -> named maps.
-     *
-     * @param file the Tiny2 file to read
-     */
-    public static FlatNames read(Path file) {
-        var methods = new HashMap<String, String>();
-        var fields = new HashMap<String, String>();
-        var params = new HashMap<String, String>();
-        var docs = new HashMap<String, String>();
-        try {
-            String lastMemberSrg = null;
-            for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
-                if (line.isEmpty() || line.charAt(0) == '#') {
-                    continue;
-                }
-                String[] t = line.split("\t", -1);
-                // Leading empty tokens encode indentation, find the first non-empty token
-                int i = 0;
-                while (i < t.length && t[i].isEmpty()) {
-                    i++;
-                }
-                if (i >= t.length) {
-                    continue;
-                }
-                switch (t[i]) {
-                    case "m" -> lastMemberSrg = put(methods, t, i, 2); // m <desc> <srg> <named>
-                    case "f" -> lastMemberSrg = put(fields, t, i, 2); // f <desc> <srg> <named>
-                    case "p" -> put(params, t, i, 2); // p <lvIndex> <srg> <named>
-                    case "c" -> {
-                        if (i == 0) {
-                            lastMemberSrg = null; // Class declaration line
-                        } else if (lastMemberSrg != null && i + 1 < t.length) {
-                            docs.put(lastMemberSrg, unescape(t[i + 1])); // Comment for the most recent member
-                        }
-                    }
-                    default -> { /* header / class */
-                    }
-                }
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to read Tiny2 mappings " + file, e);
-        }
-        return new FlatNames(methods, fields, params, docs);
-    }
-
     private static String put(Map<String, String> target, String[] tokens, int typeIndex, int srgOffset) {
         int srgIndex = typeIndex + srgOffset;
         if (srgIndex + 1 < tokens.length) {
@@ -262,11 +262,11 @@ public final class TinyV2 {
     /**
      * Flat SRG -> named lookups parsed from a Tiny2 file, plus member javadocs keyed by SRG id.
      */
-    public record FlatNames(Map<String, String> methods,
+    public record FlatNames(
+        Map<String, String> methods,
         Map<String, String> fields,
         Map<String, String> params,
-        Map<String, String> docs
-    ) { }
+        Map<String, String> docs) { }
 
     /**
      * A constructor from {@code constructors.txt}: its param-number key ({@code i<id>}) and SRG descriptor.

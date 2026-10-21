@@ -47,8 +47,8 @@ public final class LaunchArguments {
     private final Consumer<String> warn;
     private final Set<String> warnedPlaceholders = new HashSet<>();
 
-    public LaunchArguments(VersionMeta meta, Map<String, String> substitutions, Platform platform, Consumer<String> warn
-    ) {
+    public LaunchArguments(
+        VersionMeta meta, Map<String, String> substitutions, Platform platform, Consumer<String> warn) {
         this.meta = meta;
         this.substitutions = substitutions;
         this.platform = platform;
@@ -69,10 +69,6 @@ public final class LaunchArguments {
      */
     public boolean hasGameArguments() {
         return hasModernArguments() || this.meta.minecraftArguments() != null;
-    }
-
-    private boolean hasModernArguments() {
-        return this.meta.arguments() != null && this.meta.arguments().game() != null;
     }
 
     /**
@@ -103,6 +99,10 @@ public final class LaunchArguments {
             return List.of();
         }
         return this.render(this.meta.arguments().jvm(), true);
+    }
+
+    private boolean hasModernArguments() {
+        return this.meta.arguments() != null && this.meta.arguments().game() != null;
     }
 
     private List<String> render(List<VersionMeta.Argument> arguments, boolean jvm) {
@@ -143,8 +143,8 @@ public final class LaunchArguments {
             String replacement = this.substitutions.get(name);
             if (replacement == null) {
                 if (this.warnedPlaceholders.add(name)) {
-                    this.warn.accept("No substitution for launch argument placeholder ${" + name +
-                            "}; using an empty string."
+                    this.warn.accept(
+                        "No substitution for launch argument placeholder ${" + name + "}; using an empty string."
                     );
                 }
                 replacement = "";

@@ -31,7 +31,8 @@ public abstract class ExtractInheritance extends MavenJarExec {
     public ExtractInheritance() {
         this.defaultLogFile("extractInheritance.log");
         this.getMainClass().set("net.minecraftforge.installertools.ConsoleTool");
-        this.args("--task", "extract_inheritance", "--input", this.getInputJar(), "--output", this.getOutput(),
+        this.args(
+            "--task", "extract_inheritance", "--input", this.getInputJar(), "--output", this.getOutput(),
             "--annotations"
         );
     }

@@ -51,8 +51,9 @@ public abstract class MergeJars extends MavenJarExec {
         if (!this.getUseDefaultToolArguments().get()) {
             return;
         }
-        this.args("--client", this.getClientJar(), "--server", this.getServerJar(), "--output", this.getMergedJar(),
-            "-ann", this.getMinecraftVersion(), "--inject", this.getInjectAnnotationMarkers()
+        this.args(
+            "--client", this.getClientJar(), "--server", this.getServerJar(), "--output", this.getMergedJar(), "-ann",
+            this.getMinecraftVersion(), "--inject", this.getInjectAnnotationMarkers()
         );
     }
 

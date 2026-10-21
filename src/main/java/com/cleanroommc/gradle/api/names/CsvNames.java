@@ -25,11 +25,11 @@ import java.util.zip.ZipEntry;
  * The SRG -> name lookups from a legacy MCP names zip ({@code fields.csv}, {@code methods.csv}, {@code params.csv}).
  * Columns are {@code searge, name, side, desc}. The {@code desc} of methods/fields becomes the member's javadoc.
  */
-public record CsvNames(Map<String, String> fields,
+public record CsvNames(
+    Map<String, String> fields,
     Map<String, String> methods,
     Map<String, String> params,
-    Map<String, String> docs
-) {
+    Map<String, String> docs) {
 
     public static final String FIELDS_FILE = "fields.csv";
     public static final String METHODS_FILE = "methods.csv";

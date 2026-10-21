@@ -25,14 +25,15 @@ class MinecraftCacheTest extends BaseFunctionalTest {
 
     @Test
     void cleanPreservesSharedCache() throws IOException {
-        this.project.vanilla("""
-                cleanroom {
-                    caches {
-                        directory.set(layout.projectDirectory.dir('cleanroom-cache'))
-                        localDirectory.set(layout.projectDirectory.dir('local-cache'))
-                    }
+        this.project.vanilla(
+            """
+            cleanroom {
+                caches {
+                    directory.set(layout.projectDirectory.dir('cleanroom-cache'))
+                    localDirectory.set(layout.projectDirectory.dir('local-cache'))
                 }
-                """
+            }
+            """
         );
 
         var cacheMarker = this.projectDir.resolve("cleanroom-cache/marker");
@@ -57,32 +58,33 @@ class MinecraftCacheTest extends BaseFunctionalTest {
 
     @Test
     void sharedIntermediatesSurviveUntilEveryConsumerHasRun() throws IOException {
-        this.project.build("""
-                import com.cleanroommc.gradle.api.task.IntermediateProcessor
+        this.project.build(
+            """
+            import com.cleanroommc.gradle.api.task.IntermediateProcessor
 
-                cleanroom {
-                    mode = 'vanilla'
-                    caches {
-                        discardIntermediates = true
-                        localDirectory.set(layout.buildDirectory.dir('cleanroom_gradle'))
-                    }
+            cleanroom {
+                mode = 'vanilla'
+                caches {
+                    discardIntermediates = true
+                    localDirectory.set(layout.buildDirectory.dir('cleanroom_gradle'))
                 }
-                def shared = layout.buildDirectory.file('cleanroom_gradle/shared.txt')
-                def writeShared = tasks.register('writeShared') {
-                    outputs.file(shared)
-                    doLast { shared.get().asFile.text = 'shared' }
-                }
-                def first = tasks.register('firstConsumer') {
-                    dependsOn writeShared
-                    doLast { assert shared.get().asFile.file }
-                }
-                def second = tasks.register('secondConsumer') {
-                    dependsOn writeShared
-                    mustRunAfter first
-                    doLast { assert shared.get().asFile.file }
-                }
-                IntermediateProcessor.of(project).discardAfterAll([first, second], shared)
-                """
+            }
+            def shared = layout.buildDirectory.file('cleanroom_gradle/shared.txt')
+            def writeShared = tasks.register('writeShared') {
+                outputs.file(shared)
+                doLast { shared.get().asFile.text = 'shared' }
+            }
+            def first = tasks.register('firstConsumer') {
+                dependsOn writeShared
+                doLast { assert shared.get().asFile.file }
+            }
+            def second = tasks.register('secondConsumer') {
+                dependsOn writeShared
+                mustRunAfter first
+                doLast { assert shared.get().asFile.file }
+            }
+            IntermediateProcessor.of(project).discardAfterAll([first, second], shared)
+            """
         );
 
         var intermediate = this.projectDir.resolve("build/cleanroom_gradle/shared.txt");
@@ -107,35 +109,36 @@ class MinecraftCacheTest extends BaseFunctionalTest {
 
     @Test
     void upToDateConsumerStillDiscards() throws IOException {
-        this.project.build("""
-                import com.cleanroommc.gradle.api.task.IntermediateProcessor
+        this.project.build(
+            """
+            import com.cleanroommc.gradle.api.task.IntermediateProcessor
 
-                cleanroom {
-                    mode = 'vanilla'
-                    caches {
-                        discardIntermediates = providers.gradleProperty('discardIntermediates')
-                                .map { it.toBoolean() }
-                                .orElse(false)
-                        localDirectory.set(layout.buildDirectory.dir('cleanroom_gradle'))
-                    }
+            cleanroom {
+                mode = 'vanilla'
+                caches {
+                    discardIntermediates = providers.gradleProperty('discardIntermediates')
+                            .map { it.toBoolean() }
+                            .orElse(false)
+                    localDirectory.set(layout.buildDirectory.dir('cleanroom_gradle'))
                 }
-                def mid = layout.buildDirectory.file('cleanroom_gradle/mid.txt')
-                def out = layout.buildDirectory.file('out.txt')
-                def writeMid = tasks.register('writeMid') {
-                    outputs.file(mid)
-                    doLast { mid.get().asFile.text = 'mid' }
+            }
+            def mid = layout.buildDirectory.file('cleanroom_gradle/mid.txt')
+            def out = layout.buildDirectory.file('out.txt')
+            def writeMid = tasks.register('writeMid') {
+                outputs.file(mid)
+                doLast { mid.get().asFile.text = 'mid' }
+            }
+            def readMid = tasks.register('readMid') {
+                inputs.file(mid)
+                outputs.file(out)
+                dependsOn writeMid
+                doLast {
+                    assert mid.get().asFile.file
+                    out.get().asFile.text = 'ok'
                 }
-                def readMid = tasks.register('readMid') {
-                    inputs.file(mid)
-                    outputs.file(out)
-                    dependsOn writeMid
-                    doLast {
-                        assert mid.get().asFile.file
-                        out.get().asFile.text = 'ok'
-                    }
-                }
-                IntermediateProcessor.of(project).discardAfter(readMid, mid)
-                """
+            }
+            IntermediateProcessor.of(project).discardAfter(readMid, mid)
+            """
         );
 
         var intermediate = this.projectDir.resolve("build/cleanroom_gradle/mid.txt");
@@ -155,37 +158,38 @@ class MinecraftCacheTest extends BaseFunctionalTest {
         var serverBytes = "cached-server".getBytes(StandardCharsets.UTF_8);
         var indexBytes = "{\"objects\":{}}".getBytes(StandardCharsets.UTF_8);
         var cache = this.projectDir.resolve("cg-cache");
-        this.project.seedLauncherMeta(cache, "1.12.2",
+        this.project.seedLauncherMeta(
+            cache, "1.12.2",
             """
-                        {
-                          "assetIndex": {
-                            "id": "1.12",
-                            "sha1": "%s",
-                            "size": %d,
-                            "url": "https://example.invalid/1.12.json"
-                          },
-                          "downloads": {
-                            "client": { "sha1": "%s", "size": %d, "url": "https://example.invalid/client.jar" },
-                            "server": { "sha1": "%s", "size": %d, "url": "https://example.invalid/server.jar" }
-                          },
-                          "id": "1.12.2"
-                        }
-                        """.formatted(DigestUtils.sha1Hex(indexBytes
-                ),
-                indexBytes.length, DigestUtils.sha1Hex(clientBytes), clientBytes.length,
-                DigestUtils.sha1Hex(serverBytes), serverBytes.length
+            {
+              "assetIndex": {
+                "id": "1.12",
+                "sha1": "%s",
+                "size": %d,
+                "url": "https://example.invalid/1.12.json"
+              },
+              "downloads": {
+                "client": { "sha1": "%s", "size": %d, "url": "https://example.invalid/client.jar" },
+                "server": { "sha1": "%s", "size": %d, "url": "https://example.invalid/server.jar" }
+              },
+              "id": "1.12.2"
+            }
+            """.formatted(
+                DigestUtils.sha1Hex(indexBytes), indexBytes.length, DigestUtils.sha1Hex(clientBytes),
+                clientBytes.length, DigestUtils.sha1Hex(serverBytes), serverBytes.length
             )
         );
-        this.project.build("""
-                import de.undercouch.gradle.tasks.download.Download
+        this.project.build(
+            """
+            import de.undercouch.gradle.tasks.download.Download
 
-                cleanroom {
-                    mode = 'vanilla'
-                    caches.directory.set(layout.projectDirectory.dir('cg-cache'))
-                }
-                // gradle-download-task logs via Task.project when it skips existing files in --offline.
-                tasks.withType(Download).configureEach { quiet(true) }
-                """
+            cleanroom {
+                mode = 'vanilla'
+                caches.directory.set(layout.projectDirectory.dir('cg-cache'))
+            }
+            // gradle-download-task logs via Task.project when it skips existing files in --offline.
+            tasks.withType(Download).configureEach { quiet(true) }
+            """
         );
 
         var versionCache = cache.resolve("versions/1.12.2");
@@ -208,32 +212,29 @@ class MinecraftCacheTest extends BaseFunctionalTest {
         var assetBytes = "cached-asset".getBytes(StandardCharsets.UTF_8);
         var assetSha1 = DigestUtils.sha1Hex(assetBytes);
         var assetPath = "objects/" + assetSha1.substring(0, 2) + "/" + assetSha1;
-        Files.writeString(this.projectDir.resolve("asset-index.json"),
+        Files.writeString(
+            this.projectDir.resolve("asset-index.json"),
             """
-                {"objects":{"example":{"hash":"%s","size":%d}}}
-                """.formatted(assetSha1,
-                assetBytes.length
-            )
+            {"objects":{"example":{"hash":"%s","size":%d}}}
+            """.formatted(assetSha1, assetBytes.length)
         );
         var cachedAsset = this.projectDir.resolve(assetPath);
         Files.createDirectories(cachedAsset.getParent());
         Files.write(cachedAsset, assetBytes);
 
-        this.project.vanilla(
-            """
-                def expected = file('%s')
-                gradle.projectsEvaluated {
-                    tasks.named('downloadAssets') {
-                        assetIndexFile = layout.projectDirectory.file('asset-index.json')
-                        objects = layout.projectDirectory.dir('objects')
-                        doFirst { task ->
-                            logger.lifecycle('ASSET_TASK_EXECUTED')
-                            assert task.outputs.files.files == [expected] as Set
-                        }
-                    }
-                }
-                """.formatted(assetPath
-            ));
+        this.project.vanilla("""
+                             def expected = file('%s')
+                             gradle.projectsEvaluated {
+                                 tasks.named('downloadAssets') {
+                                     assetIndexFile = layout.projectDirectory.file('asset-index.json')
+                                     objects = layout.projectDirectory.dir('objects')
+                                     doFirst { task ->
+                                         logger.lifecycle('ASSET_TASK_EXECUTED')
+                                         assert task.outputs.files.files == [expected] as Set
+                                     }
+                                 }
+                             }
+                             """.formatted(assetPath));
 
         assertThat(this.project.runner("downloadAssets").build().getOutput()).contains("ASSET_TASK_EXECUTED");
 
@@ -247,37 +248,38 @@ class MinecraftCacheTest extends BaseFunctionalTest {
     void offlineAssetValidationReportsProblems() throws IOException {
         var missingHash = "1111111111111111111111111111111111111111";
         var corruptHash = "2222222222222222222222222222222222222222";
-        Files.writeString(this.projectDir.resolve("asset-index.json"),
+        Files.writeString(
+            this.projectDir.resolve("asset-index.json"),
             """
-                {
-                  "objects": {
-                    "minecraft/sounds/missing.ogg": {"hash":"%s","size":4},
-                    "minecraft/textures/corrupt.png": {"hash":"%s","size":7}
-                  }
-                }
-                """.formatted(missingHash,
-                corruptHash
-            )
+            {
+              "objects": {
+                "minecraft/sounds/missing.ogg": {"hash":"%s","size":4},
+                "minecraft/textures/corrupt.png": {"hash":"%s","size":7}
+              }
+            }
+            """.formatted(missingHash, corruptHash)
         );
         var corruptAsset = this.projectDir.resolve("objects/22/" + corruptHash);
         Files.createDirectories(corruptAsset.getParent());
         Files.writeString(corruptAsset, "corrupt");
-        this.project.vanilla("""
-                gradle.projectsEvaluated {
-                    tasks.named('downloadAssets') {
-                        assetIndexFile = layout.projectDirectory.file('asset-index.json')
-                        objects = layout.projectDirectory.dir('objects')
-                    }
+        this.project.vanilla(
+            """
+            gradle.projectsEvaluated {
+                tasks.named('downloadAssets') {
+                    assetIndexFile = layout.projectDirectory.file('asset-index.json')
+                    objects = layout.projectDirectory.dir('objects')
                 }
-                """
+            }
+            """
         );
 
         var result = this.project.runner("downloadAssets", "--offline").buildAndFail();
         assertThat(result.getOutput()).contains("2 Minecraft asset(s) are missing or invalid");
         assertThat(result.getOutput()).contains("minecraft/sounds/missing.ogg: object is missing");
         assertThat(result.getOutput()).contains("minecraft/textures/corrupt.png: SHA-1 does not match");
-        assertThat(result.getOutput()
-        ).contains("Run downloadAssets once without --offline to repair the shared asset cache");
+        assertThat(result.getOutput()).contains(
+            "Run downloadAssets once without --offline to repair the shared asset cache"
+        );
         this.project.assertProblem("offline-assets");
     }
 

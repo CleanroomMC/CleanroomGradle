@@ -51,9 +51,6 @@ public abstract class VanillaEnvironment implements Named {
 
     public abstract Property<Integer> getJavaVersion();
 
-    @Inject
-    protected abstract Problems getProblems();
-
     public void client(Action<? super RunMinecraft> action) {
         tasks().runVanillaClient.configure(action);
     }
@@ -76,20 +73,24 @@ public abstract class VanillaEnvironment implements Named {
         }
         if (!VALID_NAME.matcher(this.name).matches()) {
             var message = "Invalid vanilla environment name '" + this.name + "'.";
-            throw CleanroomProblems.throwing(getProblems(), new InvalidUserDataException(message),
-                CleanroomProblems.INVALID_VANILLA_ENVIRONMENT, message,
-                "Use letters, numbers, dots, underscores, or hyphens, starting with a letter or number."
+            throw CleanroomProblems.throwing(
+                getProblems(), new InvalidUserDataException(message), CleanroomProblems.INVALID_VANILLA_ENVIRONMENT,
+                message, "Use letters, numbers, dots, underscores, or hyphens, starting with a letter or number."
             );
         }
         var runTask = "run" + VanillaTasks.taskSuffix(this.name) + "Client";
         if (project.getTasks().getNames().contains(runTask)) {
             var message = "Vanilla environment '" + this.name + "' would create the existing task '" + runTask + "'.";
-            throw CleanroomProblems.throwing(getProblems(), new InvalidUserDataException(message),
-                CleanroomProblems.INVALID_VANILLA_ENVIRONMENT, message, "Choose a different vanilla environment name."
+            throw CleanroomProblems.throwing(
+                getProblems(), new InvalidUserDataException(message), CleanroomProblems.INVALID_VANILLA_ENVIRONMENT,
+                message, "Choose a different vanilla environment name."
             );
         }
         this.tasks = new VanillaTasks(project, caches, minecraft, this);
     }
+
+    @Inject
+    protected abstract Problems getProblems();
 
     private VanillaTasks tasks() {
         if (this.tasks == null) {

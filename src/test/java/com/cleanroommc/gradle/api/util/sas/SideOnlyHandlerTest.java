@@ -176,8 +176,10 @@ class SideOnlyHandlerTest {
     void stripRemovesDanglingNestMembers() throws Exception {
         var input = directory.resolve("in.jar");
         var output = directory.resolve("out.jar");
-        writeJar(input,
-            Map.of("demo/Outer.class", outerWithNest("demo/Outer", "demo/Outer$Inner"), "demo/Outer$Inner.class",
+        writeJar(
+            input,
+            Map.of(
+                "demo/Outer.class", outerWithNest("demo/Outer", "demo/Outer$Inner"), "demo/Outer$Inner.class",
                 sideOnlyClass("demo/Outer$Inner", "demo/Outer", "Inner", Side.CLIENT)
             )
         );
@@ -196,8 +198,10 @@ class SideOnlyHandlerTest {
     void stripRemovesAnonymousClassOnlyUsedByStrippedMethod() throws Exception {
         var input = directory.resolve("in.jar");
         var output = directory.resolve("out.jar");
-        writeJar(input,
-            Map.of("demo/Host.class", hostWithSideOnlyFactory("demo/Host", "demo/Host$1", Side.CLIENT),
+        writeJar(
+            input,
+            Map.of(
+                "demo/Host.class", hostWithSideOnlyFactory("demo/Host", "demo/Host$1", Side.CLIENT),
                 "demo/Host$1.class", plainInner("demo/Host$1", "demo/Host")
             )
         );
@@ -213,8 +217,10 @@ class SideOnlyHandlerTest {
     void stripKeepsAnonymousClassUsedByRetainedMethod() throws Exception {
         var input = directory.resolve("in.jar");
         var output = directory.resolve("out.jar");
-        writeJar(input,
-            Map.of("demo/Host.class", hostWithSideOnlyFactory("demo/Host", "demo/Host$1", null), "demo/Host$1.class",
+        writeJar(
+            input,
+            Map.of(
+                "demo/Host.class", hostWithSideOnlyFactory("demo/Host", "demo/Host$1", null), "demo/Host$1.class",
                 plainInner("demo/Host$1", "demo/Host")
             )
         );
@@ -230,8 +236,10 @@ class SideOnlyHandlerTest {
     void stripKeepsNestedClassNothingRefersTo() throws Exception {
         var input = directory.resolve("in.jar");
         var output = directory.resolve("out.jar");
-        writeJar(input,
-            Map.of("demo/Outer.class", outerWithNest("demo/Outer", "demo/Outer$Builder"), "demo/Outer$Builder.class",
+        writeJar(
+            input,
+            Map.of(
+                "demo/Outer.class", outerWithNest("demo/Outer", "demo/Outer$Builder"), "demo/Outer$Builder.class",
                 plainInner("demo/Outer$Builder", "demo/Outer")
             )
         );
@@ -244,13 +252,16 @@ class SideOnlyHandlerTest {
     @Test
     void stripValidatesOnlyTheEntriesItIsPointedAt() throws Exception {
         var input = directory.resolve("in.jar");
-        writeJar(input,
-            Map.of("loader/Host.class", hostWithSideOnlyFactory("loader/Host", "demo/Client", null),
-                "demo/Client.class", sideOnlyClass("demo/Client", null, null, Side.CLIENT)
+        writeJar(
+            input,
+            Map.of(
+                "loader/Host.class", hostWithSideOnlyFactory("loader/Host", "demo/Client", null), "demo/Client.class",
+                sideOnlyClass("demo/Client", null, null, Side.CLIENT)
             )
         );
 
-        assertThatThrownBy(() -> SideOnlyHandler.strip(input, directory.resolve("all.jar"), Side.SERVER, true
+        assertThatThrownBy(() -> SideOnlyHandler.strip(
+            input, directory.resolve("all.jar"), Side.SERVER, true
         )).isInstanceOf(IllegalStateException.class);
 
         var output = directory.resolve("scoped.jar");
@@ -264,13 +275,16 @@ class SideOnlyHandlerTest {
     @Test
     void stripStillValidatesEntriesInsideThePrefix() throws Exception {
         var input = directory.resolve("in.jar");
-        writeJar(input,
-            Map.of("net/minecraft/Host.class", hostWithSideOnlyFactory("net/minecraft/Host", "demo/Client", null),
+        writeJar(
+            input,
+            Map.of(
+                "net/minecraft/Host.class", hostWithSideOnlyFactory("net/minecraft/Host", "demo/Client", null),
                 "demo/Client.class", sideOnlyClass("demo/Client", null, null, Side.CLIENT)
             )
         );
 
-        assertThatThrownBy(() -> SideOnlyHandler.strip(input, directory.resolve("out.jar"), Side.SERVER, true,
+        assertThatThrownBy(() -> SideOnlyHandler.strip(
+            input, directory.resolve("out.jar"), Side.SERVER, true,
             List.of("net/minecraft/")
         )).isInstanceOf(IllegalStateException.class);
     }
@@ -278,20 +292,20 @@ class SideOnlyHandlerTest {
     @Test
     void parsesSasLines() {
         assertThat(SideOnlyHandler.parseLine("\t# comment only")).isNull();
-        assertThat(SideOnlyHandler.parseLine("net.minecraft.Block # a block")).isEqualTo(
-            new SideOnlyHandler.SasLine(new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.CLASS,
-                    "net/minecraft/Block", "", ""
-                ),
-                "a block", false
-            ));
+        assertThat(SideOnlyHandler.parseLine("net.minecraft.Block # a block")).isEqualTo(new SideOnlyHandler.SasLine(
+            new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.CLASS, "net/minecraft/Block", "", ""), "a block",
+            false
+        ));
         assertThat(SideOnlyHandler.parseLine("\tnet.minecraft.Block field_1_a").target()).isEqualTo(
             new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.FIELD, "net/minecraft/Block", "field_1_a", ""));
         assertThat(SideOnlyHandler.parseLine("net.minecraft.Block func_1_a ()V").target()).isEqualTo(
             new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.METHOD, "net/minecraft/Block", "func_1_a", "()V"));
-        assertThatThrownBy(() -> SideOnlyHandler.parseLine("net.minecraft.Block field one"
-        )).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> SideOnlyHandler.parseLine("net.minecraft.Block ()V"
-        )).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> SideOnlyHandler.parseLine("net.minecraft.Block field one")).isInstanceOf(
+            IllegalArgumentException.class
+        );
+        assertThatThrownBy(() -> SideOnlyHandler.parseLine("net.minecraft.Block ()V")).isInstanceOf(
+            IllegalArgumentException.class
+        );
     }
 
     @Test
@@ -301,7 +315,8 @@ class SideOnlyHandlerTest {
         var factory = new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.METHOD, "demo/Host", "factory", "()V");
         var missing = new SideOnlyHandler.Target(SideOnlyHandler.TargetKind.METHOD, "demo/Host", "missing", "()V");
 
-        assertThat(SideOnlyHandler.applySas(input, directory.resolve("out.jar"), Set.of(factory)).annotationsRemoved()
+        assertThat(
+            SideOnlyHandler.applySas(input, directory.resolve("out.jar"), Set.of(factory)).annotationsRemoved()
         ).isEqualTo(1);
         assertThatThrownBy(() -> SideOnlyHandler.applySas(input, directory.resolve("missing.jar"), Set.of(missing)))
             .isInstanceOf(IllegalArgumentException.class)

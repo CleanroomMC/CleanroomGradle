@@ -35,7 +35,8 @@ public record Coordinate(String group, String artifact, String version, String c
         var stem = dot == -1 ? fileName : fileName.substring(0, dot);
         var prefix = module.getModule() + "-" + module.getVersion();
         if (!stem.equals(prefix) && !stem.startsWith(prefix + "-")) {
-            throw new GradleException("Cannot derive the classifier for " + artifact.getId() + " from file " + fileName
+            throw new GradleException(
+                "Cannot derive the classifier for " + artifact.getId() + " from file " + fileName
             );
         }
         var classifier = stem.length() == prefix.length() ? null : stem.substring(prefix.length() + 1);

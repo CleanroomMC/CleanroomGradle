@@ -42,18 +42,6 @@ public final class ProjectCoordinates {
         project.afterEvaluate(this::readFrom);
     }
 
-    private void readFrom(Project project) {
-        this.group.set(String.valueOf(project.getGroup()));
-        this.version.set(String.valueOf(project.getVersion()));
-        var urls = new HashMap<String, String>();
-        project.getRepositories()
-            .withType(MavenArtifactRepository.class)
-            .forEach(repository -> urls.put(repository.getName(),
-                LibraryJson.trailingSlash(repository.getUrl().toString())
-            ));
-        this.repositoryUrls.set(urls);
-    }
-
     public Provider<String> getGroup() {
         return this.group;
     }
@@ -64,6 +52,18 @@ public final class ProjectCoordinates {
 
     public Provider<Map<String, String>> getRepositoryUrls() {
         return this.repositoryUrls;
+    }
+
+    private void readFrom(Project project) {
+        this.group.set(String.valueOf(project.getGroup()));
+        this.version.set(String.valueOf(project.getVersion()));
+        var urls = new HashMap<String, String>();
+        project.getRepositories()
+            .withType(MavenArtifactRepository.class)
+            .forEach(repository -> urls.put(
+                repository.getName(), LibraryJson.trailingSlash(repository.getUrl().toString())
+            ));
+        this.repositoryUrls.set(urls);
     }
 
 }

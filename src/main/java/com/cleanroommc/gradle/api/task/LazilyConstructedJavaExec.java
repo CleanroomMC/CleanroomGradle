@@ -68,10 +68,6 @@ public abstract class LazilyConstructedJavaExec extends JavaExec {
         afterExec();
     }
 
-    protected void beforeExec() { }
-
-    protected void afterExec() { }
-
     @Override
     public void setAllJvmArgs(Iterable<?> arguments) {
         var newArguments = Streams.of(arguments).map(LazilyConstructedJavaExec::mapToLazyString).toList();
@@ -120,7 +116,8 @@ public abstract class LazilyConstructedJavaExec extends JavaExec {
 
     @Override
     public JavaExec environment(Map<String, ?> environmentVariables) {
-        return super.environment(Streams.convertValues(environmentVariables, LazilyConstructedJavaExec::mapToLazyString
+        return super.environment(Streams.convertValues(
+            environmentVariables, LazilyConstructedJavaExec::mapToLazyString
         ));
     }
 
@@ -138,5 +135,9 @@ public abstract class LazilyConstructedJavaExec extends JavaExec {
     public JavaExec systemProperty(String name, Object value) {
         return super.systemProperty(name, mapToLazyString(value));
     }
+
+    protected void beforeExec() { }
+
+    protected void afterExec() { }
 
 }

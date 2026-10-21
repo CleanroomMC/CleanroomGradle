@@ -48,9 +48,9 @@ public final class CleanroomTasks {
     public final TaskProvider<RunMinecraft> runCleanroomServer;
     public final TaskProvider<NsightExec> runCleanroomNsightClient;
 
-    public CleanroomTasks(Project project, CachesExtension caches, MinecraftExtension minecraft, LoaderExtension loader,
-        PatchesExtension patches, VanillaTasks vanilla, MCPTasks mcp, McpMappings mappings
-    ) {
+    public CleanroomTasks(
+        Project project, CachesExtension caches, MinecraftExtension minecraft, LoaderExtension loader,
+        PatchesExtension patches, VanillaTasks vanilla, MCPTasks mcp, McpMappings mappings) {
         var mainSourceSet = project.getExtensions()
             .getByType(SourceSetContainer.class)
             .named(SourceSet.MAIN_SOURCE_SET_NAME);
@@ -66,7 +66,8 @@ public final class CleanroomTasks {
 
         this.setup = Tasks.register(project, "setup");
         this.setup.configure(task -> {
-            task.setDescription("Creates the loader environment by decompiling Minecraft and applying current patches."
+            task.setDescription(
+                "Creates the loader environment by decompiling Minecraft and applying current patches."
             );
             task.dependsOn(minecraftPatchDev.map(PatchDevEnvironment::getApplyDiffs), mcp.prepareMcpInjectedSources);
         });

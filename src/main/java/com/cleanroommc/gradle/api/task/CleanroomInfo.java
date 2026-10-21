@@ -93,8 +93,8 @@ public abstract class CleanroomInfo extends DefaultTask {
         logger.lifecycle("  offline client readiness:");
         getOfflineCacheFiles()
             .get()
-            .forEach((name, path) -> logger.lifecycle("    {}: {} ({})", name,
-                new File(path).isFile() ? "ready" : "missing", path
+            .forEach((name, path) -> logger.lifecycle(
+                "    {}: {} ({})", name, new File(path).isFile() ? "ready" : "missing", path
             ));
     }
 

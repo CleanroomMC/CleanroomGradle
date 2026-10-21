@@ -32,16 +32,17 @@ class MaterializeUserdevSourcesTest {
     @Test
     void appliesAPatchWithLineFeedsOnly() throws IOException {
         var source = write("source/net/minecraft/Block.java", "class Block {\nvoid a() { }\n}\n");
-        write("patches/net/minecraft/Block.java.patch",
+        write(
+            "patches/net/minecraft/Block.java.patch",
             """
-                --- a/net/minecraft/Block.java
-                +++ b/net/minecraft/Block.java
-                @@ -1,3 +1,3 @@
-                 class Block {
-                -void a() { }
-                +void b() { }
-                 }
-                """
+            --- a/net/minecraft/Block.java
+            +++ b/net/minecraft/Block.java
+            @@ -1,3 +1,3 @@
+             class Block {
+            -void a() { }
+            +void b() { }
+             }
+            """
         );
 
         UserdevSourceMaterializer.applyPatches(this.directory.resolve("source"), this.directory.resolve("patches"));
@@ -52,24 +53,26 @@ class MaterializeUserdevSourcesTest {
     @Test
     void failsWhenAPatchHasNoTarget() throws IOException {
         write("source/net/minecraft/Block.java", "class Block {\n}\n");
-        write("patches/net/minecraft/Missing.java.patch",
+        write(
+            "patches/net/minecraft/Missing.java.patch",
             """
-                --- a/net/minecraft/Missing.java
-                +++ b/net/minecraft/Missing.java
-                @@ -1,1 +1,1 @@
-                -class Missing { }
-                +class Missing { void a() { } }
-                """
+            --- a/net/minecraft/Missing.java
+            +++ b/net/minecraft/Missing.java
+            @@ -1,1 +1,1 @@
+            -class Missing { }
+            +class Missing { void a() { } }
+            """
         );
 
-        var failure = catchThrowableOfType(() -> UserdevSourceMaterializer.applyPatches(this.directory.resolve("source"
-                ),
-                this.directory.resolve("patches")
+        var failure = catchThrowableOfType(
+            () -> UserdevSourceMaterializer.applyPatches(
+                this.directory.resolve("source"), this.directory.resolve("patches")
             ),
             IllegalStateException.class
         );
         assertThat(failure).as(failure.getMessage()).hasMessageContaining("Missing.java.patch");
-        assertThat(failure.getMessage()
+        assertThat(
+            failure.getMessage()
                 .contains("net" + java.io.File.separator + "minecraft" + java.io.File.separator + "Missing.java")
         )
             .as(failure.getMessage())

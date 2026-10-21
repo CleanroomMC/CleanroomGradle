@@ -71,7 +71,8 @@ public abstract class ImportMcpNames extends DefaultTask {
     @TaskAction
     public void importNames() {
         if (!getNamesDirectoryConfigured().getOrElse(false)) {
-            throw new InvalidUserDataException("cleanroom.namesDirectory must be set before running importMcpNames " +
+            throw new InvalidUserDataException(
+                "cleanroom.namesDirectory must be set before running importMcpNames " +
                     "(it determines where mappings.tiny is written)."
             );
         }
@@ -104,7 +105,8 @@ public abstract class ImportMcpNames extends DefaultTask {
     private Map<String, List<TinyV2.Constructor>> readConstructors() {
         var byClass = new HashMap<String, List<TinyV2.Constructor>>();
         try {
-            for (var line : Files.readAllLines(getConstructorsFile().getAsFile().get().toPath(), StandardCharsets.UTF_8
+            for (var line : Files.readAllLines(
+                getConstructorsFile().getAsFile().get().toPath(), StandardCharsets.UTF_8
             )) {
                 var parts = line.trim().split("\\s+");
                 if (parts.length < 3) {

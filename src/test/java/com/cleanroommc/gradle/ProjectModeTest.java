@@ -20,13 +20,14 @@ class ProjectModeTest extends BaseFunctionalTest {
 
     @Test
     void pluginIsInertUntilAnEnvironmentIsRegistered() throws IOException {
-        this.project.build("""
-                gradle.projectsEvaluated {
-                    assert tasks.findByName('runClient') == null
-                    assert tasks.findByName('runVanillaClient') == null
-                    assert tasks.findByName('setup') == null
-                }
-                """
+        this.project.build(
+            """
+            gradle.projectsEvaluated {
+                assert tasks.findByName('runClient') == null
+                assert tasks.findByName('runVanillaClient') == null
+                assert tasks.findByName('setup') == null
+            }
+            """
         );
 
         this.project.runner("help").build();
@@ -34,37 +35,39 @@ class ProjectModeTest extends BaseFunctionalTest {
 
     @Test
     void loaderPreparesPatchDevSourcesBeforeCompiling() throws IOException {
-        this.project.build("""
-                group = 'com.cleanroommc'
-                version = '0.1.0'
-                cleanroom.mode = 'loader'
-                gradle.projectsEvaluated {
-                    def minecraft = cleanroom.patches.patchDev.minecraft
-                    assert minecraft.input.get().asFile == layout.buildDirectory.dir('cleanroom_gradle/sourceSets/mcp/sources').get().asFile
-                    assert minecraft.patches.get().asFile == layout.projectDirectory.dir('module/minecraft/patches').asFile
-                    assert minecraft.output.get().asFile == layout.projectDirectory.dir('module/minecraft/src/main/java').asFile
-                    assert sourceSets.minecraftPatchDev.java.srcDirs.empty
-                }
-                """
+        this.project.build(
+            """
+            group = 'com.cleanroommc'
+            version = '0.1.0'
+            cleanroom.mode = 'loader'
+            gradle.projectsEvaluated {
+                def minecraft = cleanroom.patches.patchDev.minecraft
+                assert minecraft.input.get().asFile == layout.buildDirectory.dir('cleanroom_gradle/sourceSets/mcp/sources').get().asFile
+                assert minecraft.patches.get().asFile == layout.projectDirectory.dir('module/minecraft/patches').asFile
+                assert minecraft.output.get().asFile == layout.projectDirectory.dir('module/minecraft/src/main/java').asFile
+                assert sourceSets.minecraftPatchDev.java.srcDirs.empty
+            }
+            """
         );
 
         var output = this.project
             .runner("userdevJar", "runCleanroomClient", "genBinPatches", "--dry-run")
             .build()
             .getOutput();
-        PluginBuild.scheduled(output, "remapSrg2Mcp", "decompileSrg", "initializeMinecraftPatchDevSources", "applySAS",
-            "genBinPatches"
+        PluginBuild.scheduled(
+            output, "remapSrg2Mcp", "decompileSrg", "initializeMinecraftPatchDevSources", "applySAS", "genBinPatches"
         );
         PluginBuild.notScheduled(output, "genClientBinPatches", "genRuntimeBinPatches");
-        assertThat(output.indexOf(":prepareMinecraftPatchDevEnvironment")).isLessThan(output.lastIndexOf(":compileJava"
+        assertThat(output.indexOf(":prepareMinecraftPatchDevEnvironment")).isLessThan(output.lastIndexOf(
+            ":compileJava"
         ));
         assertThat(output.indexOf(":prepareMcpInjectedSources")).isLessThan(output.lastIndexOf(":compileJava"));
 
         output = this.project.runner("setup", "compileJava", "--parallel", "--dry-run").build().getOutput();
         assertThat(output.indexOf(":applyMinecraftDiffs")).as(output).isLessThan(output.lastIndexOf(":compileJava"));
 
-        PluginBuild.notScheduled(this.project.runner("compileJava", "--dry-run").build().getOutput(),
-            "applyMinecraftDiffs"
+        PluginBuild.notScheduled(
+            this.project.runner("compileJava", "--dry-run").build().getOutput(), "applyMinecraftDiffs"
         );
     }
 
@@ -74,54 +77,55 @@ class ProjectModeTest extends BaseFunctionalTest {
      */
     @Test
     void loaderLaunchConsumersReadTheLoaderExtension() throws IOException {
-        this.project.build("""
-                import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip
-                import com.cleanroommc.gradle.api.task.dist.WriteInstallProfile
-                import com.cleanroommc.gradle.api.task.dist.WriteUserdevConfig
-                import com.cleanroommc.gradle.api.task.mc.RunMinecraft
-                group = 'com.cleanroommc'
-                version = '0.1.0'
-                java.toolchain.languageVersion = JavaLanguageVersion.of(28)
-                cleanroom {
-                    mode = 'loader'
-                    loader {
-                        launchClass = 'example.Launch'
-                        serverLaunchClass = 'example.ServerLaunch'
-                        clientTweakClass = 'example.ClientTweaker'
-                        serverTweakClass = 'example.ServerTweaker'
-                    }
+        this.project.build(
+            """
+            import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip
+            import com.cleanroommc.gradle.api.task.dist.WriteInstallProfile
+            import com.cleanroommc.gradle.api.task.dist.WriteUserdevConfig
+            import com.cleanroommc.gradle.api.task.mc.RunMinecraft
+            group = 'com.cleanroommc'
+            version = '0.1.0'
+            java.toolchain.languageVersion = JavaLanguageVersion.of(28)
+            cleanroom {
+                mode = 'loader'
+                loader {
+                    launchClass = 'example.Launch'
+                    serverLaunchClass = 'example.ServerLaunch'
+                    clientTweakClass = 'example.ClientTweaker'
+                    serverTweakClass = 'example.ServerTweaker'
                 }
-                gradle.projectsEvaluated {
-                    def client = tasks.named('runCleanroomClient', RunMinecraft).get()
-                    def server = tasks.named('runCleanroomServer', RunMinecraft).get()
-                    assert client.mainClass.get() == 'example.Launch'
-                    assert server.mainClass.get() == 'example.ServerLaunch'
-                    assert client.args == ['--tweakClass', 'example.ClientTweaker']
-                    assert server.args == ['--tweakClass', 'example.ServerTweaker']
-                    // FML renames SRG-named mods into MCP with the srg-to-mcp file
-                    assert client.systemProperties.get('net.minecraftforge.gradle.GradleStart.srg.srg-mcp').toString().endsWith('srg2mcp.tsrg')
+            }
+            gradle.projectsEvaluated {
+                def client = tasks.named('runCleanroomClient', RunMinecraft).get()
+                def server = tasks.named('runCleanroomServer', RunMinecraft).get()
+                assert client.mainClass.get() == 'example.Launch'
+                assert server.mainClass.get() == 'example.ServerLaunch'
+                assert client.args == ['--tweakClass', 'example.ClientTweaker']
+                assert server.args == ['--tweakClass', 'example.ServerTweaker']
+                // FML renames SRG-named mods into MCP with the srg-to-mcp file
+                assert client.systemProperties.get('net.minecraftforge.gradle.GradleStart.srg.srg-mcp').toString().endsWith('srg2mcp.tsrg')
 
-                    def userdev = tasks.named('writeUserdevConfig', WriteUserdevConfig).get()
-                    assert userdev.clientLaunchClass.get() == 'example.Launch'
-                    assert userdev.serverLaunchClass.get() == 'example.ServerLaunch'
-                    assert userdev.serverTweakClass.get() == 'example.ServerTweaker'
+                def userdev = tasks.named('writeUserdevConfig', WriteUserdevConfig).get()
+                assert userdev.clientLaunchClass.get() == 'example.Launch'
+                assert userdev.serverLaunchClass.get() == 'example.ServerLaunch'
+                assert userdev.serverTweakClass.get() == 'example.ServerTweaker'
 
-                    def pack = tasks.named('publishMmcPackZip', PublishMmcPackZip).get()
-                    assert pack.mainClass.get() == 'example.Launch'
-                    assert pack.tweakers.get() == ['example.ClientTweaker']
-                    assert pack.compatibleJavaMajors.get() == [28]
+                def pack = tasks.named('publishMmcPackZip', PublishMmcPackZip).get()
+                assert pack.mainClass.get() == 'example.Launch'
+                assert pack.tweakers.get() == ['example.ClientTweaker']
+                assert pack.compatibleJavaMajors.get() == [28]
 
-                    def installer = tasks.named('writeInstallProfile', WriteInstallProfile).get()
-                    assert installer.mainClass.get() == 'example.Launch'
-                    assert installer.serverMainClass.get() == 'example.ServerLaunch'
-                    assert installer.tweakers.get() == ['example.ClientTweaker']
-                    assert installer.serverTweakers.get() == ['example.ServerTweaker']
-                    assert installer.minimumJava.get() == 28
+                def installer = tasks.named('writeInstallProfile', WriteInstallProfile).get()
+                assert installer.mainClass.get() == 'example.Launch'
+                assert installer.serverMainClass.get() == 'example.ServerLaunch'
+                assert installer.tweakers.get() == ['example.ClientTweaker']
+                assert installer.serverTweakers.get() == ['example.ServerTweaker']
+                assert installer.minimumJava.get() == 28
 
-                    assert tasks.test.workingDir == layout.buildDirectory.dir('test').get().asFile
-                    assert configurations.testRuntimeClasspath.extendsFrom.contains(configurations.lwjglNativeCurrent)
-                }
-                """
+                assert tasks.test.workingDir == layout.buildDirectory.dir('test').get().asFile
+                assert configurations.testRuntimeClasspath.extendsFrom.contains(configurations.lwjglNativeCurrent)
+            }
+            """
         );
 
         this.project.runner("help").build();
@@ -129,15 +133,16 @@ class ProjectModeTest extends BaseFunctionalTest {
 
     @Test
     void loaderPipelineReusesConfigurationCache() throws IOException {
-        this.project.loader("""
-                group = 'com.cleanroommc'
-                version = '0.1.0'
-                """
+        this.project.loader(
+            """
+            group = 'com.cleanroommc'
+            version = '0.1.0'
+            """
         );
 
         var first = this.project.runner("remapSrg2Mcp", "userdevJar", "--dry-run").build().getOutput();
-        PluginBuild.scheduled(first, "mergeJars", "splitClientJar", "decompileSrg", "remapSrg2Mcp", "reobfJar",
-            "writeUserdevConfig"
+        PluginBuild.scheduled(
+            first, "mergeJars", "splitClientJar", "decompileSrg", "remapSrg2Mcp", "reobfJar", "writeUserdevConfig"
         );
         PluginBuild.notScheduled(first, "genBinPatches");
         assertThat(first).contains("Configuration cache entry stored");
@@ -154,8 +159,8 @@ class ProjectModeTest extends BaseFunctionalTest {
         PluginBuild.notScheduled(server, "downloadAssets");
 
         this.project.loader("");
-        PluginBuild.notScheduled(this.project.runner("runCleanroomClient", "--dry-run").build().getOutput(),
-            "writeUserdevConfig"
+        PluginBuild.notScheduled(
+            this.project.runner("runCleanroomClient", "--dry-run").build().getOutput(), "writeUserdevConfig"
         );
         var missing = this.project.runner("runMcpClient", "--dry-run").buildAndFail().getOutput();
         assertThat(missing).as(missing).contains("Task 'runMcpClient' not found");
@@ -167,21 +172,22 @@ class ProjectModeTest extends BaseFunctionalTest {
      */
     @Test
     void loaderTasksAreConfigurableFromTheBuildscriptBody() throws IOException {
-        this.project.build("""
-                cleanroom.mode = 'loader'
-                tasks.named('runCleanroomClient') {
-                    description = 'set from the body'
-                }
-                // Realizing this task before the version is set must not freeze 'unspecified' into it
-                tasks.named('installerJar').get()
-                group = 'com.cleanroommc'
-                version = '0.1.0'
-                afterEvaluate {
-                    assert tasks.named('runCleanroomClient').get().description == 'set from the body'
-                    assert tasks.named('universalJar').get().archiveVersion.get() == '0.1.0'
-                    assert tasks.named('installerJar').get().archiveVersion.get() == '0.1.0'
-                }
-                """
+        this.project.build(
+            """
+            cleanroom.mode = 'loader'
+            tasks.named('runCleanroomClient') {
+                description = 'set from the body'
+            }
+            // Realizing this task before the version is set must not freeze 'unspecified' into it
+            tasks.named('installerJar').get()
+            group = 'com.cleanroommc'
+            version = '0.1.0'
+            afterEvaluate {
+                assert tasks.named('runCleanroomClient').get().description == 'set from the body'
+                assert tasks.named('universalJar').get().archiveVersion.get() == '0.1.0'
+                assert tasks.named('installerJar').get().archiveVersion.get() == '0.1.0'
+            }
+            """
         );
 
         this.project.plainRunner("help", "--offline").build();
@@ -189,12 +195,13 @@ class ProjectModeTest extends BaseFunctionalTest {
 
     @Test
     void selectingTwoDifferentEnvironmentsFails() throws IOException {
-        this.project.build("""
-                cleanroom.mode = 'loader'
-                dependencies {
-                    implementation cleanroom.userdev('0.7.0-alpha')
-                }
-                """
+        this.project.build(
+            """
+            cleanroom.mode = 'loader'
+            dependencies {
+                implementation cleanroom.userdev('0.7.0-alpha')
+            }
+            """
         );
 
         var output = this.project.plainRunner("help").buildAndFail().getOutput();
@@ -203,11 +210,12 @@ class ProjectModeTest extends BaseFunctionalTest {
 
     @Test
     void vanillaEnvironmentNameCannotEscapeItsDirectory() throws IOException {
-        this.project.vanilla("""
-                cleanroom.vanilla {
-                    "../escape" { }
-                }
-                """
+        this.project.vanilla(
+            """
+            cleanroom.vanilla {
+                "../escape" { }
+            }
+            """
         );
 
         var output = this.project.runner("help").buildAndFail().getOutput();

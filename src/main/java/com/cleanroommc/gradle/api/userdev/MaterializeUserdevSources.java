@@ -38,9 +38,6 @@ public abstract class MaterializeUserdevSources implements TransformAction<Mater
     @PathSensitive(PathSensitivity.RELATIVE)
     public abstract Provider<FileSystemLocation> getInputArtifact();
 
-    @Inject
-    protected abstract ExecOperations getExecOperations();
-
     @Override
     public void transform(TransformOutputs outputs) {
         var prepared = getInputArtifact().get().getAsFile();
@@ -48,14 +45,17 @@ public abstract class MaterializeUserdevSources implements TransformAction<Mater
         var output = outputs.file(OUTPUT);
         var work = output.toPath().resolveSibling("sources-work");
         try {
-            UserdevSourceMaterializer.materialize(input, new File(prepared, PrepareUserdev.SOURCE_INPUT),
-                output.toPath(), work, getParameters().getLibraries(), getParameters().getDecompilerClasspath(),
-                getExecOperations()
+            UserdevSourceMaterializer.materialize(
+                input, new File(prepared, PrepareUserdev.SOURCE_INPUT), output.toPath(), work,
+                getParameters().getLibraries(), getParameters().getDecompilerClasspath(), getExecOperations()
             );
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to materialize sources from " + input, e);
         }
     }
+
+    @Inject
+    protected abstract ExecOperations getExecOperations();
 
     public interface Parameters extends TransformParameters {
 

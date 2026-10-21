@@ -24,7 +24,8 @@ class UserdevModulesTest extends BaseFunctionalTest {
     @Test
     void toolingImportSeesOneCombinedModuleAndSourcesWithoutSetup() throws IOException {
         this.project.seedUserdevModule("0.7.0-alpha");
-        this.project.build(UserdevFixture.PREAMBLE +
+        this.project.build(
+            UserdevFixture.PREAMBLE +
                 """
                 apply plugin: 'idea'
                 dependencies {
@@ -33,7 +34,8 @@ class UserdevModulesTest extends BaseFunctionalTest {
                 """
         );
 
-        var model = this.project.ideaModel("--offline", "-Pcg.repos.enableLocal=true", "-Pcg.userdev.sources=true",
+        var model = this.project.ideaModel(
+            "--offline", "-Pcg.repos.enableLocal=true", "-Pcg.userdev.sources=true",
             "-Dmaven.repo.local=" + this.projectDir.resolve("local-maven")
         );
         var dependencies = model.value()

@@ -19,7 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PlatformTest {
 
     @ParameterizedTest
-    @CsvSource({
+    @CsvSource(
+        {
             "WINDOWS,  X64,     natives-windows",
             "WINDOWS,  X86,     natives-windows-x86",
             "WINDOWS,  ARM64,   natives-windows-arm64",

@@ -26,8 +26,8 @@ import java.io.File;
  * Resolves the {@link VersionMeta} of an arbitrary Minecraft version through Mojang's launcher manifest:
  * {@code version_manifest_v2.json} -> version entry (url + sha1) -> version meta json.
  */
-public abstract class LauncherVersionMetaValueSource implements ValueSource<
-        VersionMeta, LauncherVersionMetaValueSource.Parameters> {
+public abstract class LauncherVersionMetaValueSource
+    implements ValueSource<VersionMeta, LauncherVersionMetaValueSource.Parameters> {
 
     @Override
     public VersionMeta obtain() {
@@ -40,8 +40,8 @@ public abstract class LauncherVersionMetaValueSource implements ValueSource<
         if (offline) {
             if (!manifestFile.isFile()) {
                 var message = ("Gradle is offline and no cached launcher manifest exists at %s. " +
-                    "Run the requested task once without --offline to resolve Minecraft %s from %s.").formatted(manifestFile,
-                    version, params.getManifestUrl().get()
+                    "Run the requested task once without --offline to resolve Minecraft %s from %s.").formatted(
+                    manifestFile, version, params.getManifestUrl().get()
                 );
                 throw new IllegalStateException(message);
             }
@@ -60,8 +60,8 @@ public abstract class LauncherVersionMetaValueSource implements ValueSource<
             }
         }
         if (metaUrl == null) {
-            var message = "Minecraft version '%s' was not found in launcher manifest %s.".formatted(version,
-                manifestFile
+            var message = "Minecraft version '%s' was not found in launcher manifest %s.".formatted(
+                version, manifestFile
             );
             throw new IllegalArgumentException(message);
         }
@@ -70,16 +70,16 @@ public abstract class LauncherVersionMetaValueSource implements ValueSource<
         if (!IO.sha1Match(metaFile, metaSha1)) {
             if (offline) {
                 var message = ("Gradle is offline and cached metadata for Minecraft %s is missing or corrupt at %s. " +
-                    "Run the requested task once without --offline to download %s.").formatted(version, metaFile,
-                    metaUrl
+                    "Run the requested task once without --offline to download %s.").formatted(
+                    version, metaFile, metaUrl
                 );
                 throw new IllegalStateException(message);
             }
             IO.downloadWithETag(metaUrl, metaFile);
             var actualSha1 = IO.sha1(metaFile);
             if (!actualSha1.equalsIgnoreCase(metaSha1)) {
-                var message = "Downloaded metadata failed SHA-1 verification at %s: expected %s but got %s.".formatted(metaFile,
-                    metaSha1, actualSha1
+                var message = "Downloaded metadata failed SHA-1 verification at %s: expected %s but got %s.".formatted(
+                    metaFile, metaSha1, actualSha1
                 );
                 throw new IllegalStateException(message);
             }

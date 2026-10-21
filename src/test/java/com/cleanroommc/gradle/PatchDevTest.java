@@ -25,23 +25,24 @@ class PatchDevTest extends BaseFunctionalTest {
     void generateApplyAndPreserveDirtyEdits() throws IOException {
         Files.createDirectories(this.projectDir.resolve("build/input-src"));
         Files.writeString(this.projectDir.resolve("build/input-src/A.java"), "class A {}\n");
-        this.project.build("""
-                cleanroom {
-                    mode = 'vanilla'
-                    patches {
-                        patchDev {
-                            example {
-                                input = layout.buildDirectory.dir('input-src')
-                                patches = layout.projectDirectory.dir('custom-patches')
-                                output = layout.projectDirectory.dir('custom-output')
-                            }
+        this.project.build(
+            """
+            cleanroom {
+                mode = 'vanilla'
+                patches {
+                    patchDev {
+                        example {
+                            input = layout.buildDirectory.dir('input-src')
+                            patches = layout.projectDirectory.dir('custom-patches')
+                            output = layout.projectDirectory.dir('custom-output')
                         }
                     }
                 }
-                tasks.named('prepareExamplePatchDevEnvironment') {
-                    description = 'configured before project evaluation completes'
-                }
-                """
+            }
+            tasks.named('prepareExamplePatchDevEnvironment') {
+                description = 'configured before project evaluation completes'
+            }
+            """
         );
 
         var first = this.project.runner("prepareExamplePatchDevEnvironment").build();
@@ -52,7 +53,8 @@ class PatchDevTest extends BaseFunctionalTest {
         assertThat(Files.isDirectory(this.projectDir.resolve("custom-patches"))).isTrue();
 
         Files.writeString(output, "class A { int value; }\n");
-        assertThat(this.project.runner("generateExampleDiffs").build().task(":generateExampleDiffs").getOutcome()
+        assertThat(
+            this.project.runner("generateExampleDiffs").build().task(":generateExampleDiffs").getOutcome()
         ).isEqualTo(TaskOutcome.SUCCESS);
         assertThat(Files.exists(this.projectDir.resolve("custom-patches/A.java.patch"))).isTrue();
 

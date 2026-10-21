@@ -49,8 +49,8 @@ class ResolvedLibrariesTest {
             .detachedConfiguration(project.getDependencies().create("example.authority:probe:1.0"));
         configuration.getResolutionStrategy().eachDependency(details -> details.useVersion("2.0"));
 
-        var libraries = ResolvedLibraries.artifacts(project.getObjects(),
-            configuration.getIncoming().getArtifacts().getResolvedArtifacts(),
+        var libraries = ResolvedLibraries.artifacts(
+            project.getObjects(), configuration.getIncoming().getArtifacts().getResolvedArtifacts(),
             configuration.getIncoming().getResolutionResult().getRootComponent(),
             project.provider(() -> Map.of(repository.getName(), repository.getUrl().toString()))
         );
@@ -77,20 +77,23 @@ class ResolvedLibrariesTest {
         Files.writeString(extra, "extra");
 
         var configuration = root.getConfigurations()
-            .detachedConfiguration(root.getDependencies().project(Map.of("path", ":lib")),
+            .detachedConfiguration(
+                root.getDependencies().project(Map.of("path", ":lib")),
                 root.getDependencies().create(root.files(extra))
             );
         configuration.attributes(attributes -> {
             attributes.attribute(Usage.USAGE_ATTRIBUTE, root.getObjects().named(Usage.class, Usage.JAVA_RUNTIME));
-            attributes.attribute(Category.CATEGORY_ATTRIBUTE, root.getObjects().named(Category.class, Category.LIBRARY)
+            attributes.attribute(
+                Category.CATEGORY_ATTRIBUTE, root.getObjects().named(Category.class, Category.LIBRARY)
             );
-            attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE,
+            attributes.attribute(
+                LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE,
                 root.getObjects().named(LibraryElements.class, LibraryElements.JAR)
             );
         });
 
-        var libraries = ResolvedLibraries.artifacts(root.getObjects(),
-            configuration.getIncoming().getArtifacts().getResolvedArtifacts(),
+        var libraries = ResolvedLibraries.artifacts(
+            root.getObjects(), configuration.getIncoming().getArtifacts().getResolvedArtifacts(),
             configuration.getIncoming().getResolutionResult().getRootComponent(), root.provider(Map::of)
         )
             .get();
@@ -98,8 +101,8 @@ class ResolvedLibrariesTest {
         assertThat(libraries)
             .extracting(library -> library.getCoordinate().get())
             .containsExactly("com.example:lib:1.2", "local:extra_thing:0");
-        assertThat(libraries).allSatisfy(library -> assertThat(LibraryJson.isLocalRepository(library.getRepositoryUrl()
-                .get()
+        assertThat(libraries).allSatisfy(library -> assertThat(LibraryJson.isLocalRepository(
+            library.getRepositoryUrl().get()
         )).isTrue());
     }
 
@@ -123,19 +126,19 @@ class ResolvedLibrariesTest {
         assertThat(ResolvedLibraries.isExcluded(patchy, Set.of("com.mojang:*"))).isTrue();
         assertThat(ResolvedLibraries.isExcluded(patchy, Set.of("*:patchy"))).isTrue();
         assertThat(ResolvedLibraries.isExcluded(patchy, Set.of("com.ibm.icu:*"))).isFalse();
-        assertThatThrownBy(() -> ResolvedLibraries.isExcluded(patchy, Set.of("com.mojang")
-        )).isInstanceOf(GradleException.class);
+        assertThatThrownBy(() -> ResolvedLibraries.isExcluded(patchy, Set.of("com.mojang"))).isInstanceOf(
+            GradleException.class
+        );
     }
 
     @Test
     void mergeNativesPinsPlatformVariantsToSelectedVersions() {
-        var merged = ResolvedLibraries.mergeNatives(java.util.List.of("com.mojang:patchy:1.3.9",
-                "net.java.jinput:jinput:2.0.5"
-            ),
+        var merged = ResolvedLibraries.mergeNatives(
+            java.util.List.of("com.mojang:patchy:1.3.9", "net.java.jinput:jinput:2.0.5"),
             java.util.List.of("com.mojang:patchy:natives-linux", "unknown:lib:natives-linux")
         );
-        assertThat(merged).isEqualTo(java.util.List.of("com.mojang:patchy:1.3.9", "net.java.jinput:jinput:2.0.5",
-            "com.mojang:patchy:1.3.9:natives-linux"
+        assertThat(merged).isEqualTo(java.util.List.of(
+            "com.mojang:patchy:1.3.9", "net.java.jinput:jinput:2.0.5", "com.mojang:patchy:1.3.9:natives-linux"
         ));
     }
 

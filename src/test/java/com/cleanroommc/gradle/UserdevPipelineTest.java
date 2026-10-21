@@ -27,7 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class UserdevPipelineTest extends BaseFunctionalTest {
 
     private static List<String> methodsIn(Path path) throws IOException {
-        try (var jar = new JarFile(path.toFile()); var input = jar.getInputStream(jar.getJarEntry("example/Mod.class"
+        try (var jar = new JarFile(path.toFile()); var input = jar.getInputStream(jar.getJarEntry(
+            "example/Mod.class"
         ))) {
             var node = new ClassNode();
             new ClassReader(input).accept(node, ClassReader.SKIP_CODE);
@@ -42,14 +43,16 @@ class UserdevPipelineTest extends BaseFunctionalTest {
         var source = this.projectDir.resolve("src/main/java/example/Mod.java");
         Files.createDirectories(source.getParent());
         Files.writeString(source, "package example; public class Mod { public void readableName() {} }");
-        Files.writeString(this.projectDir.resolve("mcp2srg.tsrg"),
+        Files.writeString(
+            this.projectDir.resolve("mcp2srg.tsrg"),
             """
-                tsrg2 mcp srg
-                example/Mod example/Mod
-                \treadableName ()V func_123_a
-                """
+            tsrg2 mcp srg
+            example/Mod example/Mod
+            \treadableName ()V func_123_a
+            """
         );
-        this.project.build(UserdevFixture.PREAMBLE +
+        this.project.build(
+            UserdevFixture.PREAMBLE +
                 """
                 apply plugin: 'maven-publish'
                 version = '1.0.0'
@@ -90,7 +93,8 @@ class UserdevPipelineTest extends BaseFunctionalTest {
         assertThat(Files.readAllBytes(localSrg)).isEqualTo(srgBytes);
         var metadata = JsonParser.parseString(Files.readString(published.resolve("published-mod-1.0.0.module")))
             .getAsJsonObject();
-        assertThat(metadata.getAsJsonArray("variants")
+        assertThat(
+            metadata.getAsJsonArray("variants")
                 .asList()
                 .stream()
                 .map(variant -> variant.getAsJsonObject().get("name").getAsString())
@@ -98,48 +102,51 @@ class UserdevPipelineTest extends BaseFunctionalTest {
         for (var variant : metadata.getAsJsonArray("variants")) {
             var value = variant.getAsJsonObject();
             if (List.of("apiElements", "runtimeElements").contains(value.get("name").getAsString())) {
-                assertThat(value.getAsJsonArray("files").get(0).getAsJsonObject().get("url").getAsString()
-                ).isEqualTo("published-mod-1.0.0.jar");
+                assertThat(value.getAsJsonArray("files").get(0).getAsJsonObject().get("url").getAsString()).isEqualTo(
+                    "published-mod-1.0.0.jar"
+                );
             }
         }
 
-        Files.writeString(this.projectDir.resolve("settings.gradle"), "\ninclude 'consumer'\n",
+        Files.writeString(
+            this.projectDir.resolve("settings.gradle"), "\ninclude 'consumer'\n",
             java.nio.file.StandardOpenOption.APPEND
         );
         var consumer = this.projectDir.resolve("consumer");
         Files.createDirectories(consumer);
-        Files.writeString(consumer.resolve("build.gradle"),
+        Files.writeString(
+            consumer.resolve("build.gradle"),
             """
-                plugins { id 'java'; id 'com.cleanroommc.cleanroomgradle' }
-                java.toolchain.languageVersion = JavaLanguageVersion.of(25)
-                cleanroom.caches.directory = rootProject.file('shared-cache')
-                repositories { maven { url = rootProject.layout.projectDirectory.dir('repo') } }
-                configurations { remapped { canBeConsumed = false } }
-                dependencies {
-                    implementation cleanroom.userdev('0.7.0-alpha')
-                    implementation project(':')
-                    implementation 'com.example:published-mod:1.0.0'
-                    remapped deobf('com.example:published-mod:1.0.0:srg')
+            plugins { id 'java'; id 'com.cleanroommc.cleanroomgradle' }
+            java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+            cleanroom.caches.directory = rootProject.file('shared-cache')
+            repositories { maven { url = rootProject.layout.projectDirectory.dir('repo') } }
+            configurations { remapped { canBeConsumed = false } }
+            dependencies {
+                implementation cleanroom.userdev('0.7.0-alpha')
+                implementation project(':')
+                implementation 'com.example:published-mod:1.0.0'
+                remapped deobf('com.example:published-mod:1.0.0:srg')
+            }
+            tasks.register('resolveModArtifacts') {
+                def runtime = configurations.runtimeClasspath.incoming.files
+                def remapped = configurations.remapped.incoming.files
+                inputs.files(runtime, remapped)
+                doLast {
+                    assert runtime.files*.name.containsAll(['modid-addon-1.0.0-mcp.jar', 'published-mod-1.0.0.jar'])
+                    assert !runtime.files*.name.contains('modid-addon-1.0.0.jar')
+                    remapped.each { println 'REMAPPED ' + it.absolutePath }
                 }
-                tasks.register('resolveModArtifacts') {
-                    def runtime = configurations.runtimeClasspath.incoming.files
-                    def remapped = configurations.remapped.incoming.files
-                    inputs.files(runtime, remapped)
-                    doLast {
-                        assert runtime.files*.name.containsAll(['modid-addon-1.0.0-mcp.jar', 'published-mod-1.0.0.jar'])
-                        assert !runtime.files*.name.contains('modid-addon-1.0.0.jar')
-                        remapped.each { println 'REMAPPED ' + it.absolutePath }
-                    }
-                }
-                """
+            }
+            """
         );
         var consumerSource = consumer.resolve("src/main/java/example/Consumer.java");
         Files.createDirectories(consumerSource.getParent());
-        Files.writeString(consumerSource,
-            "package example; public class Consumer { void use(Mod mod) { mod.readableName(); } }"
+        Files.writeString(
+            consumerSource, "package example; public class Consumer { void use(Mod mod) { mod.readableName(); } }"
         );
-        var consumerArgs = this.project.userdevModuleArgs("0.7.0-alpha", "consumer:compileJava",
-            "consumer:resolveModArtifacts", "--offline"
+        var consumerArgs = this.project.userdevModuleArgs(
+            "0.7.0-alpha", "consumer:compileJava", "consumer:resolveModArtifacts", "--offline"
         );
         UserdevFixture.seed(this.projectDir, "0.7.0-alpha", fixture);
         var output = this.project.runner(consumerArgs).build().getOutput();
@@ -157,7 +164,8 @@ class UserdevPipelineTest extends BaseFunctionalTest {
      */
     @Test
     void nativesAndHierarchyResolveFromThePublishedModule() throws IOException {
-        this.project.build(UserdevFixture.PREAMBLE +
+        this.project.build(
+            UserdevFixture.PREAMBLE +
                 """
                 dependencies {
                     implementation cleanroom.userdev('0.9.9')
@@ -189,23 +197,24 @@ class UserdevPipelineTest extends BaseFunctionalTest {
      */
     @Test
     void runsLaunchTheLoaderWithTheExtractedMappings() throws IOException {
-        this.project.build("""
-                import com.cleanroommc.gradle.api.task.mc.RunMinecraft
-                dependencies {
-                    implementation cleanroom.userdev('0.7.0-alpha')
+        this.project.build(
+            """
+            import com.cleanroommc.gradle.api.task.mc.RunMinecraft
+            dependencies {
+                implementation cleanroom.userdev('0.7.0-alpha')
+            }
+            // Resolving the artifact-owned config needs the project lock, so not projectsEvaluated
+            afterEvaluate {
+                def client = tasks.named('runClient', RunMinecraft).get()
+                assert client.mainClass.get() == 'net.minecraft.launchwrapper.Launch'
+                assert client.args == ['--tweakClass', 'net.minecraftforge.fml.common.launcher.FMLTweaker']
+                assert client.systemProperties.get('net.minecraftforge.gradle.GradleStart.srg.srg-mcp').toString().endsWith('srg2mcp.tsrg')
+                ['runClient', 'runServer'].each { name ->
+                    def dependencies = tasks.named(name).get().taskDependencies.getDependencies(null)*.name
+                    assert dependencies.contains('extractUserdevSrgToMcp') : name + ' -> ' + dependencies
                 }
-                // Resolving the artifact-owned config needs the project lock, so not projectsEvaluated
-                afterEvaluate {
-                    def client = tasks.named('runClient', RunMinecraft).get()
-                    assert client.mainClass.get() == 'net.minecraft.launchwrapper.Launch'
-                    assert client.args == ['--tweakClass', 'net.minecraftforge.fml.common.launcher.FMLTweaker']
-                    assert client.systemProperties.get('net.minecraftforge.gradle.GradleStart.srg.srg-mcp').toString().endsWith('srg2mcp.tsrg')
-                    ['runClient', 'runServer'].each { name ->
-                        def dependencies = tasks.named(name).get().taskDependencies.getDependencies(null)*.name
-                        assert dependencies.contains('extractUserdevSrgToMcp') : name + ' -> ' + dependencies
-                    }
-                }
-                """
+            }
+            """
         );
 
         this.project.runner(this.project.userdevModuleArgs("0.7.0-alpha", "help")).build();
@@ -217,7 +226,8 @@ class UserdevPipelineTest extends BaseFunctionalTest {
      */
     @Test
     void refmapPropertyWiresTheMixinProcessor() throws IOException {
-        this.project.build(UserdevFixture.PREAMBLE +
+        this.project.build(
+            UserdevFixture.PREAMBLE +
                 """
                 dependencies { implementation cleanroom.userdev('0.7.0-alpha') }
                 tasks.register('readRefmap') {
@@ -231,20 +241,22 @@ class UserdevPipelineTest extends BaseFunctionalTest {
                 }
                 """
         );
-        var args = this.project.userdevModuleArgs("0.7.0-alpha", "readRefmap",
-            "-Pcg.userdev.refmap=mixins.modid.refmap.json"
+        var args = this.project.userdevModuleArgs(
+            "0.7.0-alpha", "readRefmap", "-Pcg.userdev.refmap=mixins.modid.refmap.json"
         );
         var repository = this.projectDir.resolve("local-maven/com/cleanroommc");
         var cleanmix = Files.createDirectories(repository.resolve("cleanmix/0.7.3"));
-        Files.writeString(cleanmix.resolve("cleanmix-0.7.3.pom"),
-            UserdevFixture.pom("com.cleanroommc", "cleanmix", "0.7.3")
+        Files.writeString(
+            cleanmix.resolve("cleanmix-0.7.3.pom"), UserdevFixture.pom("com.cleanroommc", "cleanmix", "0.7.3")
         );
         Files.write(cleanmix.resolve("cleanmix-0.7.3.jar"), new byte[0]);
         var module = repository.resolve("cleanroom-userdev/0.7.0-alpha/cleanroom-userdev-0.7.0-alpha.module");
         var library = "{\"group\":\"com.cleanroommc\",\"module\":\"fixture-library\",\"version\":{\"requires\":\"1\"}}";
-        Files.writeString(module,
+        Files.writeString(
+            module,
             Files.readString(module)
-                .replace(library,
+                .replace(
+                    library,
                     library +
                         ",{\"group\":\"com.cleanroommc\",\"module\":\"cleanmix\",\"version\":{\"requires\":\"0.7.3\"}}"
                 )
@@ -266,25 +278,26 @@ class UserdevPipelineTest extends BaseFunctionalTest {
      */
     @Test
     void toolConfigurationsDefaultToTheArtifactsCoordinates() throws IOException {
-        this.project.build("""
-                dependencies {
-                    implementation cleanroom.userdev('0.7.0-alpha')
-                    mergetool 'example:replacement-merger:2.0'
+        this.project.build(
+            """
+            dependencies {
+                implementation cleanroom.userdev('0.7.0-alpha')
+                mergetool 'example:replacement-merger:2.0'
+            }
+            // Defaults materialize when the graph resolves, not when the dependency set is read
+            tasks.register('readTools') {
+                def tools = ['accesstransformer', 'mergetool', 'decompiler'].collectEntries {
+                    [it, configurations.getByName(it).incoming.resolutionResult.rootComponent]
                 }
-                // Defaults materialize when the graph resolves, not when the dependency set is read
-                tasks.register('readTools') {
-                    def tools = ['accesstransformer', 'mergetool', 'decompiler'].collectEntries {
-                        [it, configurations.getByName(it).incoming.resolutionResult.rootComponent]
+                def forced = configurations.mergetool.resolutionStrategy.forcedModules*.name
+                doLast {
+                    tools.each { name, root ->
+                        println name + ' ' + root.get().dependencies*.requested*.toString()
                     }
-                    def forced = configurations.mergetool.resolutionStrategy.forcedModules*.name
-                    doLast {
-                        tools.each { name, root ->
-                            println name + ' ' + root.get().dependencies*.requested*.toString()
-                        }
-                        assert forced.containsAll(['asm', 'asm-tree']) : forced
-                    }
+                    assert forced.containsAll(['asm', 'asm-tree']) : forced
                 }
-                """
+            }
+            """
         );
 
         var output = this.project

@@ -97,8 +97,8 @@ public final class BinDelta {
         return index;
     }
 
-    private static Match longestMatch(byte[] original, byte[] revised, int revisedOffset, Map<Long, List<Integer>> index
-    ) {
+    private static Match longestMatch(
+        byte[] original, byte[] revised, int revisedOffset, Map<Long, List<Integer>> index) {
         if (revisedOffset + HASH_LENGTH > revised.length) {
             return Match.NONE;
         }

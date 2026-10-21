@@ -266,22 +266,31 @@ public final class IO {
                     }
                 });
             } else if (response.statusCode() != 304) {
-                throw new RuntimeException("HTTP " + response.statusCode() + " downloading " + url + " to " + dest +
+                throw new RuntimeException(
+                    "HTTP " + response.statusCode() + " downloading " + url + " to " + dest +
                         ". Check the URL, proxy, and repository availability."
                 );
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("Interrupted while downloading " + url + " to " + dest +
-                    ". Rerun the task to retry.",
-                e
+            throw new RuntimeException(
+                "Interrupted while downloading " + url + " to " + dest + ". Rerun the task to retry.", e
             );
         } catch (IOException e) {
-            throw new RuntimeException("Failed to download " + url + " to " + dest +
+            throw new RuntimeException(
+                "Failed to download " + url + " to " + dest +
                     ". Check network access and filesystem permissions, then rerun the task.",
                 e
             );
         }
+    }
+
+    public static File runDir(File projectDir, String version, Environment env, Side side) {
+        var runDir = FileUtils.getFile(
+            projectDir, "run", version, env.toString(), side.name().toLowerCase(Locale.ENGLISH)
+        );
+        runDir.mkdirs();
+        return runDir;
     }
 
     static HttpClient httpClient() {
@@ -305,14 +314,6 @@ public final class IO {
         if (client != null) {
             client.close();
         }
-    }
-
-    public static File runDir(File projectDir, String version, Environment env, Side side) {
-        var runDir = FileUtils.getFile(projectDir, "run", version, env.toString(),
-            side.name().toLowerCase(Locale.ENGLISH)
-        );
-        runDir.mkdirs();
-        return runDir;
     }
 
 }

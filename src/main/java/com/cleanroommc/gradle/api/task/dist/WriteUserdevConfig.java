@@ -116,27 +116,29 @@ public abstract class WriteUserdevConfig extends DefaultTask {
 
     @TaskAction
     public void write() {
-        var runs = new UserdevConfig.Runs(new UserdevConfig.Run(getClientLaunchClass().get(),
-                getClientTweakClass().get()
-            ),
+        var runs = new UserdevConfig.Runs(
+            new UserdevConfig.Run(getClientLaunchClass().get(), getClientTweakClass().get()),
             new UserdevConfig.Run(getServerLaunchClass().get(), getServerTweakClass().get())
         );
-        var config = new UserdevConfig(UserdevConfig.SPEC,
-            new UserdevConfig.Minecraft(getMinecraftVersion().get(),
-                new UserdevConfig.Download(getClientUrl().get(), getClientSha1().get()),
+        var config = new UserdevConfig(
+            UserdevConfig.SPEC,
+            new UserdevConfig.Minecraft(
+                getMinecraftVersion().get(), new UserdevConfig.Download(getClientUrl().get(), getClientSha1().get()),
                 new UserdevConfig.Download(getServerUrl().get(), getServerSha1().get())
             ),
             new UserdevConfig.Loader(getCleanroomVersion().get(), getForgeVersion().get(), getLoaderGroup().get()),
-            new UserdevConfig.Inputs(getMcpConfig().get(), getMcpMappings().get(), getInitialPatches().get(),
-                getTools().get()
+            new UserdevConfig.Inputs(
+                getMcpConfig().get(), getMcpMappings().get(), getInitialPatches().get(), getTools().get()
             ),
-            new UserdevConfig.Layout(getBinpatches().get(), getClientBinpatches().get(), getServerBinpatches().get(),
+            new UserdevConfig.Layout(
+                getBinpatches().get(), getClientBinpatches().get(), getServerBinpatches().get(),
                 UserdevConfig.meta(UserdevConfig.OBF2SRG), getSrg2Mcp().get(), getMcp2Srg().get(),
                 UserdevConfig.meta(UserdevConfig.ACCESS), UserdevConfig.meta(UserdevConfig.CONSTRUCTORS),
                 UserdevConfig.meta(UserdevConfig.EXCEPTIONS), UserdevConfig.meta(UserdevConfig.METHODS),
                 UserdevConfig.meta(UserdevConfig.FIELDS), UserdevConfig.meta(UserdevConfig.PARAMS),
                 UserdevConfig.meta(UserdevConfig.INITIAL_PATCHES), getAccessTransformers().get(),
-                getSideAnnotationStrippers().get(), getPatches().get(), UserdevConfig.meta(UserdevConfig.LOADER_SOURCES)
+                getSideAnnotationStrippers().get(), getPatches().get(),
+                UserdevConfig.meta(UserdevConfig.LOADER_SOURCES)
             ),
             runs
         );

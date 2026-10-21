@@ -91,9 +91,9 @@ public final class UserDevTasks {
     public final TaskProvider<RunMinecraft> runClient;
     public final TaskProvider<RunMinecraft> runServer;
 
-    public UserDevTasks(Project project, CachesExtension caches, MinecraftExtension minecraft,
-        UserdevDependency userdev, VanillaTasks vanilla
-    ) {
+    public UserDevTasks(
+        Project project, CachesExtension caches, MinecraftExtension minecraft, UserdevDependency userdev,
+        VanillaTasks vanilla) {
         var hierarchy = hierarchyConfiguration(project, userdev);
         registerTransforms(project, userdev, caches, hierarchy);
 
@@ -134,7 +134,8 @@ public final class UserDevTasks {
         deobf.useUserdev(userdev.getRawConfiguration());
         deobf.getSrgLibraries().from(hierarchy);
         deobf.getSrgLibraries()
-            .from(userdev.getRawConfiguration()
+            .from(
+                userdev.getRawConfiguration()
                     .getIncoming()
                     .artifactView(view -> view.getAttributes()
                         .attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, UserdevAttributes.SRG_TYPE))
@@ -229,17 +230,19 @@ public final class UserDevTasks {
                     return;
                 }
                 var sources = (ExternalModuleDependency) userdev.getModuleDependency().copy();
-                sources.attributes(attributes -> attributes.attribute(UserdevAttributes.ROLE, UserdevAttributes.SOURCES
+                sources.attributes(attributes -> attributes.attribute(
+                    UserdevAttributes.ROLE, UserdevAttributes.SOURCES
                 ));
                 var configuration = project.getConfigurations().create(Repository.USERDEV_SOURCES_CONFIGURATION);
                 configuration.setCanBeConsumed(false);
                 configuration.getDependencies().add(sources);
                 configuration.attributes(attributes -> {
-                    attributes.attribute(Category.CATEGORY_ATTRIBUTE,
+                    attributes.attribute(
+                        Category.CATEGORY_ATTRIBUTE,
                         project.getObjects().named(Category.class, Category.DOCUMENTATION)
                     );
-                    attributes.attribute(DocsType.DOCS_TYPE_ATTRIBUTE,
-                        project.getObjects().named(DocsType.class, DocsType.SOURCES)
+                    attributes.attribute(
+                        DocsType.DOCS_TYPE_ATTRIBUTE, project.getObjects().named(DocsType.class, DocsType.SOURCES)
                     );
                 });
                 var metadata = new File(raw.getParentFile(), name + ".module");
@@ -282,115 +285,17 @@ public final class UserDevTasks {
         });
 
         project.getPluginManager()
-            .withPlugin("idea",
-                _ -> project.getExtensions().getByType(IdeaModel.class).getModule().setDownloadSources(true)
+            .withPlugin(
+                "idea", _ -> project.getExtensions().getByType(IdeaModel.class).getModule().setDownloadSources(true)
             );
     }
 
-    private static void configureRun(RunMinecraft task, Side side, UserdevDependency userdev, CachesExtension caches,
-        MinecraftExtension minecraft, boolean offline, Directory runDirectory, Provider<File> natives
-    ) {
-        MinecraftRuns.caches(task, caches, minecraft.getVersionMeta(), offline);
-        task.getSide().set(side);
-        task.getEnv().set(Environment.CLEANROOM);
-        task.getMinecraftVersion().set(userdev.getMinecraftVersion());
-        task.setWorkingDir(runDirectory);
-        task.getNatives().fileProvider(natives);
-    }
-
-    private static NamedDomainObjectProvider<Configuration> sideConfiguration(Project project,
-        UserdevDependency userdev, String role
-    ) {
-        var configuration = Objects.config(project, "_cleanroomUserdev" + capitalized(role),
-            "Internal " + role + " userdev resources."
-        );
-        configuration.configure(value -> value.attributes(attributes -> {
-            attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED);
-            attributes.attribute(UserdevAttributes.ROLE, role);
-        }));
-        var dependency = (ExternalModuleDependency) userdev.getModuleDependency().copy();
-        dependency.attributes(attributes -> attributes.attribute(UserdevAttributes.ROLE, role));
-        project.getDependencies().add(configuration.getName(), dependency);
-        return configuration;
-    }
-
-    /**
-     * The natives the published module lists for this machine's platform. LWJGL 3 loads them off the
-     * classpath, and the module publishes one variant per classifier so only this platform's are resolved.
-     */
-    private static NamedDomainObjectProvider<Configuration> nativesConfiguration(Project project,
-        UserdevDependency userdev
-    ) {
-        var platform = Platform.CURRENT.canonicalNativePlatform();
-        var objects = project.getObjects();
-        var configuration = Objects.config(project, "_cleanroomUserdevNatives",
-            "Internal native libraries for " + platform.lwjglNativesClassifier() + "."
-        );
-        configuration.configure(value -> value.attributes(attributes -> {
-            attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW);
-            attributes.attribute(UserdevAttributes.ROLE, UserdevAttributes.NATIVES);
-            attributes.attribute(OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
-                objects.named(OperatingSystemFamily.class, platform.operatingSystemFamily())
-            );
-            attributes.attribute(MachineArchitecture.ARCHITECTURE_ATTRIBUTE,
-                objects.named(MachineArchitecture.class, platform.machineArchitecture())
-            );
-        }));
-        project.getDependencies().add(configuration.getName(), rawDependency(userdev, UserdevAttributes.NATIVES));
-        return configuration;
-    }
-
-    /**
-     * The libraries the userdev module declares, which is the type hierarchy
-     * the renamer resolves a published mod against. The module's own MCP-named jar is filtered out.
-     * The SRG-named Minecraft hierarchy travels inside the artifact instead, extracted by {@code useUserdev}.
-     */
-    private static FileCollection hierarchyConfiguration(Project project, UserdevDependency userdev) {
-        var objects = project.getObjects();
-        var configuration = Objects.config(project, HIERARCHY_CONFIGURATION,
-            "Internal libraries the deobf renamer resolves types against."
-        );
-        configuration.configure(value -> value.attributes(attributes -> {
-            attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.class, Usage.JAVA_RUNTIME));
-            attributes.attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.class, Category.LIBRARY));
-            attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE,
-                objects.named(LibraryElements.class, LibraryElements.JAR)
-            );
-            attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW);
-            attributes.attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES);
-        }));
-        project.getDependencies().add(configuration.getName(), rawDependency(userdev, UserdevAttributes.CLASSES));
-        var declared = userdev.getModuleDependency();
-        return objects.fileCollection()
-            .from(configuration.map(value -> value.getIncoming()
-                .artifactView(view -> view.componentFilter(id -> !(id instanceof ModuleComponentIdentifier module) ||
-                    !(declared.getName().equals(module.getModule()) && declared.getGroup().equals(module.getGroup()))))
-                .getFiles()));
-    }
-
-    private static ExternalModuleDependency rawDependency(UserdevDependency userdev, String role) {
-        var dependency = (ExternalModuleDependency) userdev.getModuleDependency().copy();
-        dependency.attributes(attributes -> {
-            attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW);
-            attributes.attribute(UserdevAttributes.ROLE, role);
-        });
-        return dependency;
-    }
-
-    private static String capitalized(String role) {
-        var name = new StringBuilder();
-        for (var part : role.split("-")) {
-            name.append(StringUtils.capitalize(part));
-        }
-        return name.toString();
-    }
-
-    public static void registerTransforms(Project project, UserdevDependency userdev, CachesExtension caches,
-        FileCollection libraries
-    ) {
+    public static void registerTransforms(
+        Project project, UserdevDependency userdev, CachesExtension caches, FileCollection libraries) {
         var dependencies = project.getDependencies();
         dependencies.getArtifactTypes()
-            .named(ArtifactTypeDefinition.JAR_TYPE,
+            .named(
+                ArtifactTypeDefinition.JAR_TYPE,
                 type -> type.getAttributes().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW)
             );
         var deobf = project.getExtensions().getByType(DeobfExtension.class);
@@ -438,6 +343,105 @@ public final class UserDevTasks {
         });
     }
 
+    private static void configureRun(
+        RunMinecraft task, Side side, UserdevDependency userdev, CachesExtension caches, MinecraftExtension minecraft,
+        boolean offline, Directory runDirectory, Provider<File> natives) {
+        MinecraftRuns.caches(task, caches, minecraft.getVersionMeta(), offline);
+        task.getSide().set(side);
+        task.getEnv().set(Environment.CLEANROOM);
+        task.getMinecraftVersion().set(userdev.getMinecraftVersion());
+        task.setWorkingDir(runDirectory);
+        task.getNatives().fileProvider(natives);
+    }
+
+    private static NamedDomainObjectProvider<Configuration> sideConfiguration(
+        Project project, UserdevDependency userdev, String role) {
+        var configuration = Objects.config(
+            project, "_cleanroomUserdev" + capitalized(role), "Internal " + role + " userdev resources."
+        );
+        configuration.configure(value -> value.attributes(attributes -> {
+            attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED);
+            attributes.attribute(UserdevAttributes.ROLE, role);
+        }));
+        var dependency = (ExternalModuleDependency) userdev.getModuleDependency().copy();
+        dependency.attributes(attributes -> attributes.attribute(UserdevAttributes.ROLE, role));
+        project.getDependencies().add(configuration.getName(), dependency);
+        return configuration;
+    }
+
+    /**
+     * The natives the published module lists for this machine's platform. LWJGL 3 loads them off the
+     * classpath, and the module publishes one variant per classifier so only this platform's are resolved.
+     */
+    private static NamedDomainObjectProvider<Configuration> nativesConfiguration(
+        Project project, UserdevDependency userdev) {
+        var platform = Platform.CURRENT.canonicalNativePlatform();
+        var objects = project.getObjects();
+        var configuration = Objects.config(
+            project, "_cleanroomUserdevNatives",
+            "Internal native libraries for " + platform.lwjglNativesClassifier() + "."
+        );
+        configuration.configure(value -> value.attributes(attributes -> {
+            attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW);
+            attributes.attribute(UserdevAttributes.ROLE, UserdevAttributes.NATIVES);
+            attributes.attribute(
+                OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
+                objects.named(OperatingSystemFamily.class, platform.operatingSystemFamily())
+            );
+            attributes.attribute(
+                MachineArchitecture.ARCHITECTURE_ATTRIBUTE,
+                objects.named(MachineArchitecture.class, platform.machineArchitecture())
+            );
+        }));
+        project.getDependencies().add(configuration.getName(), rawDependency(userdev, UserdevAttributes.NATIVES));
+        return configuration;
+    }
+
+    /**
+     * The libraries the userdev module declares, which is the type hierarchy
+     * the renamer resolves a published mod against. The module's own MCP-named jar is filtered out.
+     * The SRG-named Minecraft hierarchy travels inside the artifact instead, extracted by {@code useUserdev}.
+     */
+    private static FileCollection hierarchyConfiguration(Project project, UserdevDependency userdev) {
+        var objects = project.getObjects();
+        var configuration = Objects.config(
+            project, HIERARCHY_CONFIGURATION, "Internal libraries the deobf renamer resolves types against."
+        );
+        configuration.configure(value -> value.attributes(attributes -> {
+            attributes.attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.class, Usage.JAVA_RUNTIME));
+            attributes.attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.class, Category.LIBRARY));
+            attributes.attribute(
+                LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.class, LibraryElements.JAR)
+            );
+            attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW);
+            attributes.attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES);
+        }));
+        project.getDependencies().add(configuration.getName(), rawDependency(userdev, UserdevAttributes.CLASSES));
+        var declared = userdev.getModuleDependency();
+        return objects.fileCollection()
+            .from(configuration.map(value -> value.getIncoming()
+                .artifactView(view -> view.componentFilter(id -> !(id instanceof ModuleComponentIdentifier module) ||
+                    !(declared.getName().equals(module.getModule()) && declared.getGroup().equals(module.getGroup()))))
+                .getFiles()));
+    }
+
+    private static ExternalModuleDependency rawDependency(UserdevDependency userdev, String role) {
+        var dependency = (ExternalModuleDependency) userdev.getModuleDependency().copy();
+        dependency.attributes(attributes -> {
+            attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW);
+            attributes.attribute(UserdevAttributes.ROLE, role);
+        });
+        return dependency;
+    }
+
+    private static String capitalized(String role) {
+        var name = new StringBuilder();
+        for (var part : role.split("-")) {
+            name.append(StringUtils.capitalize(part));
+        }
+        return name.toString();
+    }
+
     /**
      * Has the Mixin annotation processor write a refmap into the class output, where both jars pick it up.
      * The path is absolute because each of Mixin's processors writes the file, which the Filer allows once.
@@ -453,7 +457,8 @@ public final class UserDevTasks {
 
         @Override
         public Iterable<String> asArguments() {
-            return List.of("-AmappingTypes=tsrg", "-AdefaultObfuscationEnv=searge",
+            return List.of(
+                "-AmappingTypes=tsrg", "-AdefaultObfuscationEnv=searge",
                 "-AreobfTsrgFile=" + this.getMappings().get().getAsFile().getAbsolutePath(),
                 "-AoutRefMapFile=" + this.getRefmap().get().getAsFile().getAbsolutePath()
             );

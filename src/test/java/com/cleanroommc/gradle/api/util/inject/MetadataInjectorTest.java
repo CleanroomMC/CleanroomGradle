@@ -53,7 +53,8 @@ class MetadataInjectorTest {
 
     private static byte[] demoClass() {
         var node = new ClassNode();
-        node.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_SUPER, OWNER, null,
+        node.visit(
+            Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_SUPER, OWNER, null,
             "java/lang/Object", null
         );
 
@@ -128,13 +129,15 @@ class MetadataInjectorTest {
         var input = this.directory.resolve("in.jar");
         var output = this.directory.resolve("out.jar");
         var untouched = "sample".getBytes(StandardCharsets.UTF_8);
-        writeJar(input,
+        writeJar(
+            input,
             Map.of(OWNER + ".class", demoClass(), "other/Ignored.class", demoClass(), "META-INF/MANIFEST.MF", untouched)
         );
 
         var access = this.write("access.txt", "PUBLIC " + OWNER + " func_1234_a (ILjava/lang/String;)V");
         var constructors = this.write("constructors.txt", "77 " + OWNER + " (Ljava/lang/String;)V");
-        var exceptions = this.write("exceptions.txt", OWNER + "/func_1234_a (ILjava/lang/String;)V java/io/IOException"
+        var exceptions = this.write(
+            "exceptions.txt", OWNER + "/func_1234_a (ILjava/lang/String;)V java/io/IOException"
         );
 
         var result = MetadataInjector.inject(input, output, access, constructors, exceptions);
@@ -177,8 +180,8 @@ class MetadataInjectorTest {
         writeJar(input, ordered);
 
         var constructors = this.write("constructors.txt", "5 net/minecraft/A (Ljava/lang/String;)V");
-        MetadataInjector.inject(input, output, this.write("access.txt", ""), constructors,
-            this.write("exceptions.txt", "")
+        MetadataInjector.inject(
+            input, output, this.write("access.txt", ""), constructors, this.write("exceptions.txt", "")
         );
 
         var entries = readJar(output);

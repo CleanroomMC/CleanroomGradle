@@ -136,8 +136,8 @@ public abstract class WriteMappings extends DefaultTask {
                 names.putAll(source.fields());
             } else {
                 if (!this.getMethodMappings().isPresent() || !this.getFieldMappings().isPresent()) {
-                    throw new InvalidUserDataException("Method and field mappings are required for direction " +
-                            direction + "."
+                    throw new InvalidUserDataException(
+                        "Method and field mappings are required for direction " + direction + "."
                     );
                 }
                 readCsv(this.getMethodMappings().get().getAsFile(), names);

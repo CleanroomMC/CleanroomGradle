@@ -29,9 +29,9 @@ public class MaintenanceTasks {
     public final TaskProvider<Delete> cleanCleanroomSharedCache;
     public final TaskProvider<CleanroomInfo> cleanroomInfo;
 
-    public MaintenanceTasks(Project project, CachesExtension caches, MappingsExtension mappings,
-        VanillaTasks vanillaTasks, String pluginVersion
-    ) {
+    public MaintenanceTasks(
+        Project project, CachesExtension caches, MappingsExtension mappings, VanillaTasks vanillaTasks,
+        String pluginVersion) {
         this.cleanCleanroomSharedCache = Tasks.register(project, "cleanCleanroomSharedCache", Delete.class);
         this.cleanroomInfo = project.getTasks().register("cleanroomInfo", CleanroomInfo.class, task -> {
             task.setGroup(GROUP_NAME);

@@ -72,12 +72,14 @@ class ApplyBinPatchesTest {
     void patchesAddsAndRemovesUnderThePrefix() throws IOException {
         var original = classBytes("demo/A", 1);
         var revised = classBytes("demo/A", 2);
-        var jar = writeZip("original.jar",
-            Map.of("demo/A.class", original, "demo/Remove.class", classBytes("demo/Remove", 1))
+        var jar = writeZip(
+            "original.jar", Map.of("demo/A.class", original, "demo/Remove.class", classBytes("demo/Remove", 1))
         );
-        var patches = writeZip("binpatches.zip",
-            Map.of(PREFIX + "demo/A.class.binpatch", patch(original, original, revised),
-                PREFIX + "demo/Added.class.add", classBytes("demo/Added", 1), PREFIX + "META-INF/binpatch-removed.txt",
+        var patches = writeZip(
+            "binpatches.zip",
+            Map.of(
+                PREFIX + "demo/A.class.binpatch", patch(original, original, revised), PREFIX + "demo/Added.class.add",
+                classBytes("demo/Added", 1), PREFIX + "META-INF/binpatch-removed.txt",
                 "demo/Remove.class\n".getBytes(StandardCharsets.UTF_8), "binpatch/server/demo/Ignored.class.add",
                 classBytes("demo/Ignored", 1)
             )
@@ -100,7 +102,8 @@ class ApplyBinPatchesTest {
         var jar = writeZip("original.jar", Map.of("demo/A.class", original));
 
         assertRejected(jar, "demo/Ghost.class.binpatch", patch(original, original, original), "absent");
-        assertRejected(jar, "demo/A.class.binpatch", patch(new byte[] { 1 }, original, classBytes("demo/A", 2)),
+        assertRejected(
+            jar, "demo/A.class.binpatch", patch(new byte[] { 1 }, original, classBytes("demo/A", 2)),
             "SHA-256 mismatch"
         );
         assertRejected(jar, "demo/A.class.binpatch", new byte[4], "truncated");

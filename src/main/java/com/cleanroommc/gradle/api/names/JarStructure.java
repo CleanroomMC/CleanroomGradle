@@ -50,7 +50,8 @@ public record JarStructure(Map<String, ClassEntry> classes) {
                 Collector collector = new Collector();
                 reader.accept(collector, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
                 if (!collector.methods.isEmpty() || !collector.fields.isEmpty()) {
-                    classes.put(collector.internalName,
+                    classes.put(
+                        collector.internalName,
                         new ClassEntry(collector.internalName, collector.methods, collector.fields)
                     );
                 }
@@ -83,15 +84,14 @@ public record JarStructure(Map<String, ClassEntry> classes) {
         }
 
         @Override
-        public void visit(int version, int access, String name, String signature, String superName, String[] interfaces
-        ) {
+        public void visit(
+            int version, int access, String name, String signature, String superName, String[] interfaces) {
             this.internalName = name;
         }
 
         @Override
-        public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
-            String[] exceptions
-        ) {
+        public MethodVisitor visitMethod(
+            int access, String name, String descriptor, String signature, String[] exceptions) {
             if (name.startsWith("func_")) {
                 methods.add(new Member(name, descriptor));
             }

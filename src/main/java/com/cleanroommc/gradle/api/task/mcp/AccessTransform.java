@@ -51,7 +51,8 @@ public abstract class AccessTransform extends MavenJarExec {
     @Override
     protected void beforeExec() {
         if (this.getUseDefaultToolArguments().get()) {
-            this.args("--inJar", this.getInputJar(), "--outJar", this.getOutputJar(), "--logFile",
+            this.args(
+                "--inJar", this.getInputJar(), "--outJar", this.getOutputJar(), "--logFile",
                 this.getLogFile().map(RegularFile::getAsFile).map(File::getName)
             );
             for (var accessTransformer : this.getAccessTransformers()) {

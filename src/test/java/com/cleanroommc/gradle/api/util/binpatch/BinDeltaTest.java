@@ -58,7 +58,8 @@ class BinDeltaTest {
             if (original.length > 16 && revised.length > 16) {
                 var offset = random.nextInt(original.length - 16);
                 var at = random.nextInt(revised.length - 16);
-                System.arraycopy(original, offset, revised, at,
+                System.arraycopy(
+                    original, offset, revised, at,
                     Math.min(48, Math.min(original.length - offset, revised.length - at))
                 );
             }
@@ -67,7 +68,8 @@ class BinDeltaTest {
     }
 
     @ParameterizedTest
-    @CsvSource({
+    @CsvSource(
+        {
             "00800101,   COPY range is outside the original buffer",
             "010a0102,   INSERT length exceeds the remaining delta",
             "07,         unknown operation tag",

@@ -39,7 +39,8 @@ public final class UserdevSourceMaterializer {
 
     private UserdevSourceMaterializer() { }
 
-    public static void materialize(File input, File srgJar, Path output, Path work, Iterable<File> dependencies,
+    public static void materialize(
+        File input, File srgJar, Path output, Path work, Iterable<File> dependencies,
         FileCollection decompilerClasspath, ExecOperations execOperations
     ) throws IOException {
         var config = UserdevConfig.readFromJar(input);
@@ -86,6 +87,30 @@ public final class UserdevSourceMaterializer {
         delete(work);
     }
 
+    static void applyPatches(Path source, Path patches) throws IOException {
+        if (!Files.isDirectory(patches)) {
+            return;
+        }
+        try (var files = Files.walk(patches)) {
+            for (var patch : files.filter(file -> file.getFileName().toString().endsWith(".patch")).toList()) {
+                var relative = patches.relativize(patch).toString();
+                var target = source.resolve(relative.substring(0, relative.length() - ".patch".length()));
+                if (!Files.isRegularFile(target)) {
+                    throw new IllegalStateException(
+                        "Userdev patch " + relative + " has no target: expected " + target +
+                            ". The artifact's patch set and its decompiled sources are out of sync."
+                    );
+                }
+                try {
+                    var diff = UnifiedDiffUtils.parseUnifiedDiff(Files.readAllLines(patch, StandardCharsets.UTF_8));
+                    writeLines(target, DiffUtils.patch(Files.readAllLines(target, StandardCharsets.UTF_8), diff));
+                } catch (Exception e) {
+                    throw new IllegalStateException("Failed to apply userdev patch " + relative, e);
+                }
+            }
+        }
+    }
+
     private static void readMappings(File input, String entryName, Map<String, String> names, Map<String, String> docs)
         throws IOException {
         var temporary = Files.createTempFile("userdev-mappings", ".csv");
@@ -115,34 +140,11 @@ public final class UserdevSourceMaterializer {
                 var target = destination.resolve(source.relativize(file));
                 Files.createDirectories(target.getParent());
                 if (file.getFileName().toString().endsWith(".java")) {
-                    writeLines(target,
-                        SourceRenamer.rename(Files.readAllLines(file, StandardCharsets.UTF_8), names, docs)
+                    writeLines(
+                        target, SourceRenamer.rename(Files.readAllLines(file, StandardCharsets.UTF_8), names, docs)
                     );
                 } else {
                     Files.copy(file, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                }
-            }
-        }
-    }
-
-    static void applyPatches(Path source, Path patches) throws IOException {
-        if (!Files.isDirectory(patches)) {
-            return;
-        }
-        try (var files = Files.walk(patches)) {
-            for (var patch : files.filter(file -> file.getFileName().toString().endsWith(".patch")).toList()) {
-                var relative = patches.relativize(patch).toString();
-                var target = source.resolve(relative.substring(0, relative.length() - ".patch".length()));
-                if (!Files.isRegularFile(target)) {
-                    throw new IllegalStateException("Userdev patch " + relative + " has no target: expected " + target +
-                            ". The artifact's patch set and its decompiled sources are out of sync."
-                    );
-                }
-                try {
-                    var diff = UnifiedDiffUtils.parseUnifiedDiff(Files.readAllLines(patch, StandardCharsets.UTF_8));
-                    writeLines(target, DiffUtils.patch(Files.readAllLines(target, StandardCharsets.UTF_8), diff));
-                } catch (Exception e) {
-                    throw new IllegalStateException("Failed to apply userdev patch " + relative, e);
                 }
             }
         }
@@ -193,7 +195,8 @@ public final class UserdevSourceMaterializer {
     private static void zip(Path directory, Path output) throws IOException {
         try (var out = IO.zipOut(output.toFile()); var files = Files.walk(directory)) {
             for (var file : files.filter(Files::isRegularFile).sorted().toList()) {
-                IO.writeEntry(out, directory.relativize(file).toString().replace(File.separatorChar, '/'),
+                IO.writeEntry(
+                    out, directory.relativize(file).toString().replace(File.separatorChar, '/'),
                     Files.readAllBytes(file)
                 );
             }

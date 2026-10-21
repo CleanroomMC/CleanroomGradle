@@ -23,7 +23,8 @@ import org.gradle.api.file.Directory;
 public enum Repository {
 
     CENTRAL("Maven Central", "https://repo.maven.apache.org/maven2/"),
-    CLEANROOM("CleanroomMC", "https://maven.cleanroommc.com/", true, "com.cleanroommc", "top.outlands", "zone.rong",
+    CLEANROOM(
+        "CleanroomMC", "https://maven.cleanroommc.com/", true, "com.cleanroommc", "top.outlands", "zone.rong",
         "net.minecraftforge", "de.oceanlabs.mcp"
     ),
     MOJANG("Mojang", "https://libraries.minecraft.net/");
@@ -73,8 +74,8 @@ public enum Repository {
                         maven.setName("CleanroomUserdevSources");
                         maven.setUrl(userdevSourcesMirror(project));
                         maven.getMetadataSources().gradleMetadata();
-                        maven.content(content -> content.notForConfigurations(USERDEV_RAW_CONFIGURATION,
-                            USERDEV_SOURCES_CONFIGURATION
+                        maven.content(content -> content.notForConfigurations(
+                            USERDEV_RAW_CONFIGURATION, USERDEV_SOURCES_CONFIGURATION
                         ));
                     }));
                 }

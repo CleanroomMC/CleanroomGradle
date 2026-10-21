@@ -64,7 +64,8 @@ public abstract class ApplyDiffs extends DefaultTask {
             var originalLines = FileUtils.readLines(originalFile, StandardCharsets.UTF_8);
             var expectedLines = patchFile == null
                 ? originalLines
-                : DiffUtils.patch(originalLines,
+                : DiffUtils.patch(
+                    originalLines,
                     UnifiedDiffUtils.parseUnifiedDiff(FileUtils.readLines(patchFile, StandardCharsets.UTF_8))
                 );
             return !expectedLines.equals(FileUtils.readLines(modifiedFile, StandardCharsets.UTF_8));
@@ -148,18 +149,20 @@ public abstract class ApplyDiffs extends DefaultTask {
 
                 if (!targetFile.exists()) {
                     this.getLogger()
-                        .lifecycle("Skipping {} as original file is not found. {}/{} patches applied.", relativePath,
+                        .lifecycle(
+                            "Skipping {} as original file is not found. {}/{} patches applied.", relativePath,
                             counter.incrementAndGet(), totalPatches
                         );
                 } else {
                     try {
-                        var patch = UnifiedDiffUtils.parseUnifiedDiff(FileUtils.readLines(patchFile,
-                            StandardCharsets.UTF_8
+                        var patch = UnifiedDiffUtils.parseUnifiedDiff(FileUtils.readLines(
+                            patchFile, StandardCharsets.UTF_8
                         ));
                         var originalLines = FileUtils.readLines(originalFile, StandardCharsets.UTF_8);
                         var patchedLines = DiffUtils.patch(originalLines, patch);
                         this.getLogger()
-                            .lifecycle("Patching {}. {}/{} patches applied.", relativePath, counter.incrementAndGet(),
+                            .lifecycle(
+                                "Patching {}. {}/{} patches applied.", relativePath, counter.incrementAndGet(),
                                 totalPatches
                             );
                         FileUtils.writeLines(targetFile, StandardCharsets.UTF_8.name(), patchedLines, "\n", false);
@@ -249,7 +252,8 @@ public abstract class ApplyDiffs extends DefaultTask {
         var stamp = new File(this.getPatchesDirectory().get().getAsFile(), ".mappings.json");
         if (!stamp.isFile()) {
             this.getLogger()
-                .warn("Patch set {} has no .mappings.json (legacy patch set); applying against names '{}' without verification.",
+                .warn(
+                    "Patch set {} has no .mappings.json (legacy patch set); applying against names '{}' without verification.",
                     this.getPatchesDirectory().get().getAsFile(), activeId
                 );
             return;
@@ -260,10 +264,8 @@ public abstract class ApplyDiffs extends DefaultTask {
             throw new InvalidUserDataException(("Mapping identity mismatch for patch set %s:%n" +
                 "  patches were generated in names: %s%n" + "  the active names source is:       %s%n" +
                 "Regenerate the patches (generate*Diffs) against the active names, " +
-                "or switch the names source back (cleanroom.namesDirectory) to match.").formatted(this.getPatchesDirectory()
-                    .get()
-                    .getAsFile(),
-                patchId, activeId
+                "or switch the names source back (cleanroom.namesDirectory) to match.").formatted(
+                this.getPatchesDirectory().get().getAsFile(), patchId, activeId
             ));
         }
     }

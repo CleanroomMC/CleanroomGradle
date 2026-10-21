@@ -22,7 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public record VersionMeta(Arguments arguments,
+public record VersionMeta(
+    Arguments arguments,
     AssetIndex assetIndex,
     String assets,
     int complianceLevel,
@@ -36,12 +37,11 @@ public record VersionMeta(Arguments arguments,
     int minimumLauncherVersion,
     String releaseTime,
     String time,
-    String type
-) {
+    String type) {
 
-    private static final Map<Platform.OperatingSystem, String> OS_NAMES = Map.of(Platform.OperatingSystem.WINDOWS,
-        "windows", Platform.OperatingSystem.MAC_OS, "osx", Platform.OperatingSystem.LINUX, "linux",
-        Platform.OperatingSystem.FREE_BSD, "linux"
+    private static final Map<Platform.OperatingSystem, String> OS_NAMES = Map.of(
+        Platform.OperatingSystem.WINDOWS, "windows", Platform.OperatingSystem.MAC_OS, "osx",
+        Platform.OperatingSystem.LINUX, "linux", Platform.OperatingSystem.FREE_BSD, "linux"
     );
 
     public String clientUrl() {
@@ -93,12 +93,12 @@ public record VersionMeta(Arguments arguments,
 
     public record AssetIndex(String id, long totalSize, String path, String sha1, long size, String url) { }
 
-    public record Library(Downloads downloads,
+    public record Library(
+        Downloads downloads,
         String name,
         Map<String, String> natives,
         List<Rule> rules,
-        Object extract
-    ) {
+        Object extract) {
 
         public boolean isValidForOS(Platform platform) {
             List<Rule> rules = rules();
