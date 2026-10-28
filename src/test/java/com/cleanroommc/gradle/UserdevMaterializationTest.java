@@ -181,7 +181,9 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
         writer.visitAnnotation("Lcom/cleanroommc/Internal;", false).visitEnd();
         writer.visitEnd();
         fixture.loaderClasses.put("com/cleanroommc/Hook.class", writer.toByteArray());
-        fixture.loaderSources.put("com/cleanroommc/Hook.java", "package com.cleanroommc;\n\n@Internal\nclass Hook { }\n");
+        fixture.loaderSources.put(
+            "com/cleanroommc/Hook.java", "package com.cleanroommc;\n\n@Internal\nclass Hook { }\n"
+        );
         UserdevFixture.seed(this.projectDir, "1.6.0", fixture);
         buildScript("1.6.0", "");
 
@@ -192,7 +194,8 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
         assertThat(entries(loader(output, "RUNTIME"))).isEqualTo(full);
         var resolved = resolvedFiles(output);
         assertThat(entries(file(resolved, "LOADER"))).as("a request without a visibility").isEqualTo(full);
-        assertThat(entries(file(resolved, "SOURCES"))).contains("com/cleanroommc/Loader.java")
+        assertThat(entries(file(resolved, "SOURCES")))
+            .contains("com/cleanroommc/Loader.java")
             .doesNotContain("com/cleanroommc/Hook.java");
     }
 

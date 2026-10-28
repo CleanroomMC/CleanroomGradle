@@ -388,7 +388,9 @@ public final class DistributionTasks {
 
         var hiddenAnnotation = loader.getHiddenAnnotation();
         stripHiddenSources.configure(task -> {
-            task.setDescription("Copies the sources without what they hide from mods, for the sources and Javadoc jars.");
+            task.setDescription(
+                "Copies the sources without what they hide from mods, for the sources and Javadoc jars."
+            );
             task.from(mainSourceSet.map(SourceSet::getAllJava));
             task.into(caches.getLocalDirectory().dir("dist/stripped-sources"));
             task.getInputs().property("hiddenAnnotation", hiddenAnnotation);

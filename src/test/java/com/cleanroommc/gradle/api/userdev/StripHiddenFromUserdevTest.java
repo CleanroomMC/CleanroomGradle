@@ -133,14 +133,20 @@ class StripHiddenFromUserdevTest {
     void leavesAJarWithNothingHiddenAlone() throws IOException {
         var input = jar("input.jar", Map.of("api/Open.class", type("api/Open", null, false)));
 
-        assertThat(StripHiddenFromUserdev.strip(input, () -> {
-            throw new AssertionError("nothing hidden, yet an output was asked for");
-        }, ANNOTATION)).isFalse();
+        assertThat(StripHiddenFromUserdev.strip(
+            input,
+            () -> {
+                throw new AssertionError("nothing hidden, yet an output was asked for");
+            },
+            ANNOTATION
+        )).isFalse();
     }
 
     @Test
     void stripsSourcesTheSameWay() throws IOException {
-        source("api/Kept.java", """
+        source(
+            "api/Kept.java",
+            """
             package api;
 
             import com.example.HideFromUserdev;
@@ -175,7 +181,8 @@ class StripHiddenFromUserdevTest {
                 public void lookalike() { }
 
             }
-            """);
+            """
+        );
         source("api/Hidden.java", "package api;\n\n@HideFromUserdev\nclass Hidden { }\n");
         source("internal/package-info.java", "@HideFromUserdev\npackage internal;\n");
         source("internal/Impl.java", "package internal;\n\nclass Impl { }\n");
@@ -185,10 +192,12 @@ class StripHiddenFromUserdevTest {
         StripHiddenFromUserdev.stripSources(this.directory, ANNOTATION);
 
         try (var files = Files.walk(this.directory)) {
-            assertThat(files.filter(Files::isRegularFile).map(file -> this.directory.relativize(file).toString()))
-                .containsExactlyInAnyOrder("api/Kept.java", "internalother/Thing.java");
+            assertThat(
+                files.filter(Files::isRegularFile).map(file -> this.directory.relativize(file).toString())
+            ).containsExactlyInAnyOrder("api/Kept.java", "internalother/Thing.java");
         }
-        assertThat(Files.readString(this.directory.resolve("api/Kept.java"))).isEqualTo("""
+        assertThat(Files.readString(this.directory.resolve("api/Kept.java"))).isEqualTo(
+            """
             package api;
 
             import com.example.HideFromUserdev;
@@ -204,7 +213,8 @@ class StripHiddenFromUserdevTest {
                 public void lookalike() { }
 
             }
-            """);
+            """
+        );
     }
 
     private void source(String name, String content) throws IOException {

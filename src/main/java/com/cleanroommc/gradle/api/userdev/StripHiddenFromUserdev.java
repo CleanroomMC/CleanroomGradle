@@ -23,6 +23,7 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.TreeScanner;
 import com.sun.source.util.Trees;
+
 // CHECKSTYLE:ON
 
 import org.gradle.api.artifacts.transform.CacheableTransform;
@@ -70,64 +71,6 @@ import javax.tools.ToolProvider;
 public abstract class StripHiddenFromUserdev implements TransformAction<StripHiddenFromUserdev.Parameters> {
 
     private static final String PACKAGE_INFO = "package-info";
-
-    /**
-     * Writes the jar without what it hides, asking for {@code output} only when something is hidden.
-     *
-     * @return whether anything was hidden
-     */
-    static boolean strip(File input, Supplier<File> output, String annotation) throws IOException {
-        try (var zip = new ZipFile(input)) {
-            var entries = Collections.list(zip.entries());
-            List<String> packages = new ArrayList<>();
-            Set<String> classes = new HashSet<>();
-            Map<String, byte[]> rewritten = new HashMap<>();
-            for (var entry : entries) {
-                if (!entry.getName().endsWith(".class")) {
-                    continue;
-                }
-                var bytes = IO.readEntry(zip, entry);
-                if (!new String(bytes, StandardCharsets.ISO_8859_1).contains(annotation + ";")) {
-                    continue;
-                }
-                var node = new ClassNode();
-                new ClassReader(bytes).accept(node, 0);
-                if (hidden(node.visibleAnnotations, node.invisibleAnnotations, annotation)) {
-                    if (node.name.endsWith("/" + PACKAGE_INFO)) {
-                        packages.add(node.name.substring(0, node.name.length() - PACKAGE_INFO.length()));
-                    } else {
-                        classes.add(node.name);
-                    }
-                    continue;
-                }
-                var removed = node.fields.removeIf(field -> hidden(
-                    field.visibleAnnotations, field.invisibleAnnotations, annotation
-                ));
-                removed |= node.methods.removeIf(method -> hidden(
-                    method.visibleAnnotations, method.invisibleAnnotations, annotation
-                ));
-                if (removed) {
-                    var writer = new ClassWriter(0);
-                    node.accept(writer);
-                    rewritten.put(entry.getName(), writer.toByteArray());
-                }
-            }
-            if (packages.isEmpty() && classes.isEmpty() && rewritten.isEmpty()) {
-                return false;
-            }
-            try (var out = IO.zipOut(output.get())) {
-                for (var entry : entries) {
-                    var name = entry.getName();
-                    if (entry.isDirectory() || name.endsWith(".class") && hidden(name, packages, classes)) {
-                        continue;
-                    }
-                    var bytes = rewritten.get(name);
-                    IO.writeEntry(out, name, bytes == null ? IO.readEntry(zip, entry) : bytes);
-                }
-            }
-            return true;
-        }
-    }
 
     /**
      * Removes from the sources under {@code root}, in place, what {@link #strip} removes from their classes. A removed
@@ -198,9 +141,9 @@ public abstract class StripHiddenFromUserdev implements TransformAction<StripHid
                         if (!hidden(modifiers.getAnnotations(), annotation)) {
                             return false;
                         }
-                        ranges.add(new long[] {
-                            positions.getStartPosition(unit, tree), positions.getEndPosition(unit, tree)
-                        });
+                        ranges.add(
+                            new long[] { positions.getStartPosition(unit, tree), positions.getEndPosition(unit, tree) }
+                        );
                         return true;
                     }
 
@@ -209,9 +152,9 @@ public abstract class StripHiddenFromUserdev implements TransformAction<StripHid
                     continue;
                 }
                 var text = new StringBuilder(unit.getSourceFile().getCharContent(true));
-                ranges.sort(Comparator.comparingLong((long[] range) -> range[0])
-                    .thenComparingLong(range -> range[1])
-                    .reversed());
+                ranges.sort(
+                    Comparator.comparingLong((long[] range) -> range[0]).thenComparingLong(range -> range[1]).reversed()
+                );
                 var removedFrom = Long.MAX_VALUE;
                 for (var range : ranges) {
                     // Every declarator of a field shares its modifiers, so the widest range covers the rest
@@ -222,7 +165,9 @@ public abstract class StripHiddenFromUserdev implements TransformAction<StripHid
                     var end = (int) range[1];
                     var before = text.substring(0, (int) range[0]).stripTrailing();
                     var javadoc = before.lastIndexOf("/**");
-                    if (before.endsWith("*/") && javadoc != -1 && before.indexOf("*/", javadoc) == before.length() - 2) {
+                    if (before.endsWith("*/") &&
+                        javadoc != -1 &&
+                        before.indexOf("*/", javadoc) == before.length() - 2) {
                         before = before.substring(0, javadoc).stripTrailing();
                     }
                     text.delete(before.length(), end);
@@ -234,6 +179,64 @@ public abstract class StripHiddenFromUserdev implements TransformAction<StripHid
             if (packages.stream().anyMatch(file::startsWith)) {
                 Files.deleteIfExists(file);
             }
+        }
+    }
+
+    /**
+     * Writes the jar without what it hides, asking for {@code output} only when something is hidden.
+     *
+     * @return whether anything was hidden
+     */
+    static boolean strip(File input, Supplier<File> output, String annotation) throws IOException {
+        try (var zip = new ZipFile(input)) {
+            var entries = Collections.list(zip.entries());
+            List<String> packages = new ArrayList<>();
+            Set<String> classes = new HashSet<>();
+            Map<String, byte[]> rewritten = new HashMap<>();
+            for (var entry : entries) {
+                if (!entry.getName().endsWith(".class")) {
+                    continue;
+                }
+                var bytes = IO.readEntry(zip, entry);
+                if (!new String(bytes, StandardCharsets.ISO_8859_1).contains(annotation + ";")) {
+                    continue;
+                }
+                var node = new ClassNode();
+                new ClassReader(bytes).accept(node, 0);
+                if (hidden(node.visibleAnnotations, node.invisibleAnnotations, annotation)) {
+                    if (node.name.endsWith("/" + PACKAGE_INFO)) {
+                        packages.add(node.name.substring(0, node.name.length() - PACKAGE_INFO.length()));
+                    } else {
+                        classes.add(node.name);
+                    }
+                    continue;
+                }
+                var removed = node.fields.removeIf(field -> hidden(
+                    field.visibleAnnotations, field.invisibleAnnotations, annotation
+                ));
+                removed |= node.methods.removeIf(method -> hidden(
+                    method.visibleAnnotations, method.invisibleAnnotations, annotation
+                ));
+                if (removed) {
+                    var writer = new ClassWriter(0);
+                    node.accept(writer);
+                    rewritten.put(entry.getName(), writer.toByteArray());
+                }
+            }
+            if (packages.isEmpty() && classes.isEmpty() && rewritten.isEmpty()) {
+                return false;
+            }
+            try (var out = IO.zipOut(output.get())) {
+                for (var entry : entries) {
+                    var name = entry.getName();
+                    if (entry.isDirectory() || name.endsWith(".class") && hidden(name, packages, classes)) {
+                        continue;
+                    }
+                    var bytes = rewritten.get(name);
+                    IO.writeEntry(out, name, bytes == null ? IO.readEntry(zip, entry) : bytes);
+                }
+            }
+            return true;
         }
     }
 

@@ -130,7 +130,8 @@ public abstract class WriteUserdevConfig extends DefaultTask {
                 new UserdevConfig.Download(getServerUrl().get(), getServerSha1().get())
             ),
             new UserdevConfig.Loader(
-                getCleanroomVersion().get(), getForgeVersion().get(), getLoaderGroup().get(), getHiddenAnnotation().get()
+                getCleanroomVersion().get(), getForgeVersion().get(), getLoaderGroup().get(),
+                getHiddenAnnotation().get()
             ),
             new UserdevConfig.Inputs(
                 getMcpConfig().get(), getMcpMappings().get(), getInitialPatches().get(), getTools().get()
