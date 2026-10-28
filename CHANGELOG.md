@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.23.0 - 2026-10-28
+
+### Feature
+
+- **loader**: Hide classes from userdev *[commit by [@Rongmario](https://github.com/Rongmario) in [a084b89](https://github.com/CleanroomMC/CleanroomGradle/commit/a084b8995e6c665c0d70d43cf8e436e18ece1a50)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.22.1...0.23.0
+
 ## 0.22.1 - 2026-10-21
 
 ### Feature
