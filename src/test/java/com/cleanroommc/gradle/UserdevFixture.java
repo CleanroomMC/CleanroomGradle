@@ -139,9 +139,10 @@ final class UserdevFixture {
         throws IOException {
         var entries = new LinkedHashMap<String, byte[]>();
         entries.put("com/cleanroommc/Loader.class", classBytes("com/cleanroommc/Loader"));
+        entries.putAll(spec.loaderClasses);
         entries.put(
             UserdevConfig.meta(UserdevConfig.FILE_NAME),
-            config(version, clientSha1, serverSha1).getBytes(StandardCharsets.UTF_8)
+            config(version, clientSha1, serverSha1, spec.hiddenAnnotation).getBytes(StandardCharsets.UTF_8)
         );
         entries.put(UserdevConfig.meta(UserdevConfig.OBF2SRG), tsrg());
         entries.put(
@@ -171,6 +172,9 @@ final class UserdevFixture {
             UserdevConfig.meta(UserdevConfig.LOADER_SOURCES) + "/com/cleanroommc/Loader.java",
             "package com.cleanroommc;\n".getBytes(StandardCharsets.UTF_8)
         );
+        spec.loaderSources.forEach((name, source) -> entries.put(
+            UserdevConfig.meta(UserdevConfig.LOADER_SOURCES) + "/" + name, source.getBytes(StandardCharsets.UTF_8)
+        ));
 
         entries.remove(spec.omit);
         Files.createDirectories(jar.getParent());
@@ -185,6 +189,11 @@ final class UserdevFixture {
 
     /** The spec document the artifact carries, which every consumer reads its layout from. */
     static String config(String version, String clientSha1, String serverSha1) {
+        return config(version, clientSha1, serverSha1, null);
+    }
+
+    static String config(String version, String clientSha1, String serverSha1, String hiddenAnnotation) {
+        var annotation = hiddenAnnotation == null ? "" : ", \"hiddenAnnotation\": \"" + hiddenAnnotation + "\"";
         return """
                {
                  "spec": 1,
@@ -193,7 +202,7 @@ final class UserdevFixture {
                    "client": {"url": "https://example.invalid/client.jar", "sha1": "%1$s"},
                    "server": {"url": "https://example.invalid/server.jar", "sha1": "%2$s"}
                  },
-                 "loader": {"version": "%3$s", "forgeVersion": "14.23.5.2860", "group": "com.cleanroommc"},
+                 "loader": {"version": "%3$s", "forgeVersion": "14.23.5.2860", "group": "com.cleanroommc"%5$s},
                  "inputs": {
                    "mcpConfig": "de.oceanlabs.mcp:mcp_config:1.12.2-20201025.185735",
                    "mappings": "de.oceanlabs.mcp:mcp_stable:39-1.12@zip",
@@ -228,7 +237,7 @@ final class UserdevFixture {
                    "server": {"launchClass": "net.minecraft.launchwrapper.Launch", "tweakClass": "net.minecraftforge.fml.common.launcher.FMLServerTweaker"}
                  }
                }
-               """.formatted(clientSha1, serverSha1, version, MINECRAFT_VERSION);
+               """.formatted(clientSha1, serverSha1, version, MINECRAFT_VERSION, annotation);
     }
 
     static String pom(String group, String artifact, String version) {
@@ -457,6 +466,9 @@ final class UserdevFixture {
         String clientSha1;
         String omit = "";
         String srgToMcp;
+        Map<String, byte[]> loaderClasses = new LinkedHashMap<>();
+        Map<String, String> loaderSources = new LinkedHashMap<>();
+        String hiddenAnnotation;
 
     }
 

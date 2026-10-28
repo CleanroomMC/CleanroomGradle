@@ -88,6 +88,9 @@ public abstract class WriteUserdevConfig extends DefaultTask {
     public abstract Property<String> getLoaderGroup();
 
     @Input
+    public abstract Property<String> getHiddenAnnotation();
+
+    @Input
     public abstract Property<String> getClientUrl();
 
     @Input
@@ -126,7 +129,9 @@ public abstract class WriteUserdevConfig extends DefaultTask {
                 getMinecraftVersion().get(), new UserdevConfig.Download(getClientUrl().get(), getClientSha1().get()),
                 new UserdevConfig.Download(getServerUrl().get(), getServerSha1().get())
             ),
-            new UserdevConfig.Loader(getCleanroomVersion().get(), getForgeVersion().get(), getLoaderGroup().get()),
+            new UserdevConfig.Loader(
+                getCleanroomVersion().get(), getForgeVersion().get(), getLoaderGroup().get(), getHiddenAnnotation().get()
+            ),
             new UserdevConfig.Inputs(
                 getMcpConfig().get(), getMcpMappings().get(), getInitialPatches().get(), getTools().get()
             ),

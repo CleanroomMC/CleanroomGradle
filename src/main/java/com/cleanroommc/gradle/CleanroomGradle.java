@@ -71,6 +71,10 @@ public abstract class CleanroomGradle implements Plugin<Project> {
                 UserdevAttributes.ROLE,
                 strategy -> strategy.getDisambiguationRules().add(UserdevAttributes.PreferClasses.class)
             );
+        project.getDependencies().getAttributesSchema().attribute(UserdevAttributes.VISIBILITY, strategy -> {
+            strategy.getCompatibilityRules().add(UserdevAttributes.AnyVisibility.class);
+            strategy.getDisambiguationRules().add(UserdevAttributes.PreferRuntime.class);
+        });
         project.getDependencies().getExtensions().add("cleanroomUserdev", new RemovedUserdevDependency());
         ToolConfigs.register(project);
         final var deobfExt = Objects.extension(project, "deobf", DeobfExtension.class);

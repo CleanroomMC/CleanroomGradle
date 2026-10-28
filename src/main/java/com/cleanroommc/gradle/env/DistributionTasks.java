@@ -27,6 +27,7 @@ import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.task.patch.GenerateBinPatches;
 import com.cleanroommc.gradle.api.task.sas.CheckSAS;
 import com.cleanroommc.gradle.api.task.sas.StripSideOnlyJar;
+import com.cleanroommc.gradle.api.userdev.StripHiddenFromUserdev;
 import com.cleanroommc.gradle.api.userdev.UserdevAttributes;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
@@ -62,6 +63,7 @@ import org.gradle.api.publish.maven.MavenPublication;
 import org.gradle.api.publish.maven.tasks.PublishToMavenRepository;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
+import org.gradle.api.tasks.Sync;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.api.tasks.javadoc.Javadoc;
@@ -73,6 +75,8 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.renamer.gradle.RenameJar;
 import net.minecraftforge.renamer.gradle.RenamerExtension;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -250,6 +254,7 @@ public final class DistributionTasks {
         this.universalJar = Tasks.register(project, "universalJar", Jar.class);
         this.userdevJar = Tasks.register(project, "userdevJar", Jar.class);
         this.userdevSourcesJar = Tasks.register(project, "userdevSourcesJar", Jar.class);
+        var stripHiddenSources = Tasks.register(project, "stripHiddenSources", Sync.class);
         javaExtension.withSourcesJar();
         javaExtension.withJavadocJar();
         this.sourcesJar = project.getTasks().named("sourcesJar", Jar.class);
@@ -381,10 +386,30 @@ public final class DistributionTasks {
             });
         });
 
+        var hiddenAnnotation = loader.getHiddenAnnotation();
+        stripHiddenSources.configure(task -> {
+            task.setDescription("Copies the sources without what they hide from mods, for the sources and Javadoc jars.");
+            task.from(mainSourceSet.map(SourceSet::getAllJava));
+            task.into(caches.getLocalDirectory().dir("dist/stripped-sources"));
+            task.getInputs().property("hiddenAnnotation", hiddenAnnotation);
+            task.doLast("stripHidden", t -> {
+                var destination = ((Sync) t).getDestinationDir();
+                try {
+                    StripHiddenFromUserdev.stripSources(destination.toPath(), hiddenAnnotation.get());
+                } catch (IOException e) {
+                    throw new UncheckedIOException("Failed to strip hidden sources in " + destination, e);
+                }
+            });
+        });
+        var strippedSources = stripHiddenSources.map(Sync::getDestinationDir);
+
         var javadocTask = project.getTasks().named("javadoc", Javadoc.class);
         javadocTask.configure(task -> {
             task.setFailOnError(false);
             task.options(MinimalJavadocOptions::quiet);
+            task.setSource(stripHiddenSources);
+            // Visible sources can still name hidden types, which then resolve from the compiled classes
+            task.setClasspath(task.getClasspath().plus(project.files(mainSourceSet.map(SourceSet::getOutput))));
         });
 
         this.writeUserdevConfig.configure(task -> {
@@ -417,6 +442,7 @@ public final class DistributionTasks {
             task.getServerUrl().set(minecraft.getVersionMeta().map(VersionMeta::serverUrl));
             task.getServerSha1().set(minecraft.getVersionMeta().map(VersionMeta::serverSha1));
             task.getLoaderGroup().set(group);
+            task.getHiddenAnnotation().set(loader.getHiddenAnnotation());
             task.getClientLaunchClass().set(clientLaunchClass);
             task.getServerLaunchClass().set(serverLaunchClass);
             task.getClientTweakClass().set(clientTweakClass);
@@ -489,9 +515,7 @@ public final class DistributionTasks {
             task.setDescription("Packages the loader sources. Minecraft sources are built by each workspace.");
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);
-            task.from(
-                mainSourceSet.map(SourceSet::getAllJava), spec -> spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**")
-            );
+            task.from(stripHiddenSources, spec -> spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**"));
             task.getArchiveBaseName().set("cleanroom-userdev");
             task.getArchiveVersion().set(version);
             task.getArchiveClassifier().set("sources");
@@ -619,6 +643,9 @@ public final class DistributionTasks {
 
             task.include("**/*.java");
             task.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**");
+            // The java plugin's own spec copies the unstripped sources and cannot be taken out of the task
+            task.from(stripHiddenSources);
+            task.exclude(element -> !element.getFile().toPath().startsWith(strippedSources.get().toPath()));
         });
 
         this.javadocJar.configure(task -> {

@@ -21,6 +21,7 @@ import com.cleanroommc.gradle.api.userdev.MaterializeUserdevClasses;
 import com.cleanroommc.gradle.api.userdev.MaterializeUserdevSources;
 import com.cleanroommc.gradle.api.userdev.PrepareUserdev;
 import com.cleanroommc.gradle.api.userdev.SelectPrepared;
+import com.cleanroommc.gradle.api.userdev.StripHiddenFromUserdev;
 import com.cleanroommc.gradle.api.userdev.UserdevAttributes;
 import com.cleanroommc.gradle.api.userdev.UserdevDependency;
 import com.cleanroommc.gradle.api.util.Environment;
@@ -105,6 +106,11 @@ public final class UserDevTasks {
         var main = java.getSourceSets().named(SourceSet.MAIN_SOURCE_SET_NAME);
 
         project.getDependencies().add(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME, project.files(this.clientExtra));
+        java.getSourceSets()
+            .configureEach(sourceSet -> project.getConfigurations()
+                .named(sourceSet.getCompileClasspathConfigurationName())
+                .configure(configuration -> configuration.getAttributes()
+                    .attribute(UserdevAttributes.VISIBILITY, UserdevAttributes.COMPILE)));
 
         var jar = project.getTasks().named("jar", Jar.class);
         jar.configure(task -> task.getArchiveClassifier().convention("mcp"));
@@ -296,7 +302,9 @@ public final class UserDevTasks {
         dependencies.getArtifactTypes()
             .named(
                 ArtifactTypeDefinition.JAR_TYPE,
-                type -> type.getAttributes().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW)
+                type -> type.getAttributes()
+                    .attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW)
+                    .attribute(UserdevAttributes.VISIBILITY, UserdevAttributes.ANY)
             );
         var deobf = project.getExtensions().getByType(DeobfExtension.class);
         var accessTransformer = ToolConfigs.get(project, "accesstransformer");
@@ -315,12 +323,17 @@ public final class UserDevTasks {
             transform.getParameters().getOffline().set(project.getGradle().getStartParameter().isOffline());
         });
         dependencies.registerTransform(MaterializeUserdevClasses.class, transform -> {
-            transform.getFrom().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW).attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, UserdevAttributes.PREPARED_TYPE);
-            transform.getTo().attribute(UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED).attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE);
+            transform.getFrom().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW).attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES).attribute(UserdevAttributes.VISIBILITY, UserdevAttributes.ANY).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, UserdevAttributes.PREPARED_TYPE);
+            transform.getTo().attribute(UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED).attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES).attribute(UserdevAttributes.VISIBILITY, UserdevAttributes.RUNTIME).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE);
             transform.getParameters().getAccessTransformers().from(userdev.getAccessTransformers());
             transform.getParameters().getLibraries().from(libraries);
             transform.getParameters().getRenamerClasspath().from(deobf.getRenamerClasspath());
             transform.getParameters().getAccessTransformerClasspath().from(accessTransformer);
+        });
+        dependencies.registerTransform(StripHiddenFromUserdev.class, transform -> {
+            transform.getFrom().attribute(UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED).attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES).attribute(UserdevAttributes.VISIBILITY, UserdevAttributes.RUNTIME).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE);
+            transform.getTo().attribute(UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED).attribute(UserdevAttributes.ROLE, UserdevAttributes.CLASSES).attribute(UserdevAttributes.VISIBILITY, UserdevAttributes.COMPILE).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE);
+            transform.getParameters().getAnnotation().set(userdev.getConfig().map(config -> config.loader().hiddenAnnotation()));
         });
         dependencies.registerTransform(MaterializeUserdevSources.class, transform -> {
             transform.getFrom().attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW).attribute(UserdevAttributes.ROLE, UserdevAttributes.SOURCES).attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, UserdevAttributes.PREPARED_TYPE);

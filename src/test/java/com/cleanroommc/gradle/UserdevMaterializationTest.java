@@ -16,6 +16,9 @@ import org.junit.jupiter.api.Test;
 
 import org.gradle.testkit.runner.GradleRunner;
 
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -79,6 +82,14 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
                 return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
             }
         }
+    }
+
+    private static Path loader(String output, String classpath) {
+        return output.lines()
+            .filter(line -> line.startsWith(classpath + " -> ") && line.endsWith("/cleanroom-userdev.jar"))
+            .map(line -> Path.of(line.substring(classpath.length() + 4)))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("no loader on the " + classpath + " classpath:\n" + output));
     }
 
     @Test
@@ -157,6 +168,34 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
         assertThat(read(classes, "access-transformed.txt")).isEqualTo("public net.minecraft.Block");
     }
 
+    /**
+     * Mods compile against the loader without what it hides from them, under the name its userdev config gives,
+     * and its sources leave the same out. Everything else, runs included, resolves the loader whole.
+     */
+    @Test
+    void theCompileClasspathAndSourcesLeaveOutWhatTheLoaderHides() throws IOException {
+        var fixture = new UserdevFixture.Spec();
+        fixture.hiddenAnnotation = "Internal";
+        var writer = new ClassWriter(0);
+        writer.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, "com/cleanroommc/Hook", null, "java/lang/Object", null);
+        writer.visitAnnotation("Lcom/cleanroommc/Internal;", false).visitEnd();
+        writer.visitEnd();
+        fixture.loaderClasses.put("com/cleanroommc/Hook.class", writer.toByteArray());
+        fixture.loaderSources.put("com/cleanroommc/Hook.java", "package com.cleanroommc;\n\n@Internal\nclass Hook { }\n");
+        UserdevFixture.seed(this.projectDir, "1.6.0", fixture);
+        buildScript("1.6.0", "");
+
+        var output = runner("1.6.0", "resolveClasspaths").build().getOutput();
+
+        var full = List.of("com/cleanroommc/Hook.class", "com/cleanroommc/Loader.class");
+        assertThat(entries(loader(output, "COMPILE"))).containsExactly("com/cleanroommc/Loader.class");
+        assertThat(entries(loader(output, "RUNTIME"))).isEqualTo(full);
+        var resolved = resolvedFiles(output);
+        assertThat(entries(file(resolved, "LOADER"))).as("a request without a visibility").isEqualTo(full);
+        assertThat(entries(file(resolved, "SOURCES"))).contains("com/cleanroommc/Loader.java")
+            .doesNotContain("com/cleanroommc/Hook.java");
+    }
+
     private Map<String, Path> resolve(String version, String... extra) {
         return resolvedFiles(runner(version, extra).build().getOutput());
     }
@@ -208,6 +247,14 @@ class UserdevMaterializationTest extends BaseFunctionalTest {
                     CLIENT_EXTRA: probe('ClientExtra', 'client-extra') { },
                     SERVER_EXTRA: probe('ServerExtra', 'server-extra') { },
                 ]
+                tasks.register('resolveClasspaths') {
+                    def compile = configurations.compileClasspath.incoming.files
+                    def runtime = configurations.runtimeClasspath.incoming.files
+                    doLast {
+                        compile.each { println 'COMPILE -> ' + it }
+                        runtime.each { println 'RUNTIME -> ' + it }
+                    }
+                }
                 tasks.register('resolveUserdev') {
                     def resolved = probes.collectEntries { name, configuration -> [name, configuration.incoming.files] }
                     doLast {

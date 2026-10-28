@@ -43,7 +43,7 @@ class UserdevConfigTest {
         var download = new UserdevConfig.Download("https://example.invalid/a.jar", "sha1");
         return new UserdevConfig(
             1, new UserdevConfig.Minecraft("1.12.2", download, download),
-            new UserdevConfig.Loader("0.7.0-alpha", "14.23.5.2860", "com.cleanroommc"),
+            new UserdevConfig.Loader("0.7.0-alpha", "14.23.5.2860", "com.cleanroommc", null),
             new UserdevConfig.Inputs(
                 "mcp:config:1", "mcp:names:1", "patches:initial:1",
                 Map.of("accesstransformer", "t:at:1", "decompiler", "t:dec:1", "mergetool", "t:merge:1")

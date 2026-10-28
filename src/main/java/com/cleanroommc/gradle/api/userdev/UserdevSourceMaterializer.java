@@ -83,6 +83,7 @@ public final class UserdevSourceMaterializer {
         unzip(input.toPath(), cleanroomPatches, config.layout().patches() + "/");
         applyPatches(mcp, cleanroomPatches);
         unzip(input.toPath(), mcp, config.layout().loaderSources() + "/");
+        StripHiddenFromUserdev.stripSources(mcp, config.loader().hiddenAnnotation());
         zip(mcp, output);
         delete(work);
     }

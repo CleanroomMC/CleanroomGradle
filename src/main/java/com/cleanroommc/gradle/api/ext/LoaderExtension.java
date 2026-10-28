@@ -10,6 +10,7 @@
 
 package com.cleanroommc.gradle.api.ext;
 
+import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 
 import org.gradle.api.file.ConfigurableFileCollection;
@@ -34,6 +35,7 @@ public abstract class LoaderExtension {
         getInstallerJvmArgs().convention(List.of());
         getLwjglNativesClassifiers().convention(LwjglNatives.CLASSIFIERS);
         getIntermediateRuns().convention(false);
+        getHiddenAnnotation().convention(UserdevConfig.Loader.HIDDEN_ANNOTATION);
     }
 
     public abstract Property<String> getForgeVersion();
@@ -59,5 +61,7 @@ public abstract class LoaderExtension {
     public abstract ListProperty<String> getLwjglNativesClassifiers();
 
     public abstract Property<Boolean> getIntermediateRuns();
+
+    public abstract Property<String> getHiddenAnnotation();
 
 }

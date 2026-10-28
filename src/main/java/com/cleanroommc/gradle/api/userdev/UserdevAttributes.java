@@ -11,13 +11,16 @@
 package com.cleanroommc.gradle.api.userdev;
 
 import org.gradle.api.attributes.Attribute;
+import org.gradle.api.attributes.AttributeCompatibilityRule;
 import org.gradle.api.attributes.AttributeDisambiguationRule;
+import org.gradle.api.attributes.CompatibilityCheckDetails;
 import org.gradle.api.attributes.MultipleCandidatesDetails;
 
 public final class UserdevAttributes {
 
     public static final Attribute<String> STAGE = Attribute.of("com.cleanroommc.userdev.stage", String.class);
     public static final Attribute<String> ROLE = Attribute.of("com.cleanroommc.userdev.role", String.class);
+    public static final Attribute<String> VISIBILITY = Attribute.of("com.cleanroommc.userdev.visibility", String.class);
 
     public static final String RAW = "raw";
     public static final String MATERIALIZED = "materialized";
@@ -27,6 +30,9 @@ public final class UserdevAttributes {
     public static final String SERVER_EXTRA = "server-extra";
     /** Carries no artifact of its own, only the platform's native library dependencies. */
     public static final String NATIVES = "natives";
+    public static final String COMPILE = "compile";
+    public static final String RUNTIME = "runtime";
+    public static final String ANY = "any";
 
     /** Artifact type of the directory {@link PrepareUserdev} produces. */
     public static final String PREPARED_TYPE = "cleanroom-userdev-prepared";
@@ -41,6 +47,28 @@ public final class UserdevAttributes {
         public void execute(MultipleCandidatesDetails<String> details) {
             if (details.getCandidateValues().contains(CLASSES)) {
                 details.closestMatch(CLASSES);
+            }
+        }
+
+    }
+
+    public abstract static class AnyVisibility implements AttributeCompatibilityRule<String> {
+
+        @Override
+        public void execute(CompatibilityCheckDetails<String> details) {
+            if (ANY.equals(details.getProducerValue())) {
+                details.compatible();
+            }
+        }
+
+    }
+
+    public abstract static class PreferRuntime implements AttributeDisambiguationRule<String> {
+
+        @Override
+        public void execute(MultipleCandidatesDetails<String> details) {
+            if (details.getCandidateValues().contains(RUNTIME)) {
+                details.closestMatch(RUNTIME);
             }
         }
 

@@ -190,7 +190,8 @@ class DistributionPublicationTest extends BaseFunctionalTest {
 
         var output = this.project.runner("assemble", "--dry-run").build().getOutput();
         PluginBuild.scheduled(
-            output, "universalJar", "userdevJar", "sourcesJar", "javadocJar", "publishMmcPackZip", "installerJar"
+            output, "universalJar", "userdevJar", "stripHiddenSources", "sourcesJar", "javadocJar", "publishMmcPackZip",
+            "installerJar"
         );
     }
 

@@ -178,7 +178,17 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
 
     public record Download(String url, String sha1) { }
 
-    public record Loader(String version, String forgeVersion, String group) { }
+    public record Loader(String version, String forgeVersion, String group, String hiddenAnnotation) {
+
+        public static final String HIDDEN_ANNOTATION = "HideFromUserdev";
+
+        public Loader {
+            if (hiddenAnnotation == null) {
+                hiddenAnnotation = HIDDEN_ANNOTATION;
+            }
+        }
+
+    }
 
     public record Inputs(String mcpConfig, String mappings, String initialPatches, Map<String, String> tools) { }
 
