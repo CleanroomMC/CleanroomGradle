@@ -51,7 +51,9 @@ class UserdevConfigTest {
             new UserdevConfig.Layout(
                 "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "q", List.of(), "r", "s", "t"
             ),
-            new UserdevConfig.Runs(new UserdevConfig.Run("L", "T", List.of()), new UserdevConfig.Run("L", "T", List.of()))
+            new UserdevConfig.Runs(
+                new UserdevConfig.Run("L", "T", List.of()), new UserdevConfig.Run("L", "T", List.of())
+            )
         );
     }
 
