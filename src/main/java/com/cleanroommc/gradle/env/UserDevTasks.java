@@ -17,6 +17,7 @@ import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.task.userdev.ExtractUserdevFile;
+import com.cleanroommc.gradle.api.userdev.AccessTransformers;
 import com.cleanroommc.gradle.api.userdev.MaterializeUserdevClasses;
 import com.cleanroommc.gradle.api.userdev.MaterializeUserdevSources;
 import com.cleanroommc.gradle.api.userdev.PrepareUserdev;
@@ -70,13 +71,16 @@ import org.gradle.process.CommandLineArgumentProvider;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.renamer.gradle.RenameJar;
 import net.minecraftforge.renamer.gradle.RenamerExtension;
+import net.minecraftforge.srgutils.IMappingFile;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Set;
+import java.util.zip.ZipFile;
 
 public final class UserDevTasks {
 
@@ -225,11 +229,15 @@ public final class UserDevTasks {
                 .getAsFile()
                 .toPath();
             var marker = mirror.resolve("raw.sha1");
+            var ats = userdev.getAccessTransformers().getFiles();
             var sha1 = IO.sha1(raw);
+            for (var at : ats) {
+                sha1 = IO.sha1(sha1 + IO.sha1(at));
+            }
             try {
                 var current = Files.isRegularFile(marker) && Files.readString(marker).equals(sha1);
                 if (!current) {
-                    // A republished artifact must not be shadowed by the copy made from the old one
+                    // A republished artifact or a changed AT must not be shadowed by the copy made before it
                     project.delete(mirror);
                 }
                 if (current || !wantsSources.getOrElse(false)) {
@@ -283,7 +291,22 @@ public final class UserDevTasks {
                 // has to exist here: this resolves other configurations, and Gradle remembers a miss for the build.
                 var materialized = configuration.filter(file -> file.getName().equals(MaterializeUserdevSources.OUTPUT))
                     .getSingleFile();
-                Files.copy(materialized.toPath(), mirror.resolve(name + "-sources.jar"));
+                var sourcesJar = mirror.resolve(name + "-sources.jar");
+                Files.copy(materialized.toPath(), sourcesJar);
+                // Applied here rather than in the transform, so an AT change does not decompile Minecraft again
+                if (!ats.isEmpty()) {
+                    IMappingFile names;
+                    try (var zip = new ZipFile(raw)) {
+                        names = IMappingFile.load(zip.getInputStream(zip.getEntry(userdev.getSrgToMcpPath().get())));
+                    }
+                    try (var archive = FileSystems.newFileSystem(sourcesJar)) {
+                        for (var at : ats) {
+                            AccessTransformers.applyToSources(
+                                archive.getPath("/"), AccessTransformers.remap(Files.readString(at.toPath()), names)
+                            );
+                        }
+                    }
+                }
                 Files.writeString(marker, sha1);
             } catch (IOException e) {
                 throw new UncheckedIOException("Failed to mirror userdev sources into " + mirror, e);
