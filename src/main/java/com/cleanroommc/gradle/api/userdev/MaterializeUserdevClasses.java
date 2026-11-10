@@ -27,6 +27,8 @@ import org.gradle.api.tasks.PathSensitive;
 import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.process.ExecOperations;
 
+import net.minecraftforge.srgutils.IMappingFile;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -69,7 +71,14 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
             );
 
             var ats = UserdevArchive.accessTransformers(userdev, config.layout().accessTransformers(), work);
-            ats.addAll(getParameters().getAccessTransformers().getFiles());
+            var mcpToSrg = IMappingFile.load(mappings).reverse();
+            var index = 0;
+            for (var at : getParameters().getAccessTransformers()) {
+                var srg = work.resolve("mod-ats").resolve(index++ + "-" + at.getName());
+                Files.createDirectories(srg.getParent());
+                Files.writeString(srg, AccessTransformers.remap(Files.readString(at.toPath()), mcpToSrg));
+                ats.add(srg.toFile());
+            }
             var minecraftAt = work.resolve("minecraft-at.jar").toFile();
             UserdevArchive.accessTransform(
                 getExecOperations(), getParameters().getAccessTransformerClasspath(), minecraftSrg, minecraftAt, ats,

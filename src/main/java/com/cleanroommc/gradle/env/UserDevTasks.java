@@ -80,6 +80,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Set;
+import java.util.jar.Manifest;
 import java.util.zip.ZipFile;
 
 public final class UserDevTasks {
@@ -160,6 +161,33 @@ public final class UserDevTasks {
             task.getArchiveClassifier().set("");
             task.getMap().setFrom(this.extractMcpToSrg.flatMap(ExtractUserdevFile::getOutput));
             task.getLibraries().setFrom(main.map(SourceSet::getCompileClasspath));
+            // FML only matches SRG names at runtime. The renamer's own AT support fails on "*()" wildcards.
+            var mcpToSrg = this.extractMcpToSrg.flatMap(ExtractUserdevFile::getOutput);
+            task.doLast("remapAccessTransformers", t -> {
+                var output = ((RenameJar) t).getOutput().get().getAsFile().toPath();
+                try (var archive = FileSystems.newFileSystem(output)) {
+                    var manifest = archive.getPath("META-INF/MANIFEST.MF");
+                    if (!Files.isRegularFile(manifest)) {
+                        return;
+                    }
+                    String names;
+                    try (var stream = Files.newInputStream(manifest)) {
+                        names = new Manifest(stream).getMainAttributes().getValue("FMLAT");
+                    }
+                    if (names == null) {
+                        return;
+                    }
+                    var mappings = IMappingFile.load(mcpToSrg.get().getAsFile());
+                    for (var name : names.trim().split("\\s+")) {
+                        var at = archive.getPath("META-INF", name);
+                        if (Files.isRegularFile(at)) {
+                            Files.writeString(at, AccessTransformers.remap(Files.readString(at), mappings));
+                        }
+                    }
+                } catch (IOException e) {
+                    throw new UncheckedIOException("Failed to remap the access transformers in " + output, e);
+                }
+            });
         });
         project.getTasks().named("assemble").configure(task -> task.dependsOn(this.reobfJar));
 
