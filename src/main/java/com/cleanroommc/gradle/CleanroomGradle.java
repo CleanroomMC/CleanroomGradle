@@ -19,6 +19,7 @@ import com.cleanroommc.gradle.api.util.CloseHttpClientFlowAction;
 import com.cleanroommc.gradle.api.util.LwjglNatives;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.lazy.ProjectCoordinates;
+import com.cleanroommc.gradle.api.util.lazy.Providers;
 import com.cleanroommc.gradle.env.CleanroomTasks;
 import com.cleanroommc.gradle.env.DistributionTasks;
 import com.cleanroommc.gradle.env.MCPTasks;
@@ -61,6 +62,9 @@ public abstract class CleanroomGradle implements Plugin<Project> {
         project.getLogger().info("Applying CleanroomGradle {}", pluginVersion);
 
         project.getPlugins().apply("net.minecraftforge.renamer");
+        project.getTasks()
+            .withType(RenameJar.class)
+            .configureEach(task -> task.getJavaLauncher().set(Providers.javaLauncher(project)));
         getFlowScope().always(CloseHttpClientFlowAction.class, spec -> { });
 
         final var ext = Objects.extension(project, "cleanroom", CleanroomExtension.class);
