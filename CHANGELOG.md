@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.24.1 - 2026-11-10
+
+### Feature
+
+- More reliable exclusion mechanism for minecraft packages *[commit by [@Rongmario](https://github.com/Rongmario) in [04a1dd6](https://github.com/CleanroomMC/CleanroomGradle/commit/04a1dd65ab002eb215c821d1d987259952a4a794)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.24.0...0.24.1
+
 ## 0.24.0 - 2026-11-10
 
 ### Feature
