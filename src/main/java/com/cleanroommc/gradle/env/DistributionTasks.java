@@ -34,6 +34,7 @@ import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.Platform;
 import com.cleanroommc.gradle.api.util.dist.Coordinate;
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
+import com.cleanroommc.gradle.api.util.dist.MinecraftPackages;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 import com.cleanroommc.gradle.api.util.lazy.ProjectCoordinates;
 import com.cleanroommc.gradle.api.util.lazy.Providers;
@@ -62,6 +63,7 @@ import org.gradle.api.publish.PublishingExtension;
 import org.gradle.api.publish.maven.MavenPublication;
 import org.gradle.api.publish.maven.tasks.PublishToMavenRepository;
 import org.gradle.api.tasks.Copy;
+import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.Sync;
 import org.gradle.api.tasks.TaskProvider;
@@ -267,6 +269,8 @@ public final class DistributionTasks {
         var serverTweakClass = loader.getServerTweakClass();
         var clientLaunchClass = loader.getClientLaunchClass();
         var serverLaunchClass = loader.getServerLaunchClass();
+        var obfToSrg = this.writeObf2SrgTsrg.flatMap(WriteMappings::getOutput);
+        var vanillaFiles = MinecraftPackages.files(obfToSrg);
         Tasks.group("build", this.reobfJar);
         Tasks.group(
             GROUP_NAME, this.universalJar, this.userdevJar, this.userdevSourcesJar, this.sourcesJar, this.javadocJar,
@@ -330,7 +334,6 @@ public final class DistributionTasks {
             task.getServerOriginalJar().fileProvider(vanilla.downloadServerJar.map(Download::getDest));
             task.getServerModifiedJar().set(this.stripServerMinecraftJar.flatMap(StripSideOnlyJar::getOutputJar));
             task.getServerPrefix().set(UserdevConfig.SERVER_BINPATCHES);
-            task.getIncludedPrefixes().add(Meta.MINECRAFT_PACKAGE_PATH);
             task.getObfuscationMappings().set(this.writeObf2SrgTsrg.flatMap(WriteMappings::getOutput));
             task.getBinpatches().set(caches.getLocalDirectory().file("binpatches/" + UserdevConfig.BINPATCHES));
         });
@@ -344,11 +347,12 @@ public final class DistributionTasks {
             task.getArchiveBaseName().set(ARTIFACT_ID);
             task.getArchiveVersion().set(version);
             task.getArchiveClassifier().set("universal");
+            task.setIncludeEmptyDirs(false);
             task.getInputs().property("manifestTimestamp", timestampProperty);
 
             task.from(
                 archives.zipTree(this.reobfMinecraftJar.flatMap(RenameJar::getOutput)),
-                spec -> spec.exclude(OBFUSCATED_CLASSES, Meta.MINECRAFT_PACKAGE_PATH + "**")
+                spec -> spec.exclude(OBFUSCATED_CLASSES).exclude(vanillaFiles)
             );
             task.from(
                 layout.getProjectDirectory(),
@@ -459,11 +463,11 @@ public final class DistributionTasks {
 
             task.getArchiveBaseName().set("cleanroom-userdev");
             task.getArchiveVersion().set(version);
+            task.setIncludeEmptyDirs(false);
 
             // SRG-named
             task.from(
-                archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)),
-                spec -> spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**")
+                archives.zipTree(this.reobfJar.flatMap(RenameJar::getOutput)), spec -> spec.exclude(vanillaFiles)
             );
 
             task.from(loader.getAccessTransformers(), spec -> spec.into(UserdevConfig.meta(UserdevConfig.ATS)));
@@ -502,7 +506,7 @@ public final class DistributionTasks {
                 spec -> spec.into(UserdevConfig.meta(UserdevConfig.INITIAL_PATCHES))
             );
             task.from(mainSourceSet.map(SourceSet::getAllJava), spec -> {
-                spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**");
+                spec.exclude(vanillaFiles);
                 spec.into(UserdevConfig.meta(UserdevConfig.LOADER_SOURCES));
             });
             task.from(
@@ -518,7 +522,9 @@ public final class DistributionTasks {
             task.setDescription("Packages the loader sources. Minecraft sources are built by each workspace.");
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);
-            task.from(stripHiddenSources, spec -> spec.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**"));
+            task.from(stripHiddenSources, spec -> spec.exclude(vanillaFiles));
+            task.getInputs().file(obfToSrg).withPathSensitivity(PathSensitivity.NONE);
+            task.setIncludeEmptyDirs(false);
             task.getArchiveBaseName().set("cleanroom-userdev");
             task.getArchiveVersion().set(version);
             task.getArchiveClassifier().set("sources");
@@ -646,7 +652,9 @@ public final class DistributionTasks {
             task.getArchiveClassifier().set("sources");
 
             task.include("**/*.java");
-            task.exclude(Meta.MINECRAFT_PACKAGE_PATH + "**");
+            task.exclude(vanillaFiles);
+            task.getInputs().file(obfToSrg).withPathSensitivity(PathSensitivity.NONE);
+            task.setIncludeEmptyDirs(false);
             // The java plugin's own spec copies the unstripped sources and cannot be taken out of the task
             task.from(stripHiddenSources);
             task.exclude(element -> !element.getFile().toPath().startsWith(strippedSources.get().toPath()));

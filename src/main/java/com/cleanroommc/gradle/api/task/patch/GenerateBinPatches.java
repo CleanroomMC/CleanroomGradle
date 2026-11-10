@@ -12,6 +12,7 @@ package com.cleanroommc.gradle.api.task.patch;
 
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.binpatch.BinDelta;
+import com.cleanroommc.gradle.api.util.dist.MinecraftPackages;
 
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
@@ -34,9 +35,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -50,29 +51,17 @@ import java.util.zip.ZipOutputStream;
 @CacheableTask
 public abstract class GenerateBinPatches extends DefaultTask {
 
-    private static Map<String, ZipEntry> indexClasses(ZipFile zip, Set<String> prefixes) {
+    private static Map<String, ZipEntry> indexClasses(ZipFile zip, Predicate<String> included) {
         var classes = new TreeMap<String, ZipEntry>();
         var entries = zip.entries();
         while (entries.hasMoreElements()) {
             var entry = entries.nextElement();
-            if (entry.isDirectory() || !entry.getName().endsWith(".class") || !included(entry.getName(), prefixes)) {
+            if (entry.isDirectory() || !entry.getName().endsWith(".class") || !included.test(entry.getName())) {
                 continue;
             }
             classes.put(entry.getName(), entry);
         }
         return classes;
-    }
-
-    private static boolean included(String name, Set<String> prefixes) {
-        if (prefixes.isEmpty()) {
-            return true;
-        }
-        for (String prefix : prefixes) {
-            if (name.startsWith(prefix)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static byte[] concatenate(byte[] first, byte[] second) {
@@ -118,9 +107,9 @@ public abstract class GenerateBinPatches extends DefaultTask {
     public void generate() {
         Path output = getBinpatches().getAsFile().get().toPath();
         Path temporary = output.resolveSibling(output.getFileName() + ".tmp");
-        Set<String> prefixes;
+        Predicate<String> included;
         try {
-            prefixes = collectPrefixes();
+            included = classFilter();
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to read obfuscation mappings", e);
         }
@@ -132,11 +121,11 @@ public abstract class GenerateBinPatches extends DefaultTask {
             try (var archive = IO.zipOut(temporary.toFile())) {
                 generateSide(
                     archive, getClientOriginalJar().getAsFile().get(), getClientModifiedJar().getAsFile().get(),
-                    getClientPrefix().get(), prefixes
+                    getClientPrefix().get(), included
                 );
                 generateSide(
                     archive, getServerOriginalJar().getAsFile().get(), getServerModifiedJar().getAsFile().get(),
-                    getServerPrefix().get(), prefixes
+                    getServerPrefix().get(), included
                 );
             }
             IO.move(temporary, output);
@@ -151,13 +140,13 @@ public abstract class GenerateBinPatches extends DefaultTask {
     }
 
     private void generateSide(
-        ZipOutputStream archive, File originalJar, File modifiedJar, String prefix, Set<String> prefixes
+        ZipOutputStream archive, File originalJar, File modifiedJar, String prefix, Predicate<String> included
     ) throws IOException {
         int changed = 0;
         int added = 0;
         try (var originalZip = new ZipFile(originalJar); var modifiedZip = new ZipFile(modifiedJar)) {
-            var original = indexClasses(originalZip, prefixes);
-            var modified = indexClasses(modifiedZip, prefixes);
+            var original = indexClasses(originalZip, included);
+            var modified = indexClasses(modifiedZip, included);
             for (var entry : modified.entrySet()) {
                 String name = entry.getKey();
                 byte[] revised = IO.readEntry(modifiedZip, entry.getValue());
@@ -188,11 +177,11 @@ public abstract class GenerateBinPatches extends DefaultTask {
         }
     }
 
-    private Set<String> collectPrefixes() throws IOException {
+    private Predicate<String> classFilter() throws IOException {
         var prefixes = new TreeSet<>(getIncludedPrefixes().get());
         File mappings = getObfuscationMappings().getAsFile().getOrNull();
         if (mappings == null) {
-            return prefixes;
+            return name -> prefixes.isEmpty() || prefixes.stream().anyMatch(name::startsWith);
         }
         for (String line : Files.readAllLines(mappings.toPath(), StandardCharsets.UTF_8)) {
             if (line.isEmpty() || Character.isWhitespace(line.charAt(0))) {
@@ -202,7 +191,8 @@ public abstract class GenerateBinPatches extends DefaultTask {
             prefixes.add(obfuscatedName + ".class");
             prefixes.add(obfuscatedName + "$");
         }
-        return prefixes;
+        var packages = MinecraftPackages.read(mappings.toPath());
+        return name -> MinecraftPackages.contains(packages, name) || prefixes.stream().anyMatch(name::startsWith);
     }
 
 }
