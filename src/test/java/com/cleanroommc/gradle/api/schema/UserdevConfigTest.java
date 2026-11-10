@@ -51,7 +51,7 @@ class UserdevConfigTest {
             new UserdevConfig.Layout(
                 "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "q", List.of(), "r", "s", "t"
             ),
-            new UserdevConfig.Runs(new UserdevConfig.Run("L", "T"), new UserdevConfig.Run("L", "T"))
+            new UserdevConfig.Runs(new UserdevConfig.Run("L", "T", List.of()), new UserdevConfig.Run("L", "T", List.of()))
         );
     }
 
@@ -85,7 +85,7 @@ class UserdevConfigTest {
               },
               "runs": {
                 "client": {"launchClass": "Launch", "tweakClass": "ClientTweaker"},
-                "server": {"launchClass": "Launch", "tweakClass": "ServerTweaker"}
+                "server": {"launchClass": "Launch", "tweakClass": "ServerTweaker", "jvmArgs": ["-Dexample=1"]}
               }
             }
             """
@@ -95,6 +95,8 @@ class UserdevConfigTest {
         assertThat(config.minecraftVersion()).isEqualTo("1.12.2");
         assertThat(config.loaderVersion()).isEqualTo("0.7.0-alpha");
         assertThat(config.layout().mcpToSrg()).isEqualTo("userdev/mcp2srg.tsrg");
+        assertThat(config.runs().client().jvmArgs()).isEmpty();
+        assertThat(config.runs().server().jvmArgs()).containsExactly("-Dexample=1");
     }
 
     @ParameterizedTest

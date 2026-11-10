@@ -114,14 +114,17 @@ public abstract class WriteUserdevConfig extends DefaultTask {
     @Input
     public abstract Property<String> getServerTweakClass();
 
+    @Input
+    public abstract ListProperty<String> getJvmArgs();
+
     @OutputFile
     public abstract RegularFileProperty getOutput();
 
     @TaskAction
     public void write() {
         var runs = new UserdevConfig.Runs(
-            new UserdevConfig.Run(getClientLaunchClass().get(), getClientTweakClass().get()),
-            new UserdevConfig.Run(getServerLaunchClass().get(), getServerTweakClass().get())
+            new UserdevConfig.Run(getClientLaunchClass().get(), getClientTweakClass().get(), getJvmArgs().get()),
+            new UserdevConfig.Run(getServerLaunchClass().get(), getServerTweakClass().get(), getJvmArgs().get())
         );
         var config = new UserdevConfig(
             UserdevConfig.SPEC,

@@ -185,6 +185,9 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     @Input
     public abstract ListProperty<String> getTweakers();
 
+    @Input
+    public abstract ListProperty<String> getJvmArgs();
+
     /**
      * PrismLauncher compatibility hint with old MultiMC safely ignoring this field.
      */
@@ -310,6 +313,11 @@ public abstract class PublishMmcPackZip extends DefaultTask {
 
         if (!tweakers.isEmpty()) {
             patch.add("+tweakers", tweakers);
+        }
+        if (!getJvmArgs().get().isEmpty()) {
+            var jvmArgs = new JsonArray();
+            getJvmArgs().get().forEach(jvmArgs::add);
+            patch.add("+jvmArgs", jvmArgs);
         }
         var traits = new JsonArray();
         traits.add("FirstThreadOnMacOS");

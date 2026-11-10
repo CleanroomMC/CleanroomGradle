@@ -202,14 +202,14 @@ public final class UserDevTasks {
             task.dependsOn(main.map(SourceSet::getClassesTaskName), vanilla.downloadAssets);
             configureRun(task, Side.CLIENT, userdev, caches, minecraft, offline, runDirectory.dir("client"), natives);
             task.classpath(runtimeClasspath, this.clientExtra, this.natives);
-            MinecraftRuns.fml(task, true, client.map(UserdevConfig.Run::launchClass), client.map(UserdevConfig.Run::tweakClass), srgToMcp);
+            MinecraftRuns.fml(task, true, client.map(UserdevConfig.Run::launchClass), client.map(UserdevConfig.Run::tweakClass), client.map(UserdevConfig.Run::jvmArgs), srgToMcp);
         });
         RunRegistry.configure(project, this.runServer, task -> {
             task.setGroup(RUNS_GROUP);
             task.dependsOn(main.map(SourceSet::getClassesTaskName));
             configureRun(task, Side.SERVER, userdev, caches, minecraft, offline, runDirectory.dir("server"), natives);
             task.classpath(runtimeClasspath, this.serverExtra, this.natives);
-            MinecraftRuns.fml(task, false, server.map(UserdevConfig.Run::launchClass), server.map(UserdevConfig.Run::tweakClass), srgToMcp);
+            MinecraftRuns.fml(task, false, server.map(UserdevConfig.Run::launchClass), server.map(UserdevConfig.Run::tweakClass), server.map(UserdevConfig.Run::jvmArgs), srgToMcp);
         });
 
         // The transforms cannot reach an IDE, which takes sources by classifier from a repository
@@ -235,7 +235,7 @@ public final class UserDevTasks {
                 if (current || !wantsSources.getOrElse(false)) {
                     return;
                 }
-                var sources = (ExternalModuleDependency) userdev.getModuleDependency().copy();
+                var sources = userdev.getModuleDependency().copy();
                 sources.attributes(attributes -> attributes.attribute(
                     UserdevAttributes.ROLE, UserdevAttributes.SOURCES
                 ));

@@ -93,6 +93,7 @@ class ProjectModeTest extends BaseFunctionalTest {
                     serverLaunchClass = 'example.ServerLaunch'
                     clientTweakClass = 'example.ClientTweaker'
                     serverTweakClass = 'example.ServerTweaker'
+                    installerJvmArgs = ['-Dexample.loader=1']
                 }
             }
             gradle.projectsEvaluated {
@@ -102,6 +103,8 @@ class ProjectModeTest extends BaseFunctionalTest {
                 assert server.mainClass.get() == 'example.ServerLaunch'
                 assert client.args == ['--tweakClass', 'example.ClientTweaker']
                 assert server.args == ['--tweakClass', 'example.ServerTweaker']
+                assert client.jvmArgumentProviders*.asArguments().flatten() == ['-Dexample.loader=1']
+                assert server.jvmArgumentProviders*.asArguments().flatten() == ['-Dexample.loader=1']
                 // FML renames SRG-named mods into MCP with the srg-to-mcp file
                 assert client.systemProperties.get('net.minecraftforge.gradle.GradleStart.srg.srg-mcp').toString().endsWith('srg2mcp.tsrg')
 
@@ -109,10 +112,12 @@ class ProjectModeTest extends BaseFunctionalTest {
                 assert userdev.clientLaunchClass.get() == 'example.Launch'
                 assert userdev.serverLaunchClass.get() == 'example.ServerLaunch'
                 assert userdev.serverTweakClass.get() == 'example.ServerTweaker'
+                assert userdev.jvmArgs.get() == ['-Dexample.loader=1']
 
                 def pack = tasks.named('publishMmcPackZip', PublishMmcPackZip).get()
                 assert pack.mainClass.get() == 'example.Launch'
                 assert pack.tweakers.get() == ['example.ClientTweaker']
+                assert pack.jvmArgs.get() == ['-Dexample.loader=1']
                 assert pack.compatibleJavaMajors.get() == [28]
 
                 def installer = tasks.named('writeInstallProfile', WriteInstallProfile).get()
@@ -120,6 +125,7 @@ class ProjectModeTest extends BaseFunctionalTest {
                 assert installer.serverMainClass.get() == 'example.ServerLaunch'
                 assert installer.tweakers.get() == ['example.ClientTweaker']
                 assert installer.serverTweakers.get() == ['example.ServerTweaker']
+                assert installer.jvmArgs.get() == ['-Dexample.loader=1']
                 assert installer.minimumJava.get() == 28
 
                 assert tasks.test.workingDir == layout.buildDirectory.dir('test').get().asFile

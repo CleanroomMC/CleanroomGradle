@@ -17,6 +17,8 @@ import com.cleanroommc.gradle.api.util.Objects;
 
 import org.gradle.api.provider.Provider;
 
+import java.util.List;
+
 /**
  * Shared wiring for {@link RunMinecraft} tasks so they do not look up the project extension.
  */
@@ -42,8 +44,9 @@ public final class MinecraftRuns {
 
     public static void fml(
         RunMinecraft task, boolean client, Provider<String> launchClass, Provider<String> tweakClass,
-        Provider<?> srgToMcp) {
+        Provider<List<String>> jvmArgs, Provider<?> srgToMcp) {
         task.getMainClass().set(launchClass);
+        task.getJvmArgumentProviders().add(jvmArgs::get);
         task.args("--tweakClass", tweakClass);
         task.systemProperty("net.minecraftforge.gradle.GradleStart.srg.srg-mcp", srgToMcp);
         task.dependsOn(srgToMcp);

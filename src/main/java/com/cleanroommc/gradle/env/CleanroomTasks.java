@@ -111,7 +111,7 @@ public final class CleanroomTasks {
             task.setWorkingDir(runDir.dir("client"));
             task.getNatives().fileProvider(natives);
             task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitClientJar.flatMap(SplitJar::getExtraJar));
-            MinecraftRuns.fml(task, true, loader.getClientLaunchClass(), loader.getClientTweakClass(), srgToMcp);
+            MinecraftRuns.fml(task, true, loader.getClientLaunchClass(), loader.getClientTweakClass(), loader.getInstallerJvmArgs(), srgToMcp);
         });
 
         RunRegistry.configure(project, this.runCleanroomServer, task -> {
@@ -123,7 +123,7 @@ public final class CleanroomTasks {
             task.setWorkingDir(runDir.dir("server"));
             task.getNatives().fileProvider(natives);
             task.classpath(mainSourceSet.map(SourceSet::getRuntimeClasspath), mcp.splitServerJar.flatMap(SplitJar::getExtraJar));
-            MinecraftRuns.fml(task, false, loader.getServerLaunchClass(), loader.getServerTweakClass(), srgToMcp);
+            MinecraftRuns.fml(task, false, loader.getServerLaunchClass(), loader.getServerTweakClass(), loader.getInstallerJvmArgs(), srgToMcp);
         });
 
         RunRegistry.configure(project, this.runCleanroomNsightClient, task -> {

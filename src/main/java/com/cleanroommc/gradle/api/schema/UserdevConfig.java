@@ -213,6 +213,12 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
 
     public record Runs(Run client, Run server) { }
 
-    public record Run(String launchClass, String tweakClass) { }
+    public record Run(String launchClass, String tweakClass, List<String> jvmArgs) {
+
+        public Run {
+            jvmArgs = jvmArgs == null ? List.of() : List.copyOf(jvmArgs);
+        }
+
+    }
 
 }

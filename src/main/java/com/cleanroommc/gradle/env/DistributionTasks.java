@@ -449,6 +449,7 @@ public final class DistributionTasks {
             task.getServerLaunchClass().set(serverLaunchClass);
             task.getClientTweakClass().set(clientTweakClass);
             task.getServerTweakClass().set(serverTweakClass);
+            task.getJvmArgs().set(loader.getInstallerJvmArgs());
             task.getOutput().set(caches.getLocalDirectory().file("dist/" + UserdevConfig.FILE_NAME));
         });
         this.userdevJar.configure(task -> {
@@ -529,6 +530,7 @@ public final class DistributionTasks {
             task.getCleanroomVersion().set(version);
             task.getMainClass().set(clientLaunchClass);
             task.getTweakers().set(clientTweakClass.map(List::of));
+            task.getJvmArgs().set(loader.getInstallerJvmArgs());
             task.getCompatibleJavaMajors().set(targetJavaMajor.map(List::of));
             task.getCompatibleJavaName().set(targetJavaName);
             task.getUniversalCoordinate().set(universal.map(Coordinate::serialized));
