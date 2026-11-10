@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.24.0 - 2026-11-10
+
+### Feature
+
+- **renamer**: Utilize provided java launcher *[commit by [@Rongmario](https://github.com/Rongmario) in [acd73a1](https://github.com/CleanroomMC/CleanroomGradle/commit/acd73a122baa0ad127ac80313b9a8123cf919d3e)]*
+- Hook up jvm args providers *[commit by [@Rongmario](https://github.com/Rongmario) in [8a49084](https://github.com/CleanroomMC/CleanroomGradle/commit/8a4908402957fb343d2e80ea989df030e2457960)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.23.0...0.24.0
+
 ## 0.23.0 - 2026-10-28
 
 ### Feature
