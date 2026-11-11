@@ -84,8 +84,9 @@ public final class AccessTransformers {
             if (owner == null || name.equals("*") || name.equals("<init>")) {
                 continue;
             }
-            var mapped = descriptor == -1 ? owner.remapField(name) :
-                owner.remapMethod(name, member.substring(descriptor)) + member.substring(descriptor);
+            var mapped = descriptor == -1
+                ? owner.remapField(name)
+                : owner.remapMethod(name, member.substring(descriptor)) + member.substring(descriptor);
             var at = code.lastIndexOf(member);
             lines[i] = line.substring(0, at) + mapped + line.substring(at + member.length());
         }
@@ -102,8 +103,9 @@ public final class AccessTransformers {
     public static void applyToSources(Path root, String text) throws IOException {
         Map<String, List<Rule>> files = new LinkedHashMap<>();
         for (var rule : parse(text)) {
-            var outer = rule.owner().contains("$") ? rule.owner().substring(0, rule.owner().indexOf('$')) :
-                rule.owner();
+            var outer = rule.owner().contains("$")
+                ? rule.owner().substring(0, rule.owner().indexOf('$'))
+                : rule.owner();
             files.computeIfAbsent(outer.replace('.', '/') + ".java", _ -> new ArrayList<>()).add(rule);
         }
         for (var entry : files.entrySet()) {
@@ -177,194 +179,6 @@ public final class AccessTransformers {
         return scan.edit();
     }
 
-    private record Rule(int access, Boolean finality, String owner, String member, String descriptor) { }
-
-    private record Edit(int start, int end, String text, int order) { }
-
-    private static final class Change {
-
-        final Tree declaration;
-        int access = -1;
-        Boolean finality;
-
-        Change(Tree declaration) {
-            this.declaration = declaration;
-        }
-
-    }
-
-    private static final class Scan {
-
-        final CompilationUnitTree unit;
-        final SourcePositions positions;
-        final String source;
-        final List<Rule> rules;
-        final Map<ModifiersTree, Change> changes = new IdentityHashMap<>();
-
-        Scan(CompilationUnitTree unit, SourcePositions positions, String source, List<Rule> rules) {
-            this.unit = unit;
-            this.positions = positions;
-            this.source = source;
-            this.rules = rules;
-        }
-
-        void visit(ClassTree type, String name, boolean inner, Set<String> typeVariables) {
-            var variables = new HashSet<>(typeVariables);
-            type.getTypeParameters().stream().map(TypeParameterTree::getName).forEach(n -> variables.add(n.toString()));
-            for (var rule : this.rules) {
-                if (!rule.owner().equals(name)) {
-                    continue;
-                }
-                if (rule.member() == null) {
-                    change(type, type.getModifiers(), rule);
-                    continue;
-                }
-                for (var member : type.getMembers()) {
-                    if (rule.descriptor() == null && member instanceof VariableTree field &&
-                        (rule.member().equals("*") || field.getName().contentEquals(rule.member())) &&
-                        !implicit(field.getModifiers())) {
-                        change(field, field.getModifiers(), rule);
-                    } else if (rule.descriptor() != null && member instanceof MethodTree method &&
-                        (rule.member().equals("*") ||
-                            method.getName().contentEquals(rule.member()) &&
-                                matches(method, rule.descriptor(), type, inner, variables))) {
-                        change(method, method.getModifiers(), rule);
-                    }
-                }
-            }
-            for (var member : type.getMembers()) {
-                if (member instanceof ClassTree nested) {
-                    var isInner = nested.getKind() == Tree.Kind.CLASS &&
-                        type.getKind() != Tree.Kind.INTERFACE &&
-                        !nested.getModifiers().getFlags().contains(Modifier.STATIC);
-                    visit(nested, name + "$" + nested.getSimpleName(), isInner, isInner ? variables : Set.of());
-                }
-            }
-        }
-
-        // Enum constants carry modifiers that are not written in the source
-        private boolean implicit(ModifiersTree modifiers) {
-            return !modifiers.getFlags().isEmpty() && this.positions.getStartPosition(this.unit, modifiers) == -1;
-        }
-
-        private boolean matches(
-            MethodTree method, String descriptor, ClassTree owner, boolean inner, Set<String> typeVariables) {
-            var parameters = descriptorParameters(descriptor);
-            if (method.getName().contentEquals("<init>")) {
-                // Constructors of enums and inner classes take leading parameters the source does not declare
-                var synthetic = owner.getKind() == Tree.Kind.ENUM ? 2 : inner ? 1 : 0;
-                parameters = parameters.subList(Math.min(synthetic, parameters.size()), parameters.size());
-            }
-            if (parameters.size() != method.getParameters().size()) {
-                return false;
-            }
-            var variables = new HashSet<>(typeVariables);
-            method.getTypeParameters().forEach(parameter -> variables.add(parameter.getName().toString()));
-            for (var i = 0; i < parameters.size(); i++) {
-                var expected = parameters.get(i);
-                var actual = simpleName(method.getParameters().get(i).getType().toString());
-                // A type variable erases to its bound, which the source does not spell out here
-                if (variables.contains(actual.replace("[]", ""))) {
-                    if (PRIMITIVES.contains(expected.replace("[]", "")) || dimensions(expected) != dimensions(actual)) {
-                        return false;
-                    }
-                } else if (!expected.equals(actual)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        private void change(Tree declaration, ModifiersTree modifiers, Rule rule) {
-            var change = this.changes.computeIfAbsent(modifiers, _ -> new Change(declaration));
-            change.access = Math.max(change.access, rule.access());
-            if (rule.finality() != null) {
-                change.finality = rule.finality();
-            }
-        }
-
-        String edit() {
-            List<Edit> edits = new ArrayList<>();
-            for (var entry : this.changes.entrySet()) {
-                var modifiers = entry.getKey();
-                var change = entry.getValue();
-                var flags = modifiers.getFlags();
-                var current = flags.contains(Modifier.PUBLIC) ? 3 : flags.contains(Modifier.PROTECTED) ? 2 :
-                    flags.contains(Modifier.PRIVATE) ? 0 : 1;
-                var keywords = keywords(modifiers);
-                var start = afterModifiers(change.declaration, modifiers);
-                var first = keywords.isEmpty() ? start : keywords.values().iterator().next();
-                if (change.access > current) {
-                    var keyword = ACCESS.get(current);
-                    var replacement = ACCESS.get(change.access);
-                    // Package access has no keyword, and "default" there would be an interface's default method
-                    var at = current == 1 ? null : keywords.get(keyword);
-                    if (at == null) {
-                        edits.add(new Edit(first, first, replacement + " ", 0));
-                    } else if (change.access == 1) {
-                        edits.add(new Edit(at, endOfSpaces(at + keyword.length()), "", 0));
-                    } else {
-                        edits.add(new Edit(at, at + keyword.length(), replacement, 0));
-                    }
-                }
-                if (Boolean.FALSE.equals(change.finality) && keywords.containsKey("final")) {
-                    var at = keywords.get("final");
-                    edits.add(new Edit(at, endOfSpaces(at + "final".length()), "", 1));
-                } else if (Boolean.TRUE.equals(change.finality) && !flags.contains(Modifier.FINAL)) {
-                    edits.add(new Edit(start, start, "final ", 1));
-                }
-            }
-            // Applied back to front, so earlier edits keep their offsets and inserts at one place keep their order
-            edits.sort(Comparator.comparingInt(Edit::start).thenComparingInt(Edit::order).reversed());
-            var text = new StringBuilder(this.source);
-            for (var edit : edits) {
-                text.replace(edit.start(), edit.end(), edit.text());
-            }
-            return text.toString();
-        }
-
-        private Map<String, Integer> keywords(ModifiersTree modifiers) {
-            Map<String, Integer> keywords = new LinkedHashMap<>();
-            var start = (int) this.positions.getStartPosition(this.unit, modifiers);
-            var end = (int) this.positions.getEndPosition(this.unit, modifiers);
-            if (start < 0 || end <= start) {
-                return keywords;
-            }
-            var text = new StringBuilder(this.source.substring(start, end));
-            for (var annotation : modifiers.getAnnotations()) {
-                var from = (int) this.positions.getStartPosition(this.unit, annotation) - start;
-                var to = (int) this.positions.getEndPosition(this.unit, annotation) - start;
-                text.replace(from, to, " ".repeat(to - from));
-            }
-            var matcher = KEYWORD.matcher(text);
-            while (matcher.find()) {
-                keywords.putIfAbsent(matcher.group(), start + matcher.start());
-            }
-            return keywords;
-        }
-
-        private int afterModifiers(Tree declaration, ModifiersTree modifiers) {
-            var start = (int) this.positions.getStartPosition(this.unit, modifiers);
-            var end = (int) this.positions.getEndPosition(this.unit, modifiers);
-            if (start < 0 || end <= start) {
-                return (int) this.positions.getStartPosition(this.unit, declaration);
-            }
-            while (end < this.source.length() && Character.isWhitespace(this.source.charAt(end))) {
-                end++;
-            }
-            return end;
-        }
-
-        private int endOfSpaces(int position) {
-            while (position < this.source.length() &&
-                (this.source.charAt(position) == ' ' || this.source.charAt(position) == '\t')) {
-                position++;
-            }
-            return position;
-        }
-
-    }
-
     private static List<String> descriptorParameters(String descriptor) {
         List<String> parameters = new ArrayList<>();
         var i = 1;
@@ -417,6 +231,198 @@ public final class AccessTransformers {
 
     private static int dimensions(String type) {
         return (type.length() - type.replace("[]", "").length()) / 2;
+    }
+
+    private record Rule(int access, Boolean finality, String owner, String member, String descriptor) { }
+
+    private record Edit(int start, int end, String text, int order) { }
+
+    private static final class Change {
+
+        final Tree declaration;
+
+        int access = -1;
+        Boolean finality;
+
+        Change(Tree declaration) {
+            this.declaration = declaration;
+        }
+
+    }
+
+    private static final class Scan {
+
+        final CompilationUnitTree unit;
+        final SourcePositions positions;
+        final String source;
+        final List<Rule> rules;
+        final Map<ModifiersTree, Change> changes = new IdentityHashMap<>();
+
+        Scan(CompilationUnitTree unit, SourcePositions positions, String source, List<Rule> rules) {
+            this.unit = unit;
+            this.positions = positions;
+            this.source = source;
+            this.rules = rules;
+        }
+
+        void visit(ClassTree type, String name, boolean inner, Set<String> typeVariables) {
+            var variables = new HashSet<>(typeVariables);
+            type.getTypeParameters().stream().map(TypeParameterTree::getName).forEach(n -> variables.add(n.toString()));
+            for (var rule : this.rules) {
+                if (!rule.owner().equals(name)) {
+                    continue;
+                }
+                if (rule.member() == null) {
+                    change(type, type.getModifiers(), rule);
+                    continue;
+                }
+                for (var member : type.getMembers()) {
+                    if (rule.descriptor() == null &&
+                        member instanceof VariableTree field &&
+                        (rule.member().equals("*") || field.getName().contentEquals(rule.member())) &&
+                        !implicit(field.getModifiers())) {
+                        change(field, field.getModifiers(), rule);
+                    } else if (rule.descriptor() != null &&
+                        member instanceof MethodTree method &&
+                        (rule.member().equals("*") ||
+                            method.getName().contentEquals(rule.member()) &&
+                                matches(method, rule.descriptor(), type, inner, variables))) {
+                        change(method, method.getModifiers(), rule);
+                    }
+                }
+            }
+            for (var member : type.getMembers()) {
+                if (member instanceof ClassTree nested) {
+                    var isInner = nested.getKind() == Tree.Kind.CLASS &&
+                        type.getKind() != Tree.Kind.INTERFACE &&
+                        !nested.getModifiers().getFlags().contains(Modifier.STATIC);
+                    visit(nested, name + "$" + nested.getSimpleName(), isInner, isInner ? variables : Set.of());
+                }
+            }
+        }
+
+        String edit() {
+            List<Edit> edits = new ArrayList<>();
+            for (var entry : this.changes.entrySet()) {
+                var modifiers = entry.getKey();
+                var change = entry.getValue();
+                var flags = modifiers.getFlags();
+                var current = flags.contains(Modifier.PUBLIC)
+                    ? 3
+                    : flags.contains(Modifier.PROTECTED) ? 2 : flags.contains(Modifier.PRIVATE) ? 0 : 1;
+                var keywords = keywords(modifiers);
+                var start = afterModifiers(change.declaration, modifiers);
+                var first = keywords.isEmpty() ? start : keywords.values().iterator().next();
+                if (change.access > current) {
+                    var keyword = ACCESS.get(current);
+                    var replacement = ACCESS.get(change.access);
+                    // Package access has no keyword, and "default" there would be an interface's default method
+                    var at = current == 1 ? null : keywords.get(keyword);
+                    if (at == null) {
+                        edits.add(new Edit(first, first, replacement + " ", 0));
+                    } else if (change.access == 1) {
+                        edits.add(new Edit(at, endOfSpaces(at + keyword.length()), "", 0));
+                    } else {
+                        edits.add(new Edit(at, at + keyword.length(), replacement, 0));
+                    }
+                }
+                if (Boolean.FALSE.equals(change.finality) && keywords.containsKey("final")) {
+                    var at = keywords.get("final");
+                    edits.add(new Edit(at, endOfSpaces(at + "final".length()), "", 1));
+                } else if (Boolean.TRUE.equals(change.finality) && !flags.contains(Modifier.FINAL)) {
+                    edits.add(new Edit(start, start, "final ", 1));
+                }
+            }
+            // Applied back to front, so earlier edits keep their offsets and inserts at one place keep their order
+            edits.sort(Comparator.comparingInt(Edit::start).thenComparingInt(Edit::order).reversed());
+            var text = new StringBuilder(this.source);
+            for (var edit : edits) {
+                text.replace(edit.start(), edit.end(), edit.text());
+            }
+            return text.toString();
+        }
+
+        // Enum constants carry modifiers that are not written in the source
+        private boolean implicit(ModifiersTree modifiers) {
+            return !modifiers.getFlags().isEmpty() && this.positions.getStartPosition(this.unit, modifiers) == -1;
+        }
+
+        private boolean matches(
+            MethodTree method, String descriptor, ClassTree owner, boolean inner, Set<String> typeVariables) {
+            var parameters = descriptorParameters(descriptor);
+            if (method.getName().contentEquals("<init>")) {
+                // Constructors of enums and inner classes take leading parameters the source does not declare
+                var synthetic = owner.getKind() == Tree.Kind.ENUM ? 2 : inner ? 1 : 0;
+                parameters = parameters.subList(Math.min(synthetic, parameters.size()), parameters.size());
+            }
+            if (parameters.size() != method.getParameters().size()) {
+                return false;
+            }
+            var variables = new HashSet<>(typeVariables);
+            method.getTypeParameters().forEach(parameter -> variables.add(parameter.getName().toString()));
+            for (var i = 0; i < parameters.size(); i++) {
+                var expected = parameters.get(i);
+                var actual = simpleName(method.getParameters().get(i).getType().toString());
+                // A type variable erases to its bound, which the source does not spell out here
+                if (variables.contains(actual.replace("[]", ""))) {
+                    if (PRIMITIVES.contains(expected.replace("[]", "")) || dimensions(expected) != dimensions(actual)) {
+                        return false;
+                    }
+                } else if (!expected.equals(actual)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private void change(Tree declaration, ModifiersTree modifiers, Rule rule) {
+            var change = this.changes.computeIfAbsent(modifiers, _ -> new Change(declaration));
+            change.access = Math.max(change.access, rule.access());
+            if (rule.finality() != null) {
+                change.finality = rule.finality();
+            }
+        }
+
+        private Map<String, Integer> keywords(ModifiersTree modifiers) {
+            Map<String, Integer> keywords = new LinkedHashMap<>();
+            var start = (int) this.positions.getStartPosition(this.unit, modifiers);
+            var end = (int) this.positions.getEndPosition(this.unit, modifiers);
+            if (start < 0 || end <= start) {
+                return keywords;
+            }
+            var text = new StringBuilder(this.source.substring(start, end));
+            for (var annotation : modifiers.getAnnotations()) {
+                var from = (int) this.positions.getStartPosition(this.unit, annotation) - start;
+                var to = (int) this.positions.getEndPosition(this.unit, annotation) - start;
+                text.replace(from, to, " ".repeat(to - from));
+            }
+            var matcher = KEYWORD.matcher(text);
+            while (matcher.find()) {
+                keywords.putIfAbsent(matcher.group(), start + matcher.start());
+            }
+            return keywords;
+        }
+
+        private int afterModifiers(Tree declaration, ModifiersTree modifiers) {
+            var start = (int) this.positions.getStartPosition(this.unit, modifiers);
+            var end = (int) this.positions.getEndPosition(this.unit, modifiers);
+            if (start < 0 || end <= start) {
+                return (int) this.positions.getStartPosition(this.unit, declaration);
+            }
+            while (end < this.source.length() && Character.isWhitespace(this.source.charAt(end))) {
+                end++;
+            }
+            return end;
+        }
+
+        private int endOfSpaces(int position) {
+            while (position < this.source.length() &&
+                (this.source.charAt(position) == ' ' || this.source.charAt(position) == '\t')) {
+                position++;
+            }
+            return position;
+        }
+
     }
 
 }

@@ -10,10 +10,10 @@
 
 package com.cleanroommc.gradle.api.userdev;
 
-import net.minecraftforge.srgutils.IMappingFile;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import net.minecraftforge.srgutils.IMappingFile;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -26,10 +26,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AccessTransformersTest {
 
     private static final String SRG_TO_MCP = """
-        net/minecraft/item/ItemStack net/minecraft/item/ItemStack
-        \tfield_77994_a stackSize
-        \tfunc_77946_l ()Lnet/minecraft/item/ItemStack; copy
-        """;
+                                             net/minecraft/item/ItemStack net/minecraft/item/ItemStack
+                                             \tfield_77994_a stackSize
+                                             \tfunc_77946_l ()Lnet/minecraft/item/ItemStack; copy
+                                             """;
 
     @TempDir Path directory;
 
@@ -37,23 +37,23 @@ class AccessTransformersTest {
     void remapsMembersBothWays() throws IOException {
         var srgToMcp = IMappingFile.load(new ByteArrayInputStream(SRG_TO_MCP.getBytes(StandardCharsets.UTF_8)));
         var srg = """
-            # header
-            public net.minecraft.item.ItemStack field_77994_a # count
-            public-f net.minecraft.item.ItemStack func_77946_l()Lnet/minecraft/item/ItemStack;
-            public net.minecraft.item.ItemStack *()
-            public net.minecraft.item.ItemStack <init>(I)V
-            public net.minecraft.item.ItemStack
-            public net.minecraft.Unknown field_1_a
-            """;
+                  # header
+                  public net.minecraft.item.ItemStack field_77994_a # count
+                  public-f net.minecraft.item.ItemStack func_77946_l()Lnet/minecraft/item/ItemStack;
+                  public net.minecraft.item.ItemStack *()
+                  public net.minecraft.item.ItemStack <init>(I)V
+                  public net.minecraft.item.ItemStack
+                  public net.minecraft.Unknown field_1_a
+                  """;
         var mcp = """
-            # header
-            public net.minecraft.item.ItemStack stackSize # count
-            public-f net.minecraft.item.ItemStack copy()Lnet/minecraft/item/ItemStack;
-            public net.minecraft.item.ItemStack *()
-            public net.minecraft.item.ItemStack <init>(I)V
-            public net.minecraft.item.ItemStack
-            public net.minecraft.Unknown field_1_a
-            """;
+                  # header
+                  public net.minecraft.item.ItemStack stackSize # count
+                  public-f net.minecraft.item.ItemStack copy()Lnet/minecraft/item/ItemStack;
+                  public net.minecraft.item.ItemStack *()
+                  public net.minecraft.item.ItemStack <init>(I)V
+                  public net.minecraft.item.ItemStack
+                  public net.minecraft.Unknown field_1_a
+                  """;
 
         assertThat(AccessTransformers.remap(srg, srgToMcp)).isEqualTo(mcp);
         assertThat(AccessTransformers.remap(mcp, srgToMcp.reverse())).isEqualTo(srg);
@@ -82,7 +82,8 @@ class AccessTransformersTest {
             """
         );
 
-        assertThat(file).isEqualTo("""
+        assertThat(file).isEqualTo(
+            """
             package a;
 
             public class Block {
@@ -92,7 +93,8 @@ class AccessTransformersTest {
                 protected int z;
                 protected final int w = 0;
             }
-            """);
+            """
+        );
     }
 
     @Test
@@ -115,7 +117,8 @@ class AccessTransformersTest {
             """
         );
 
-        assertThat(file).isEqualTo("""
+        assertThat(file).isEqualTo(
+            """
             package a;
 
             class Block {
@@ -123,7 +126,8 @@ class AccessTransformersTest {
                 int y;
                 final int z;
             }
-            """);
+            """
+        );
     }
 
     @Test
@@ -150,7 +154,8 @@ class AccessTransformersTest {
             """
         );
 
-        assertThat(file).isEqualTo("""
+        assertThat(file).isEqualTo(
+            """
             package a;
 
             import java.util.List;
@@ -162,7 +167,8 @@ class AccessTransformersTest {
                 protected Block() { }
                 void other() { }
             }
-            """);
+            """
+        );
     }
 
     @Test
@@ -191,7 +197,8 @@ class AccessTransformersTest {
             """
         );
 
-        assertThat(file).isEqualTo("""
+        assertThat(file).isEqualTo(
+            """
             package a;
 
             public class Block {
@@ -204,7 +211,8 @@ class AccessTransformersTest {
                     public Kind() { }
                 }
             }
-            """);
+            """
+        );
     }
 
     private String apply(String path, String source, String at) throws IOException {
