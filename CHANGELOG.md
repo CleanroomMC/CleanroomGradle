@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.25.0 - 2026-11-11
+
+### Feature
+
+- **userdev**: Accept MCP names in access transformers *[commit by [@Rongmario](https://github.com/Rongmario) in [843367f](https://github.com/CleanroomMC/CleanroomGradle/commit/843367f520104e1ff74c3d2e3eb31100e7f8e8e9)]*
+
+### Bug Fix
+
+- **userdev**: Apply project access transformers to sources *[commit by [@Rongmario](https://github.com/Rongmario) in [53016ac](https://github.com/CleanroomMC/CleanroomGradle/commit/53016ac5c932f22d4a821ef7c8f68179f10aceb4)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.24.1...0.25.0
+
 ## 0.24.1 - 2026-11-10
 
 ### Feature
