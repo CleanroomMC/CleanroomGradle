@@ -16,6 +16,7 @@ import com.cleanroommc.gradle.api.ext.MinecraftExtension;
 import com.cleanroommc.gradle.api.ext.PatchDevEnvironment;
 import com.cleanroommc.gradle.api.ext.PatchesExtension;
 import com.cleanroommc.gradle.api.task.Tasks;
+import com.cleanroommc.gradle.api.task.common.WriteBootList;
 import com.cleanroommc.gradle.api.task.mc.NsightExec;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.task.mcp.SplitJar;
@@ -27,6 +28,8 @@ import com.cleanroommc.gradle.api.util.lazy.SourceSets;
 
 import org.gradle.api.DefaultTask;
 import org.gradle.api.Project;
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
+import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.SourceSetContainer;
@@ -44,6 +47,7 @@ public final class CleanroomTasks {
     private static final String RUNS_GROUP_NAME = "cleanroom runs";
 
     public final TaskProvider<DefaultTask> setup;
+    public final TaskProvider<WriteBootList> writeBootList;
     public final TaskProvider<RunMinecraft> runCleanroomClient;
     public final TaskProvider<RunMinecraft> runCleanroomServer;
     public final TaskProvider<NsightExec> runCleanroomNsightClient;
@@ -82,6 +86,31 @@ public final class CleanroomTasks {
                 task.mustRunAfter(minecraftPatchDev.map(PatchDevEnvironment::getApplyDiffs));
             });
         });
+
+        var bootLibraries = loader.getBootLibraries();
+        this.writeBootList = Tasks.register(project, "writeBootList", WriteBootList.class);
+        this.writeBootList.configure(task -> {
+            task.setDescription("Writes the boot list, which names what Cleanroom's library loader defines.");
+            task.getLibraries()
+                .set(
+                    project.getConfigurations()
+                        .named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME)
+                        .flatMap(configuration -> configuration.getIncoming().getArtifacts().getResolvedArtifacts())
+                        .zip(
+                            bootLibraries,
+                            (artifacts, wanted) -> artifacts.stream()
+                                .filter(artifact -> artifact.getId().getComponentIdentifier() instanceof ModuleComponentIdentifier id &&
+                                    wanted.contains(id.getGroup() + ":" + id.getModule()))
+                                .map(artifact -> artifact.getFile().getName())
+                                .toList()
+                        )
+                );
+            task.getResources().set(loader.getBootResources());
+            task.getAnnotation().set(loader.getBootAnnotation());
+            task.getClasses().set(mainSourceSet.flatMap(sourceSet -> sourceSet.getJava().getClassesDirectory()));
+            task.getOutput().set(project.getLayout().getBuildDirectory().dir("generated/bootList"));
+        });
+        mainSourceSet.configure(sourceSet -> sourceSet.getResources().srcDir(this.writeBootList));
 
         // The loader's log4j configuration writes logs/ next to the working directory, which Gradle
         // leaves at the project root for tests

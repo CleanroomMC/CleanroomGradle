@@ -36,6 +36,9 @@ public abstract class LoaderExtension {
         getLwjglNativesClassifiers().convention(LwjglNatives.CLASSIFIERS);
         getIntermediateRuns().convention(false);
         getHiddenAnnotation().convention(UserdevConfig.Loader.HIDDEN_ANNOTATION);
+        getBootLibraries().convention(List.of());
+        getBootResources().convention(List.of());
+        getBootAnnotation().convention("com.cleanroommc.boot.util.Boot");
     }
 
     public abstract Property<String> getForgeVersion();
@@ -63,5 +66,20 @@ public abstract class LoaderExtension {
     public abstract Property<Boolean> getIntermediateRuns();
 
     public abstract Property<String> getHiddenAnnotation();
+
+    /**
+     * {@code group:module} of the runtime libraries Cleanroom's library loader defines, written into its boot list.
+     */
+    public abstract ListProperty<String> getBootLibraries();
+
+    /**
+     * Exact resource entries Cleanroom's library loader answers from the loader jar.
+     */
+    public abstract ListProperty<String> getBootResources();
+
+    /**
+     * Binary name of the annotation that marks boot packages and classes.
+     */
+    public abstract Property<String> getBootAnnotation();
 
 }
