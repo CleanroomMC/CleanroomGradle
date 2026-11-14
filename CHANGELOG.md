@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.26.0 - 2026-11-14
+
+### Feature
+
+- **loader**: Generate "boot list" from annotation marked classes *[commit by [@Rongmario](https://github.com/Rongmario) in [dbab252](https://github.com/CleanroomMC/CleanroomGradle/commit/dbab25291e2571c5e4c920389f2b6e1f565cff71)]*
+
+### Testing
+
+- **loader**: Guard boot list library names against the installer and the MMC pack *[commit by [@Rongmario](https://github.com/Rongmario) in [5a57728](https://github.com/CleanroomMC/CleanroomGradle/commit/5a577280821187ffbc8a65e08d3cacd83772a8f6)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.25.0...0.26.0
+
 ## 0.25.0 - 2026-11-11
 
 ### Feature
