@@ -27,6 +27,7 @@ import com.cleanroommc.gradle.api.util.Property;
 import com.cleanroommc.gradle.api.util.lazy.SourceSets;
 
 import org.gradle.api.DefaultTask;
+import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.plugins.JavaPlugin;
@@ -35,9 +36,11 @@ import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.api.tasks.testing.Test;
+import org.gradle.language.jvm.tasks.ProcessResources;
 
 import net.minecraftforge.fml.relauncher.Side;
 
+import java.io.File;
 import java.util.List;
 
 public final class CleanroomTasks {
@@ -108,6 +111,14 @@ public final class CleanroomTasks {
             task.getOutput().set(project.getLayout().getBuildDirectory().dir("generated/bootList"));
         });
         mainSourceSet.configure(sourceSet -> sourceSet.getResources().srcDir(this.writeBootList));
+
+        project.getTasks()
+            .named(JavaPlugin.PROCESS_RESOURCES_TASK_NAME, ProcessResources.class)
+            .configure(task -> task.doLast("checkBootList", t -> {
+                if (!new File(((ProcessResources) t).getDestinationDir(), WriteBootList.PATH).isFile()) {
+                    throw new GradleException(WriteBootList.PATH + " is missing from the resources. Add to sourceSets.main.resources.srcDirs instead of assigning it.");
+                }
+            }));
 
         // The loader's log4j configuration writes logs/ next to the working directory, which Gradle
         // leaves at the project root for tests
