@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.26.1 - 2026-11-14
+
+### Feature
+
+- **loader**: Fail processResources when the boot list is missing *[commit by [@Rongmario](https://github.com/Rongmario) in [923d325](https://github.com/CleanroomMC/CleanroomGradle/commit/923d325f8344f1381304c8a4fbf9b8609ba145f8)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.26.0...0.26.1
+
 ## 0.26.0 - 2026-11-14
 
 ### Feature
