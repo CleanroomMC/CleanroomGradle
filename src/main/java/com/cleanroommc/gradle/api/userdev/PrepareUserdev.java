@@ -18,6 +18,8 @@ import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.inject.MetadataInjector;
 import com.cleanroommc.gradle.api.util.sas.SideOnlyHandler;
 
+import org.apache.commons.io.FileUtils;
+
 import org.gradle.api.artifacts.transform.CacheableTransform;
 import org.gradle.api.artifacts.transform.InputArtifact;
 import org.gradle.api.artifacts.transform.TransformAction;
@@ -39,9 +41,7 @@ import org.gradle.process.ExecOperations;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.ProxySelector;
 import java.net.URI;
-import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.channels.FileChannel;
@@ -81,7 +81,7 @@ public abstract class PrepareUserdev implements TransformAction<PrepareUserdev.P
         var output = outputs.dir("userdev-prepared");
         var work = output.toPath().resolveSibling("prepare-work");
         try {
-            UserdevArchive.delete(work);
+            FileUtils.deleteDirectory(work.toFile());
             Files.createDirectories(work);
             var userdev = new File(output, USERDEV);
             Files.copy(input.toPath(), userdev.toPath());
@@ -128,8 +128,8 @@ public abstract class PrepareUserdev implements TransformAction<PrepareUserdev.P
             var loaderSrg = work.resolve("loader-srg.jar").toFile();
             UserdevArchive.select(input, loaderSrg, name -> !name.startsWith(UserdevConfig.META + "/"), "");
             var loaderNotch = work.resolve("loader-notch.jar").toFile();
-            UserdevArchive.rename(
-                getExecOperations(), getParameters().getRenamerClasspath(), loaderSrg, loaderNotch, obfToSrg,
+            Execs.rename(
+                getExecOperations(), getParameters().getRenamerClasspath(), loaderSrg, List.of(obfToSrg), loaderNotch,
                 getParameters().getLibraries(), "--reverse", "--naive-srg"
             );
             var patched = srg(
@@ -137,7 +137,7 @@ public abstract class PrepareUserdev implements TransformAction<PrepareUserdev.P
                 work.resolve("client-extra.jar").toFile(), work.resolve("server-extra.jar").toFile()
             );
             IO.move(patched.toPath(), output.toPath().resolve(MINECRAFT_SRG));
-            UserdevArchive.delete(work);
+            FileUtils.deleteDirectory(work.toFile());
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to prepare Minecraft for " + input, e);
         }
@@ -166,8 +166,9 @@ public abstract class PrepareUserdev implements TransformAction<PrepareUserdev.P
         var renamed = work.resolve("srg.jar").toFile();
         var allLibraries = new ArrayList<>(libraries);
         getParameters().getLibraries().forEach(allLibraries::add);
-        UserdevArchive.rename(
-            getExecOperations(), getParameters().getRenamerClasspath(), merged, renamed, obfToSrg, allLibraries
+        Execs.rename(
+            getExecOperations(), getParameters().getRenamerClasspath(), merged, List.of(obfToSrg), renamed,
+            allLibraries
         );
         var injected = work.resolve("injected.jar");
         MetadataInjector.inject(
@@ -199,15 +200,8 @@ public abstract class PrepareUserdev implements TransformAction<PrepareUserdev.P
                 .timeout(Duration.ofMinutes(5))
                 .GET()
                 .build();
-            var builder = HttpClient.newBuilder()
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .connectTimeout(Duration.ofSeconds(30));
-            var proxy = ProxySelector.getDefault();
-            if (proxy != null) {
-                builder.proxy(proxy);
-            }
-            try (var client = builder.build()) {
-                var response = client.send(request, HttpResponse.BodyHandlers.ofFile(temporary));
+            try {
+                var response = IO.httpClient().send(request, HttpResponse.BodyHandlers.ofFile(temporary));
                 if (response.statusCode() / 100 != 2) {
                     throw new IOException("HTTP " + response.statusCode() + " downloading " + download.url());
                 }

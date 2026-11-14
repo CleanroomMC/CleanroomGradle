@@ -32,7 +32,6 @@ import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.SourceSet;
-import org.gradle.api.tasks.SourceSetContainer;
 import org.gradle.api.tasks.TaskProvider;
 import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.api.tasks.testing.Test;
@@ -55,9 +54,7 @@ public final class CleanroomTasks {
     public CleanroomTasks(
         Project project, CachesExtension caches, MinecraftExtension minecraft, LoaderExtension loader,
         PatchesExtension patches, VanillaTasks vanilla, MCPTasks mcp, McpMappings mappings) {
-        var mainSourceSet = project.getExtensions()
-            .getByType(SourceSetContainer.class)
-            .named(SourceSet.MAIN_SOURCE_SET_NAME);
+        var mainSourceSet = SourceSets.container(project).named(SourceSet.MAIN_SOURCE_SET_NAME);
         SourceSets.extendFromConfiguration(project, mainSourceSet, vanilla.vanillaConfig);
         var minecraftPatchDev = patches.getPatchDev().register("minecraft", env -> {
             var module = project.getLayout().getProjectDirectory().dir("module/minecraft");

@@ -26,7 +26,6 @@ import net.minecraftforge.srgutils.IMappingFile;
 
 import java.io.IOException;
 import java.util.stream.Collectors;
-import java.util.zip.ZipEntry;
 
 @CacheableTask
 public abstract class SplitJar extends DefaultTask {
@@ -50,10 +49,7 @@ public abstract class SplitJar extends DefaultTask {
                                 classes.contains(name) ||
                                 innerClass >= 0 && classes.contains(name.substring(0, innerClass) + ".class"));
                         var zos = minecraftClass ? slimZos : extraZos;
-                        var newEntry = new ZipEntry(name);
-                        newEntry.setTime(0L); // Fixed timestamp to keep stability
-                        zos.putNextEntry(newEntry);
-                        sourceZis.transferTo(zos);
+                        IO.writeEntry(zos, name, sourceZis.readAllBytes());
                     }
                 }
             }

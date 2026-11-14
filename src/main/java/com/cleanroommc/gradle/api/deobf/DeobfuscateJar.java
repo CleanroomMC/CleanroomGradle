@@ -34,11 +34,7 @@ import org.gradle.api.tasks.PathSensitivity;
 import org.gradle.process.ExecOperations;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.ArrayList;
-import java.util.jar.Attributes;
-import java.util.jar.JarFile;
 import javax.inject.Inject;
 
 /**
@@ -46,27 +42,6 @@ import javax.inject.Inject;
  */
 @CacheableTransform
 public abstract class DeobfuscateJar implements TransformAction<DeobfuscateJar.Parameters> {
-
-    /**
-     * The renamer ships as an executable fat jar, so its entry point comes from the manifest rather than
-     * from any property the renamer plugin exposes.
-     */
-    private static String mainClassOf(Iterable<File> classpath) {
-        for (var file : classpath) {
-            try (var jar = new JarFile(file)) {
-                var manifest = jar.getManifest();
-                if (manifest != null) {
-                    var mainClass = manifest.getMainAttributes().getValue(Attributes.Name.MAIN_CLASS);
-                    if (mainClass != null) {
-                        return mainClass;
-                    }
-                }
-            } catch (IOException e) {
-                throw new UncheckedIOException("Could not read " + file, e);
-            }
-        }
-        throw new InvalidUserDataException("No Main-Class found on the renamer classpath: " + classpath);
-    }
 
     @InputArtifact
     @PathSensitive(PathSensitivity.NAME_ONLY)
@@ -107,30 +82,8 @@ public abstract class DeobfuscateJar implements TransformAction<DeobfuscateJar.P
         var baseName = name.endsWith(".jar") ? name.substring(0, name.length() - 4) : name;
         var output = outputs.file(baseName + "-deobf.jar");
 
-        var arguments = new ArrayList<String>();
-        arguments.add("--input");
-        arguments.add(input.getAbsolutePath());
-        for (var mapping : mappings) {
-            arguments.add("--map");
-            arguments.add(mapping.getAbsolutePath());
-        }
-        arguments.add("--output");
-        arguments.add(output.getAbsolutePath());
-        for (var library : libraries) {
-            arguments.add("--lib");
-            arguments.add(library.getAbsolutePath());
-        }
-        for (var dependency : getArtifactDependencies()) {
-            arguments.add("--lib");
-            arguments.add(dependency.getAbsolutePath());
-        }
-
-        var renamer = parameters.getRenamerClasspath();
-        Execs.quietJavaExec(getExecOperations(), spec -> {
-            spec.setClasspath(renamer);
-            spec.getMainClass().set(mainClassOf(renamer));
-            spec.setArgs(arguments);
-        });
+        getArtifactDependencies().forEach(libraries::add);
+        Execs.rename(getExecOperations(), parameters.getRenamerClasspath(), input, mappings, output, libraries);
     }
 
     @Inject

@@ -35,7 +35,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
@@ -51,16 +50,9 @@ import java.util.zip.ZipOutputStream;
 @CacheableTask
 public abstract class GenerateBinPatches extends DefaultTask {
 
-    private static Map<String, ZipEntry> indexClasses(ZipFile zip, Predicate<String> included) {
-        var classes = new TreeMap<String, ZipEntry>();
-        var entries = zip.entries();
-        while (entries.hasMoreElements()) {
-            var entry = entries.nextElement();
-            if (entry.isDirectory() || !entry.getName().endsWith(".class") || !included.test(entry.getName())) {
-                continue;
-            }
-            classes.put(entry.getName(), entry);
-        }
+    private static Map<String, ZipEntry> indexClasses(ZipFile zip, Predicate<String> included) throws IOException {
+        var classes = IO.sortedEntries(zip);
+        classes.keySet().removeIf(name -> !name.endsWith(".class") || !included.test(name));
         return classes;
     }
 
@@ -106,7 +98,6 @@ public abstract class GenerateBinPatches extends DefaultTask {
     @TaskAction
     public void generate() {
         Path output = getBinpatches().getAsFile().get().toPath();
-        Path temporary = output.resolveSibling(output.getFileName() + ".tmp");
         Predicate<String> included;
         try {
             included = classFilter();
@@ -114,27 +105,15 @@ public abstract class GenerateBinPatches extends DefaultTask {
             throw new UncheckedIOException("Failed to read obfuscation mappings", e);
         }
         try {
-            Path parent = output.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            try (var archive = IO.zipOut(temporary.toFile())) {
-                generateSide(
-                    archive, getClientOriginalJar().getAsFile().get(), getClientModifiedJar().getAsFile().get(),
-                    getClientPrefix().get(), included
-                );
-                generateSide(
-                    archive, getServerOriginalJar().getAsFile().get(), getServerModifiedJar().getAsFile().get(),
-                    getServerPrefix().get(), included
-                );
-            }
-            IO.move(temporary, output);
+            var clientOriginal = getClientOriginalJar().getAsFile().get();
+            var clientModified = getClientModifiedJar().getAsFile().get();
+            var serverOriginal = getServerOriginalJar().getAsFile().get();
+            var serverModified = getServerModifiedJar().getAsFile().get();
+            IO.writeZip(output, archive -> {
+                generateSide(archive, clientOriginal, clientModified, getClientPrefix().get(), included);
+                generateSide(archive, serverOriginal, serverModified, getServerPrefix().get(), included);
+            });
         } catch (IOException e) {
-            try {
-                Files.deleteIfExists(temporary);
-            } catch (IOException suppressed) {
-                e.addSuppressed(suppressed);
-            }
             throw new UncheckedIOException("Failed to generate binpatches", e);
         }
     }

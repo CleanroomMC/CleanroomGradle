@@ -10,6 +10,8 @@
 
 package com.cleanroommc.gradle.api.task.userdev;
 
+import com.cleanroommc.gradle.api.util.IO;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.Property;
@@ -23,8 +25,6 @@ import org.gradle.api.tasks.TaskAction;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.util.zip.ZipFile;
 
 @CacheableTask
 public abstract class ExtractUserdevFile extends DefaultTask {
@@ -43,16 +43,11 @@ public abstract class ExtractUserdevFile extends DefaultTask {
     public void extract() {
         var artifact = getUserdevArtifact().getAsFile().get();
         var output = getOutput().getAsFile().get().toPath();
-        try (var zip = new ZipFile(artifact)) {
-            var entry = zip.getEntry(getEntryPath().get());
-            if (entry == null || entry.isDirectory()) {
+        try {
+            if (!IO.extractEntry(artifact, getEntryPath().get(), output)) {
                 throw new IllegalStateException(
                     artifact + " is missing required userdev entry " + getEntryPath().get() + "."
                 );
-            }
-            Files.createDirectories(output.getParent());
-            try (var input = zip.getInputStream(entry)) {
-                Files.copy(input, output, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to extract " + getEntryPath().get() + " from " + artifact, e);

@@ -11,14 +11,13 @@
 package com.cleanroommc.gradle.api.task.dist;
 
 import com.cleanroommc.gradle.api.schema.VersionMeta;
+import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.dist.Artifact;
 import com.cleanroommc.gradle.api.util.dist.Coordinate;
 import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -47,7 +46,6 @@ import org.gradle.api.tasks.TaskAction;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
@@ -79,8 +77,6 @@ import javax.inject.Inject;
 public abstract class WriteInstallProfile extends DefaultTask {
 
     public static final int SPEC = 1;
-
-    private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
 
     /**
      * Appends an option a launcher reads more than once, such as {@code --tweakClass}, unless that exact pair is there.
@@ -135,8 +131,7 @@ public abstract class WriteInstallProfile extends DefaultTask {
 
     private static void writeJson(File output, JsonObject json) {
         try {
-            Files.createDirectories(output.toPath().getParent());
-            Files.write(output.toPath(), (GSON.toJson(json) + "\n").getBytes(StandardCharsets.UTF_8));
+            IO.writeString(output.toPath(), IO.GSON.toJson(json) + "\n");
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to write " + output, e);
         }
@@ -276,9 +271,9 @@ public abstract class WriteInstallProfile extends DefaultTask {
         version.addProperty("releaseTime", getReleaseTime().get());
         version.addProperty("type", "release");
         version.addProperty("mainClass", getMainClass().get());
-        version.add("assetIndex", GSON.toJsonTree(meta.assetIndex()));
+        version.add("assetIndex", IO.GSON.toJsonTree(meta.assetIndex()));
         version.addProperty("assets", meta.assets());
-        version.add("downloads", GSON.toJsonTree(meta.downloads()));
+        version.add("downloads", IO.GSON.toJsonTree(meta.downloads()));
         var java = new JsonObject();
         java.addProperty("component", "java-runtime-epsilon");
         java.addProperty("majorVersion", getRecommendedJava().get());
@@ -338,13 +333,13 @@ public abstract class WriteInstallProfile extends DefaultTask {
         java.addProperty("distro", getJavaDistro().getOrElse("zulu"));
         profile.add("java", java);
 
-        profile.add("jvmArgs", GSON.toJsonTree(getJvmArgs().get()));
+        profile.add("jvmArgs", IO.GSON.toJsonTree(getJvmArgs().get()));
         profile.addProperty("mainClass", getMainClass().get());
         profile.addProperty("serverMainClass", getServerMainClass().get());
-        profile.add("tweakers", GSON.toJsonTree(getTweakers().get()));
-        profile.add("serverTweakers", GSON.toJsonTree(getServerTweakers().get()));
+        profile.add("tweakers", IO.GSON.toJsonTree(getTweakers().get()));
+        profile.add("serverTweakers", IO.GSON.toJsonTree(getServerTweakers().get()));
         profile.addProperty("serverJarPath", "libraries/" + universal.coordinate().mavenPath());
-        profile.add("repositories", GSON.toJsonTree(repositoryUrls(universal)));
+        profile.add("repositories", IO.GSON.toJsonTree(repositoryUrls(universal)));
         return profile;
     }
 

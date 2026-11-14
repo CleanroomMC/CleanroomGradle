@@ -14,8 +14,6 @@ import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.util.IO;
 
-import com.google.gson.GsonBuilder;
-
 import org.gradle.api.DefaultTask;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
@@ -153,8 +151,7 @@ public abstract class WriteUserdevConfig extends DefaultTask {
         );
         var output = getOutput().getAsFile().get().toPath();
         try {
-            var json = new GsonBuilder().setPrettyPrinting().create().toJson(config);
-            IO.writeString(output, json + "\n");
+            IO.writeString(output, IO.GSON.toJson(config) + "\n");
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to write " + output, e);
         }

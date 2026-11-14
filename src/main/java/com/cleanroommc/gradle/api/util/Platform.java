@@ -16,6 +16,7 @@ import org.gradle.nativeplatform.OperatingSystemFamily;
 import java.io.File;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 
 public final class Platform {
 
@@ -139,7 +140,7 @@ public final class Platform {
         FREE_BSD;
 
         private static OperatingSystem determine() {
-            var osName = System.getProperty("os.name").toLowerCase();
+            var osName = System.getProperty("os.name").toLowerCase(Locale.ROOT);
             if (osName.contains("win")) {
                 return OperatingSystem.WINDOWS;
             } else if (osName.contains("mac")) {
@@ -187,7 +188,7 @@ public final class Platform {
         }
 
         private static Architecture determine() {
-            var arch = System.getProperty("os.arch").toLowerCase();
+            var arch = System.getProperty("os.arch").toLowerCase(Locale.ROOT);
             return switch (arch) {
                 case "x86", "i386", "i486", "i586", "i686" -> X86;
                 case "aarch64", "arm64" -> ARM64;

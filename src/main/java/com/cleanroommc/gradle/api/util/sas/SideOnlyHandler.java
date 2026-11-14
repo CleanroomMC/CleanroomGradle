@@ -792,14 +792,9 @@ public final class SideOnlyHandler {
     private static Map<String, byte[]> readArchive(Path input) throws IOException {
         var result = new TreeMap<String, byte[]>();
         try (var zip = new ZipFile(input.toFile())) {
-            var entries = zip.entries();
-            while (entries.hasMoreElements()) {
-                var entry = entries.nextElement();
-                if (entry.isDirectory() || signatureFile(entry.getName())) {
-                    continue;
-                }
-                if (result.put(entry.getName(), IO.readEntry(zip, entry)) != null) {
-                    throw new IOException("Duplicate jar entry: " + entry.getName());
+            for (var entry : IO.sortedEntries(zip).entrySet()) {
+                if (!signatureFile(entry.getKey())) {
+                    result.put(entry.getKey(), IO.readEntry(zip, entry.getValue()));
                 }
             }
         }
@@ -807,28 +802,20 @@ public final class SideOnlyHandler {
     }
 
     private static void writeArchive(Path output, Map<String, byte[]> entries) throws IOException {
-        var absolute = output.toAbsolutePath();
-        Files.createDirectories(absolute.getParent());
-        var temporary = Files.createTempFile(absolute.getParent(), absolute.getFileName().toString(), ".tmp");
-        try {
-            var ordered = new LinkedHashMap<String, byte[]>();
-            if (entries.containsKey(MANIFEST)) {
-                ordered.put(MANIFEST, entries.get(MANIFEST));
-            }
-            entries.entrySet()
-                .stream()
-                .filter(entry -> !MANIFEST.equals(entry.getKey()))
-                .sorted(Map.Entry.comparingByKey())
-                .forEach(entry -> ordered.put(entry.getKey(), entry.getValue()));
-            try (var outputStream = IO.zipOut(temporary.toFile())) {
-                for (var entry : ordered.entrySet()) {
-                    IO.writeEntry(outputStream, entry.getKey(), entry.getValue());
-                }
-            }
-            IO.move(temporary, absolute);
-        } finally {
-            Files.deleteIfExists(temporary);
+        var ordered = new LinkedHashMap<String, byte[]>();
+        if (entries.containsKey(MANIFEST)) {
+            ordered.put(MANIFEST, entries.get(MANIFEST));
         }
+        entries.entrySet()
+            .stream()
+            .filter(entry -> !MANIFEST.equals(entry.getKey()))
+            .sorted(Map.Entry.comparingByKey())
+            .forEach(entry -> ordered.put(entry.getKey(), entry.getValue()));
+        IO.writeZip(output, outputStream -> {
+            for (var entry : ordered.entrySet()) {
+                IO.writeEntry(outputStream, entry.getKey(), entry.getValue());
+            }
+        });
     }
 
     private static boolean signatureFile(String name) {

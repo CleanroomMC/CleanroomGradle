@@ -24,6 +24,7 @@ import org.gradle.api.tasks.TaskAction;
 import org.gradle.work.DisableCachingByDefault;
 
 import java.io.File;
+import java.util.Locale;
 import javax.inject.Inject;
 
 @DisableCachingByDefault(because = "Prints build diagnostics")
@@ -80,7 +81,7 @@ public abstract class CleanroomInfo extends DefaultTask {
     public void printInfo() {
         var logger = getLogger();
         logger.lifecycle("CleanroomGradle {}", getPluginVersion().get());
-        logger.lifecycle("  mode: {}", getMode().get().name().toLowerCase());
+        logger.lifecycle("  mode: {}", getMode().get().name().toLowerCase(Locale.ROOT));
         logger.lifecycle("  Minecraft: {}", getMinecraftVersion().get());
         logger.lifecycle("  offline: {}", getOffline().get());
         logger.lifecycle("  discard intermediates: {}", getDiscardIntermediates().get());

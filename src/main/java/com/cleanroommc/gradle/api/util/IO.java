@@ -16,6 +16,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.function.IOConsumer;
 
 import net.minecraftforge.fml.relauncher.Side;
 
@@ -45,6 +46,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.List;
 import java.util.Locale;
 import java.util.TreeMap;
 import java.util.zip.ZipEntry;
@@ -54,8 +56,9 @@ import java.util.zip.ZipOutputStream;
 
 public final class IO {
 
-    private static final Gson GSON;
+    public static final Gson GSON;
     private static final Object HTTP_CLIENT_LOCK = new Object();
+    private static final int ZIP_BUFFER = 1 << 16;
 
     private static HttpClient httpClient;
 
@@ -206,34 +209,95 @@ public final class IO {
      * @param path the archive to rewrite in place
      */
     public static void normalizeZip(Path path) {
-        var temporary = path.resolveSibling(path.getFileName() + ".deterministic.tmp");
         try {
-            try (var input = new ZipFile(path.toFile()); var output = zipOut(temporary.toFile())) {
-                var entries = new TreeMap<String, ZipEntry>();
-                var enumeration = input.entries();
-                while (enumeration.hasMoreElements()) {
-                    var entry = enumeration.nextElement();
-                    entries.put(entry.getName(), entry);
-                }
-                for (var entry : entries.entrySet()) {
-                    var zipEntry = new ZipEntry(entry.getKey());
-                    zipEntry.setTime(0L);
-                    output.putNextEntry(zipEntry);
-                    try (var stream = input.getInputStream(entry.getValue())) {
-                        stream.transferTo(output);
+            writeZip(path, output -> {
+                try (var input = new ZipFile(path.toFile())) {
+                    for (var entry : sortedEntries(input).entrySet()) {
+                        writeEntry(output, entry.getKey(), readEntry(input, entry.getValue()));
                     }
-                    output.closeEntry();
                 }
-            }
-            move(temporary, path);
+            });
         } catch (IOException e) {
-            try {
-                Files.deleteIfExists(temporary);
-            } catch (IOException suppressed) {
-                e.addSuppressed(suppressed);
-            }
             throw new UncheckedIOException("Failed to normalize ZIP " + path, e);
         }
+    }
+
+    /**
+     * Writes a ZIP to a temporary sibling and moves it over {@code target} once {@code writer} finishes,
+     * so a failed write never leaves a truncated archive behind.
+     *
+     * @param target the archive to create or replace
+     * @param writer writes the entries
+     */
+    public static void writeZip(Path target, IOConsumer<ZipOutputStream> writer) throws IOException {
+        var absolute = target.toAbsolutePath();
+        Files.createDirectories(absolute.getParent());
+        var temporary = Files.createTempFile(absolute.getParent(), absolute.getFileName().toString(), ".tmp");
+        try {
+            try (var output = zipOut(temporary, ZIP_BUFFER)) {
+                writer.accept(output);
+            }
+            move(temporary, absolute);
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
+    }
+
+    /**
+     * The file entries of an archive, sorted by name.
+     *
+     * @param zip the archive to index
+     * @throws IOException if two entries share a name
+     */
+    public static TreeMap<String, ZipEntry> sortedEntries(ZipFile zip) throws IOException {
+        var entries = new TreeMap<String, ZipEntry>();
+        var enumeration = zip.entries();
+        while (enumeration.hasMoreElements()) {
+            var entry = enumeration.nextElement();
+            if (!entry.isDirectory() && entries.put(entry.getName(), entry) != null) {
+                throw new IOException("Duplicate entry " + entry.getName() + " in " + zip.getName());
+            }
+        }
+        return entries;
+    }
+
+    /**
+     * Reads the file entry {@code name}, or returns {@code null} if the archive has no such file.
+     *
+     * @param archive the archive to read from
+     * @param name the entry's path inside the archive
+     */
+    public static byte[] readEntry(File archive, String name) throws IOException {
+        try (var zip = new ZipFile(archive)) {
+            var entry = zip.getEntry(name);
+            return entry == null || entry.isDirectory() ? null : readEntry(zip, entry);
+        }
+    }
+
+    /**
+     * Copies the file entry {@code name} to {@code output}.
+     * Returns {@code false} if the archive has no such file.
+     *
+     * @param archive the archive to read from
+     * @param name the entry's path inside the archive
+     * @param output where the entry is copied to
+     */
+    public static boolean extractEntry(File archive, String name, Path output) throws IOException {
+        try (var zip = new ZipFile(archive)) {
+            var entry = zip.getEntry(name);
+            if (entry == null || entry.isDirectory()) {
+                return false;
+            }
+            Files.createDirectories(output.toAbsolutePath().getParent());
+            try (var input = zip.getInputStream(entry)) {
+                Files.copy(input, output, StandardCopyOption.REPLACE_EXISTING);
+            }
+            return true;
+        }
+    }
+
+    public static void writeLines(Path path, List<String> lines) throws IOException {
+        FileUtils.writeLines(path.toFile(), StandardCharsets.UTF_8.name(), lines, "\n", false);
     }
 
     public static BufferedReader reader(Path path, Charset charset) throws IOException {
@@ -293,7 +357,7 @@ public final class IO {
         return runDir;
     }
 
-    static HttpClient httpClient() {
+    public static HttpClient httpClient() {
         synchronized (HTTP_CLIENT_LOCK) {
             if (httpClient == null) {
                 httpClient = HttpClient.newBuilder()

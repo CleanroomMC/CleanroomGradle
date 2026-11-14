@@ -10,9 +10,10 @@
 
 package com.cleanroommc.gradle.api.task.patch;
 
+import com.cleanroommc.gradle.api.util.IO;
+
 import com.github.difflib.DiffUtils;
 import com.github.difflib.UnifiedDiffUtils;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import org.apache.commons.io.FileUtils;
 
@@ -141,10 +142,7 @@ public abstract class GenerateDiffs extends DefaultTask {
         }
         var stamp = new File(patchesDir, ".mappings.json");
         try {
-            patchesDir.mkdirs();
-            FileUtils.writeStringToFile(
-                stamp, new GsonBuilder().setPrettyPrinting().create().toJson(json), StandardCharsets.UTF_8
-            );
+            IO.writeString(stamp.toPath(), IO.GSON.toJson(json));
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to write mapping-identity stamp " + stamp, e);
         }

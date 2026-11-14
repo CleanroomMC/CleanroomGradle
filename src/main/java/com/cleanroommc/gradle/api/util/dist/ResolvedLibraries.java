@@ -44,6 +44,15 @@ public final class ResolvedLibraries {
     private ResolvedLibraries() { }
 
     public static Provider<List<LibraryArtifact>> artifacts(
+        ObjectFactory objects, Provider<Configuration> configuration, Provider<Map<String, String>> repositoryUrls) {
+        return artifacts(
+            objects, configuration.flatMap(config -> config.getIncoming().getArtifacts().getResolvedArtifacts()),
+            configuration.flatMap(config -> config.getIncoming().getResolutionResult().getRootComponent()),
+            repositoryUrls
+        );
+    }
+
+    public static Provider<List<LibraryArtifact>> artifacts(
         ObjectFactory objects, Provider<Set<ResolvedArtifactResult>> resolved, Provider<ResolvedComponentResult> root,
         Provider<Map<String, String>> repositoryUrls) {
         return repositoryUrls.flatMap(urls -> resolved.zip(root, (artifacts, component) -> {

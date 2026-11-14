@@ -11,6 +11,9 @@
 package com.cleanroommc.gradle.api.userdev;
 
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
+import com.cleanroommc.gradle.api.util.Execs;
+
+import org.apache.commons.io.FileUtils;
 
 import org.gradle.api.artifacts.transform.CacheableTransform;
 import org.gradle.api.artifacts.transform.InputArtifact;
@@ -57,7 +60,7 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
         var loader = outputs.file(LOADER);
         var work = minecraft.toPath().resolveSibling("classes-work");
         try {
-            UserdevArchive.delete(work);
+            FileUtils.deleteDirectory(work.toFile());
             Files.createDirectories(work);
             var minecraftSrg = new File(prepared, PrepareUserdev.MINECRAFT_SRG);
             var loaderSrg = work.resolve("loader-srg.jar").toFile();
@@ -87,7 +90,7 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
 
             rename(minecraftAt, minecraft, mappings, loaderSrg);
             rename(loaderSrg, loader, mappings, minecraftSrg);
-            UserdevArchive.delete(work);
+            FileUtils.deleteDirectory(work.toFile());
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to materialize classes from " + userdev, e);
         }
@@ -99,8 +102,8 @@ public abstract class MaterializeUserdevClasses implements TransformAction<Mater
     private void rename(File input, File output, File mappings, File library) {
         var libraries = new ArrayList<>(List.of(library));
         getParameters().getLibraries().forEach(libraries::add);
-        UserdevArchive.rename(
-            getExecOperations(), getParameters().getRenamerClasspath(), input, output, mappings, libraries
+        Execs.rename(
+            getExecOperations(), getParameters().getRenamerClasspath(), input, List.of(mappings), output, libraries
         );
     }
 

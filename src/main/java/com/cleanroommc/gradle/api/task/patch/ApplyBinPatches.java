@@ -27,7 +27,6 @@ import org.gradle.api.tasks.TaskAction;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -58,30 +57,13 @@ public abstract class ApplyBinPatches extends DefaultTask {
     }
 
     public static Result apply(Path original, Path binpatches, String prefix, Path output) {
-        Path temporary = output.resolveSibling(output.getFileName() + ".tmp");
         try {
             var patches = readPatches(binpatches, prefix);
-            Path parent = output.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            int patched = 0;
-            int removed = 0;
-            try (var zip = new ZipFile(original.toFile()); var archive = IO.zipOut(temporary.toFile())) {
-                var contents = new TreeMap<String, ZipEntry>();
-                var entries = zip.entries();
-                while (entries.hasMoreElements()) {
-                    ZipEntry entry = entries.nextElement();
-                    if (entry.isDirectory()) {
-                        continue;
-                    }
-                    String name = entry.getName();
-                    if (patches.removed().contains(name)) {
-                        removed++;
-                        continue;
-                    }
-                    contents.put(name, entry);
-                }
+            try (var zip = new ZipFile(original.toFile())) {
+                var contents = IO.sortedEntries(zip);
+                var removed = contents.size();
+                contents.keySet().removeAll(patches.removed());
+                removed -= contents.size();
 
                 var missing = new LinkedHashSet<>(patches.deltas().keySet());
                 missing.removeAll(contents.keySet());
@@ -94,29 +76,24 @@ public abstract class ApplyBinPatches extends DefaultTask {
 
                 var outputNames = new TreeSet<>(contents.keySet());
                 outputNames.addAll(patches.added().keySet());
-                for (var name : outputNames) {
-                    byte[] data = null;
-                    var originalEntry = contents.get(name);
-                    if (originalEntry != null) {
-                        data = IO.readEntry(zip, originalEntry);
-                        byte[] delta = patches.deltas().get(name);
-                        if (delta != null) {
-                            data = patch(name, data, delta);
-                            patched++;
+                IO.writeZip(output, archive -> {
+                    for (var name : outputNames) {
+                        byte[] data = null;
+                        var originalEntry = contents.get(name);
+                        if (originalEntry != null) {
+                            data = IO.readEntry(zip, originalEntry);
+                            byte[] delta = patches.deltas().get(name);
+                            if (delta != null) {
+                                data = patch(name, data, delta);
+                            }
                         }
+                        data = patches.added().getOrDefault(name, data);
+                        IO.writeEntry(archive, name, data);
                     }
-                    data = patches.added().getOrDefault(name, data);
-                    IO.writeEntry(archive, name, data);
-                }
+                });
+                return new Result(patches.deltas().size(), patches.added().size(), removed);
             }
-            IO.move(temporary, output);
-            return new Result(patched, patches.added().size(), removed);
         } catch (IOException e) {
-            try {
-                Files.deleteIfExists(temporary);
-            } catch (IOException suppressed) {
-                e.addSuppressed(suppressed);
-            }
             throw new UncheckedIOException("Failed to apply binpatches to " + original, e);
         }
     }

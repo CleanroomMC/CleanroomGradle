@@ -21,7 +21,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
-import java.util.zip.ZipFile;
 
 /**
  * Cleanroom userdev specification 1. Dependencies belong to Gradle module metadata. This document owns only
@@ -63,16 +62,14 @@ public record UserdevConfig(int spec, Minecraft minecraft, Loader loader, Inputs
     }
 
     public static UserdevConfig readFromJar(File jar) {
-        try (var zip = new ZipFile(jar)) {
-            var entry = zip.getEntry(meta(FILE_NAME));
-            if (entry == null) {
+        try {
+            var json = IO.readEntry(jar, meta(FILE_NAME));
+            if (json == null) {
                 throw new IllegalStateException(
                     jar + " is not a Cleanroom userdev spec " + SPEC + " artifact: missing " + meta(FILE_NAME) + "."
                 );
             }
-            try (var input = zip.getInputStream(entry)) {
-                return parse(new String(input.readAllBytes(), StandardCharsets.UTF_8));
-            }
+            return parse(new String(json, StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to read " + meta(FILE_NAME) + " from " + jar, e);
         }

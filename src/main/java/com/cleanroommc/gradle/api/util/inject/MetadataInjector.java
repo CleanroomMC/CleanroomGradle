@@ -30,7 +30,6 @@ import org.objectweb.asm.tree.MethodNode;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,7 +41,6 @@ import java.util.Map;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
-import java.util.zip.ZipEntry;
 
 /**
  * In-process replacement for MCInjector.
@@ -97,12 +95,6 @@ public final class MetadataInjector {
         return entries;
     }
 
-    private static ZipEntry reproducible(String name) {
-        var entry = new ZipEntry(name);
-        entry.setTime(0L);
-        return entry;
-    }
-
     /**
      * Rewrites the local variable table so every parameter slot carries its generated name over the whole method.
      */
@@ -151,39 +143,19 @@ public final class MetadataInjector {
         var entries = readEntries(input);
         var transformed = this.transform(entries);
 
-        var absolute = output.toAbsolutePath();
-        Files.createDirectories(absolute.getParent());
-        var temporary = Files.createTempFile(absolute.getParent(), absolute.getFileName().toString(), ".tmp");
-        var processed = 0;
-        var copied = 0;
-        try {
-            try (var out = IO.zipOut(temporary, BUFFER)) {
-                var names = new HashSet<String>();
-                for (var index = 0; index < entries.size(); index++) {
-                    var entry = entries.get(index);
-                    out.putNextEntry(reproducible(entry.name()));
-                    if (!entry.directory()) {
-                        out.write(transformed[index]);
-                        names.add(entry.name());
-                        if (entry.transformable()) {
-                            processed++;
-                        } else {
-                            copied++;
-                        }
-                    }
-                    out.closeEntry();
-                }
-                if (!this.abstractParameters.isEmpty() && !names.contains(ABSTRACT_PARAMETERS)) {
-                    out.putNextEntry(reproducible(ABSTRACT_PARAMETERS));
-                    out.write(this.renderAbstractParameters());
-                    out.closeEntry();
-                }
+        var files = entries.stream().filter(entry -> !entry.directory()).toList();
+        var processed = (int) files.stream().filter(Entry::transformable).count();
+        var hasAbstractParameters = files.stream().anyMatch(entry -> entry.name().equals(ABSTRACT_PARAMETERS));
+        IO.writeZip(output, out -> {
+            for (var index = 0; index < entries.size(); index++) {
+                var entry = entries.get(index);
+                IO.writeEntry(out, entry.name(), entry.directory() ? new byte[0] : transformed[index]);
             }
-            IO.move(temporary, absolute);
-        } finally {
-            Files.deleteIfExists(temporary);
-        }
-        return new InjectResult(processed, copied, this.abstractParameters.size());
+            if (!this.abstractParameters.isEmpty() && !hasAbstractParameters) {
+                IO.writeEntry(out, ABSTRACT_PARAMETERS, this.renderAbstractParameters());
+            }
+        });
+        return new InjectResult(processed, files.size() - processed, this.abstractParameters.size());
     }
 
     private byte[][] transform(List<Entry> entries) {

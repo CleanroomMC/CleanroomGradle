@@ -21,15 +21,9 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.TreeMap;
 import java.util.function.Predicate;
-import java.util.jar.Attributes;
-import java.util.jar.JarFile;
-import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 final class UserdevArchive {
@@ -38,18 +32,10 @@ final class UserdevArchive {
 
     static void select(File input, File output, Predicate<String> include, String stripPrefix) {
         try (var zip = new ZipFile(input); var out = IO.zipOut(output)) {
-            var entries = new TreeMap<String, ZipEntry>();
-            var enumeration = zip.entries();
-            while (enumeration.hasMoreElements()) {
-                var entry = enumeration.nextElement();
-                if (!entry.isDirectory() && include.test(entry.getName())) {
-                    entries.put(entry.getName(), entry);
-                }
-            }
-            for (var item : entries.entrySet()) {
-                var name = item.getKey().substring(stripPrefix.length());
-                if (!name.isEmpty()) {
-                    IO.writeEntry(out, name, IO.readEntry(zip, item.getValue()));
+            for (var entry : IO.sortedEntries(zip).entrySet()) {
+                var name = entry.getKey();
+                if (include.test(name) && name.length() > stripPrefix.length()) {
+                    IO.writeEntry(out, name.substring(stripPrefix.length()), IO.readEntry(zip, entry.getValue()));
                 }
             }
         } catch (IOException e) {
@@ -58,47 +44,10 @@ final class UserdevArchive {
     }
 
     static File extract(File jar, String path, File output) throws IOException {
-        try (var zip = new ZipFile(jar)) {
-            var entry = zip.getEntry(path);
-            if (entry == null) {
-                throw new IllegalStateException("Missing required userdev entry " + path + ".");
-            }
-            Files.createDirectories(output.toPath().getParent());
-            try (var source = zip.getInputStream(entry)) {
-                Files.copy(source, output.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            }
-            return output;
+        if (!IO.extractEntry(jar, path, output.toPath())) {
+            throw new IllegalStateException("Missing required userdev entry " + path + ".");
         }
-    }
-
-    static void delete(Path path) throws IOException {
-        if (!Files.exists(path)) {
-            return;
-        }
-        try (var files = Files.walk(path)) {
-            for (var file : files.sorted(Comparator.reverseOrder()).toList()) {
-                Files.deleteIfExists(file);
-            }
-        }
-    }
-
-    static void rename(
-        ExecOperations exec, FileCollection classpath, File input, File output, File mappings, Iterable<File> libraries,
-        String... flags) {
-        var arguments = new ArrayList<>(List.of(
-            "--input", input.getAbsolutePath(), "--map", mappings.getAbsolutePath(), "--output",
-            output.getAbsolutePath()
-        ));
-        arguments.addAll(List.of(flags));
-        for (var library : libraries) {
-            arguments.add("--lib");
-            arguments.add(library.getAbsolutePath());
-        }
-        Execs.quietJavaExec(exec, spec -> {
-            spec.setClasspath(classpath);
-            spec.getMainClass().set(mainClassOf(classpath));
-            spec.setArgs(arguments);
-        });
+        return output;
     }
 
     static void accessTransform(
@@ -131,23 +80,6 @@ final class UserdevArchive {
             ats.add(extract(userdev, path, work.resolve("ats").resolve(new File(path).getName()).toFile()));
         }
         return ats;
-    }
-
-    private static String mainClassOf(Iterable<File> classpath) {
-        for (var file : classpath) {
-            try (var jar = new JarFile(file)) {
-                var manifest = jar.getManifest();
-                if (manifest != null) {
-                    var main = manifest.getMainAttributes().getValue(Attributes.Name.MAIN_CLASS);
-                    if (main != null) {
-                        return main;
-                    }
-                }
-            } catch (IOException e) {
-                throw new UncheckedIOException("Could not read " + file, e);
-            }
-        }
-        throw new IllegalStateException("No Main-Class found on the renamer classpath.");
     }
 
 }

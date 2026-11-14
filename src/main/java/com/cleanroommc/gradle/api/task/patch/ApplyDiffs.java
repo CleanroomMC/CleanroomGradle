@@ -14,6 +14,7 @@ import com.cleanroommc.gradle.api.util.IO;
 
 import com.github.difflib.DiffUtils;
 import com.github.difflib.UnifiedDiffUtils;
+import com.github.difflib.patch.PatchFailedException;
 import com.google.gson.JsonObject;
 import org.apache.commons.io.FileUtils;
 
@@ -39,6 +40,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,18 +58,19 @@ public abstract class ApplyDiffs extends DefaultTask {
         this.getCleanOutput().convention(false);
     }
 
+    public static List<String> patch(Path original, Path patch) throws IOException, PatchFailedException {
+        var diff = UnifiedDiffUtils.parseUnifiedDiff(FileUtils.readLines(patch.toFile(), StandardCharsets.UTF_8));
+        return DiffUtils.patch(FileUtils.readLines(original.toFile(), StandardCharsets.UTF_8), diff);
+    }
+
     private static boolean isDirty(File modifiedFile, File originalFile, File patchFile) {
         if (!originalFile.isFile()) {
             return true;
         }
         try {
-            var originalLines = FileUtils.readLines(originalFile, StandardCharsets.UTF_8);
             var expectedLines = patchFile == null
-                ? originalLines
-                : DiffUtils.patch(
-                    originalLines,
-                    UnifiedDiffUtils.parseUnifiedDiff(FileUtils.readLines(patchFile, StandardCharsets.UTF_8))
-                );
+                ? FileUtils.readLines(originalFile, StandardCharsets.UTF_8)
+                : patch(originalFile.toPath(), patchFile.toPath());
             return !expectedLines.equals(FileUtils.readLines(modifiedFile, StandardCharsets.UTF_8));
         } catch (Throwable t) {
             return true;
@@ -155,17 +158,13 @@ public abstract class ApplyDiffs extends DefaultTask {
                         );
                 } else {
                     try {
-                        var patch = UnifiedDiffUtils.parseUnifiedDiff(FileUtils.readLines(
-                            patchFile, StandardCharsets.UTF_8
-                        ));
-                        var originalLines = FileUtils.readLines(originalFile, StandardCharsets.UTF_8);
-                        var patchedLines = DiffUtils.patch(originalLines, patch);
+                        var patchedLines = patch(originalFile.toPath(), patchFile.toPath());
                         this.getLogger()
                             .lifecycle(
                                 "Patching {}. {}/{} patches applied.", relativePath, counter.incrementAndGet(),
                                 totalPatches
                             );
-                        FileUtils.writeLines(targetFile, StandardCharsets.UTF_8.name(), patchedLines, "\n", false);
+                        IO.writeLines(targetFile.toPath(), patchedLines);
                     } catch (Throwable t) {
                         throw new RuntimeException("Unexpected error when patching %s".formatted(relativePath), t); // TODO: skip and log error?
                     }

@@ -12,11 +12,10 @@ package com.cleanroommc.gradle.api.userdev;
 
 import com.cleanroommc.gradle.api.names.SourceRenamer;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
+import com.cleanroommc.gradle.api.task.patch.ApplyDiffs;
 import com.cleanroommc.gradle.api.util.Execs;
 import com.cleanroommc.gradle.api.util.IO;
 
-import com.github.difflib.DiffUtils;
-import com.github.difflib.UnifiedDiffUtils;
 import de.siegmar.fastcsv.reader.CsvReader;
 import org.apache.commons.io.FileUtils;
 
@@ -28,9 +27,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipFile;
 
@@ -44,7 +43,7 @@ public final class UserdevSourceMaterializer {
         FileCollection decompilerClasspath, ExecOperations execOperations
     ) throws IOException {
         var config = UserdevConfig.readFromJar(input);
-        delete(work);
+        FileUtils.deleteDirectory(work.toFile());
         Files.createDirectories(work);
         var decompiled = work.resolve("decompiled.jar");
         var arguments = new ArrayList<String>();
@@ -85,7 +84,7 @@ public final class UserdevSourceMaterializer {
         unzip(input.toPath(), mcp, config.layout().loaderSources() + "/");
         StripHiddenFromUserdev.stripSources(mcp, config.loader().hiddenAnnotation());
         zip(mcp, output);
-        delete(work);
+        FileUtils.deleteDirectory(work.toFile());
     }
 
     static void applyPatches(Path source, Path patches) throws IOException {
@@ -103,8 +102,7 @@ public final class UserdevSourceMaterializer {
                     );
                 }
                 try {
-                    var diff = UnifiedDiffUtils.parseUnifiedDiff(Files.readAllLines(patch, StandardCharsets.UTF_8));
-                    writeLines(target, DiffUtils.patch(Files.readAllLines(target, StandardCharsets.UTF_8), diff));
+                    IO.writeLines(target, ApplyDiffs.patch(target, patch));
                 } catch (Exception e) {
                     throw new IllegalStateException("Failed to apply userdev patch " + relative, e);
                 }
@@ -114,23 +112,21 @@ public final class UserdevSourceMaterializer {
 
     private static void readMappings(File input, String entryName, Map<String, String> names, Map<String, String> docs)
         throws IOException {
-        var temporary = Files.createTempFile("userdev-mappings", ".csv");
-        try {
-            extractFile(input, entryName, temporary);
-            try (var reader = CsvReader.builder().ofNamedCsvRecord(temporary)) {
-                for (var record : reader) {
-                    var key = record.getField(record.getHeader().contains("searge") ? "searge" : "param");
-                    names.put(key, record.getField("name"));
-                    if (record.getHeader().contains("desc")) {
-                        var doc = record.getField("desc");
-                        if (!doc.isEmpty()) {
-                            docs.put(key, doc);
-                        }
+        var csv = IO.readEntry(input, entryName);
+        if (csv == null) {
+            throw new IllegalStateException("Missing required userdev entry " + entryName + ".");
+        }
+        try (var reader = CsvReader.builder().ofNamedCsvRecord(new String(csv, StandardCharsets.UTF_8))) {
+            for (var record : reader) {
+                var key = record.getField(record.getHeader().contains("searge") ? "searge" : "param");
+                names.put(key, record.getField("name"));
+                if (record.getHeader().contains("desc")) {
+                    var doc = record.getField("desc");
+                    if (!doc.isEmpty()) {
+                        docs.put(key, doc);
                     }
                 }
             }
-        } finally {
-            Files.deleteIfExists(temporary);
         }
     }
 
@@ -141,31 +137,13 @@ public final class UserdevSourceMaterializer {
                 var target = destination.resolve(source.relativize(file));
                 Files.createDirectories(target.getParent());
                 if (file.getFileName().toString().endsWith(".java")) {
-                    writeLines(
+                    IO.writeLines(
                         target, SourceRenamer.rename(Files.readAllLines(file, StandardCharsets.UTF_8), names, docs)
                     );
                 } else {
-                    Files.copy(file, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    Files.copy(file, target, StandardCopyOption.REPLACE_EXISTING);
                 }
             }
-        }
-    }
-
-    private static void writeLines(Path target, List<String> lines) throws IOException {
-        FileUtils.writeLines(target.toFile(), StandardCharsets.UTF_8.name(), lines, "\n", false);
-    }
-
-    private static Path extractFile(File input, String entryName, Path output) throws IOException {
-        try (var zip = new ZipFile(input)) {
-            var entry = zip.getEntry(entryName);
-            if (entry == null) {
-                throw new IllegalStateException("Missing required userdev entry " + entryName + ".");
-            }
-            Files.createDirectories(output.getParent());
-            try (var stream = zip.getInputStream(entry)) {
-                Files.copy(stream, output, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            }
-            return output;
         }
     }
 
@@ -187,7 +165,7 @@ public final class UserdevSourceMaterializer {
                 }
                 Files.createDirectories(output.getParent());
                 try (var source = zip.getInputStream(entry)) {
-                    Files.copy(source, output, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    Files.copy(source, output, StandardCopyOption.REPLACE_EXISTING);
                 }
             }
         }
@@ -200,17 +178,6 @@ public final class UserdevSourceMaterializer {
                     out, directory.relativize(file).toString().replace(File.separatorChar, '/'),
                     Files.readAllBytes(file)
                 );
-            }
-        }
-    }
-
-    private static void delete(Path path) throws IOException {
-        if (!Files.exists(path)) {
-            return;
-        }
-        try (var files = Files.walk(path)) {
-            for (var file : files.sorted(java.util.Comparator.reverseOrder()).toList()) {
-                Files.deleteIfExists(file);
             }
         }
     }

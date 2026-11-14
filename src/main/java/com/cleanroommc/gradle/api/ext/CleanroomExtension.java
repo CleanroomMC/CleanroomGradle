@@ -29,6 +29,7 @@ import org.gradle.api.provider.Provider;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import javax.inject.Inject;
 
 public abstract class CleanroomExtension {
@@ -196,7 +197,7 @@ public abstract class CleanroomExtension {
                 return;
             }
             throw new InvalidUserDataException(
-                "Cleanroom environment '" + current.name().toLowerCase() +
+                "Cleanroom environment '" + current.name().toLowerCase(Locale.ROOT) +
                     "' is already registered. A project can register only one Cleanroom environment."
             );
         }

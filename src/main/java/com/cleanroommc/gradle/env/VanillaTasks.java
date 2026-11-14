@@ -54,6 +54,7 @@ import java.io.File;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Predicate;
 
@@ -426,44 +427,34 @@ public final class VanillaTasks {
                 ));
         });
         RunRegistry.configure(project, this.runVanillaClient, task -> {
-            task.setGroup(GROUP_NAME);
+            configureRun(project, task, Side.CLIENT, spec, caches, offline, vanillaJavaLauncher);
             task.dependsOn(this.downloadAssets);
-            MinecraftRuns.caches(task, caches, this.versionMeta, offline);
-
-            task.getSide().set(Side.CLIENT);
-            task.getEnv().set(Environment.VANILLA);
-            task.getMinecraftVersion().set(this.minecraftVersion);
-            task.getVersionMeta().set(this.versionMeta);
             task.getMainClass().set(this.versionMeta.map(VersionMeta::mainClass));
-            task.getJavaLauncher().convention(vanillaJavaLauncher);
-            task.getNatives().fileProvider(this.extractNatives.map(Copy::getDestinationDir));
             task.getAssetIndexVersion().set(this.versionMeta.map(VersionMeta::assetIndexId));
             task.classpath(this.downloadClientJar.map(Download::getDest), this.vanillaConfig);
         });
         RunRegistry.configure(project, this.runVanillaServer, task -> {
-            task.setGroup(GROUP_NAME);
-            MinecraftRuns.caches(task, caches, this.versionMeta, offline);
-
-            task.getSide().set(Side.SERVER);
-            task.getEnv().set(Environment.VANILLA);
-            task.getMinecraftVersion().set(this.minecraftVersion);
-            task.getVersionMeta().set(this.versionMeta);
-            task.getJavaLauncher().convention(vanillaJavaLauncher);
-            task.getNatives().fileProvider(this.extractNatives.map(Copy::getDestinationDir));
+            configureRun(project, task, Side.SERVER, spec, caches, offline, vanillaJavaLauncher);
             task.classpath(this.downloadServerJar.map(Download::getDest), this.vanillaConfig);
         });
+    }
+
+    private void configureRun(
+        Project project, RunMinecraft task, Side side, Spec spec, CachesExtension caches, boolean offline,
+        Provider<JavaLauncher> javaLauncher) {
+        task.setGroup(GROUP_NAME);
+        MinecraftRuns.caches(task, caches, this.versionMeta, offline);
+        task.getSide().set(side);
+        task.getEnv().set(Environment.VANILLA);
+        task.getMinecraftVersion().set(this.minecraftVersion);
+        task.getVersionMeta().set(this.versionMeta);
+        task.getJavaLauncher().convention(javaLauncher);
+        task.getNatives().fileProvider(this.extractNatives.map(Copy::getDestinationDir));
         if (!spec.primary()) {
-            RunRegistry.configure(
-                project, this.runVanillaClient,
-                task -> task.setWorkingDir(
-                    project.getLayout().getProjectDirectory().dir("run/" + spec.cacheName() + "/vanilla/client")
-                )
-            );
-            RunRegistry.configure(
-                project, this.runVanillaServer,
-                task -> task.setWorkingDir(
-                    project.getLayout().getProjectDirectory().dir("run/" + spec.cacheName() + "/vanilla/server")
-                )
+            task.setWorkingDir(
+                project.getLayout()
+                    .getProjectDirectory()
+                    .dir("run/" + spec.cacheName() + "/vanilla/" + side.name().toLowerCase(Locale.ENGLISH))
             );
         }
     }

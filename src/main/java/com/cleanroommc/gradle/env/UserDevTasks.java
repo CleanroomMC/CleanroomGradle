@@ -31,6 +31,7 @@ import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.Platform;
 import com.cleanroommc.gradle.api.util.Property;
 import com.cleanroommc.gradle.api.util.dist.Repository;
+import com.cleanroommc.gradle.api.util.lazy.SourceSets;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -52,7 +53,6 @@ import org.gradle.api.file.Directory;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.plugins.JavaPlugin;
-import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.InputFile;
@@ -107,15 +107,14 @@ public final class UserDevTasks {
         this.serverExtra = sideConfiguration(project, userdev, UserdevAttributes.SERVER_EXTRA);
         this.natives = nativesConfiguration(project, userdev);
 
-        var java = project.getExtensions().getByType(JavaPluginExtension.class);
-        var main = java.getSourceSets().named(SourceSet.MAIN_SOURCE_SET_NAME);
+        var sourceSets = SourceSets.container(project);
+        var main = sourceSets.named(SourceSet.MAIN_SOURCE_SET_NAME);
 
         project.getDependencies().add(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME, project.files(this.clientExtra));
-        java.getSourceSets()
-            .configureEach(sourceSet -> project.getConfigurations()
-                .named(sourceSet.getCompileClasspathConfigurationName())
-                .configure(configuration -> configuration.getAttributes()
-                    .attribute(UserdevAttributes.VISIBILITY, UserdevAttributes.COMPILE)));
+        sourceSets.configureEach(sourceSet -> project.getConfigurations()
+            .named(sourceSet.getCompileClasspathConfigurationName())
+            .configure(configuration -> configuration.getAttributes()
+                .attribute(UserdevAttributes.VISIBILITY, UserdevAttributes.COMPILE)));
 
         var jar = project.getTasks().named("jar", Jar.class);
         jar.configure(task -> task.getArchiveClassifier().convention("mcp"));
@@ -407,6 +406,14 @@ public final class UserDevTasks {
         });
     }
 
+    static String camelCase(String hyphenated) {
+        var name = new StringBuilder();
+        for (var part : hyphenated.split("-")) {
+            name.append(StringUtils.capitalize(part));
+        }
+        return name.toString();
+    }
+
     private static void configureRun(
         RunMinecraft task, Side side, UserdevDependency userdev, CachesExtension caches, MinecraftExtension minecraft,
         boolean offline, Directory runDirectory, Provider<File> natives) {
@@ -421,7 +428,7 @@ public final class UserDevTasks {
     private static NamedDomainObjectProvider<Configuration> sideConfiguration(
         Project project, UserdevDependency userdev, String role) {
         var configuration = Objects.config(
-            project, "_cleanroomUserdev" + capitalized(role), "Internal " + role + " userdev resources."
+            project, "_cleanroomUserdev" + camelCase(role), "Internal " + role + " userdev resources."
         );
         configuration.configure(value -> value.attributes(attributes -> {
             attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.MATERIALIZED);
@@ -496,14 +503,6 @@ public final class UserDevTasks {
             attributes.attribute(UserdevAttributes.ROLE, role);
         });
         return dependency;
-    }
-
-    private static String capitalized(String role) {
-        var name = new StringBuilder();
-        for (var part : role.split("-")) {
-            name.append(StringUtils.capitalize(part));
-        }
-        return name.toString();
     }
 
     /**

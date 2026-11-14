@@ -10,6 +10,8 @@
 
 package com.cleanroommc.gradle.api.task.common;
 
+import com.cleanroommc.gradle.api.util.IO;
+
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.file.DirectoryProperty;
@@ -32,8 +34,6 @@ import java.lang.classfile.Attributes;
 import java.lang.classfile.ClassFile;
 import java.lang.classfile.ClassModel;
 import java.lang.constant.ClassDesc;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -128,8 +128,7 @@ public abstract class WriteBootList extends DefaultTask {
 
         var file = getOutput().file(PATH).get().getAsFile().toPath();
         try {
-            Files.createDirectories(file.getParent());
-            Files.writeString(file, String.join("\n", lines) + "\n", StandardCharsets.UTF_8);
+            IO.writeString(file, String.join("\n", lines) + "\n");
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to write " + file, e);
         }

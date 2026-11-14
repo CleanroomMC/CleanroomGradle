@@ -18,8 +18,6 @@ import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -51,7 +49,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.zip.ZipEntry;
 import javax.inject.Inject;
 
 /**
@@ -72,7 +69,6 @@ import javax.inject.Inject;
 @CacheableTask
 public abstract class PublishMmcPackZip extends DefaultTask {
 
-    private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
     private static final String FORGE_UID = "net.minecraftforge";
     private static final String LWJGL_UID = "org.lwjgl";
     private static final String MINECRAFT_UID = "net.minecraft";
@@ -150,21 +146,16 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     }
 
     private static byte[] json(JsonObject object) {
-        return (GSON.toJson(object) + "\n").getBytes(StandardCharsets.UTF_8);
+        return (IO.GSON.toJson(object) + "\n").getBytes(StandardCharsets.UTF_8);
     }
 
     private static void writeZip(File output, Map<String, byte[]> files) {
         try {
-            Files.createDirectories(output.toPath().getParent());
-            try (var zip = IO.zipOut(output)) {
+            IO.writeZip(output.toPath(), zip -> {
                 for (var file : files.entrySet()) {
-                    var entry = new ZipEntry(file.getKey());
-                    entry.setTime(0L);
-                    zip.putNextEntry(entry);
-                    zip.write(file.getValue());
-                    zip.closeEntry();
+                    IO.writeEntry(zip, file.getKey(), file.getValue());
                 }
-            }
+            });
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to write MMC archive " + output, e);
         }

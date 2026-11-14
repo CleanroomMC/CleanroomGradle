@@ -132,8 +132,6 @@ public abstract class PatchDevEnvironment implements Named {
         this.generateDiffs = Tasks.register(project, "generate" + capitalizedName + "Diffs", GenerateDiffs.class);
         var zipPatches = Tasks.register(project, "zip" + capitalizedName + "Patches", Zip.class);
         zipPatches.configure(task -> {
-            task.setPreserveFileTimestamps(false);
-            task.setReproducibleFileOrder(true);
             task.from(this.generateDiffs.flatMap(GenerateDiffs::getPatchesDirectory));
             task.getDestinationDirectory().fileProvider(patchesZip.map(File::getParentFile));
             task.getArchiveFileName().set(patchesZip.map(File::getName));

@@ -29,6 +29,7 @@ import org.gradle.api.tasks.TaskAction;
 import net.minecraftforge.fml.relauncher.Side;
 
 import java.io.IOException;
+import java.util.Locale;
 import javax.inject.Inject;
 
 /**
@@ -78,8 +79,8 @@ public abstract class StripSideOnlyJar extends DefaultTask {
         this.getLogger()
             .lifecycle(
                 "Built {} jar: removed {} classes, {} fields, {} methods. Cleared {} @SideOnly annotations",
-                side.name().toLowerCase(), result.classesRemoved(), result.fieldsRemoved(), result.methodsRemoved(),
-                result.annotationsRemoved()
+                side.name().toLowerCase(Locale.ROOT), result.classesRemoved(), result.fieldsRemoved(),
+                result.methodsRemoved(), result.annotationsRemoved()
             );
     }
 
