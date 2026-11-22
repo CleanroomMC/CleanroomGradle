@@ -10,6 +10,8 @@
 
 package com.cleanroommc.gradle.api.util.lazy;
 
+import com.cleanroommc.launcherutils.version.JavaVersion;
+
 import org.gradle.api.Project;
 import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Provider;
@@ -30,27 +32,10 @@ public final class Providers {
     }
 
     public static Provider<String> targetJavaName(Project project) {
-        return targetJavaMajor(project).map(Providers::javaRuntimeName);
-    }
-
-    // mojang jre names
-    public static String javaRuntimeName(int major) {
-        if (major >= 29) {
-            return "";
-        }
-        if (major >= 25) {
-            return "java-runtime-epsilon";
-        }
-        if (major >= 21) {
-            return "java-runtime-delta";
-        }
-        if (major >= 17) {
-            return "java-runtime-beta";
-        }
-        if (major >= 16) {
-            return "java-runtime-alpha";
-        }
-        return "jre-legacy";
+        return targetJavaMajor(project).map(major -> {
+            var component = JavaVersion.forMajor(major).component();
+            return component == null ? "" : component;
+        });
     }
 
     public static Provider<JavaLauncher> javaLauncher(Project project) {

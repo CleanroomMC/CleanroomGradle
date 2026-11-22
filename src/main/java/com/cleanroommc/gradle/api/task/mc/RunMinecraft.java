@@ -10,12 +10,12 @@
 
 package com.cleanroommc.gradle.api.task.mc;
 
-import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.task.LazilyConstructedJavaExec;
 import com.cleanroommc.gradle.api.util.EnumValues;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.LaunchArguments;
+import com.cleanroommc.launcherutils.version.VersionJson;
 import com.cleanroommc.platformutils.Platform;
 
 import org.apache.commons.io.FileUtils;
@@ -170,7 +170,7 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     public abstract RegularFileProperty getUuidCache();
 
     @Internal
-    public abstract Property<VersionMeta> getVersionMeta();
+    public abstract Property<VersionJson> getVersionMeta();
 
     @Input
     public abstract Property<String> getLauncherVersion();
@@ -295,7 +295,7 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         );
     }
 
-    private Map<String, String> buildSubstitutions(VersionMeta meta) {
+    private Map<String, String> buildSubstitutions(VersionJson meta) {
         var substitutions = new LinkedHashMap<String, String>();
         substitutions.put("auth_player_name", getUsername().get());
         substitutions.put("version_name", getMinecraftVersion().get());

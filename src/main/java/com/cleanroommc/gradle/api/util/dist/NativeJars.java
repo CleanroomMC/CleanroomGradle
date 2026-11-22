@@ -10,7 +10,8 @@
 
 package com.cleanroommc.gradle.api.util.dist;
 
-import com.cleanroommc.gradle.api.util.Natives;
+import com.cleanroommc.launcherutils.Coordinate;
+import com.cleanroommc.launcherutils.LauncherNames;
 
 import java.util.Map;
 
@@ -43,7 +44,7 @@ public record NativeJars(Map<String, String> platforms) {
             return false;
         }
         return !this.platforms.containsKey(key(coordinate)) &&
-            coordinate.classifier().startsWith(Natives.CLASSIFIER_PREFIX);
+            coordinate.classifier().startsWith(LauncherNames.NATIVES_PREFIX);
     }
 
 }

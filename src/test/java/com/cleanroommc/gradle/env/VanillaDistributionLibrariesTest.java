@@ -10,7 +10,10 @@
 
 package com.cleanroommc.gradle.env;
 
-import com.cleanroommc.gradle.api.schema.VersionMeta;
+import com.cleanroommc.launcherutils.LauncherNames;
+import com.cleanroommc.launcherutils.version.Download;
+import com.cleanroommc.launcherutils.version.Library;
+import com.cleanroommc.launcherutils.version.VersionJson;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -20,7 +23,6 @@ import org.gradle.api.artifacts.ExternalModuleDependency;
 import org.gradle.testfixtures.ProjectBuilder;
 
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,55 +53,40 @@ class VanillaDistributionLibrariesTest {
         return name;
     }
 
-    private static VersionMeta versionMeta(VersionMeta.Library... libraries) {
-        return new VersionMeta(
-            null, new VersionMeta.AssetIndex("1.12", 1, null, "sha1", 1, "https://example.invalid/1.12.json"), "1.12",
-            0, Map.of("client", new VersionMeta.Download(null, "sha1", 1, "https://example.invalid/client.jar")),
-            "1.12.2", new VersionMeta.JavaVersion("jre-legacy", 8), List.of(libraries), null,
-            "net.minecraft.client.main.Main", "", 18, "2017-09-18T08:39:46+00:00", "2017-09-18T08:39:46+00:00",
-            "release"
-        );
+    private static VersionJson versionMeta(Library... libraries) {
+        return new VersionJson().id("1.12.2").libraries(List.of(libraries));
     }
 
-    private static VersionMeta.Library jar(String name) {
-        return new VersionMeta.Library(
-            new VersionMeta.Downloads(
-                new VersionMeta.Download("path", "sha1", 1, "https://example.invalid/" + name), Map.of()
-            ),
-            name, null, null, null
-        );
+    private static Download download(String path, String url) {
+        return new Download().path(path).sha1("sha1").size(1).url(url);
     }
 
-    private static VersionMeta.Library natives(String name, String... classifiers) {
+    private static Library jar(String name) {
+        return Library.of(name).artifact(download("path", "https://example.invalid/" + name));
+    }
+
+    private static Library natives(String name, String... classifiers) {
         return natives(name, false, classifiers);
     }
 
-    private static VersionMeta.Library nativesWithArtifact(String name, String... classifiers) {
+    private static Library nativesWithArtifact(String name, String... classifiers) {
         return natives(name, true, classifiers);
     }
 
-    private static VersionMeta.Library natives(String name, boolean withArtifact, String... classifiers) {
-        var downloads = new LinkedHashMap<String, VersionMeta.Download>();
-        var platforms = new LinkedHashMap<String, String>();
-        var coordinates = name.split(":");
-        var basePath = coordinates[0].replace('.', '/') + "/" + coordinates[1] + "/" + coordinates[2] + "/" +
-            coordinates[1] + "-" + coordinates[2] + "-";
+    private static Library natives(String name, boolean withArtifact, String... classifiers) {
+        var library = Library.of(name);
+        var coordinate = library.coordinate();
         for (var classifier : classifiers) {
-            downloads.put(
+            library.classifier(
                 classifier,
-                new VersionMeta.Download(
-                    basePath + classifier + ".jar", "sha1", 1, "https://example.invalid/" + classifier
-                )
+                download(coordinate.withClassifier(classifier).path(), "https://example.invalid/" + classifier)
             );
-            platforms.put(classifier.substring("natives-".length()), classifier);
+            library.natives(classifier.substring(LauncherNames.NATIVES_PREFIX.length()), classifier);
         }
-        var artifact = withArtifact
-            ? new VersionMeta.Download(
-                basePath.substring(0, basePath.length() - 1) + ".jar", "sha1", 1,
-                "https://example.invalid/" + coordinates[1] + ".jar"
-            )
-            : null;
-        return new VersionMeta.Library(new VersionMeta.Downloads(artifact, downloads), name, platforms, null, null);
+        if (withArtifact) {
+            library.artifact(download(coordinate.path(), "https://example.invalid/" + coordinate.artifact() + ".jar"));
+        }
+        return library;
     }
 
     @Test

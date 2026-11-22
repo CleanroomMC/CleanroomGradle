@@ -10,8 +10,8 @@
 
 package com.cleanroommc.gradle.api.source;
 
-import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.util.IO;
+import com.cleanroommc.launcherutils.version.VersionJson;
 
 import org.gradle.api.GradleException;
 import org.gradle.api.file.RegularFileProperty;
@@ -19,10 +19,10 @@ import org.gradle.api.provider.Property;
 import org.gradle.api.provider.ValueSource;
 import org.gradle.api.provider.ValueSourceParameters;
 
-public abstract class VersionMetaValueSource implements ValueSource<VersionMeta, VersionMetaValueSource.Parameters> {
+public abstract class VersionMetaValueSource implements ValueSource<VersionJson, VersionMetaValueSource.Parameters> {
 
     @Override
-    public VersionMeta obtain() {
+    public VersionJson obtain() {
         var dest = this.getParameters().getCacheFile().get().getAsFile();
         if (this.getParameters().getOffline().getOrElse(false)) {
             if (!dest.isFile()) {
@@ -35,7 +35,7 @@ public abstract class VersionMetaValueSource implements ValueSource<VersionMeta,
         } else {
             IO.downloadWithETag(getParameters().getVersionMetaUrl().get(), dest);
         }
-        return IO.readJson(dest, VersionMeta.class);
+        return IO.readJson(dest, VersionJson.class);
     }
 
     public interface Parameters extends ValueSourceParameters {

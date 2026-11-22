@@ -10,7 +10,7 @@
 
 package com.cleanroommc.gradle.api.util;
 
-import com.cleanroommc.gradle.api.schema.VersionMeta;
+import com.cleanroommc.launcherutils.LauncherGson;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -63,11 +63,7 @@ public final class IO {
     private static HttpClient httpClient;
 
     static {
-        GSON = new GsonBuilder()
-            .disableHtmlEscaping()
-            .setPrettyPrinting()
-            .registerTypeAdapter(VersionMeta.Argument.class, new VersionMeta.ArgumentDeserializer())
-            .create();
+        GSON = LauncherGson.register(new GsonBuilder().disableHtmlEscaping().setPrettyPrinting()).create();
     }
 
     private IO() { }

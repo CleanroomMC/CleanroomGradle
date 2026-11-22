@@ -10,6 +10,8 @@
 
 package com.cleanroommc.gradle.api.util.dist;
 
+import com.cleanroommc.launcherutils.Coordinate;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

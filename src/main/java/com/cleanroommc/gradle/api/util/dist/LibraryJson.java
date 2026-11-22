@@ -11,10 +11,14 @@
 package com.cleanroommc.gradle.api.util.dist;
 
 import com.cleanroommc.gradle.api.util.IO;
-import com.cleanroommc.gradle.api.util.Natives;
-
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
+import com.cleanroommc.launcherutils.Coordinate;
+import com.cleanroommc.launcherutils.LauncherNames;
+import com.cleanroommc.launcherutils.rule.Rule;
+import com.cleanroommc.launcherutils.version.Download;
+import com.cleanroommc.launcherutils.version.Library;
+import com.cleanroommc.launcherutils.version.VersionJson;
+import com.cleanroommc.platformutils.Architecture;
+import com.cleanroommc.platformutils.Platform;
 
 import org.gradle.api.GradleException;
 
@@ -54,7 +58,7 @@ public final class LibraryJson {
     public static List<Artifact> resolve(
         Artifact universal, List<? extends LibraryArtifact> libraries, Set<String> inherited) {
         var artifacts = new TreeMap<String, Artifact>();
-        artifacts.put(universal.coordinate().serialized(), universal);
+        artifacts.put(universal.coordinate().toString(), universal);
 
         resolveInto(artifacts, libraries, inherited, universal.coordinate());
         return new ArrayList<>(artifacts.values());
@@ -79,27 +83,27 @@ public final class LibraryJson {
      * @param artifacts the resolved artifacts to write
      * @param natives what {@code cleanroom.natives} declares about per-platform jars
      */
-    public static JsonArray mmcLibraries(List<Artifact> artifacts, NativeJars natives) {
+    public static List<Library> mmcLibraries(List<Artifact> artifacts, NativeJars natives) {
         var ordinary = new ArrayList<Artifact>();
         var extracted = new TreeMap<String, List<Artifact>>();
         split(artifacts, ordinary, extracted, natives);
 
-        ordinary.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
-        var output = new JsonArray();
+        ordinary.sort(Comparator.comparing(artifact -> artifact.coordinate().toString()));
+        var output = new ArrayList<Library>();
         for (var artifact : ordinary) {
             var library = ordinaryLibrary(artifact);
             if (natives.platform(artifact.coordinate()) != null) {
                 addMmcPlatformRules(library, classifierPlatform(artifact.coordinate(), natives));
             }
             output.add(library);
-            var nativeArtifacts = extracted.remove(artifact.coordinate().module());
+            var nativeArtifacts = extracted.remove(versionKey(artifact.coordinate()));
             if (nativeArtifacts != null) {
                 output.add(nativeLibrary(artifact.coordinate().withoutClassifier(), nativeArtifacts, true, natives));
             }
         }
         // A classifier-only dependency is legal even when its base artifact was not selected
         for (var nativeArtifacts : extracted.values()) {
-            nativeArtifacts.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
+            nativeArtifacts.sort(Comparator.comparing(artifact -> artifact.coordinate().toString()));
             output.add(nativeLibrary(
                 nativeArtifacts.getFirst().coordinate().withoutClassifier(), nativeArtifacts, true, natives
             ));
@@ -114,17 +118,12 @@ public final class LibraryJson {
      * @param artifacts the resolved artifacts to write
      * @param natives what {@code cleanroom.natives} declares about per-platform jars
      */
-    public static JsonArray mojangLibraries(List<Artifact> artifacts, NativeJars natives) {
+    public static List<Library> mojangLibraries(List<Artifact> artifacts, NativeJars natives) {
         var sorted = new ArrayList<>(artifacts);
-        sorted.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
-        var output = new JsonArray();
+        sorted.sort(Comparator.comparing(artifact -> artifact.coordinate().toString()));
+        var output = new ArrayList<Library>();
         for (var artifact : sorted) {
-            var downloads = new JsonObject();
-            downloads.add("artifact", download(artifact, true));
-
-            var library = new JsonObject();
-            library.addProperty("name", artifact.coordinate().serialized());
-            library.add("downloads", downloads);
+            var library = Library.of(artifact.coordinate()).artifact(download(artifact, true));
             addPlatformRule(library, classifierPlatform(artifact.coordinate(), natives));
             output.add(library);
         }
@@ -140,28 +139,22 @@ public final class LibraryJson {
      * @param artifacts the resolved native artifacts to write
      * @param natives what {@code cleanroom.natives} declares about per-platform jars
      */
-    public static JsonArray mojangNativeLibraries(List<Artifact> artifacts, NativeJars natives) {
+    public static List<Library> mojangNativeLibraries(List<Artifact> artifacts, NativeJars natives) {
         var extracted = new ArrayList<Artifact>();
         for (var artifact : artifacts) {
             if (!natives.isExtracted(artifact.coordinate())) {
-                throw new GradleException("Not a natives library: " + artifact.coordinate().serialized());
+                throw new GradleException("Not a natives library: " + artifact.coordinate());
             }
             extracted.add(artifact);
         }
-        extracted.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
-        var output = new JsonArray();
+        extracted.sort(Comparator.comparing(artifact -> artifact.coordinate().toString()));
+        var output = new ArrayList<Library>();
         for (var artifact : extracted) {
-            var classifier = artifact.coordinate().classifier();
             var library = nativeLibrary(
                 artifact.coordinate().withoutClassifier(), new ArrayList<>(List.of(artifact)), false, natives
             );
             var platform = classifierPlatform(artifact.coordinate(), natives);
-            if (platform != null) {
-                var nativeMap = new JsonObject();
-                nativeMap.addProperty(platform.os(), classifier);
-                library.add("natives", nativeMap);
-            }
-            library.addProperty("side", "client");
+            library.side(VersionJson.CLIENT);
             addPlatformRule(library, platform);
             output.add(library);
         }
@@ -173,34 +166,16 @@ public final class LibraryJson {
      *
      * @param artifact the artifact the entry describes
      */
-    public static JsonObject embeddedLibrary(Artifact artifact) {
-        var download = new JsonObject();
-        download.addProperty("path", artifact.coordinate().mavenPath());
+    public static Library embeddedLibrary(Artifact artifact) {
         // An empty url is signal for "take this from the installer's /maven"
-        download.addProperty("url", "");
-        download.addProperty("sha1", IO.sha1(artifact.path()));
-        download.addProperty("size", size(artifact.path()));
-
-        var downloads = new JsonObject();
-        downloads.add("artifact", download);
-
-        var library = new JsonObject();
-        library.addProperty("name", artifact.coordinate().serialized());
-        library.add("downloads", downloads);
-        return library;
+        return Library.of(artifact.coordinate()).artifact(download(artifact, true).url(""));
     }
 
-    public static JsonObject ordinaryLibrary(Artifact artifact) {
+    public static Library ordinaryLibrary(Artifact artifact) {
         if (isLocal(artifact)) {
             return localLibrary(artifact);
         }
-        var downloads = new JsonObject();
-        downloads.add("artifact", download(artifact, false));
-
-        var library = new JsonObject();
-        library.addProperty("name", artifact.coordinate().serialized());
-        library.add("downloads", downloads);
-        return library;
+        return Library.of(artifact.coordinate()).artifact(download(artifact, false));
     }
 
     /**
@@ -208,21 +183,8 @@ public final class LibraryJson {
      *
      * @param artifact the artifact the entry describes
      */
-    public static JsonObject localLibrary(Artifact artifact) {
-        var download = new JsonObject();
-        download.addProperty("path", artifact.coordinate().mavenPath());
-        download.addProperty("url", "");
-        download.addProperty("sha1", IO.sha1(artifact.path()));
-        download.addProperty("size", size(artifact.path()));
-
-        var downloads = new JsonObject();
-        downloads.add("artifact", download);
-
-        var library = new JsonObject();
-        library.addProperty("name", artifact.coordinate().serialized());
-        library.addProperty("MMC-hint", "local");
-        library.add("downloads", downloads);
-        return library;
+    public static Library localLibrary(Artifact artifact) {
+        return Library.of(artifact.coordinate()).mmcHint("local").artifact(download(artifact, true).url(""));
     }
 
     /**
@@ -244,15 +206,12 @@ public final class LibraryJson {
      * @param artifact the artifact the block describes
      * @param withPath whether to include the {@code path} key, which Mojang's format carries but not MMC's format
      */
-    public static JsonObject download(Artifact artifact, boolean withPath) {
-        var download = new JsonObject();
-        if (withPath) {
-            download.addProperty("path", artifact.coordinate().mavenPath());
-        }
-        download.addProperty("url", isLocal(artifact) ? "" : artifact.url());
-        download.addProperty("sha1", IO.sha1(artifact.path()));
-        download.addProperty("size", size(artifact.path()));
-        return download;
+    public static Download download(Artifact artifact, boolean withPath) {
+        var download = new Download()
+            .url(isLocal(artifact) ? "" : artifact.url())
+            .sha1(IO.sha1(artifact.path()))
+            .size(size(artifact.path()));
+        return withPath ? download.path(artifact.coordinate().path()) : download;
     }
 
     public static Artifact artifact(Coordinate coordinate, Path path, String url) {
@@ -260,17 +219,6 @@ public final class LibraryJson {
             throw new GradleException("Library does not exist: " + path);
         }
         return new Artifact(coordinate, path, url);
-    }
-
-    public static String nativePlatform(String classifier) {
-        var platform = classifier.substring(Natives.CLASSIFIER_PREFIX.length());
-        if (platform.equals("macos") || platform.equals("osx")) {
-            return "osx";
-        }
-        if (platform.startsWith("macos-")) {
-            return "osx-" + platform.substring("macos-".length());
-        }
-        return platform;
     }
 
     public static String trailingSlash(String value) {
@@ -282,28 +230,24 @@ public final class LibraryJson {
         Coordinate universal) {
         for (var input : libraries) {
             var coordinate = Coordinate.parse(input.getCoordinate().get());
-            if (inherited.contains(coordinate.serialized()) ||
-                universal != null && coordinate.sameArtifact(universal)) {
+            if (inherited.contains(coordinate.toString()) || coordinate.equals(universal)) {
                 continue;
             }
             var path = input.getFile().get().getAsFile().toPath();
             var repositoryUrl = input.getRepositoryUrl().get();
-            var url = isLocalRepository(repositoryUrl) ? "" : trailingSlash(repositoryUrl) + coordinate.mavenPath();
+            var url = isLocalRepository(repositoryUrl) ? "" : trailingSlash(repositoryUrl) + coordinate.path();
             var artifact = artifact(coordinate, path, url);
-            var previous = artifacts.put(coordinate.serialized(), artifact);
+            var previous = artifacts.put(coordinate.toString(), artifact);
             if (previous != null && !previous.path().equals(path)) {
-                throw new GradleException("Multiple files resolved for library " + coordinate.serialized());
+                throw new GradleException("Multiple files resolved for library " + coordinate);
             }
         }
     }
 
-    private static void addPlatformRule(JsonObject library, NativePlatform platform) {
-        if (platform == null) {
-            return;
+    private static void addPlatformRule(Library library, Platform platform) {
+        if (platform != null) {
+            library.rule(Rule.allow().os(platform.operatingSystem()).arch(platform.architecture()));
         }
-        var rules = new JsonArray();
-        rules.add(rule("allow", platform.os(), platform.arch()));
-        library.add("rules", rules);
     }
 
     /**
@@ -311,112 +255,71 @@ public final class LibraryJson {
      * Prism also reads only os.name, matching {@code <os>-<arch>}, and matches the bare name on x86 and x86_64.
      * The later rules narrow Prism to this jar's architecture, and MultiMC skips them.
      */
-    private static void addMmcPlatformRules(JsonObject library, NativePlatform platform) {
-        var arch = platform.arch().equals("x64") ? "x86_64" : platform.arch();
-        var rules = new JsonArray();
-        rules.add(rule("allow", platform.os(), null));
-        for (var legacy : List.of("x86_64", "x86")) {
-            if (!legacy.equals(arch)) {
-                rules.add(rule("disallow", platform.os() + "-" + legacy, null));
+    private static void addMmcPlatformRules(Library library, Platform platform) {
+        library.rule(Rule.allow().os(platform.operatingSystem()));
+        for (var legacy : List.of(Architecture.X64, Architecture.X86)) {
+            if (legacy != platform.architecture()) {
+                library.rule(Rule.disallow().mmcSystem(Platform.of(platform.operatingSystem(), legacy)));
             }
         }
-        if (!arch.equals("x86_64") && !arch.equals("x86")) {
-            rules.add(rule("allow", platform.os() + "-" + arch, null));
+        if (!platform.isX86()) {
+            library.rule(Rule.allow().mmcSystem(platform));
         }
-        library.add("rules", rules);
     }
 
-    private static JsonObject rule(String action, String name, String arch) {
-        var os = new JsonObject();
-        os.addProperty("name", name);
-        if (arch != null) {
-            os.addProperty("arch", arch);
-        }
-        var rule = new JsonObject();
-        rule.addProperty("action", action);
-        rule.add("os", os);
-        return rule;
-    }
-
-    private static NativePlatform classifierPlatform(Coordinate coordinate, NativeJars natives) {
+    // A family classifier such as zstd-jni's linux_amd64 may not parse, so its platform id stands in
+    private static Platform classifierPlatform(Coordinate coordinate, NativeJars natives) {
         var classifier = coordinate.classifier();
         if (classifier == null) {
             return null;
         }
-        // A family classifier such as zstd-jni's linux_amd64 does not parse, so its platform id stands in
         var known = natives.platform(coordinate);
-        var platform = known != null
-            ? known
-            : classifier.startsWith(Natives.CLASSIFIER_PREFIX)
-                ? classifier.substring(Natives.CLASSIFIER_PREFIX.length())
-                : classifier;
-        var separator = platform.indexOf('-');
-        var os = separator == -1 ? platform : platform.substring(0, separator);
-        var arch = separator == -1 ? null : platform.substring(separator + 1);
-        if (os.equals("macos")) {
-            os = "osx";
-        }
-        if (!os.equals("windows") && !os.equals("osx") && !os.equals("linux") && !os.equals("freebsd")) {
-            return null;
-        }
-        if (arch == null) {
-            arch = "x64";
-        } else if (arch.equals("aarch_64")) {
-            arch = "arm64";
-        } else if (arch.equals("x86_64")) {
-            arch = "x64";
-        }
-        return new NativePlatform(os, arch);
+        return known != null ? Platform.parse(known) : LauncherNames.classifierPlatform(classifier).orElse(null);
     }
 
-    private static JsonObject nativeLibrary(
-        Coordinate base, List<Artifact> artifacts, boolean mmc, NativeJars natives) {
-        artifacts.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
-        var classifiers = new JsonObject();
-        var nativeMap = new JsonObject();
+    // MultiMC and Prism take the bare system name for x64 jars
+    private static String nativesKey(Platform platform) {
+        return platform.architecture() == Architecture.X64
+            ? LauncherNames.os(platform)
+            : LauncherNames.mmcSystem(platform);
+    }
+
+    private static Library nativeLibrary(Coordinate base, List<Artifact> artifacts, boolean mmc, NativeJars natives) {
+        artifacts.sort(Comparator.comparing(artifact -> artifact.coordinate().toString()));
+        var library = Library.of(base);
         for (var artifact : artifacts) {
             var classifier = artifact.coordinate().classifier();
             var download = download(artifact, false);
             if (mmc && isLocal(artifact)) {
-                download.remove("url");
+                download.url(null);
             }
-            classifiers.add(classifier, download);
-            var platform = natives.platform(artifact.coordinate()) == null
-                ? null
-                : classifierPlatform(artifact.coordinate(), natives);
+            library.classifier(classifier, download);
+            var platform = classifierPlatform(artifact.coordinate(), natives);
             var key = platform == null
-                ? nativePlatform(classifier)
-                : platform.os() + (platform.arch().equals("x64") ? "" : "-" + platform.arch());
-            nativeMap.addProperty(key, classifier);
+                ? classifier.substring(LauncherNames.NATIVES_PREFIX.length())
+                : mmc ? nativesKey(platform) : LauncherNames.os(platform);
+            library.natives(key, classifier);
         }
-
-        var downloads = new JsonObject();
-        downloads.add("classifiers", classifiers);
-        var extract = new JsonObject();
-        var exclusions = new JsonArray();
-        exclusions.add("META-INF/");
-        extract.add("exclude", exclusions);
-
-        var library = new JsonObject();
-        library.addProperty("name", base.serialized());
         if (mmc && artifacts.stream().allMatch(LibraryJson::isLocal)) {
-            library.addProperty("MMC-hint", "local");
+            library.mmcHint("local");
         }
-        library.add("downloads", downloads);
-        library.add("natives", nativeMap);
-        library.add("extract", extract);
-        return library;
+        return library.extractExcludes("META-INF/");
     }
 
     private static void split(
         List<Artifact> artifacts, List<Artifact> ordinary, Map<String, List<Artifact>> extracted, NativeJars natives) {
         for (var artifact : artifacts) {
             if (natives.isExtracted(artifact.coordinate())) {
-                extracted.computeIfAbsent(artifact.coordinate().module(), ignored -> new ArrayList<>()).add(artifact);
+                extracted.computeIfAbsent(versionKey(artifact.coordinate()), ignored -> new ArrayList<>())
+                    .add(artifact);
             } else {
                 ordinary.add(artifact);
             }
         }
+    }
+
+    private static String versionKey(Coordinate coordinate) {
+        return coordinate.module() + ":" + coordinate.version();
     }
 
     private static long size(Path path) {
@@ -426,7 +329,5 @@ public final class LibraryJson {
             throw new UncheckedIOException("Failed to inspect library " + path, e);
         }
     }
-
-    private record NativePlatform(String os, String arch) { }
 
 }

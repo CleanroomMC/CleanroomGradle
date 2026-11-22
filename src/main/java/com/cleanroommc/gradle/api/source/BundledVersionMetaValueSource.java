@@ -11,22 +11,22 @@
 package com.cleanroommc.gradle.api.source;
 
 import com.cleanroommc.gradle.api.Meta;
-import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.util.IO;
+import com.cleanroommc.launcherutils.version.VersionJson;
 
 import org.gradle.api.provider.ValueSource;
 import org.gradle.api.provider.ValueSourceParameters;
 
-public abstract class BundledVersionMetaValueSource implements ValueSource<VersionMeta, ValueSourceParameters.None> {
+public abstract class BundledVersionMetaValueSource implements ValueSource<VersionJson, ValueSourceParameters.None> {
 
     @Override
-    public VersionMeta obtain() {
+    public VersionJson obtain() {
         var version = Meta.ONE_TRUE_MINECRAFT_VERSION;
         var stream = BundledVersionMetaValueSource.class.getResourceAsStream("/meta/" + version + ".json");
         if (stream == null) {
             throw new RuntimeException("Bundled " + version + " version meta not found in plugin resources");
         }
-        return IO.readJson(stream, VersionMeta.class);
+        return IO.readJson(stream, VersionJson.class);
     }
 
 }

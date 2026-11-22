@@ -19,8 +19,6 @@ public final class Meta {
     public static final String MINECRAFT_PACKAGE_PATH = "net/minecraft/";
 
     // Useful URLs
-    public static final String RESOURCES_BASE_URL = "https://resources.download.minecraft.net/";
-    public static final String VERSION_MANIFEST_V2_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
     public static final String MOJANG_PLAYER_API = "https://api.mojang.com/users/profiles/minecraft/";
 
     // RegEx's

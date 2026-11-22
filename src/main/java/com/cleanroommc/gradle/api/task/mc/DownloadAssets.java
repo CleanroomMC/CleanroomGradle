@@ -10,10 +10,9 @@
 
 package com.cleanroommc.gradle.api.task.mc;
 
-import com.cleanroommc.gradle.api.Meta;
-import com.cleanroommc.gradle.api.schema.AssetIndex;
 import com.cleanroommc.gradle.api.util.CleanroomProblems;
 import com.cleanroommc.gradle.api.util.IO;
+import com.cleanroommc.launcherutils.asset.AssetIndex;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -54,7 +53,7 @@ public abstract class DownloadAssets extends DefaultTask {
         this.getOffline().convention(false);
     }
 
-    private static String problem(File target, AssetIndex.AssetEntry asset) {
+    private static String problem(File target, AssetIndex.AssetObject asset) {
         if (!target.isFile()) {
             return target.exists() ? "object path is not a regular file" : "object is missing";
         }
@@ -82,7 +81,8 @@ public abstract class DownloadAssets extends DefaultTask {
         }
         var objectsDirectory = this.getObjects().get().getAsFile();
         return IO.readJson(indexFile, AssetIndex.class)
-            .objectCollection()
+            .objects()
+            .values()
             .stream()
             .map(asset -> new File(objectsDirectory, asset.path()))
             .toList();
@@ -101,13 +101,14 @@ public abstract class DownloadAssets extends DefaultTask {
     public void downloadAssets() {
         var assetIndex = IO.readJson(this.getAssetIndexFile().get().getAsFile(), AssetIndex.class);
         var objectsDirectory = this.getObjects().get().getAsFile();
-        var assets = assetIndex.objectCollection();
+        var assets = assetIndex.objects();
         var problems = new ArrayList<AssetProblem>();
-        for (var asset : assets) {
+        for (var entry : assets.entrySet()) {
+            var asset = entry.getValue();
             var target = new File(objectsDirectory, asset.path());
             var problem = problem(target, asset);
             if (problem != null) {
-                problems.add(new AssetProblem(asset, target, problem));
+                problems.add(new AssetProblem(entry.getKey(), asset, target, problem));
             }
         }
         if (problems.isEmpty()) {
@@ -117,9 +118,7 @@ public abstract class DownloadAssets extends DefaultTask {
         if (this.getOffline().get()) {
             var shown = problems.stream()
                 .limit(20)
-                .map(problem -> "  - %s: %s (%s)".formatted(
-                    problem.asset().realPath(), problem.reason(), problem.target()
-                ))
+                .map(problem -> "  - %s: %s (%s)".formatted(problem.name(), problem.reason(), problem.target()))
                 .collect(Collectors.joining("\n"));
             var remainder = problems.size() > 20 ? "\n  ... and " + (problems.size() - 20) + " more" : "";
             var details = "Gradle is offline and %d Minecraft asset(s) are missing or invalid:\n%s%s".formatted(
@@ -139,7 +138,7 @@ public abstract class DownloadAssets extends DefaultTask {
         for (var problem : problems) {
             queue.submit(AssetAction.class, action -> {
                 try {
-                    action.getSourceUrl().set(new URI(Meta.RESOURCES_BASE_URL + problem.asset().path()).toURL());
+                    action.getSourceUrl().set(new URI(problem.asset().url()).toURL());
                 } catch (URISyntaxException | MalformedURLException e) {
                     throw new RuntimeException("Invalid Minecraft asset URL for " + problem.asset().hash(), e);
                 }
@@ -162,7 +161,7 @@ public abstract class DownloadAssets extends DefaultTask {
 
     }
 
-    private record AssetProblem(AssetIndex.AssetEntry asset, File target, String reason) { }
+    private record AssetProblem(String name, AssetIndex.AssetObject asset, File target, String reason) { }
 
     public abstract static class AssetAction implements WorkAction<AssetParameters> {
 

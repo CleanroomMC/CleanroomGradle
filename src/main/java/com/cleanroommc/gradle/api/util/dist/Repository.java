@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.util.dist;
 
 import com.cleanroommc.gradle.api.util.Property;
+import com.cleanroommc.launcherutils.MojangEndpoints;
 
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.dsl.RepositoryHandler;
@@ -27,7 +28,7 @@ public enum Repository {
         "CleanroomMC", "https://maven.cleanroommc.com/", true, "com.cleanroommc", "top.outlands", "zone.rong",
         "net.minecraftforge", "de.oceanlabs.mcp"
     ),
-    MOJANG("Mojang", "https://libraries.minecraft.net/");
+    MOJANG("Mojang", MojangEndpoints.LIBRARIES);
 
     /** Resolves the userdev artifact as published, past the sources mirror. */
     public static final String USERDEV_RAW_CONFIGURATION = "_cleanroomUserdevRaw";

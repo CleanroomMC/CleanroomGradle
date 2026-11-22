@@ -17,7 +17,6 @@ import com.cleanroommc.gradle.api.ext.MinecraftExtension;
 import com.cleanroommc.gradle.api.ext.PatchDevEnvironment;
 import com.cleanroommc.gradle.api.ext.PatchesExtension;
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
-import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.task.IntermediateProcessor;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.dist.PublishMmcPackZip;
@@ -31,13 +30,15 @@ import com.cleanroommc.gradle.api.userdev.StripHiddenFromUserdev;
 import com.cleanroommc.gradle.api.userdev.UserdevAttributes;
 import com.cleanroommc.gradle.api.util.Natives;
 import com.cleanroommc.gradle.api.util.Objects;
-import com.cleanroommc.gradle.api.util.dist.Coordinate;
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
 import com.cleanroommc.gradle.api.util.dist.MinecraftPackages;
 import com.cleanroommc.gradle.api.util.dist.NativeJars;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 import com.cleanroommc.gradle.api.util.lazy.ProjectCoordinates;
 import com.cleanroommc.gradle.api.util.lazy.Providers;
+import com.cleanroommc.launcherutils.Coordinate;
+import com.cleanroommc.launcherutils.version.Library;
+import com.cleanroommc.launcherutils.version.VersionJson;
 import com.cleanroommc.platformutils.Platform;
 
 import de.undercouch.gradle.tasks.download.Download;
@@ -132,7 +133,9 @@ public final class DistributionTasks {
         var group = coordinates.getGroup();
         var version = coordinates.getVersion();
         var minecraftVersion = vanilla.minecraftVersion;
-        var universal = group.zip(version, (id, number) -> new Coordinate(id, ARTIFACT_ID, number, "universal", "jar"));
+        var universal = group.zip(
+            version, (id, number) -> Coordinate.of(id, ARTIFACT_ID, number).withClassifier("universal")
+        );
         var titleProperty = "Cleanroom";
         var vendorProperty = "CleanroomMC";
         var timestampProperty = providers.environmentVariable("SOURCE_DATE_EPOCH")
@@ -210,20 +213,14 @@ public final class DistributionTasks {
         var manifestUrls = minecraft.getVersionMeta().map(meta -> {
             var urls = new HashMap<String, String>();
             for (var library : meta.libraries()) {
-                var downloads = library.downloads();
-                if (downloads == null) {
-                    continue;
+                if (library.artifact() != null && library.artifact().url() != null) {
+                    urls.put(library.name(), library.artifact().url());
                 }
-                if (downloads.artifact() != null && downloads.artifact().url() != null) {
-                    urls.put(library.name(), downloads.artifact().url());
-                }
-                if (downloads.classifiers() != null) {
-                    downloads.classifiers().forEach((classifier, download) -> {
-                        if (download.url() != null) {
-                            urls.put(library.name() + ":" + classifier, download.url());
-                        }
-                    });
-                }
+                library.classifiers().forEach((classifier, download) -> {
+                    if (download.url() != null) {
+                        urls.put(library.name() + ":" + classifier, download.url());
+                    }
+                });
             }
             return urls;
         });
@@ -231,7 +228,7 @@ public final class DistributionTasks {
             project.getObjects(), distributionNatives, resolvedRepositoryUrls
         );
         var universalUrl = universalRepositoryUrl(project).zip(
-            universal, (url, coordinate) -> LibraryJson.trailingSlash(url) + coordinate.mavenPath()
+            universal, (url, coordinate) -> LibraryJson.trailingSlash(url) + coordinate.path()
         );
 
         this.writeMcp2Srg = mappings.write(
@@ -435,10 +432,10 @@ public final class DistributionTasks {
                 );
             task.getSideAnnotationStrippers().set(UserdevConfig.meta(UserdevConfig.SAS));
             task.getPatches().set(UserdevConfig.meta(UserdevConfig.PATCHES));
-            task.getClientUrl().set(minecraft.getVersionMeta().map(VersionMeta::clientUrl));
-            task.getClientSha1().set(minecraft.getVersionMeta().map(VersionMeta::clientSha1));
-            task.getServerUrl().set(minecraft.getVersionMeta().map(VersionMeta::serverUrl));
-            task.getServerSha1().set(minecraft.getVersionMeta().map(VersionMeta::serverSha1));
+            task.getClientUrl().set(minecraft.getVersionMeta().map(meta -> meta.download(VersionJson.CLIENT).url()));
+            task.getClientSha1().set(minecraft.getVersionMeta().map(meta -> meta.download(VersionJson.CLIENT).sha1()));
+            task.getServerUrl().set(minecraft.getVersionMeta().map(meta -> meta.download(VersionJson.SERVER).url()));
+            task.getServerSha1().set(minecraft.getVersionMeta().map(meta -> meta.download(VersionJson.SERVER).sha1()));
             task.getLoaderGroup().set(group);
             task.getHiddenAnnotation().set(loader.getHiddenAnnotation());
             task.getClientLaunchClass().set(clientLaunchClass);
@@ -504,7 +501,7 @@ public final class DistributionTasks {
             task.getJvmArgs().set(loader.getInstallerJvmArgs());
             task.getCompatibleJavaMajors().set(targetJavaMajor.map(List::of));
             task.getCompatibleJavaName().set(targetJavaName);
-            task.getUniversalCoordinate().set(universal.map(Coordinate::serialized));
+            task.getUniversalCoordinate().set(universal.map(Coordinate::toString));
             task.getUniversalUrl().set(universalUrl);
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
             task.getNativePlatforms().set(nativeJars.map(NativeJars::platforms));
@@ -514,10 +511,7 @@ public final class DistributionTasks {
             task.getInheritedLibraries()
                 .set(
                     minecraft.getVersionMeta()
-                        .map(meta -> meta.libraries()
-                            .stream()
-                            .map(VersionMeta.Library::name)
-                            .collect(Collectors.toSet()))
+                        .map(meta -> meta.libraries().stream().map(Library::name).collect(Collectors.toSet()))
                 );
             task.getMinecraftExcludeRules().set(distributionLibraries.map(ResolvedLibraries::excludeRules));
             task.getArchiveFile()
@@ -540,7 +534,7 @@ public final class DistributionTasks {
             task.getJvmArgs().set(loader.getInstallerJvmArgs());
             task.getMinimumJava().set(targetJavaMajor);
             task.getRecommendedJava().set(targetJavaMajor);
-            task.getUniversalCoordinate().set(universal.map(Coordinate::serialized));
+            task.getUniversalCoordinate().set(universal.map(Coordinate::toString));
             task.getUniversalUrl().set(universalUrl);
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
             task.getNativePlatforms().set(nativeJars.map(NativeJars::platforms));

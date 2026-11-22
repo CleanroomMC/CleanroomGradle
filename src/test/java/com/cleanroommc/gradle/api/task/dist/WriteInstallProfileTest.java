@@ -10,8 +10,12 @@
 
 package com.cleanroommc.gradle.api.task.dist;
 
-import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
+import com.cleanroommc.launcherutils.version.AssetIndexInfo;
+import com.cleanroommc.launcherutils.version.Download;
+import com.cleanroommc.launcherutils.version.JavaVersion;
+import com.cleanroommc.launcherutils.version.Library;
+import com.cleanroommc.launcherutils.version.VersionJson;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -37,28 +41,36 @@ class WriteInstallProfileTest {
 
     @TempDir Path directory;
 
-    private static VersionMeta versionMeta(String minecraftArguments, String... libraries) {
+    private static VersionJson versionMeta(String minecraftArguments, String... libraries) {
         return versionMetaWithId("1.12.2", minecraftArguments, libraries);
     }
 
-    private static VersionMeta versionMetaWithId(
+    private static VersionJson versionMetaWithId(
         String minecraftVersion, String minecraftArguments, String... libraries) {
-        var entries = new ArrayList<VersionMeta.Library>();
+        var entries = new ArrayList<Library>();
         for (var name : libraries) {
-            entries.add(new VersionMeta.Library(
-                new VersionMeta.Downloads(
-                    new VersionMeta.Download("ignored", "sha1", 1, "https://example.invalid/ignored.jar"), Map.of()
-                ),
-                name, null, null, null
-            ));
+            entries.add(
+                Library.of(name)
+                    .artifact(
+                        new Download().path("ignored").sha1("sha1").size(1).url("https://example.invalid/ignored.jar")
+                    )
+            );
         }
-        return new VersionMeta(
-            null, new VersionMeta.AssetIndex("1.12", 1, null, "sha1", 1, "https://example.invalid/1.12.json"), "1.12",
-            0, Map.of("client", new VersionMeta.Download(null, "sha1", 1, "https://example.invalid/client.jar")),
-            minecraftVersion, new VersionMeta.JavaVersion("jre-legacy", 8), entries, null,
-            "net.minecraft.client.main.Main", minecraftArguments, 18, "2017-09-18T08:39:46+00:00",
-            "2017-09-18T08:39:46+00:00", "release"
-        );
+        var assetIndex = new AssetIndexInfo().id("1.12").totalSize(1);
+        assetIndex.sha1("sha1").size(1).url("https://example.invalid/1.12.json");
+        return new VersionJson()
+            .assetIndex(assetIndex)
+            .assets("1.12")
+            .download(VersionJson.CLIENT, new Download().sha1("sha1").size(1).url("https://example.invalid/client.jar"))
+            .id(minecraftVersion)
+            .javaVersion(JavaVersion.of("jre-legacy", 8))
+            .libraries(entries)
+            .mainClass("net.minecraft.client.main.Main")
+            .minecraftArguments(minecraftArguments)
+            .minimumLauncherVersion(18)
+            .releaseTime("2017-09-18T08:39:46+00:00")
+            .time("2017-09-18T08:39:46+00:00")
+            .type("release");
     }
 
     private static LibraryArtifact library(Project project, String coordinate, Path file) {

@@ -13,14 +13,15 @@ package com.cleanroommc.gradle.api.task.dist;
 import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.dist.Artifact;
-import com.cleanroommc.gradle.api.util.dist.Coordinate;
 import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
 import com.cleanroommc.gradle.api.util.dist.NativeJars;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
-
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
+import com.cleanroommc.launcherutils.Coordinate;
+import com.cleanroommc.launcherutils.mmc.MmcPack;
+import com.cleanroommc.launcherutils.mmc.MmcPatch;
+import com.cleanroommc.launcherutils.mmc.MmcRequirement;
+import com.cleanroommc.launcherutils.version.Library;
 
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
@@ -71,10 +72,10 @@ import javax.inject.Inject;
 @CacheableTask
 public abstract class PublishMmcPackZip extends DefaultTask {
 
-    private static final String FORGE_UID = "net.minecraftforge";
-    private static final String LWJGL_UID = "org.lwjgl";
-    private static final String MINECRAFT_UID = "net.minecraft";
-    private static final String FORGE_PATCH_PATH = "patches/" + FORGE_UID + ".json";
+    // Cleanroom's LWJGL 3 takes the LWJGL 2 slot that net.minecraft 1.12.2 requires
+    private static final String LWJGL_UID = MmcPack.LWJGL2_UID;
+    private static final String LWJGL_GROUP = "org.lwjgl";
+    private static final String FORGE_PATCH_PATH = "patches/" + MmcPack.FORGE_UID + ".json";
     private static final String LWJGL_PATCH_PATH = "patches/" + LWJGL_UID + ".json";
     private static final String LOCAL_LIBRARIES = "libraries/";
     private static final String BLOCKED_LIBRARY_VERSION = "999999.0-empty";
@@ -110,12 +111,9 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         getCompatibleJavaName().convention("");
     }
 
-    private static void addBlockedLibraries(JsonArray libraries, Set<String> blockedMinecraftModules) {
+    private static void addBlockedLibraries(List<Library> libraries, Set<String> blockedMinecraftModules) {
         for (var module : blockedMinecraftModules) {
-            var library = new JsonObject();
-            library.addProperty("name", module + ":" + BLOCKED_LIBRARY_VERSION);
-            library.addProperty("MMC-hint", "local");
-            libraries.add(library);
+            libraries.add(Library.of(module + ":" + BLOCKED_LIBRARY_VERSION).mmcHint("local"));
         }
     }
 
@@ -132,13 +130,6 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         }
     }
 
-    private static JsonObject requirement(String uid, String version) {
-        var requirement = new JsonObject();
-        requirement.addProperty("uid", uid);
-        requirement.addProperty("equals", version);
-        return requirement;
-    }
-
     private static byte[] read(Path path) {
         try {
             return Files.readAllBytes(path);
@@ -147,7 +138,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         }
     }
 
-    private static byte[] json(JsonObject object) {
+    private static byte[] json(Object object) {
         return (IO.GSON.toJson(object) + "\n").getBytes(StandardCharsets.UTF_8);
     }
 
@@ -258,78 +249,31 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         );
     }
 
-    private JsonObject packJson(String lwjglVersion) {
-        var minecraft = new JsonObject();
-        minecraft.addProperty("uid", MINECRAFT_UID);
-        minecraft.addProperty("version", getMinecraftVersion().get());
-        minecraft.addProperty("important", true);
-
-        var lwjgl = new JsonObject();
-        lwjgl.addProperty("uid", LWJGL_UID);
-        lwjgl.addProperty("version", lwjglVersion);
-
-        var cleanroom = new JsonObject();
-        cleanroom.addProperty("uid", FORGE_UID);
-        cleanroom.addProperty("version", getCleanroomVersion().get());
-
-        var components = new JsonArray();
-        components.add(minecraft);
-        components.add(lwjgl);
-        components.add(cleanroom);
-
-        var pack = new JsonObject();
-        pack.addProperty("formatVersion", 1);
-        pack.add("components", components);
-        return pack;
+    private MmcPack packJson(String lwjglVersion) {
+        return new MmcPack()
+            .component(MmcPack.Component.of(MmcPack.MINECRAFT_UID, getMinecraftVersion().get()).important(true))
+            .component(MmcPack.Component.of(LWJGL_UID, lwjglVersion))
+            .component(MmcPack.Component.of(MmcPack.FORGE_UID, getCleanroomVersion().get()));
     }
 
-    private JsonObject forgePatchJson(JsonArray libraries, String lwjglVersion) {
-        var requirements = new JsonArray();
-        requirements.add(requirement(MINECRAFT_UID, getMinecraftVersion().get()));
-        requirements.add(requirement(LWJGL_UID, lwjglVersion));
-
-        var tweakers = new JsonArray();
-        getTweakers().get().forEach(tweakers::add);
-
-        var patch = new JsonObject();
-        patch.addProperty("formatVersion", 1);
-        patch.addProperty("name", getInstanceName().get());
-        patch.addProperty("uid", FORGE_UID);
-        patch.addProperty("version", getCleanroomVersion().get());
-        patch.add("requires", requirements);
-        patch.addProperty("mainClass", getMainClass().get());
-        if (!getCompatibleJavaMajors().get().isEmpty()) {
-            var javaMajors = new JsonArray();
-            getCompatibleJavaMajors().get().forEach(javaMajors::add);
-            patch.add("compatibleJavaMajors", javaMajors);
-        }
-
+    private MmcPatch forgePatchJson(List<Library> libraries, String lwjglVersion) {
+        var patch = MmcPatch.of(MmcPack.FORGE_UID, getInstanceName().get(), getCleanroomVersion().get())
+            .require(MmcRequirement.exactly(MmcPack.MINECRAFT_UID, getMinecraftVersion().get()))
+            .require(MmcRequirement.exactly(LWJGL_UID, lwjglVersion));
+        patch.mainClass(getMainClass().get());
+        getCompatibleJavaMajors().get().forEach(patch::compatibleJavaMajor);
         if (!getCompatibleJavaName().get().isEmpty()) {
-            patch.addProperty("compatibleJavaName", getCompatibleJavaName().get());
+            patch.compatibleJavaName(getCompatibleJavaName().get());
         }
-
-        if (!tweakers.isEmpty()) {
-            patch.add("+tweakers", tweakers);
-        }
-        if (!getJvmArgs().get().isEmpty()) {
-            var jvmArgs = new JsonArray();
-            getJvmArgs().get().forEach(jvmArgs::add);
-            patch.add("+jvmArgs", jvmArgs);
-        }
-        var traits = new JsonArray();
-        traits.add("FirstThreadOnMacOS");
-        patch.add("+traits", traits);
-        patch.add("libraries", libraries);
+        getTweakers().get().forEach(patch::tweaker);
+        getJvmArgs().get().forEach(patch::jvmArg);
+        patch.trait("FirstThreadOnMacOS").libraries(libraries);
         return patch;
     }
 
-    private JsonObject lwjglPatchJson(JsonArray libraries, String lwjglVersion) {
-        var patch = new JsonObject();
-        patch.addProperty("formatVersion", 1);
-        patch.addProperty("name", "LWJGL 3");
-        patch.addProperty("uid", LWJGL_UID);
-        patch.addProperty("version", lwjglVersion);
-        patch.add("libraries", libraries);
+    private MmcPatch lwjglPatchJson(List<Library> libraries, String lwjglVersion) {
+        var patch = MmcPatch.of(LWJGL_UID, "LWJGL 3", lwjglVersion);
+        patch.libraries(libraries);
         return patch;
     }
 
@@ -351,7 +295,7 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         var lwjglVersions = new HashSet<String>();
         for (var library : getLibraries().get()) {
             var coordinate = Coordinate.parse(library.getCoordinate().get());
-            if (coordinate.group().equals(LWJGL_UID)) {
+            if (coordinate.group().equals(LWJGL_GROUP)) {
                 lwjglInputs.add(library);
                 lwjglVersions.add(coordinate.version());
             } else {
@@ -380,7 +324,10 @@ public abstract class PublishMmcPackZip extends DefaultTask {
             "iconKey=default\n";
     }
 
-    private record ComponentLibraries(String lwjglVersion, JsonArray cleanroom, JsonArray lwjgl, List<Artifact> local)
-    { }
+    private record ComponentLibraries(
+        String lwjglVersion,
+        List<Library> cleanroom,
+        List<Library> lwjgl,
+        List<Artifact> local) { }
 
 }

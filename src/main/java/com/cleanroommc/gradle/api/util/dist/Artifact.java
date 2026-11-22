@@ -10,6 +10,8 @@
 
 package com.cleanroommc.gradle.api.util.dist;
 
+import com.cleanroommc.launcherutils.Coordinate;
+
 import java.nio.file.Path;
 
 public record Artifact(Coordinate coordinate, Path path, String url) { }

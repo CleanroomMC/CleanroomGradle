@@ -10,10 +10,9 @@
 
 package com.cleanroommc.gradle.api.source;
 
-import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.util.IO;
-
-import com.google.gson.JsonObject;
+import com.cleanroommc.launcherutils.manifest.VersionManifest;
+import com.cleanroommc.launcherutils.version.VersionJson;
 
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.provider.Property;
@@ -23,14 +22,14 @@ import org.gradle.api.provider.ValueSourceParameters;
 import java.io.File;
 
 /**
- * Resolves the {@link VersionMeta} of an arbitrary Minecraft version through Mojang's launcher manifest:
+ * Resolves the {@link VersionJson} of an arbitrary Minecraft version through Mojang's launcher manifest:
  * {@code version_manifest_v2.json} -> version entry (url + sha1) -> version meta json.
  */
 public abstract class LauncherVersionMetaValueSource
-    implements ValueSource<VersionMeta, LauncherVersionMetaValueSource.Parameters> {
+    implements ValueSource<VersionJson, LauncherVersionMetaValueSource.Parameters> {
 
     @Override
-    public VersionMeta obtain() {
+    public VersionJson obtain() {
         var params = this.getParameters();
         var version = params.getMinecraftVersion().get();
         var offline = params.getOffline().getOrElse(false);
@@ -49,22 +48,12 @@ public abstract class LauncherVersionMetaValueSource
             IO.downloadWithETag(params.getManifestUrl().get(), manifestFile);
         }
 
-        String metaUrl = null;
-        String metaSha1 = null;
-        for (var element : IO.readJson(manifestFile, JsonObject.class).getAsJsonArray("versions")) {
-            var entry = element.getAsJsonObject();
-            if (version.equals(entry.get("id").getAsString())) {
-                metaUrl = entry.get("url").getAsString();
-                metaSha1 = entry.get("sha1").getAsString();
-                break;
-            }
-        }
-        if (metaUrl == null) {
-            var message = "Minecraft version '%s' was not found in launcher manifest %s.".formatted(
-                version, manifestFile
-            );
-            throw new IllegalArgumentException(message);
-        }
+        var entry = IO.readJson(manifestFile, VersionManifest.class).find(version).orElseThrow(() -> {
+            var message = "Minecraft version '%s' was not found in launcher manifest %s.".formatted(version, manifestFile);
+            return new IllegalArgumentException(message);
+        });
+        var metaUrl = entry.url();
+        var metaSha1 = entry.sha1();
 
         var metaFile = new File(cacheDirectory, "versions/%s/meta.json".formatted(version));
         if (!IO.sha1Match(metaFile, metaSha1)) {
@@ -84,7 +73,7 @@ public abstract class LauncherVersionMetaValueSource
                 throw new IllegalStateException(message);
             }
         }
-        return IO.readJson(metaFile, VersionMeta.class);
+        return IO.readJson(metaFile, VersionJson.class);
     }
 
     public interface Parameters extends ValueSourceParameters {

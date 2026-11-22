@@ -65,10 +65,6 @@ public final class Natives {
         Platform.of(OperatingSystem.FREE_BSD, Architecture.X64)
     );
     public static final List<String> PLATFORMS = NATIVE_PLATFORMS.stream().map(Platform::id).toList();
-    /**
-     * Classifiers launchers extract when no family declares the jar, as in Mojang's version manifests.
-     */
-    public static final String CLASSIFIER_PREFIX = "natives-";
 
     private Natives() { }
 

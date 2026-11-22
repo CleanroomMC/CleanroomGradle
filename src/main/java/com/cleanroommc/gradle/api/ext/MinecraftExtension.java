@@ -10,7 +10,7 @@
 
 package com.cleanroommc.gradle.api.ext;
 
-import com.cleanroommc.gradle.api.schema.VersionMeta;
+import com.cleanroommc.launcherutils.version.VersionJson;
 
 import org.gradle.api.provider.Property;
 
@@ -21,6 +21,6 @@ public abstract class MinecraftExtension {
 
     public abstract Property<String> getVersionMetaUrl();
 
-    public abstract Property<VersionMeta> getVersionMeta();
+    public abstract Property<VersionJson> getVersionMeta();
 
 }

@@ -14,7 +14,6 @@ import com.cleanroommc.gradle.api.Meta;
 import com.cleanroommc.gradle.api.ext.CachesExtension;
 import com.cleanroommc.gradle.api.ext.MinecraftExtension;
 import com.cleanroommc.gradle.api.ext.VanillaEnvironment;
-import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.source.LauncherVersionMetaValueSource;
 import com.cleanroommc.gradle.api.task.Tasks;
 import com.cleanroommc.gradle.api.task.common.Decompile;
@@ -22,10 +21,15 @@ import com.cleanroommc.gradle.api.task.mc.DownloadAssets;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.IO;
-import com.cleanroommc.gradle.api.util.Natives;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 import com.cleanroommc.gradle.api.util.lazy.Providers;
+import com.cleanroommc.launcherutils.LauncherNames;
+import com.cleanroommc.launcherutils.MojangEndpoints;
+import com.cleanroommc.launcherutils.rule.RuleContext;
+import com.cleanroommc.launcherutils.version.AssetIndexInfo;
+import com.cleanroommc.launcherutils.version.Library;
+import com.cleanroommc.launcherutils.version.VersionJson;
 import com.cleanroommc.platformutils.Platform;
 
 import de.undercouch.gradle.tasks.download.Download;
@@ -71,7 +75,7 @@ public final class VanillaTasks {
     /**
      * Launcher-manifest metadata for {@link #minecraftVersion}.
      */
-    public final Provider<VersionMeta> versionMeta;
+    public final Provider<VersionJson> versionMeta;
     public final Provider<Directory> versionCacheDirectory;
     public final Provider<File> assetIndexFile;
     public final Provider<File> clientJar;
@@ -103,7 +107,7 @@ public final class VanillaTasks {
         this.versionMeta = spec.versionMeta();
         this.versionCacheDirectory = spec.versionCacheDirectory();
         this.assetIndexFile = caches.getDirectory()
-            .file(this.versionMeta.map(meta -> "assets/indexes/" + meta.assetIndexId() + ".json"))
+            .file(this.versionMeta.map(meta -> "assets/indexes/" + meta.assetIndex().id() + ".json"))
             .map(RegularFile::getAsFile);
         this.clientJar = this.versionCacheDirectory.map(dir -> dir.file("client.jar").getAsFile());
         this.serverJar = this.versionCacheDirectory.map(dir -> dir.file("server.jar").getAsFile());
@@ -111,9 +115,9 @@ public final class VanillaTasks {
         var toolchains = project.getExtensions().getByType(JavaToolchainService.class);
         var vanillaJavaLauncher = spec.javaMajor().flatMap(major -> Providers.javaLauncher(toolchains, major));
 
-        var clientMappings = this.versionMeta.map(meta -> meta.download("client_mappings"));
-        var serverDownload = this.versionMeta.map(meta -> meta.download("server"));
-        var assetIndex = this.versionMeta.map(VersionMeta::assetIndex);
+        var clientMappings = this.versionMeta.map(meta -> meta.download(VersionJson.CLIENT_MAPPINGS));
+        var serverDownload = this.versionMeta.map(meta -> meta.download(VersionJson.SERVER));
+        var assetIndex = this.versionMeta.map(VersionJson::assetIndex);
 
         var factory = project.getDependencyFactory();
         this.vanillaConfig = Objects.config(
@@ -126,7 +130,7 @@ public final class VanillaTasks {
         );
         this.vanillaConfig.configure(config -> config.withDependencies(dependencies -> {
             addLibraries(
-                factory, dependencies, this.versionMeta.get(), library -> library.isValidForOS(Platform.current())
+                factory, dependencies, this.versionMeta.get(), library -> library.allowed(RuleContext.current())
             );
             ResolvedLibraries.removeExcluded(dependencies, config);
         }));
@@ -175,7 +179,7 @@ public final class VanillaTasks {
     }
 
     public static void addDistributionLibraries(
-        DependencyFactory factory, Collection<Dependency> dependencies, VersionMeta meta) {
+        DependencyFactory factory, Collection<Dependency> dependencies, VersionJson meta) {
         addLibraries(factory, dependencies, meta, library -> !isLwjgl2(library.name()));
     }
 
@@ -189,18 +193,16 @@ public final class VanillaTasks {
      * @param platform the platform to select natives for
      */
     public static void addNativesFor(
-        DependencyFactory factory, Collection<Dependency> dependencies, VersionMeta meta,
+        DependencyFactory factory, Collection<Dependency> dependencies, VersionJson meta,
         Map<String, String> selectedVersions, Platform platform) {
-        for (var library : meta.libraries()) {
-            if (!library.isValidForOS(platform) || !library.hasNativesForOS(platform)) {
+        var context = RuleContext.of(platform);
+        for (var library : meta.libraries(context)) {
+            var classifier = library.nativeDownload(context);
+            if (classifier == null) {
                 continue;
             }
             var coordinates = library.name().split(":");
             if (ordinaryArtifactWasReplaced(library, coordinates, selectedVersions)) {
-                continue;
-            }
-            var classifier = library.classifierForOS(platform);
-            if (classifier == null) {
                 continue;
             }
             var matcher = Meta.NATIVES_PATTERN.matcher(classifier.path());
@@ -222,20 +224,17 @@ public final class VanillaTasks {
     }
 
     static void addDistributionNatives(
-        DependencyFactory factory, DependencySet dependencies, VersionMeta meta, Map<String, String> selectedVersions) {
+        DependencyFactory factory, DependencySet dependencies, VersionJson meta, Map<String, String> selectedVersions) {
         for (var library : meta.libraries()) {
-            if (!library.hasNatives() ||
-                library.downloads() == null ||
-                library.downloads().classifiers() == null ||
-                isLwjgl2(library.name())) {
+            if (!library.hasNatives() || library.classifiers().isEmpty() || isLwjgl2(library.name())) {
                 continue;
             }
             var coordinates = library.name().split(":");
             if (ordinaryArtifactWasReplaced(library, coordinates, selectedVersions)) {
                 continue;
             }
-            for (var classifier : library.downloads().classifiers().keySet()) {
-                if (!classifier.startsWith(Natives.CLASSIFIER_PREFIX)) {
+            for (var classifier : library.classifiers().keySet()) {
+                if (!classifier.startsWith(LauncherNames.NATIVES_PREFIX)) {
                     continue;
                 }
                 var dependency = factory.create("%s:%s:%s:%s".formatted(
@@ -258,7 +257,7 @@ public final class VanillaTasks {
     }
 
     static void addNatives(
-        DependencyFactory factory, DependencySet dependencies, VersionMeta meta, Map<String, String> selectedVersions) {
+        DependencyFactory factory, DependencySet dependencies, VersionJson meta, Map<String, String> selectedVersions) {
         addNativesFor(factory, dependencies, meta, selectedVersions, Platform.current());
     }
 
@@ -289,7 +288,7 @@ public final class VanillaTasks {
     }
 
     private static boolean ordinaryArtifactWasReplaced(
-        VersionMeta.Library library, String[] coordinates, Map<String, String> selectedVersions) {
+        Library library, String[] coordinates, Map<String, String> selectedVersions) {
         if (library.artifact() == null) {
             return false;
         }
@@ -298,8 +297,7 @@ public final class VanillaTasks {
     }
 
     private static void addLibraries(
-        DependencyFactory factory, Collection<Dependency> dependencies, VersionMeta meta,
-        Predicate<VersionMeta.Library> accept) {
+        DependencyFactory factory, Collection<Dependency> dependencies, VersionJson meta, Predicate<Library> accept) {
         var nativeModules = nativeModules(meta);
         for (var library : meta.libraries()) {
             if (library.artifact() == null || !accept.test(library)) {
@@ -313,10 +311,10 @@ public final class VanillaTasks {
         }
     }
 
-    private static List<Map<String, String>> nativeModules(VersionMeta meta) {
+    private static List<Map<String, String>> nativeModules(VersionJson meta) {
         return meta.libraries()
             .stream()
-            .filter(VersionMeta.Library::hasNatives)
+            .filter(Library::hasNatives)
             .map(library -> library.name().split(":"))
             .map(coordinates -> Map.of("group", coordinates[0], "module", coordinates[1]))
             .distinct()
@@ -328,7 +326,8 @@ public final class VanillaTasks {
         var version = project.provider(() -> Meta.ONE_TRUE_MINECRAFT_VERSION);
         var meta = launcherMeta(project, caches, version, offline).orElse(minecraft.getVersionMeta());
         return new Spec(
-            true, "", "vanilla", version, meta, caches.getVersionDirectory(), meta.map(VersionMeta::javaMajor)
+            true, "", "vanilla", version, meta, caches.getVersionDirectory(),
+            meta.map(selected -> selected.javaMajor(8))
         );
     }
 
@@ -337,18 +336,18 @@ public final class VanillaTasks {
         var version = environment.getVersion();
         var meta = launcherMeta(project, caches, version, offline);
         var cache = version.flatMap(selected -> caches.getDirectory().dir("versions/" + selected));
-        var javaMajor = environment.getJavaVersion().orElse(meta.map(VersionMeta::javaMajor));
+        var javaMajor = environment.getJavaVersion().orElse(meta.map(selected -> selected.javaMajor(8)));
         return new Spec(
             false, taskSuffix(environment.getName()), environment.getName(), version, meta, cache, javaMajor
         );
     }
 
-    private static Provider<VersionMeta> launcherMeta(
+    private static Provider<VersionJson> launcherMeta(
         Project project, CachesExtension caches, Provider<String> version, boolean offline) {
         var providers = project.getProviders();
         var cacheDirectory = caches.getDirectory();
         return version.flatMap(selected -> providers.of(LauncherVersionMetaValueSource.class, value -> {
-            value.getParameters().getManifestUrl().set(Meta.VERSION_MANIFEST_V2_URL);
+            value.getParameters().getManifestUrl().set(MojangEndpoints.VERSION_MANIFEST_V2);
             value.getParameters().getMinecraftVersion().set(selected);
             value.getParameters().getCacheDirectory().set(cacheDirectory);
             value.getParameters().getOffline().set(offline);
@@ -365,30 +364,31 @@ public final class VanillaTasks {
 
     private void configureTasks(
         Project project, CachesExtension caches, Spec spec, Provider<JavaLauncher> vanillaJavaLauncher,
-        Provider<VersionMeta.Download> clientMappings, Provider<VersionMeta.Download> serverDownload,
-        Provider<VersionMeta.AssetIndex> assetIndex, String decompileName, boolean offline) {
+        Provider<com.cleanroommc.launcherutils.version.Download> clientMappings,
+        Provider<com.cleanroommc.launcherutils.version.Download> serverDownload, Provider<AssetIndexInfo> assetIndex,
+        String decompileName, boolean offline) {
         this.downloadAssetIndex.configure(task -> {
             task.onlyIf("VersionMeta offers an asset index", t -> assetIndex.isPresent());
-            task.src(this.versionMeta.map(VersionMeta::assetIndexUrl));
+            task.src(assetIndex.map(AssetIndexInfo::url));
             task.dest(this.assetIndexFile);
-            skipWhenSha1Matches(task, this.versionMeta.map(VersionMeta::assetIndexSha1));
+            skipWhenSha1Matches(task, assetIndex.map(AssetIndexInfo::sha1));
         });
         this.downloadClientJar.configure(task -> {
-            task.src(this.versionMeta.map(VersionMeta::clientUrl));
+            task.src(this.versionMeta.map(meta -> meta.download(VersionJson.CLIENT).url()));
             task.dest(this.clientJar);
-            skipWhenSha1Matches(task, this.versionMeta.map(VersionMeta::clientSha1));
+            skipWhenSha1Matches(task, this.versionMeta.map(meta -> meta.download(VersionJson.CLIENT).sha1()));
         });
         this.downloadServerJar.configure(task -> {
             task.onlyIf("VersionMeta offers a server download", t -> serverDownload.isPresent());
-            task.src(serverDownload.map(VersionMeta.Download::url));
+            task.src(serverDownload.map(com.cleanroommc.launcherutils.version.Download::url));
             task.dest(this.serverJar);
-            skipWhenSha1Matches(task, serverDownload.map(VersionMeta.Download::sha1));
+            skipWhenSha1Matches(task, serverDownload.map(com.cleanroommc.launcherutils.version.Download::sha1));
         });
         this.downloadClientMappings.configure(task -> {
             task.onlyIf("VersionMeta offers client_mappings", t -> clientMappings.isPresent());
-            task.src(clientMappings.map(VersionMeta.Download::url));
+            task.src(clientMappings.map(com.cleanroommc.launcherutils.version.Download::url));
             task.dest(this.versionCacheDirectory.map(dir -> dir.file("client_mappings.txt")));
-            skipWhenSha1Matches(task, clientMappings.map(VersionMeta.Download::sha1));
+            skipWhenSha1Matches(task, clientMappings.map(com.cleanroommc.launcherutils.version.Download::sha1));
         });
         this.downloadAssets.configure(task -> {
             task.getAssetIndexFile().fileProvider(this.downloadAssetIndex.map(Download::getDest));
@@ -417,7 +417,7 @@ public final class VanillaTasks {
             task.getJavaLauncher().convention(Providers.javaLauncher(project));
             task.getLogFile().convention(caches.getLocalDirectory().file(decompileName + "/decompile.log"));
             task.getCompiledJar()
-                .fileProvider(this.versionMeta.flatMap(meta -> meta.download("client_mappings") != null
+                .fileProvider(this.versionMeta.flatMap(meta -> meta.download(VersionJson.CLIENT_MAPPINGS) != null
                     ? this.remapClientToOfficial.flatMap(RenameJar::getOutput).map(RegularFile::getAsFile)
                     : this.downloadClientJar.map(Download::getDest)));
             task.getLibraries().from(this.vanillaConfig);
@@ -429,8 +429,8 @@ public final class VanillaTasks {
         RunRegistry.configure(project, this.runVanillaClient, task -> {
             configureRun(project, task, Side.CLIENT, spec, caches, offline, vanillaJavaLauncher);
             task.dependsOn(this.downloadAssets);
-            task.getMainClass().set(this.versionMeta.map(VersionMeta::mainClass));
-            task.getAssetIndexVersion().set(this.versionMeta.map(VersionMeta::assetIndexId));
+            task.getMainClass().set(this.versionMeta.map(VersionJson::mainClass));
+            task.getAssetIndexVersion().set(assetIndex.map(AssetIndexInfo::id));
             task.classpath(this.downloadClientJar.map(Download::getDest), this.vanillaConfig);
         });
         RunRegistry.configure(project, this.runVanillaServer, task -> {
@@ -464,7 +464,7 @@ public final class VanillaTasks {
         String taskSuffix,
         String cacheName,
         Provider<String> minecraftVersion,
-        Provider<VersionMeta> versionMeta,
+        Provider<VersionJson> versionMeta,
         Provider<Directory> versionCacheDirectory,
         Provider<Integer> javaMajor) { }
 

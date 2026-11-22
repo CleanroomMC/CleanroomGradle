@@ -10,6 +10,8 @@
 
 package com.cleanroommc.gradle.api.util.dist;
 
+import com.cleanroommc.launcherutils.Coordinate;
+
 import org.gradle.api.GradleException;
 import org.gradle.api.artifacts.Configuration;
 import org.gradle.api.artifacts.Dependency;
@@ -24,6 +26,7 @@ import org.gradle.api.internal.artifacts.result.ResolvedComponentResultInternal;
 import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Provider;
 
+import java.io.File;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -40,6 +43,7 @@ import java.util.TreeSet;
 public final class ResolvedLibraries {
 
     private static final String EXCLUDE_WILDCARD = "*";
+    private static final String LOCAL_GROUP = "local";
 
     private ResolvedLibraries() { }
 
@@ -85,7 +89,7 @@ public final class ResolvedLibraries {
     public static void removeExcluded(Collection<Dependency> dependencies, Configuration configuration) {
         var rules = excludeRules(configuration);
         dependencies.removeIf(dependency -> isExcluded(
-            new Coordinate(dependency.getGroup(), dependency.getName(), null, null, null), rules
+            Coordinate.of(dependency.getGroup(), dependency.getName(), dependency.getVersion()), rules
         ));
     }
 
@@ -134,15 +138,55 @@ public final class ResolvedLibraries {
                 if (repositoryUrl == null) {
                     throw new GradleException("No repository origin found for " + artifact.getId());
                 }
-                input.getCoordinate().set(Coordinate.from(artifact).serialized());
+                input.getCoordinate().set(coordinate(artifact).toString());
                 input.getRepositoryUrl().set(repositoryUrl);
             } else {
                 // Projects, included builds and plain files come from no repository, so their jars travel with the distribution
-                input.getCoordinate().set(Coordinate.local(artifact.getFile(), identities.get(component)).serialized());
+                input.getCoordinate().set(localCoordinate(artifact.getFile(), identities.get(component)).toString());
                 input.getRepositoryUrl().set(artifact.getFile().getParentFile().toURI().toString());
             }
             return input;
         }).sorted(Comparator.comparing(input -> input.getCoordinate().get())).toList();
+    }
+
+    private static Coordinate coordinate(ResolvedArtifactResult artifact) {
+        if (!(artifact.getId().getComponentIdentifier() instanceof ModuleComponentIdentifier module)) {
+            throw new GradleException("Expected a module artifact: " + artifact.getId());
+        }
+        var fileName = artifact.getFile().getName();
+        var dot = fileName.lastIndexOf('.');
+        var extension = dot == -1 ? "jar" : fileName.substring(dot + 1);
+        var stem = dot == -1 ? fileName : fileName.substring(0, dot);
+        var prefix = module.getModule() + "-" + module.getVersion();
+        if (!stem.equals(prefix) && !stem.startsWith(prefix + "-")) {
+            throw new GradleException(
+                "Cannot derive the classifier for " + artifact.getId() + " from file " + fileName
+            );
+        }
+        var classifier = stem.length() == prefix.length() ? null : stem.substring(prefix.length() + 1);
+        return Coordinate.of(module.getGroup(), module.getModule(), module.getVersion())
+            .withClassifier(classifier)
+            .withExtension(extension);
+    }
+
+    /**
+     * A coordinate for an artifact no repository serves. A project or an included build keeps its module identity,
+     * a plain file dependency, passed with a {@code null} module, is named after itself.
+     */
+    private static Coordinate localCoordinate(File file, ModuleVersionIdentifier module) {
+        var fileName = file.getName();
+        var dot = fileName.lastIndexOf('.');
+        var extension = dot == -1 ? "jar" : fileName.substring(dot + 1);
+        var stem = dot == -1 ? fileName : fileName.substring(0, dot);
+        if (module == null) {
+            return Coordinate.of(LOCAL_GROUP, stem.replaceAll("[^A-Za-z0-9._-]", "_"), "0").withExtension(extension);
+        }
+        var prefix = module.getName() + "-" + module.getVersion() + "-";
+        var classifier = stem.startsWith(prefix) ? stem.substring(prefix.length()) : null;
+        var group = module.getGroup().isBlank() ? LOCAL_GROUP : module.getGroup();
+        return Coordinate.of(group, module.getName(), module.getVersion())
+            .withClassifier(classifier)
+            .withExtension(extension);
     }
 
     private static void collectModules(

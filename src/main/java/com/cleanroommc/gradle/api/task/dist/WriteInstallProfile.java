@@ -10,15 +10,17 @@
 
 package com.cleanroommc.gradle.api.task.dist;
 
-import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.dist.Artifact;
-import com.cleanroommc.gradle.api.util.dist.Coordinate;
 import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
 import com.cleanroommc.gradle.api.util.dist.NativeJars;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
-import com.cleanroommc.gradle.api.util.lazy.Providers;
+import com.cleanroommc.launcherutils.Coordinate;
+import com.cleanroommc.launcherutils.LauncherGson;
+import com.cleanroommc.launcherutils.version.JavaVersion;
+import com.cleanroommc.launcherutils.version.Library;
+import com.cleanroommc.launcherutils.version.VersionJson;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -124,7 +126,7 @@ public abstract class WriteInstallProfile extends DefaultTask {
     }
 
     private static String repositoryUrl(Artifact artifact) {
-        var path = artifact.coordinate().mavenPath();
+        var path = artifact.coordinate().path();
         if (!artifact.url().endsWith(path)) {
             throw new GradleException("Artifact URL does not use Maven layout: " + artifact.url());
         }
@@ -202,11 +204,11 @@ public abstract class WriteInstallProfile extends DefaultTask {
     public abstract MapProperty<String, String> getNativePlatforms();
 
     @Internal
-    public abstract Property<VersionMeta> getVersionMeta();
+    public abstract Property<VersionJson> getVersionMeta();
 
     @Input
     public Provider<String> getVersionMetaContent() {
-        return getVersionMeta().map(VersionMeta::toString);
+        return getVersionMeta().map(LauncherGson::write);
     }
 
     @Input
@@ -237,7 +239,8 @@ public abstract class WriteInstallProfile extends DefaultTask {
         natives.stream().filter(LibraryJson::isLocal).forEach(localArtifacts::add);
 
         writeJson(
-            getVersionJson().get().getAsFile(), versionJson(manifestUrls(artifacts), manifestUrls(natives), universal)
+            getVersionJson().get().getAsFile(),
+            IO.GSON.toJsonTree(versionJson(manifestUrls(artifacts), manifestUrls(natives), universal)).getAsJsonObject()
         );
         writeJson(getInstallProfile().get().getAsFile(), installProfile(universal, localArtifacts));
         writeEmbeddedLibraries(localArtifacts);
@@ -248,7 +251,7 @@ public abstract class WriteInstallProfile extends DefaultTask {
     }
 
     private boolean drop(Artifact artifact, Artifact universal, Set<String> excluded) {
-        return artifact.coordinate().sameArtifact(universal.coordinate()) ||
+        return artifact.coordinate().equals(universal.coordinate()) ||
             ResolvedLibraries.isExcluded(artifact.coordinate(), excluded);
     }
 
@@ -258,12 +261,12 @@ public abstract class WriteInstallProfile extends DefaultTask {
             if (LibraryJson.isLocal(artifact)) {
                 return artifact;
             }
-            var url = urls.get(artifact.coordinate().serialized());
+            var url = urls.get(artifact.coordinate().toString());
             return url == null ? artifact : new Artifact(artifact.coordinate(), artifact.path(), url);
         }).toList();
     }
 
-    private JsonObject versionJson(List<Artifact> artifacts, List<Artifact> natives, Artifact universal) {
+    private VersionJson versionJson(List<Artifact> artifacts, List<Artifact> natives, Artifact universal) {
         var meta = getVersionMeta().get();
         var jars = nativeJars();
         var classpath = new ArrayList<>(artifacts);
@@ -275,35 +278,28 @@ public abstract class WriteInstallProfile extends DefaultTask {
             launcherNatives.add(artifact);
             return true;
         });
-        var version = new JsonObject();
-        version.addProperty("id", getVersionId().get());
-        version.addProperty("time", getReleaseTime().get());
-        version.addProperty("releaseTime", getReleaseTime().get());
-        version.addProperty("type", "release");
-        version.addProperty("mainClass", getMainClass().get());
-        version.add("assetIndex", IO.GSON.toJsonTree(meta.assetIndex()));
-        version.addProperty("assets", meta.assets());
-        version.add("downloads", IO.GSON.toJsonTree(meta.downloads()));
-        var java = new JsonObject();
-        var runtime = Providers.javaRuntimeName(getRecommendedJava().get());
-        if (!runtime.isEmpty()) {
-            java.addProperty("component", runtime);
-        }
-        java.addProperty("majorVersion", getRecommendedJava().get());
-        version.add("javaVersion", java);
-        version.addProperty("complianceLevel", meta.complianceLevel());
-        version.addProperty("minimumLauncherVersion", Math.max(18, meta.minimumLauncherVersion()));
-        version.addProperty("minecraftArguments", minecraftArguments(meta));
-
-        var libraries = new JsonArray();
+        var libraries = new ArrayList<Library>();
         libraries.add(LibraryJson.embeddedLibrary(universal));
         libraries.addAll(LibraryJson.mojangLibraries(classpath, jars));
         libraries.addAll(LibraryJson.mojangNativeLibraries(launcherNatives, jars));
-        version.add("libraries", libraries);
+        var version = new VersionJson()
+            .id(getVersionId().get())
+            .time(getReleaseTime().get())
+            .releaseTime(getReleaseTime().get())
+            .type("release")
+            .mainClass(getMainClass().get())
+            .assetIndex(meta.assetIndex())
+            .assets(meta.assets())
+            .javaVersion(JavaVersion.forMajor(getRecommendedJava().get()))
+            .complianceLevel(meta.complianceLevel())
+            .minimumLauncherVersion(Math.max(18, meta.minimumLauncherVersion()))
+            .minecraftArguments(minecraftArguments(meta))
+            .libraries(libraries);
+        meta.downloads().forEach(version::download);
         return version;
     }
 
-    private String minecraftArguments(VersionMeta meta) {
+    private String minecraftArguments(VersionJson meta) {
         var arguments = new ArrayList<String>();
         var vanilla = meta.minecraftArguments() == null ? "" : meta.minecraftArguments().trim();
         if (!vanilla.isEmpty()) {
@@ -325,17 +321,17 @@ public abstract class WriteInstallProfile extends DefaultTask {
         profile.addProperty("minecraft", getVersionMeta().get().id());
         profile.addProperty("cleanroomVersion", getCleanroomVersion().get());
         profile.addProperty("json", "/version.json");
-        profile.addProperty("path", universal.coordinate().serialized());
+        profile.addProperty("path", universal.coordinate().toString());
         profile.addProperty("logo", "/cleanroom.png");
         profile.addProperty("welcome", "Installing " + getProfileName().get() + " " + getCleanroomVersion().get());
         profile.addProperty("mirrorList", "");
 
         var libraries = new JsonArray();
-        libraries.add(LibraryJson.embeddedLibrary(universal));
+        libraries.add(IO.GSON.toJsonTree(LibraryJson.embeddedLibrary(universal)));
         localArtifacts.stream()
-            .sorted(Comparator.comparing(artifact -> artifact.coordinate().serialized()))
+            .sorted(Comparator.comparing(artifact -> artifact.coordinate().toString()))
             .map(LibraryJson::embeddedLibrary)
-            .forEach(libraries::add);
+            .forEach(library -> libraries.add(IO.GSON.toJsonTree(library)));
         profile.add("libraries", libraries);
         profile.add("processors", new JsonArray());
         profile.add("data", new JsonObject());
@@ -351,7 +347,7 @@ public abstract class WriteInstallProfile extends DefaultTask {
         profile.addProperty("serverMainClass", getServerMainClass().get());
         profile.add("tweakers", IO.GSON.toJsonTree(getTweakers().get()));
         profile.add("serverTweakers", IO.GSON.toJsonTree(getServerTweakers().get()));
-        profile.addProperty("serverJarPath", "libraries/" + universal.coordinate().mavenPath());
+        profile.addProperty("serverJarPath", "libraries/" + universal.coordinate().path());
         profile.add("repositories", IO.GSON.toJsonTree(repositoryUrls(universal)));
         return profile;
     }
@@ -376,7 +372,7 @@ public abstract class WriteInstallProfile extends DefaultTask {
         try {
             Files.createDirectories(output);
             for (var artifact : artifacts) {
-                var target = output.resolve(artifact.coordinate().mavenPath());
+                var target = output.resolve(artifact.coordinate().path());
                 Files.createDirectories(target.getParent());
                 Files.copy(artifact.path(), target, StandardCopyOption.REPLACE_EXISTING);
             }

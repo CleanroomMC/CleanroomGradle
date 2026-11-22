@@ -11,9 +11,9 @@
 package com.cleanroommc.gradle.env;
 
 import com.cleanroommc.gradle.api.ext.CachesExtension;
-import com.cleanroommc.gradle.api.schema.VersionMeta;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.util.Objects;
+import com.cleanroommc.launcherutils.version.VersionJson;
 
 import org.gradle.api.provider.Provider;
 
@@ -27,14 +27,14 @@ public final class MinecraftRuns {
     private MinecraftRuns() { }
 
     public static void caches(
-        RunMinecraft task, CachesExtension caches, Provider<VersionMeta> versionMeta, boolean offline) {
+        RunMinecraft task, CachesExtension caches, Provider<VersionJson> versionMeta, boolean offline) {
         var assets = caches.getDirectory().dir("assets");
         var uuidCache = caches.getDirectory().file("uuid_cache.properties");
         task.getVanillaAssetsLocation().set(assets);
         task.getUuidCache().set(uuidCache);
         task.getOffline().set(offline);
         task.getVersionMeta().convention(versionMeta);
-        task.getAssetIndexVersion().convention(versionMeta.map(VersionMeta::assetIndexId));
+        task.getAssetIndexVersion().convention(versionMeta.map(meta -> meta.assetIndex().id()));
         task.getUUID()
             .convention(
                 task.getUsername()
