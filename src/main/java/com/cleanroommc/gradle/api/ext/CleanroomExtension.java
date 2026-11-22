@@ -125,8 +125,7 @@ public abstract class CleanroomExtension {
     }
 
     /**
-     * Kotlin DSL cannot see the {@code deobf} extension as a bare function inside a dependencies block,
-     * so it reaches the same handler through {@code cleanroom.deobf(...)}.
+     * Reaches the same handler as the bare {@code deobf(...)} notation, for scripts outside a dependencies block.
      *
      * @param notation the dependency notation to deobfuscate
      */

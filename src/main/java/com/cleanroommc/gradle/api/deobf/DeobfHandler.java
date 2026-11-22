@@ -93,10 +93,7 @@ public class DeobfHandler {
     }
 
     /**
-     * Declares a deobfuscated dependency from Kotlin DSL as {@code cleanroom.deobf(...)}.
-     * <p>The bare {@code deobf(...)} form is also available through {@code DeobfHandler#invoke}.
-     *
-     * @param notation the dependency notation to deobfuscate
+     * Groovy resolves {@code deobf(...)} through {@link #call}, Kotlin DSL resolves it through this operator.
      */
     public Dependency invoke(Object notation) {
         return call(notation);

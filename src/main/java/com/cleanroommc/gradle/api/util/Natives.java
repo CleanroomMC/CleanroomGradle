@@ -41,11 +41,11 @@ import java.util.TreeSet;
 
 /**
  * Wires one configuration per {@link NativeFamily} in {@code cleanroom.natives}.
- *
- * <p>Each family ships one jar per platform. But the published metadata has to serve every distribution.
+ * <p>
+ * Each family ships one jar per platform. But the published metadata has to serve every distribution.
  * Runtime classpath takes the current platform's classifier.
- * While publications take every platform a family maps, one
- * OS and architecture specific variant each, so a consumer resolves only its own.
+ * While publications take every platform a family maps,
+ * one OS and architecture specific variant each, so a consumer resolves only its own.
  * Family jars always go on the classpath, and Cleanroom loads their natives from there.
  */
 public final class Natives {
