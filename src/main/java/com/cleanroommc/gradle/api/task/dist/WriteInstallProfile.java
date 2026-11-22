@@ -18,6 +18,7 @@ import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
 import com.cleanroommc.gradle.api.util.dist.NativeJars;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
+import com.cleanroommc.gradle.api.util.lazy.Providers;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -284,7 +285,10 @@ public abstract class WriteInstallProfile extends DefaultTask {
         version.addProperty("assets", meta.assets());
         version.add("downloads", IO.GSON.toJsonTree(meta.downloads()));
         var java = new JsonObject();
-        java.addProperty("component", "java-runtime-epsilon");
+        var runtime = Providers.javaRuntimeName(getRecommendedJava().get());
+        if (!runtime.isEmpty()) {
+            java.addProperty("component", runtime);
+        }
         java.addProperty("majorVersion", getRecommendedJava().get());
         version.add("javaVersion", java);
         version.addProperty("complianceLevel", meta.complianceLevel());
