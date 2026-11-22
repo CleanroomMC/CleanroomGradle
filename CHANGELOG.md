@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.27.0 - 2026-11-22
+
+> [!WARNING]
+> This version has breaking changes! More details below.
+
+### Breaking Changes
+
+- **natives**: Replace loader.lwjglNativesClassifiers with cleanroom.natives families, each mapping platforms to the classifier of a per-platform jar *[commit by [@Rongmario](https://github.com/Rongmario) in [760c829](https://github.com/CleanroomMC/CleanroomGradle/commit/760c8297cdb9a1061520039d724da3682f37563c)]*
+- Remove Platform in favour of platform-utils 3.0.0, with native platform helpers moved to Natives *[commit by [@Rongmario](https://github.com/Rongmario) in [760c829](https://github.com/CleanroomMC/CleanroomGradle/commit/760c8297cdb9a1061520039d724da3682f37563c)]*
+
+### Comprehensive
+
+- Native families and platform-utils *[commit by [@Rongmario](https://github.com/Rongmario) in [760c829](https://github.com/CleanroomMC/CleanroomGradle/commit/760c8297cdb9a1061520039d724da3682f37563c)]*
+
+### Feature
+
+- Read and write launcher metadata through launcher-utils 1.0.1 *[commit by [@Rongmario](https://github.com/Rongmario) in [d2e667a](https://github.com/CleanroomMC/CleanroomGradle/commit/d2e667a85859055a78bc87ff1de5daf883f17ee4)]*
+- **dist**: Give every family jar a platform rule in installer profiles and MMC packs *[commit by [@Rongmario](https://github.com/Rongmario) in [760c829](https://github.com/CleanroomMC/CleanroomGradle/commit/760c8297cdb9a1061520039d724da3682f37563c)]*
+- **loader**: Name every platform's jar of a family in the boot list, and fail when a family maps a boot library on only some platforms *[commit by [@Rongmario](https://github.com/Rongmario) in [760c829](https://github.com/CleanroomMC/CleanroomGradle/commit/760c8297cdb9a1061520039d724da3682f37563c)]*
+- **deobf**: Add invoke operator to DeobfHandler *[commit by [@Bronitt](https://github.com/Bronitt) in [66c29eb](https://github.com/CleanroomMC/CleanroomGradle/commit/66c29eb5d29310c9ff76f543b7f832e9a0969d66)]*
+
+### Bug Fix
+
+- **dist**: Name the installer profile's java runtime after the recommended java, and leave it out when mojang names none *[commit by [@Rongmario](https://github.com/Rongmario) in [03791bc](https://github.com/CleanroomMC/CleanroomGradle/commit/03791bc2a40336e13b15c3e4872317abb3f264b4)]*
+- **publish**: Leave modules the runtime graph reaches only through per-platform jars out of the POM *[commit by [@Rongmario](https://github.com/Rongmario) in [760c829](https://github.com/CleanroomMC/CleanroomGradle/commit/760c8297cdb9a1061520039d724da3682f37563c)]*
+
+### Documentation
+
+- **deobf**: Explanation for deobf calls in groovy & kotlin scenarios *[commit by [@Rongmario](https://github.com/Rongmario) in [607daaf](https://github.com/CleanroomMC/CleanroomGradle/commit/607daaf281b56d6e714ad1649b329a29e2b2d2ac)]*
+
+### Build and Dependencies
+
+- Bump the default installer version to 0.3.2 *[commit by [@Rongmario](https://github.com/Rongmario) in [760c829](https://github.com/CleanroomMC/CleanroomGradle/commit/760c8297cdb9a1061520039d724da3682f37563c)]*
+
+### CI
+
+- Fix checkstyle *[commit by [@Rongmario](https://github.com/Rongmario) in [e1ae982](https://github.com/CleanroomMC/CleanroomGradle/commit/e1ae98252d6e741fa0f9ee0dce74112f46bbb78a)]*
+
+### First-time Contributors
+
+- **[@Bronitt](https://github.com/Bronitt) made their first contribution!**
+
+**Full Changelog**: https://github.com/CleanroomMC/CleanroomGradle/compare/0.26.1...0.27.0
+
 ## 0.26.1 - 2026-11-14
 
 ### Feature
