@@ -11,6 +11,9 @@
 package com.cleanroommc.gradle.api.util;
 
 import com.cleanroommc.gradle.api.schema.VersionMeta;
+import com.cleanroommc.platformutils.Architecture;
+import com.cleanroommc.platformutils.OperatingSystem;
+import com.cleanroommc.platformutils.Platform;
 
 import com.google.gson.GsonBuilder;
 import org.junit.jupiter.api.Test;
@@ -23,16 +26,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class VersionMetaTest {
 
-    private static final Platform LINUX_X64 = new Platform(Platform.OperatingSystem.LINUX, Platform.Architecture.X64);
-    private static final Platform LINUX_ARM64 = new Platform(
-        Platform.OperatingSystem.LINUX, Platform.Architecture.ARM64
-    );
-    private static final Platform WINDOWS_X64 = new Platform(
-        Platform.OperatingSystem.WINDOWS, Platform.Architecture.X64
-    );
-    private static final Platform FREE_BSD_X64 = new Platform(
-        Platform.OperatingSystem.FREE_BSD, Platform.Architecture.X64
-    );
+    private static final Platform LINUX_X64 = Platform.of(OperatingSystem.LINUX, Architecture.X64);
+    private static final Platform LINUX_ARM64 = Platform.of(OperatingSystem.LINUX, Architecture.ARM64);
+    private static final Platform WINDOWS_X64 = Platform.of(OperatingSystem.WINDOWS, Architecture.X64);
+    private static final Platform FREE_BSD_X64 = Platform.of(OperatingSystem.FREE_BSD, Architecture.X64);
 
     private static VersionMeta.Library library(List<VersionMeta.Rule> rules) {
         return new VersionMeta.Library(

@@ -62,19 +62,10 @@ public abstract class GenerateDiffs extends DefaultTask {
     @Input
     public abstract Property<Boolean> getCleanOutput();
 
-    /**
-     * The names identity these patches are generated in (see {@link com.cleanroommc.gradle.api.names.NamesSource}).
-     * When present, a {@code .mappings.json} stamp is written into the patches directory
-     * so {@link ApplyDiffs} can refuse to apply them against a differently-named base.
-     * Absent for decompiler-level (srg) patch sets.
-     */
     @Optional
     @Input
     public abstract Property<String> getMappingsId();
 
-    /**
-     * The mcp_config version recorded alongside the names id in {@code .mappings.json}.
-     */
     @Optional
     @Input
     public abstract Property<String> getMcpConfigVersion();

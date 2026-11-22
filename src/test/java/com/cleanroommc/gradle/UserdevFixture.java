@@ -12,7 +12,8 @@ package com.cleanroommc.gradle;
 
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
 import com.cleanroommc.gradle.api.util.IO;
-import com.cleanroommc.gradle.api.util.Platform;
+import com.cleanroommc.gradle.api.util.Natives;
+import com.cleanroommc.platformutils.Platform;
 
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
@@ -104,8 +105,8 @@ final class UserdevFixture {
             )
         );
 
-        var platform = Platform.CURRENT.canonicalNativePlatform();
-        var foreign = Platform.nativePlatforms()
+        var platform = Natives.canonical(Platform.current());
+        var foreign = Natives.NATIVE_PLATFORMS
             .stream()
             .filter(candidate -> candidate != platform)
             .findFirst()
@@ -128,9 +129,8 @@ final class UserdevFixture {
               ]
             }
             """.formatted(
-                version, platform.lwjglNativesClassifier(), platform.operatingSystemFamily(),
-                platform.machineArchitecture(), foreign.lwjglNativesClassifier(), foreign.operatingSystemFamily(),
-                foreign.machineArchitecture()
+                version, platform.id(), platform.operatingSystem().id(), Natives.machineArchitecture(platform),
+                foreign.id(), foreign.operatingSystem().id(), Natives.machineArchitecture(foreign)
             )
         );
     }

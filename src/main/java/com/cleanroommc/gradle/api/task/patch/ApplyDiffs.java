@@ -97,12 +97,6 @@ public abstract class ApplyDiffs extends DefaultTask {
     @Input
     public abstract Property<Boolean> getCleanOutput();
 
-    /**
-     * The active names identity string (see {@link com.cleanroommc.gradle.api.names.NamesSource}). When
-     * present, the patches directory's {@code .mappings.json} stamp is validated against it: a mismatch
-     * fails the build, an absent stamp warns once (legacy patch set). Left unset for decompiler-level
-     * (srg) patch sets, which skips validation entirely.
-     */
     @Optional
     @Input
     public abstract Property<String> getMappingsId();

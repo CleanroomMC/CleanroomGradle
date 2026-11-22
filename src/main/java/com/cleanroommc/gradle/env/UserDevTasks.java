@@ -27,11 +27,12 @@ import com.cleanroommc.gradle.api.userdev.UserdevAttributes;
 import com.cleanroommc.gradle.api.userdev.UserdevDependency;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.IO;
+import com.cleanroommc.gradle.api.util.Natives;
 import com.cleanroommc.gradle.api.util.Objects;
-import com.cleanroommc.gradle.api.util.Platform;
 import com.cleanroommc.gradle.api.util.Property;
 import com.cleanroommc.gradle.api.util.dist.Repository;
 import com.cleanroommc.gradle.api.util.lazy.SourceSets;
+import com.cleanroommc.platformutils.Platform;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -446,22 +447,21 @@ public final class UserDevTasks {
      */
     private static NamedDomainObjectProvider<Configuration> nativesConfiguration(
         Project project, UserdevDependency userdev) {
-        var platform = Platform.CURRENT.canonicalNativePlatform();
+        var platform = Natives.canonical(Platform.current());
         var objects = project.getObjects();
         var configuration = Objects.config(
-            project, "_cleanroomUserdevNatives",
-            "Internal native libraries for " + platform.lwjglNativesClassifier() + "."
+            project, "_cleanroomUserdevNatives", "Internal native libraries for " + platform.id() + "."
         );
         configuration.configure(value -> value.attributes(attributes -> {
             attributes.attribute(UserdevAttributes.STAGE, UserdevAttributes.RAW);
             attributes.attribute(UserdevAttributes.ROLE, UserdevAttributes.NATIVES);
             attributes.attribute(
                 OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE,
-                objects.named(OperatingSystemFamily.class, platform.operatingSystemFamily())
+                objects.named(OperatingSystemFamily.class, platform.operatingSystem().id())
             );
             attributes.attribute(
                 MachineArchitecture.ARCHITECTURE_ATTRIBUTE,
-                objects.named(MachineArchitecture.class, platform.machineArchitecture())
+                objects.named(MachineArchitecture.class, Natives.machineArchitecture(platform))
             );
         }));
         project.getDependencies().add(configuration.getName(), rawDependency(userdev, UserdevAttributes.NATIVES));

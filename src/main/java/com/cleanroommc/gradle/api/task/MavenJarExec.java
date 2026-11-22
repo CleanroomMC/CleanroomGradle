@@ -31,10 +31,6 @@ public abstract class MavenJarExec extends LazilyConstructedJavaExec {
     @Classpath
     public abstract ConfigurableFileCollection getToolClasspath();
 
-    /**
-     * Whether the task should construct the command line expected by its default tool. Disable this and use
-     * {@link #setArgs(Iterable)} when replacing the tool with one that has a different CLI.
-     */
     @Input
     public abstract Property<Boolean> getUseDefaultToolArguments();
 

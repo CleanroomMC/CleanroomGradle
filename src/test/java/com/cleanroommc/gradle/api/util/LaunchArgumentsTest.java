@@ -11,6 +11,9 @@
 package com.cleanroommc.gradle.api.util;
 
 import com.cleanroommc.gradle.api.schema.VersionMeta;
+import com.cleanroommc.platformutils.Architecture;
+import com.cleanroommc.platformutils.OperatingSystem;
+import com.cleanroommc.platformutils.Platform;
 
 import org.junit.jupiter.api.Test;
 
@@ -22,8 +25,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class LaunchArgumentsTest {
 
-    private static final Platform LINUX = new Platform(Platform.OperatingSystem.LINUX, Platform.Architecture.X64);
-    private static final Platform WINDOWS = new Platform(Platform.OperatingSystem.WINDOWS, Platform.Architecture.X64);
+    private static final Platform LINUX = Platform.of(OperatingSystem.LINUX, Architecture.X64);
+    private static final Platform WINDOWS = Platform.of(OperatingSystem.WINDOWS, Architecture.X64);
 
     private static VersionMeta meta(VersionMeta.Arguments arguments, String minecraftArguments) {
         return new VersionMeta(

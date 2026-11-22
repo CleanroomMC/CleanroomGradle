@@ -22,11 +22,11 @@ import com.cleanroommc.gradle.api.task.mc.DownloadAssets;
 import com.cleanroommc.gradle.api.task.mc.RunMinecraft;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.IO;
-import com.cleanroommc.gradle.api.util.LwjglNatives;
+import com.cleanroommc.gradle.api.util.Natives;
 import com.cleanroommc.gradle.api.util.Objects;
-import com.cleanroommc.gradle.api.util.Platform;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 import com.cleanroommc.gradle.api.util.lazy.Providers;
+import com.cleanroommc.platformutils.Platform;
 
 import de.undercouch.gradle.tasks.download.Download;
 import org.apache.commons.lang3.StringUtils;
@@ -126,7 +126,7 @@ public final class VanillaTasks {
         );
         this.vanillaConfig.configure(config -> config.withDependencies(dependencies -> {
             addLibraries(
-                factory, dependencies, this.versionMeta.get(), library -> library.isValidForOS(Platform.CURRENT)
+                factory, dependencies, this.versionMeta.get(), library -> library.isValidForOS(Platform.current())
             );
             ResolvedLibraries.removeExcluded(dependencies, config);
         }));
@@ -235,7 +235,7 @@ public final class VanillaTasks {
                 continue;
             }
             for (var classifier : library.downloads().classifiers().keySet()) {
-                if (!classifier.startsWith(LwjglNatives.CLASSIFIER_PREFIX)) {
+                if (!classifier.startsWith(Natives.CLASSIFIER_PREFIX)) {
                     continue;
                 }
                 var dependency = factory.create("%s:%s:%s:%s".formatted(
@@ -259,7 +259,7 @@ public final class VanillaTasks {
 
     static void addNatives(
         DependencyFactory factory, DependencySet dependencies, VersionMeta meta, Map<String, String> selectedVersions) {
-        addNativesFor(factory, dependencies, meta, selectedVersions, Platform.CURRENT);
+        addNativesFor(factory, dependencies, meta, selectedVersions, Platform.current());
     }
 
     private static void verifySha1(File file, String expectedSha1) {

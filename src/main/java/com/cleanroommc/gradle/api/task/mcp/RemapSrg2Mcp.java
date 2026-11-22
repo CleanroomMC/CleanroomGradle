@@ -57,19 +57,11 @@ public abstract class RemapSrg2Mcp extends DefaultTask {
     @PathSensitive(PathSensitivity.RELATIVE)
     public abstract ConfigurableFileCollection getParameterMappings();
 
-    /**
-     * Optional Tiny2 names source. When set (see {@code cleanroom.namesDirectory}),
-     * the srg -> name lookups and javadocs come from it instead of the MCP CSVs.
-     * Allowing custom edited names drive the workspace. When unset, the CSV path is used unchanged.
-     */
     @Optional
     @InputFile
     @PathSensitive(PathSensitivity.NONE)
     public abstract RegularFileProperty getTinyMappings();
 
-    /**
-     * The active names identity string. Declared so a change of names source re-runs the remap.
-     */
     @Optional
     @Input
     public abstract Property<String> getNamesId();

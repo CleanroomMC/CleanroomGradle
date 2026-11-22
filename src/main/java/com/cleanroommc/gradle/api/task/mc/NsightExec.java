@@ -10,7 +10,7 @@
 
 package com.cleanroommc.gradle.api.task.mc;
 
-import com.cleanroommc.gradle.api.util.Platform;
+import com.cleanroommc.platformutils.Platform;
 
 import org.gradle.api.GradleException;
 import org.gradle.api.InvalidUserDataException;
@@ -60,7 +60,7 @@ public abstract class NsightExec extends Exec {
     public abstract RegularFileProperty getGradleWrapperJar();
 
     private void configureCommandLine() {
-        var os = Platform.CURRENT.getOperatingSystem();
+        var os = Platform.current().operatingSystem();
         if (!os.isWindows() && !os.isLinux()) {
             throw new GradleException(this.getName() + " is only supported on Windows and Linux");
         }

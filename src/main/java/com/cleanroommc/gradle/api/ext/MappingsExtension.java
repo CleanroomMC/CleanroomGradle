@@ -20,9 +20,6 @@ public abstract class MappingsExtension {
 
     public static final String NAMES_FILE = "mappings.tiny";
 
-    /**
-     * Directory holding {@value #NAMES_FILE}.
-     */
     public abstract DirectoryProperty getNamesDirectory();
 
 }

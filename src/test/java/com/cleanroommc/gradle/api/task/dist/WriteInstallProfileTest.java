@@ -121,6 +121,9 @@ class WriteInstallProfileTest {
         var lwjglWindows = file("lwjgl-3.4.2-natives-windows.jar", "lwjgl windows native");
         var nettyLinux = file("netty-transport-native-epoll-4.2.16.Final-linux-x86_64.jar", "netty linux native");
         var nettyArm = file("netty-transport-native-epoll-4.2.16.Final-linux-aarch_64.jar", "netty arm native");
+        var zstdLinux = file("zstd-jni-1.5.7-23-linux_amd64.jar", "zstd linux native");
+        var packedUnix = file("packed-1.0-natives-unix.jar", "packed classpath native");
+        var zstdWindowsArm = file("zstd-jni-1.5.7-23-win_aarch64.jar", "zstd windows arm native");
         var text2speech = file("text2speech-1.10.3-natives-linux.jar", "text2speech linux native");
         var text2speechWindows = file("text2speech-1.10.3-natives-windows.jar", "text2speech windows native");
         var jinputLinux = file("jinput-platform-2.0.5-natives-linux.jar", "jinput linux native");
@@ -139,6 +142,14 @@ class WriteInstallProfileTest {
         task.getLibraries()
             .add(library(project, "io.netty:netty-transport-native-epoll:4.2.16.Final:linux-aarch_64", nettyArm));
         task.getLibraries().add(library(project, "com.paulscode:soundsystem:20120107", soundsystem));
+        task.getLibraries().add(library(project, "com.github.luben:zstd-jni:1.5.7-23:linux_amd64", zstdLinux));
+        task.getLibraries().add(library(project, "com.github.luben:zstd-jni:1.5.7-23:win_aarch64", zstdWindowsArm));
+        task.getLibraries().add(library(project, "example:packed:1.0:natives-unix", packedUnix));
+        task.getNativePlatforms()
+            .putAll(Map.of(
+                "com.github.luben:zstd-jni:linux_amd64", "linux-x64", "com.github.luben:zstd-jni:win_aarch64",
+                "windows-arm64", "example:packed:natives-unix", "linux-x64"
+            ));
         task.getNativeLibraries().add(library(project, "com.mojang:text2speech:1.10.3:natives-linux", text2speech));
         task.getNativeLibraries()
             .add(library(project, "com.mojang:text2speech:1.10.3:natives-windows", text2speechWindows));
@@ -176,8 +187,10 @@ class WriteInstallProfileTest {
             .as(names.toString())
             .isTrue();
         assertThat(names).isEqualTo(List.of(
-            "com.cleanroommc:cleanroom:1.0.0:universal", "com.google.guava:guava:33.6.0-jre",
-            "com.paulscode:soundsystem:20120107", "io.netty:netty-transport-native-epoll:4.2.16.Final:linux-aarch_64",
+            "com.cleanroommc:cleanroom:1.0.0:universal", "com.github.luben:zstd-jni:1.5.7-23:linux_amd64",
+            "com.github.luben:zstd-jni:1.5.7-23:win_aarch64", "com.google.guava:guava:33.6.0-jre",
+            "com.paulscode:soundsystem:20120107", "example:packed:1.0:natives-unix",
+            "io.netty:netty-transport-native-epoll:4.2.16.Final:linux-aarch_64",
             "io.netty:netty-transport-native-epoll:4.2.16.Final:linux-x86_64", "org.lwjgl:lwjgl:3.4.2",
             "com.mojang:text2speech:1.10.3", "com.mojang:text2speech:1.10.3", "net.java.jinput:jinput-platform:2.0.5",
             "net.java.jinput:jinput-platform:2.0.5", "org.lwjgl:lwjgl:3.4.2", "org.lwjgl:lwjgl:3.4.2",
@@ -232,6 +245,12 @@ class WriteInstallProfileTest {
             libraries, "io.netty:netty-transport-native-epoll:4.2.16.Final:linux-aarch_64", false, "linux", "arm64"
         );
         assertThat(nettyNative.getAsJsonObject("downloads").getAsJsonObject("artifact")).isNotNull();
+        // Native family classifiers don't spell their platform, so the family maps them back
+        library(libraries, "com.github.luben:zstd-jni:1.5.7-23:linux_amd64", false, "linux", "x64");
+        library(libraries, "com.github.luben:zstd-jni:1.5.7-23:win_aarch64", false, "windows", "arm64");
+        // A family jar stays on the classpath for both sides, whatever its classifier says
+        var packed = library(libraries, "example:packed:1.0:natives-unix", false, "linux", "x64");
+        assertThat(packed.has("side")).isFalse();
 
         // Minecraft's own natives are extracted instead, which needs the classifier/platform shape
         var narrator = library(libraries, "com.mojang:text2speech:1.10.3", true, "linux", "x64");

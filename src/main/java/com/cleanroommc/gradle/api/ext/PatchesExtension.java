@@ -19,10 +19,6 @@ import org.gradle.api.provider.Property;
  */
 public abstract class PatchesExtension {
 
-    /**
-     * When true, an {@code initial} patch-dev environment is registered against decompiled SRG sources.
-     * Only meaningful in {@link ProjectMode#LOADER}.
-     */
     public abstract Property<Boolean> getDevelopInitial();
 
     public abstract NamedDomainObjectContainer<PatchDevEnvironment> getPatchDev();

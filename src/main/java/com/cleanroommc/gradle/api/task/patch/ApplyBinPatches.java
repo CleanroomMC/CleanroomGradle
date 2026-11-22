@@ -151,9 +151,6 @@ public abstract class ApplyBinPatches extends DefaultTask {
     @PathSensitive(PathSensitivity.NONE)
     public abstract RegularFileProperty getBinpatches();
 
-    /**
-     * Prefix the patch entries sit behind inside the archive, e.g. {@code binpatch/client/}.
-     */
     @Input
     public abstract Property<String> getPrefix();
 

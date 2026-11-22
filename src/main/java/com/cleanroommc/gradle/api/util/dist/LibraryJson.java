@@ -11,7 +11,7 @@
 package com.cleanroommc.gradle.api.util.dist;
 
 import com.cleanroommc.gradle.api.util.IO;
-import com.cleanroommc.gradle.api.util.LwjglNatives;
+import com.cleanroommc.gradle.api.util.Natives;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -77,26 +77,31 @@ public final class LibraryJson {
      * Natives are folded into their base module under {@code classifiers} with a {@code natives} platform map.
      *
      * @param artifacts the resolved artifacts to write
+     * @param natives what {@code cleanroom.natives} declares about per-platform jars
      */
-    public static JsonArray mmcLibraries(List<Artifact> artifacts) {
+    public static JsonArray mmcLibraries(List<Artifact> artifacts, NativeJars natives) {
         var ordinary = new ArrayList<Artifact>();
-        var natives = new TreeMap<String, List<Artifact>>();
-        split(artifacts, ordinary, natives);
+        var extracted = new TreeMap<String, List<Artifact>>();
+        split(artifacts, ordinary, extracted, natives);
 
         ordinary.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
         var output = new JsonArray();
         for (var artifact : ordinary) {
-            output.add(ordinaryLibrary(artifact));
-            var nativeArtifacts = natives.remove(artifact.coordinate().module());
+            var library = ordinaryLibrary(artifact);
+            if (natives.platform(artifact.coordinate()) != null) {
+                addMmcPlatformRules(library, classifierPlatform(artifact.coordinate(), natives));
+            }
+            output.add(library);
+            var nativeArtifacts = extracted.remove(artifact.coordinate().module());
             if (nativeArtifacts != null) {
-                output.add(nativeLibrary(artifact.coordinate().withoutClassifier(), nativeArtifacts, true));
+                output.add(nativeLibrary(artifact.coordinate().withoutClassifier(), nativeArtifacts, true, natives));
             }
         }
         // A classifier-only dependency is legal even when its base artifact was not selected
-        for (var nativeArtifacts : natives.values()) {
+        for (var nativeArtifacts : extracted.values()) {
             nativeArtifacts.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
             output.add(nativeLibrary(
-                nativeArtifacts.getFirst().coordinate().withoutClassifier(), nativeArtifacts, true
+                nativeArtifacts.getFirst().coordinate().withoutClassifier(), nativeArtifacts, true, natives
             ));
         }
         return output;
@@ -107,8 +112,9 @@ public final class LibraryJson {
      * One flat entry per artifact, classifiers in the name, including side-less native jars such as Netty's.
      *
      * @param artifacts the resolved artifacts to write
+     * @param natives what {@code cleanroom.natives} declares about per-platform jars
      */
-    public static JsonArray mojangLibraries(List<Artifact> artifacts) {
+    public static JsonArray mojangLibraries(List<Artifact> artifacts, NativeJars natives) {
         var sorted = new ArrayList<>(artifacts);
         sorted.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
         var output = new JsonArray();
@@ -119,7 +125,7 @@ public final class LibraryJson {
             var library = new JsonObject();
             library.addProperty("name", artifact.coordinate().serialized());
             library.add("downloads", downloads);
-            addPlatformRule(library, artifact.coordinate().classifier());
+            addPlatformRule(library, classifierPlatform(artifact.coordinate(), natives));
             output.add(library);
         }
         return output;
@@ -132,30 +138,31 @@ public final class LibraryJson {
      * template.
      *
      * @param artifacts the resolved native artifacts to write
+     * @param natives what {@code cleanroom.natives} declares about per-platform jars
      */
-    public static JsonArray mojangNativeLibraries(List<Artifact> artifacts) {
-        var natives = new ArrayList<Artifact>();
+    public static JsonArray mojangNativeLibraries(List<Artifact> artifacts, NativeJars natives) {
+        var extracted = new ArrayList<Artifact>();
         for (var artifact : artifacts) {
-            if (!isNative(artifact.coordinate())) {
+            if (!natives.isExtracted(artifact.coordinate())) {
                 throw new GradleException("Not a natives library: " + artifact.coordinate().serialized());
             }
-            natives.add(artifact);
+            extracted.add(artifact);
         }
-        natives.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
+        extracted.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
         var output = new JsonArray();
-        for (var artifact : natives) {
+        for (var artifact : extracted) {
             var classifier = artifact.coordinate().classifier();
             var library = nativeLibrary(
-                artifact.coordinate().withoutClassifier(), new ArrayList<>(List.of(artifact)), false
+                artifact.coordinate().withoutClassifier(), new ArrayList<>(List.of(artifact)), false, natives
             );
-            var platform = classifierPlatform(classifier);
+            var platform = classifierPlatform(artifact.coordinate(), natives);
             if (platform != null) {
                 var nativeMap = new JsonObject();
                 nativeMap.addProperty(platform.os(), classifier);
                 library.add("natives", nativeMap);
             }
             library.addProperty("side", "client");
-            addPlatformRule(library, classifier);
+            addPlatformRule(library, platform);
             output.add(library);
         }
         return output;
@@ -256,7 +263,7 @@ public final class LibraryJson {
     }
 
     public static String nativePlatform(String classifier) {
-        var platform = classifier.substring(LwjglNatives.CLASSIFIER_PREFIX.length());
+        var platform = classifier.substring(Natives.CLASSIFIER_PREFIX.length());
         if (platform.equals("macos") || platform.equals("osx")) {
             return "osx";
         }
@@ -264,10 +271,6 @@ public final class LibraryJson {
             return "osx-" + platform.substring("macos-".length());
         }
         return platform;
-    }
-
-    public static boolean isNative(Coordinate coordinate) {
-        return coordinate.classifier() != null && coordinate.classifier().startsWith(LwjglNatives.CLASSIFIER_PREFIX);
     }
 
     public static String trailingSlash(String value) {
@@ -294,29 +297,59 @@ public final class LibraryJson {
         }
     }
 
-    private static void addPlatformRule(JsonObject library, String classifier) {
-        var platform = classifierPlatform(classifier);
+    private static void addPlatformRule(JsonObject library, NativePlatform platform) {
         if (platform == null) {
             return;
         }
-        var os = new JsonObject();
-        os.addProperty("name", platform.os());
-        os.addProperty("arch", platform.arch());
-        var rule = new JsonObject();
-        rule.addProperty("action", "allow");
-        rule.add("os", os);
         var rules = new JsonArray();
-        rules.add(rule);
+        rules.add(rule("allow", platform.os(), platform.arch()));
         library.add("rules", rules);
     }
 
-    private static NativePlatform classifierPlatform(String classifier) {
+    /**
+     * MultiMC reads only os.name and knows bare names alone, so the first rule takes every jar of the OS.
+     * Prism also reads only os.name, matching {@code <os>-<arch>}, and matches the bare name on x86 and x86_64.
+     * The later rules narrow Prism to this jar's architecture, and MultiMC skips them.
+     */
+    private static void addMmcPlatformRules(JsonObject library, NativePlatform platform) {
+        var arch = platform.arch().equals("x64") ? "x86_64" : platform.arch();
+        var rules = new JsonArray();
+        rules.add(rule("allow", platform.os(), null));
+        for (var legacy : List.of("x86_64", "x86")) {
+            if (!legacy.equals(arch)) {
+                rules.add(rule("disallow", platform.os() + "-" + legacy, null));
+            }
+        }
+        if (!arch.equals("x86_64") && !arch.equals("x86")) {
+            rules.add(rule("allow", platform.os() + "-" + arch, null));
+        }
+        library.add("rules", rules);
+    }
+
+    private static JsonObject rule(String action, String name, String arch) {
+        var os = new JsonObject();
+        os.addProperty("name", name);
+        if (arch != null) {
+            os.addProperty("arch", arch);
+        }
+        var rule = new JsonObject();
+        rule.addProperty("action", action);
+        rule.add("os", os);
+        return rule;
+    }
+
+    private static NativePlatform classifierPlatform(Coordinate coordinate, NativeJars natives) {
+        var classifier = coordinate.classifier();
         if (classifier == null) {
             return null;
         }
-        var platform = classifier.startsWith(LwjglNatives.CLASSIFIER_PREFIX)
-            ? classifier.substring(LwjglNatives.CLASSIFIER_PREFIX.length())
-            : classifier;
+        // A family classifier such as zstd-jni's linux_amd64 does not parse, so its platform id stands in
+        var known = natives.platform(coordinate);
+        var platform = known != null
+            ? known
+            : classifier.startsWith(Natives.CLASSIFIER_PREFIX)
+                ? classifier.substring(Natives.CLASSIFIER_PREFIX.length())
+                : classifier;
         var separator = platform.indexOf('-');
         var os = separator == -1 ? platform : platform.substring(0, separator);
         var arch = separator == -1 ? null : platform.substring(separator + 1);
@@ -336,7 +369,8 @@ public final class LibraryJson {
         return new NativePlatform(os, arch);
     }
 
-    private static JsonObject nativeLibrary(Coordinate base, List<Artifact> artifacts, boolean mmc) {
+    private static JsonObject nativeLibrary(
+        Coordinate base, List<Artifact> artifacts, boolean mmc, NativeJars natives) {
         artifacts.sort(Comparator.comparing(artifact -> artifact.coordinate().serialized()));
         var classifiers = new JsonObject();
         var nativeMap = new JsonObject();
@@ -347,7 +381,13 @@ public final class LibraryJson {
                 download.remove("url");
             }
             classifiers.add(classifier, download);
-            nativeMap.addProperty(nativePlatform(classifier), classifier);
+            var platform = natives.platform(artifact.coordinate()) == null
+                ? null
+                : classifierPlatform(artifact.coordinate(), natives);
+            var key = platform == null
+                ? nativePlatform(classifier)
+                : platform.os() + (platform.arch().equals("x64") ? "" : "-" + platform.arch());
+            nativeMap.addProperty(key, classifier);
         }
 
         var downloads = new JsonObject();
@@ -368,10 +408,11 @@ public final class LibraryJson {
         return library;
     }
 
-    private static void split(List<Artifact> artifacts, List<Artifact> ordinary, Map<String, List<Artifact>> natives) {
+    private static void split(
+        List<Artifact> artifacts, List<Artifact> ordinary, Map<String, List<Artifact>> extracted, NativeJars natives) {
         for (var artifact : artifacts) {
-            if (isNative(artifact.coordinate())) {
-                natives.computeIfAbsent(artifact.coordinate().module(), ignored -> new ArrayList<>()).add(artifact);
+            if (natives.isExtracted(artifact.coordinate())) {
+                extracted.computeIfAbsent(artifact.coordinate().module(), ignored -> new ArrayList<>()).add(artifact);
             } else {
                 ordinary.add(artifact);
             }

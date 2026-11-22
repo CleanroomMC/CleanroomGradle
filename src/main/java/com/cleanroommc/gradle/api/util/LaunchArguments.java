@@ -11,6 +11,7 @@
 package com.cleanroommc.gradle.api.util;
 
 import com.cleanroommc.gradle.api.schema.VersionMeta;
+import com.cleanroommc.platformutils.Platform;
 
 import java.util.ArrayList;
 import java.util.HashSet;

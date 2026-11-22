@@ -11,7 +11,6 @@
 package com.cleanroommc.gradle.api.ext;
 
 import com.cleanroommc.gradle.api.schema.UserdevConfig;
-import com.cleanroommc.gradle.api.util.LwjglNatives;
 
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.provider.ListProperty;
@@ -26,14 +25,13 @@ public abstract class LoaderExtension {
 
     public LoaderExtension() {
         getForgeVersion().convention("14.23.5.2864");
-        getInstallerVersion().convention("0.3.0");
+        getInstallerVersion().convention("0.3.2");
         getLaunchClass().convention("top.outlands.foundation.boot.Foundation");
         getClientLaunchClass().convention(getLaunchClass());
         getServerLaunchClass().convention(getLaunchClass());
         getClientTweakClass().convention("net.minecraftforge.fml.common.launcher.FMLTweaker");
         getServerTweakClass().convention("net.minecraftforge.fml.common.launcher.FMLServerTweaker");
         getInstallerJvmArgs().convention(List.of());
-        getLwjglNativesClassifiers().convention(LwjglNatives.CLASSIFIERS);
         getIntermediateRuns().convention(false);
         getHiddenAnnotation().convention(UserdevConfig.Loader.HIDDEN_ANNOTATION);
         getBootLibraries().convention(List.of());
@@ -61,25 +59,14 @@ public abstract class LoaderExtension {
 
     public abstract ConfigurableFileCollection getSideAnnotationStrippers();
 
-    public abstract ListProperty<String> getLwjglNativesClassifiers();
-
     public abstract Property<Boolean> getIntermediateRuns();
 
     public abstract Property<String> getHiddenAnnotation();
 
-    /**
-     * {@code group:module} of the runtime libraries Cleanroom's library loader defines, written into its boot list.
-     */
     public abstract ListProperty<String> getBootLibraries();
 
-    /**
-     * Exact resource entries Cleanroom's library loader answers from the loader jar.
-     */
     public abstract ListProperty<String> getBootResources();
 
-    /**
-     * Binary name of the annotation that marks boot packages and classes.
-     */
     public abstract Property<String> getBootAnnotation();
 
 }

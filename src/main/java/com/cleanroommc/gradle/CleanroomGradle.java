@@ -16,7 +16,7 @@ import com.cleanroommc.gradle.api.task.IntermediateProcessor;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.userdev.UserdevAttributes;
 import com.cleanroommc.gradle.api.util.CloseHttpClientFlowAction;
-import com.cleanroommc.gradle.api.util.LwjglNatives;
+import com.cleanroommc.gradle.api.util.Natives;
 import com.cleanroommc.gradle.api.util.Objects;
 import com.cleanroommc.gradle.api.util.lazy.ProjectCoordinates;
 import com.cleanroommc.gradle.api.util.lazy.Providers;
@@ -99,7 +99,7 @@ public abstract class CleanroomGradle implements Plugin<Project> {
                     .configure(task -> task.delete(ext.getCaches().getLocalDirectory()))
             );
 
-        LwjglNatives.register(project, ext.getLoader().getLwjglNativesClassifiers());
+        Natives.register(project);
 
         // Every pipeline is registered the moment its mode is picked, so a buildscript can go on to
         // configure runClient or universalJar by name and have its own configuration run after the

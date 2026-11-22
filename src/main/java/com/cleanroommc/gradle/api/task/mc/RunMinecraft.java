@@ -16,7 +16,7 @@ import com.cleanroommc.gradle.api.util.EnumValues;
 import com.cleanroommc.gradle.api.util.Environment;
 import com.cleanroommc.gradle.api.util.IO;
 import com.cleanroommc.gradle.api.util.LaunchArguments;
-import com.cleanroommc.gradle.api.util.Platform;
+import com.cleanroommc.platformutils.Platform;
 
 import org.apache.commons.io.FileUtils;
 
@@ -102,6 +102,17 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         var scanner = new Scanner(System.in);
         var userInput = scanner.nextLine().trim();
         return userInput.startsWith("y") || userInput.startsWith("Y");
+    }
+
+    private static String joinLibraryPath(String existing, File extra) {
+        var added = extra.getAbsolutePath();
+        if (Platform.current().isWindows()) {
+            added = added.replace("\"", "\\\"");
+        }
+        if (existing == null || existing.isBlank()) {
+            return added;
+        }
+        return existing + File.pathSeparator + added;
     }
 
     @Inject
@@ -190,7 +201,7 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
         if (this.getNatives().isPresent()) {
             this.systemProperty(
                 "java.library.path",
-                Platform.joinLibraryPath(System.getProperty("java.library.path"), this.getNatives().get().getAsFile())
+                joinLibraryPath(System.getProperty("java.library.path"), this.getNatives().get().getAsFile())
             );
         }
 
@@ -249,7 +260,9 @@ public abstract class RunMinecraft extends LazilyConstructedJavaExec {
     private void generateArguments(Side side) {
         if (side.isClient() && this.getEnv().get() == Environment.VANILLA) {
             var meta = this.getVersionMeta().get();
-            var launch = new LaunchArguments(meta, buildSubstitutions(meta), Platform.CURRENT, this.getLogger()::warn);
+            var launch = new LaunchArguments(
+                meta, buildSubstitutions(meta), Platform.current(), this.getLogger()::warn
+            );
             if (launch.hasGameArguments()) {
                 this.args(launch.gameArguments().toArray());
                 var jvm = launch.jvmArguments();

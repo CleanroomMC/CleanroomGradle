@@ -29,6 +29,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
@@ -71,6 +72,15 @@ class PublishMmcPackZipTest {
 
     private static JsonObject json(ZipFile zip, String path) throws IOException {
         return JsonParser.parseString(text(zip, path)).getAsJsonObject();
+    }
+
+    private static List<String> rules(JsonObject library) {
+        return library.getAsJsonArray("rules")
+            .asList()
+            .stream()
+            .map(element -> element.getAsJsonObject().get("action").getAsString() + " " +
+                element.getAsJsonObject().getAsJsonObject("os").get("name").getAsString())
+            .toList();
     }
 
     private static JsonObject library(com.google.gson.JsonArray libraries, String coordinate, boolean natives) {
@@ -118,6 +128,9 @@ class PublishMmcPackZipTest {
         var windows = file("lwjgl-3.4.2-natives-windows.jar", "windows native");
         var windowsArm = file("lwjgl-3.4.2-natives-windows-arm64.jar", "windows arm native");
         var macArm = file("lwjgl-3.4.2-natives-macos-arm64.jar", "mac arm native");
+        var zstdLinux = file("zstd-jni-1.5.7-23-linux_amd64.jar", "zstd linux native");
+        var unixNative = file("unixnative-1.0-natives-unix.jar", "family native with an unparsable classifier");
+        var zstdLinuxArm = file("zstd-jni-1.5.7-23-linux_aarch64.jar", "zstd linux arm native");
 
         task.getInstanceName().set("Cleanroom");
         task.getCleanroomVersion().set("1.0.0");
@@ -135,6 +148,14 @@ class PublishMmcPackZipTest {
                 project, "top.outlands:foundation:1.2.3", foundation, "https://packages.cleanroommc.com/releases/"
             ));
         task.getLibraries().add(library(project, "com.google.guava:guava:21.0", inherited));
+        task.getLibraries().add(library(project, "com.github.luben:zstd-jni:1.5.7-23:linux_amd64", zstdLinux));
+        task.getLibraries().add(library(project, "com.github.luben:zstd-jni:1.5.7-23:linux_aarch64", zstdLinuxArm));
+        task.getLibraries().add(library(project, "example:unixnative:1.0:natives-unix", unixNative));
+        task.getNativePlatforms()
+            .putAll(Map.of(
+                "com.github.luben:zstd-jni:linux_amd64", "linux-x64", "com.github.luben:zstd-jni:linux_aarch64",
+                "linux-arm64", "example:unixnative:natives-unix", "linux-arm64"
+            ));
         task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2", lwjgl));
         task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-windows", windows));
         task.getLibraries().add(library(project, "org.lwjgl:lwjgl:3.4.2:natives-windows-arm64", windowsArm));
@@ -196,7 +217,7 @@ class PublishMmcPackZipTest {
             assertThat(requirements.get(1).getAsJsonObject().get("equals").getAsString()).isEqualTo("3.4.2");
 
             var libraries = patch.getAsJsonArray("libraries");
-            assertThat(libraries.size()).as(libraries.toString()).isEqualTo(4);
+            assertThat(libraries.size()).as(libraries.toString()).isEqualTo(7);
             assertThat(
                 libraries.asList()
                     .stream()
@@ -221,6 +242,18 @@ class PublishMmcPackZipTest {
             assertDownload(
                 foundationLibrary.getAsJsonObject("downloads").getAsJsonObject("artifact"), foundation,
                 "https://packages.cleanroommc.com/releases/top/outlands/foundation/1.2.3/foundation-1.2.3.jar"
+            );
+
+            // MultiMC takes the bare OS rule only, and Prism narrows it down to the architecture
+            assertThat(rules(library(
+                libraries, "com.github.luben:zstd-jni:1.5.7-23:linux_amd64", false
+            ))).containsExactly("allow linux", "disallow linux-x86");
+            assertThat(rules(library(
+                libraries, "com.github.luben:zstd-jni:1.5.7-23:linux_aarch64", false
+            ))).containsExactly("allow linux", "disallow linux-x86_64", "disallow linux-x86", "allow linux-arm64");
+            // A family jar is ruled by its declared platform, not by parsing its classifier, even one named natives-*
+            assertThat(rules(library(libraries, "example:unixnative:1.0:natives-unix", false))).containsExactly(
+                "allow linux", "disallow linux-x86_64", "disallow linux-x86", "allow linux-arm64"
             );
 
             assertBlocked(libraries, "com.ibm.icu:icu4j-core-mojang:999999.0-empty");

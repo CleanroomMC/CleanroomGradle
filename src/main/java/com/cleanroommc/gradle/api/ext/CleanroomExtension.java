@@ -114,8 +114,14 @@ public abstract class CleanroomExtension {
 
     public abstract NamedDomainObjectContainer<RunConfiguration> getRuns();
 
+    public abstract NamedDomainObjectContainer<NativeFamily> getNatives();
+
     public void runs(Action<? super NamedDomainObjectContainer<RunConfiguration>> action) {
         action.execute(getRuns());
+    }
+
+    public void natives(Action<? super NamedDomainObjectContainer<NativeFamily>> action) {
+        action.execute(getNatives());
     }
 
     /**

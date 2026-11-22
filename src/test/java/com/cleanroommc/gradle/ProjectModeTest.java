@@ -129,7 +129,7 @@ class ProjectModeTest extends BaseFunctionalTest {
                 assert installer.minimumJava.get() == 28
 
                 assert tasks.test.workingDir == layout.buildDirectory.dir('test').get().asFile
-                assert configurations.testRuntimeClasspath.extendsFrom.contains(configurations.lwjglNativeCurrent)
+                assert configurations.testRuntimeClasspath.extendsFrom.contains(configurations.nativesCurrent)
             }
             """
         );

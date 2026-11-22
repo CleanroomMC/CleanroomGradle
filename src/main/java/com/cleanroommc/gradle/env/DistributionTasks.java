@@ -29,15 +29,16 @@ import com.cleanroommc.gradle.api.task.sas.CheckSAS;
 import com.cleanroommc.gradle.api.task.sas.StripSideOnlyJar;
 import com.cleanroommc.gradle.api.userdev.StripHiddenFromUserdev;
 import com.cleanroommc.gradle.api.userdev.UserdevAttributes;
-import com.cleanroommc.gradle.api.util.LwjglNatives;
+import com.cleanroommc.gradle.api.util.Natives;
 import com.cleanroommc.gradle.api.util.Objects;
-import com.cleanroommc.gradle.api.util.Platform;
 import com.cleanroommc.gradle.api.util.dist.Coordinate;
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
 import com.cleanroommc.gradle.api.util.dist.MinecraftPackages;
+import com.cleanroommc.gradle.api.util.dist.NativeJars;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 import com.cleanroommc.gradle.api.util.lazy.ProjectCoordinates;
 import com.cleanroommc.gradle.api.util.lazy.Providers;
+import com.cleanroommc.platformutils.Platform;
 
 import de.undercouch.gradle.tasks.download.Download;
 
@@ -164,11 +165,11 @@ public final class DistributionTasks {
         var runtimeClasspath = project.getConfigurations().named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME);
         var distributionLibraries = Objects.config(
             project, "distributionLibraries",
-            "Resolved classpath and LWJGL native libraries shared by all Cleanroom distributions."
+            "Resolved classpath and native libraries shared by all Cleanroom distributions."
         );
         distributionLibraries.configure(config -> {
             config.extendsFrom(
-                runtimeClasspath.get(), project.getConfigurations().getByName(LwjglNatives.ALL_CONFIGURATION_NAME)
+                runtimeClasspath.get(), project.getConfigurations().getByName(Natives.ALL_CONFIGURATION_NAME)
             );
             config.exclude(Map.of("group", VanillaTasks.LWJGL2_GROUP));
             config.withDependencies(dependencies -> VanillaTasks.addDistributionLibraries(
@@ -187,6 +188,7 @@ public final class DistributionTasks {
                 );
             });
         });
+        var nativeJars = Natives.jars(project);
         var distributionLibraryArtifacts = ResolvedLibraries.artifacts(
             project.getObjects(), distributionLibraries, resolvedRepositoryUrls
         );
@@ -505,6 +507,7 @@ public final class DistributionTasks {
             task.getUniversalCoordinate().set(universal.map(Coordinate::serialized));
             task.getUniversalUrl().set(universalUrl);
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
+            task.getNativePlatforms().set(nativeJars.map(NativeJars::platforms));
             task.getLibraries().set(distributionLibraryArtifacts);
             // Library files arrive as plain values, so the jars of project and included build dependencies need this edge to get built
             task.dependsOn(distributionLibraries);
@@ -540,6 +543,7 @@ public final class DistributionTasks {
             task.getUniversalCoordinate().set(universal.map(Coordinate::serialized));
             task.getUniversalUrl().set(universalUrl);
             task.getUniversalJar().set(this.universalJar.flatMap(Jar::getArchiveFile));
+            task.getNativePlatforms().set(nativeJars.map(NativeJars::platforms));
             task.getLibraries().set(distributionLibraryArtifacts);
             task.getNativeLibraries().set(distributionNativeArtifacts);
             task.dependsOn(distributionLibraries, distributionNatives);
@@ -627,9 +631,16 @@ public final class DistributionTasks {
             task.getArchiveClassifier().set("javadoc");
         });
 
-        this.runtimeModules = ResolvedLibraries.modules(runtimeClasspath.flatMap(config -> config.getIncoming()
+        var runtimeRoot = runtimeClasspath.flatMap(config -> config.getIncoming()
             .getResolutionResult()
-            .getRootComponent()));
+            .getRootComponent());
+        this.runtimeModules = ResolvedLibraries.modules(runtimeRoot)
+            .zip(
+                Natives.perPlatformOnly(project, runtimeRoot),
+                (modules, perPlatform) -> modules.stream()
+                    .filter(module -> !perPlatform.contains(module.substring(0, module.lastIndexOf(':'))))
+                    .toList()
+            );
         this.userdevComponent = registerVariants(project, minecraft, components, targetJavaMajor);
 
         intermediates.discardAfterAll(
@@ -651,16 +662,16 @@ public final class DistributionTasks {
 
     private static NamedDomainObjectProvider<Configuration> nativesVariant(
         Project project, MinecraftExtension minecraft, Provider<Integer> targetJavaMajor, Platform platform) {
-        var classifier = platform.lwjglNativesClassifier();
-        var suffix = UserDevTasks.camelCase(classifier);
+        var id = platform.id();
+        var suffix = UserDevTasks.camelCase(id);
         var natives = project.getConfigurations().register("cleanroomUserdev" + suffix, configuration -> {
             configuration.setCanBeConsumed(false);
             configuration.setCanBeResolved(false);
-            configuration.setDescription("Native libraries a userdev workspace on " + classifier + " resolves.");
+            configuration.setDescription("Native libraries a userdev workspace on " + id + " resolves.");
             configuration.getDependencies().addAllLater(
                 minecraft.getVersionMeta().map(meta -> {
                     var dependencies = new ArrayList<Dependency>();
-                    LwjglNatives.addFor(project, dependencies, classifier);
+                    Natives.addFor(project, dependencies, platform);
                     VanillaTasks.addNativesFor(project.getDependencyFactory(), dependencies, meta, Map.of(), platform);
                     ResolvedLibraries.removeExcluded(dependencies, project.getConfigurations().getByName(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME));
                     return dependencies;
@@ -669,8 +680,8 @@ public final class DistributionTasks {
         });
         return project.getConfigurations().register("cleanroomUserdev" + suffix + "Elements", configuration -> {
             userdevVariant(project, configuration, Usage.JAVA_RUNTIME, Category.LIBRARY, UserdevAttributes.NATIVES, targetJavaMajor);
-            configuration.getAttributes().attribute(OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE, project.getObjects().named(OperatingSystemFamily.class, platform.operatingSystemFamily()));
-            configuration.getAttributes().attribute(MachineArchitecture.ARCHITECTURE_ATTRIBUTE, project.getObjects().named(MachineArchitecture.class, platform.machineArchitecture()));
+            configuration.getAttributes().attribute(OperatingSystemFamily.OPERATING_SYSTEM_ATTRIBUTE, project.getObjects().named(OperatingSystemFamily.class, platform.operatingSystem().id()));
+            configuration.getAttributes().attribute(MachineArchitecture.ARCHITECTURE_ATTRIBUTE, project.getObjects().named(MachineArchitecture.class, Natives.machineArchitecture(platform)));
             configuration.extendsFrom(natives.get());
         });
     }
@@ -845,7 +856,7 @@ public final class DistributionTasks {
         userdev.addVariantsFromConfiguration(sourcesElements.get(), ConfigurationVariantDetails::mapToOptional);
         userdev.addVariantsFromConfiguration(clientExtraElements.get(), ConfigurationVariantDetails::mapToOptional);
         userdev.addVariantsFromConfiguration(serverExtraElements.get(), ConfigurationVariantDetails::mapToOptional);
-        for (var platform : Platform.nativePlatforms()) {
+        for (var platform : Natives.NATIVE_PLATFORMS) {
             userdev.addVariantsFromConfiguration(
                 nativesVariant(project, minecraft, targetJavaMajor, platform).get(),
                 ConfigurationVariantDetails::mapToOptional

@@ -23,6 +23,7 @@ import com.cleanroommc.gradle.api.task.mcp.SplitJar;
 import com.cleanroommc.gradle.api.task.mcp.WriteMappings;
 import com.cleanroommc.gradle.api.task.patch.ApplyDiffs;
 import com.cleanroommc.gradle.api.util.Environment;
+import com.cleanroommc.gradle.api.util.Natives;
 import com.cleanroommc.gradle.api.util.Property;
 import com.cleanroommc.gradle.api.util.lazy.SourceSets;
 
@@ -41,6 +42,8 @@ import org.gradle.language.jvm.tasks.ProcessResources;
 import net.minecraftforge.fml.relauncher.Side;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 public final class CleanroomTasks {
@@ -88,23 +91,41 @@ public final class CleanroomTasks {
         });
 
         var bootLibraries = loader.getBootLibraries();
+        var everyPlatform = project.provider(() -> {
+            Natives.requireEveryPlatform(project, bootLibraries.get());
+            return true;
+        });
         this.writeBootList = Tasks.register(project, "writeBootList", WriteBootList.class);
         this.writeBootList.configure(task -> {
             task.setDescription("Writes the boot list, which names what Cleanroom's library loader defines.");
-            task.getLibraries()
-                .set(
-                    project.getConfigurations()
-                        .named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME)
-                        .flatMap(configuration -> configuration.getIncoming().getArtifacts().getResolvedArtifacts())
-                        .zip(
-                            bootLibraries,
-                            (artifacts, wanted) -> artifacts.stream()
-                                .filter(artifact -> artifact.getId().getComponentIdentifier() instanceof ModuleComponentIdentifier id &&
-                                    wanted.contains(id.getGroup() + ":" + id.getModule()))
-                                .map(artifact -> artifact.getFile().getName())
-                                .toList()
-                        )
-                );
+            // The boot list ships to every platform, so it names the jars distributions ship rather than this platform's
+            task.getLibraries().set(everyPlatform.zip(
+                project.getConfigurations()
+                    .named("distributionLibraries")
+                    .flatMap(configuration -> configuration.getIncoming()
+                        .artifactView(view -> view.componentFilter(component -> component instanceof ModuleComponentIdentifier id &&
+                            bootLibraries.get().contains(id.getGroup() + ":" + id.getModule())))
+                        .getArtifacts()
+                        .getResolvedArtifacts())
+                    .map(artifacts -> {
+                        var names = new ArrayList<String>();
+                        var perPlatform = new LinkedHashMap<String, List<String>>();
+                        for (var artifact : artifacts) {
+                            var id = (ModuleComponentIdentifier) artifact.getId().getComponentIdentifier();
+                            var name = artifact.getFile().getName();
+                            if (name.equals(id.getModule() + "-" + id.getVersion() + ".jar")) {
+                                names.add(name);
+                            } else {
+                                perPlatform.computeIfAbsent(id.getModuleIdentifier().toString(), _ -> new ArrayList<>())
+                                    .add(name);
+                            }
+                        }
+                        perPlatform.values()
+                            .forEach(jars -> names.add(String.join(" ", jars.stream().sorted().toList())));
+                        return names;
+                    }),
+                (checked, names) -> names
+            ));
             task.getResources().set(loader.getBootResources());
             task.getAnnotation().set(loader.getBootAnnotation());
             task.getClasses().set(mainSourceSet.flatMap(sourceSet -> sourceSet.getJava().getClassesDirectory()));

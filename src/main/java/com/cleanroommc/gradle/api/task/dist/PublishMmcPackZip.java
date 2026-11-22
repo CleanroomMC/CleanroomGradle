@@ -16,6 +16,7 @@ import com.cleanroommc.gradle.api.util.dist.Artifact;
 import com.cleanroommc.gradle.api.util.dist.Coordinate;
 import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
+import com.cleanroommc.gradle.api.util.dist.NativeJars;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 
 import com.google.gson.JsonArray;
@@ -25,6 +26,7 @@ import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
+import org.gradle.api.provider.MapProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.SetProperty;
 import org.gradle.api.tasks.CacheableTask;
@@ -179,9 +181,6 @@ public abstract class PublishMmcPackZip extends DefaultTask {
     @Input
     public abstract ListProperty<String> getJvmArgs();
 
-    /**
-     * PrismLauncher compatibility hint with old MultiMC safely ignoring this field.
-     */
     @Input
     public abstract ListProperty<Integer> getCompatibleJavaMajors();
 
@@ -203,6 +202,9 @@ public abstract class PublishMmcPackZip extends DefaultTask {
 
     @Nested
     public abstract ListProperty<LibraryArtifact> getLibraries();
+
+    @Input
+    public abstract MapProperty<String, String> getNativePlatforms();
 
     @Input
     public abstract SetProperty<String> getInheritedLibraries();
@@ -243,6 +245,10 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         var installer = new TreeMap<>(instance);
         installer.remove(LOCAL_LIBRARIES + Coordinate.parse(getUniversalCoordinate().get()).fileName());
         writeZip(getInstallerArchiveFile().get().getAsFile(), installer);
+    }
+
+    private NativeJars nativeJars() {
+        return new NativeJars(getNativePlatforms().get());
     }
 
     private Artifact universalArtifact() {
@@ -364,8 +370,8 @@ public abstract class PublishMmcPackZip extends DefaultTask {
         cleanroom.stream().filter(LibraryJson::isLocal).forEach(local::add);
         lwjgl.stream().filter(LibraryJson::isLocal).forEach(local::add);
         return new ComponentLibraries(
-            lwjglVersions.iterator().next(), LibraryJson.mmcLibraries(cleanroom), LibraryJson.mmcLibraries(lwjgl),
-            local
+            lwjglVersions.iterator().next(), LibraryJson.mmcLibraries(cleanroom, nativeJars()),
+            LibraryJson.mmcLibraries(lwjgl, nativeJars()), local
         );
     }
 

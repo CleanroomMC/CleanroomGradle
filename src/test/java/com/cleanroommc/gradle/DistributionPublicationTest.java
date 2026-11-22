@@ -10,7 +10,8 @@
 
 package com.cleanroommc.gradle;
 
-import com.cleanroommc.gradle.api.util.Platform;
+import com.cleanroommc.gradle.api.util.Natives;
+import com.cleanroommc.platformutils.Platform;
 
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Test;
@@ -94,11 +95,11 @@ class DistributionPublicationTest extends BaseFunctionalTest {
      */
     @Test
     void userdevVariantsCarryLibrariesAndPerPlatformNatives() throws IOException {
-        var natives = Platform.nativePlatforms()
+        var natives = Natives.NATIVE_PLATFORMS
             .stream()
             .map(platform -> "assertNatives('%s', '%s', '%s')\n".formatted(
-                capitalized(platform.lwjglNativesClassifier()), platform.operatingSystemFamily(),
-                platform.machineArchitecture()
+                capitalized(platform.id()), platform.operatingSystem().id(),
+                Natives.machineArchitecture(platform)
             ))
             .collect(Collectors.joining());
         this.project.loader(
@@ -154,12 +155,17 @@ class DistributionPublicationTest extends BaseFunctionalTest {
             """
             group = 'com.cleanroommc'
             version = '0.1.0'
+            cleanroom.natives {
+                lwjglNative {
+                    classifiers = ['linux-x64': 'natives-linux']
+                }
+            }
             dependencies {
                 lwjglNative 'org.lwjgl:lwjgl'
             }
             // The natives sets are built on demand, the same way publishing realizes them
             tasks.register('realizeNatives') {
-                def natives = configurations.cleanroomUserdevNativesLinuxElements
+                def natives = configurations.cleanroomUserdevLinuxX64Elements
                 doLast { natives.allDependencies.toList() }
             }
             """
@@ -167,6 +173,62 @@ class DistributionPublicationTest extends BaseFunctionalTest {
 
         var output = this.project.plainRunner("realizeNatives", "--offline").buildAndFail().getOutput();
         assertThat(output).as(output).contains("org.lwjgl:lwjgl is declared in lwjglNative without a version");
+    }
+
+    @Test
+    void nativesWithAnUnknownPlatformAreRejected() throws IOException {
+        this.project.loader(
+            """
+            group = 'com.cleanroommc'
+            version = '0.1.0'
+            cleanroom.natives {
+                lwjglNative {
+                    classifiers = ['linux-x64': 'natives-linux', 'linux-amd64': 'natives-linux-amd64']
+                }
+            }
+            dependencies {
+                lwjglNative 'org.lwjgl:lwjgl:3.4.3'
+            }
+            tasks.register('realizeNatives') {
+                def natives = configurations.cleanroomUserdevLinuxX64Elements
+                doLast { natives.allDependencies.toList() }
+            }
+            """
+        );
+
+        var output = this.project.plainRunner("realizeNatives", "--offline").buildAndFail().getOutput();
+        assertThat(output).as(output).contains("cleanroom.natives.lwjglNative maps unknown platform linux-amd64");
+    }
+
+    /**
+     * The module does not exist, so resolving fails if this machine's platform gets a jar it does not map.
+     */
+    @Test
+    void nativesSkipAPlatformTheyDoNotMap() throws IOException {
+        var foreign = Natives.NATIVE_PLATFORMS
+            .stream()
+            .filter(platform -> platform != Natives.canonical(Platform.current()))
+            .findFirst()
+            .orElseThrow();
+        this.project.loader("""
+                            group = 'com.cleanroommc'
+                            version = '0.1.0'
+                            cleanroom.natives {
+                                foreignNative {
+                                    classifiers = ['%s': 'foreign']
+                                }
+                            }
+                            dependencies {
+                                foreignNative 'example:missing:1.0'
+                            }
+                            def probe = configurations.resolvable('probe') { extendsFrom configurations.nativesCurrent }
+                            tasks.register('resolveNatives') {
+                                def files = probe.map { it.files }
+                                doLast { assert files.get().isEmpty() }
+                            }
+                            """.formatted(foreign.id()));
+
+        this.project.plainRunner("resolveNatives", "--offline").build();
     }
 
     @Test

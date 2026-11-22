@@ -59,9 +59,6 @@ public abstract class ImportMcpNames extends DefaultTask {
     @PathSensitive(PathSensitivity.NONE)
     public abstract RegularFileProperty getConstructorsFile();
 
-    /**
-     * Whether {@code cleanroom.namesDirectory} was configured; validated for a clear error message.
-     */
     @Input
     public abstract Property<Boolean> getNamesDirectoryConfigured();
 

@@ -10,7 +10,7 @@
 
 package com.cleanroommc.gradle.api.schema;
 
-import com.cleanroommc.gradle.api.util.Platform;
+import com.cleanroommc.platformutils.Platform;
 
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
@@ -39,10 +39,14 @@ public record VersionMeta(
     String time,
     String type) {
 
-    private static final Map<Platform.OperatingSystem, String> OS_NAMES = Map.of(
-        Platform.OperatingSystem.WINDOWS, "windows", Platform.OperatingSystem.MAC_OS, "osx",
-        Platform.OperatingSystem.LINUX, "linux", Platform.OperatingSystem.FREE_BSD, "linux"
-    );
+    // Vanilla publishes natives for these three only, every other system tries Linux's
+    private static String osName(Platform platform) {
+        return switch (platform.operatingSystem()) {
+            case WINDOWS -> "windows";
+            case MAC_OS -> "osx";
+            default -> "linux";
+        };
+    }
 
     public String clientUrl() {
         return downloads().get("client").url();
@@ -130,11 +134,11 @@ public record VersionMeta(
         }
 
         public Download classifierForOS(Platform platform) {
-            String classifier = natives().get(OS_NAMES.get(platform.getOperatingSystem()));
+            String classifier = natives().get(osName(platform));
             if (classifier == null) {
                 return null;
             }
-            if (platform.getArchitecture().isArm() && platform.getArchitecture().is64Bit()) {
+            if (platform.architecture().isArm() && platform.architecture().is64Bit()) {
                 // Default to the arm64 natives, if not found fallback.
                 final Download armNative = downloads().classifier(classifier + "-arm64");
                 if (armNative != null) {
@@ -142,7 +146,7 @@ public record VersionMeta(
                 }
             }
             // Used in the twitch library in 1.7.10
-            classifier = classifier.replace("${arch}", platform.getArchitecture().is64Bit() ? "64" : "32");
+            classifier = classifier.replace("${arch}", platform.architecture().is64Bit() ? "64" : "32");
             return downloads().classifier(classifier);
         }
 
@@ -180,7 +184,7 @@ public record VersionMeta(
 
         public boolean isValidForOS(Platform platform) {
             String name = name();
-            return name == null || name.equalsIgnoreCase(OS_NAMES.get(platform.getOperatingSystem()));
+            return name == null || name.equalsIgnoreCase(osName(platform));
         }
 
     }

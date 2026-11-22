@@ -16,6 +16,7 @@ import com.cleanroommc.gradle.api.util.dist.Artifact;
 import com.cleanroommc.gradle.api.util.dist.Coordinate;
 import com.cleanroommc.gradle.api.util.dist.LibraryArtifact;
 import com.cleanroommc.gradle.api.util.dist.LibraryJson;
+import com.cleanroommc.gradle.api.util.dist.NativeJars;
 import com.cleanroommc.gradle.api.util.dist.ResolvedLibraries;
 
 import com.google.gson.JsonArray;
@@ -196,6 +197,9 @@ public abstract class WriteInstallProfile extends DefaultTask {
     @Input
     public abstract MapProperty<String, String> getManifestUrls();
 
+    @Input
+    public abstract MapProperty<String, String> getNativePlatforms();
+
     @Internal
     public abstract Property<VersionMeta> getVersionMeta();
 
@@ -238,6 +242,10 @@ public abstract class WriteInstallProfile extends DefaultTask {
         writeEmbeddedLibraries(localArtifacts);
     }
 
+    private NativeJars nativeJars() {
+        return new NativeJars(getNativePlatforms().get());
+    }
+
     private boolean drop(Artifact artifact, Artifact universal, Set<String> excluded) {
         return artifact.coordinate().sameArtifact(universal.coordinate()) ||
             ResolvedLibraries.isExcluded(artifact.coordinate(), excluded);
@@ -256,10 +264,11 @@ public abstract class WriteInstallProfile extends DefaultTask {
 
     private JsonObject versionJson(List<Artifact> artifacts, List<Artifact> natives, Artifact universal) {
         var meta = getVersionMeta().get();
+        var jars = nativeJars();
         var classpath = new ArrayList<>(artifacts);
         var launcherNatives = new ArrayList<>(natives);
         classpath.removeIf(artifact -> {
-            if (!LibraryJson.isNative(artifact.coordinate())) {
+            if (!jars.isExtracted(artifact.coordinate())) {
                 return false;
             }
             launcherNatives.add(artifact);
@@ -284,8 +293,8 @@ public abstract class WriteInstallProfile extends DefaultTask {
 
         var libraries = new JsonArray();
         libraries.add(LibraryJson.embeddedLibrary(universal));
-        libraries.addAll(LibraryJson.mojangLibraries(classpath));
-        libraries.addAll(LibraryJson.mojangNativeLibraries(launcherNatives));
+        libraries.addAll(LibraryJson.mojangLibraries(classpath, jars));
+        libraries.addAll(LibraryJson.mojangNativeLibraries(launcherNatives, jars));
         version.add("libraries", libraries);
         return version;
     }

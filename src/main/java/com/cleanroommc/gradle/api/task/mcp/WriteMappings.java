@@ -80,19 +80,11 @@ public abstract class WriteMappings extends DefaultTask {
     @PathSensitive(PathSensitivity.NONE)
     public abstract RegularFileProperty getFieldMappings();
 
-    /**
-     * Optional Tiny2 names source. When set, srg -> name lookups for the
-     * {@code SRG_TO_MCP}/{@code MCP_TO_NOTCH} derivations come from it instead of the MCP CSVs.
-     * The derived mapping files tracks custom names.
-     */
     @Optional
     @InputFile
     @PathSensitive(PathSensitivity.NONE)
     public abstract RegularFileProperty getTinyMappings();
 
-    /**
-     * The active names identity string. Declared so a change of names source re-runs the derivation.
-     */
     @Optional
     @Input
     public abstract Property<String> getNamesId();
